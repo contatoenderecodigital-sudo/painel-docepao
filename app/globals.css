@@ -1,0 +1,221 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   Tema Doce Pão — vinho + dourado (mesmo da proposta/site).
+   Tailwind v4: cores da marca viram utilities (bg-vinho, text-dourado, ...).
+   ========================================================================== */
+:root {
+  --brand-vinho:    #6e1f30;
+  --brand-vinho-d:  #491020;
+  --brand-dourado:  #bb921f;
+  --brand-dourado-l:#e7cf94;
+  --brand-cream:    #fbf5ec;
+  --brand-cream2:   #f4e8d6;
+  --brand-ink:      #46352c;
+  --brand-ink-soft: #7a6356;
+  --brand-line:     #ece0cf;
+  --brand-wa:       #1faf54;
+
+  /* Cobre / trigo da logo — cor de AÇÃO da marca (substitui o verde). */
+  --brand-cobre:    #b5601a;
+  --brand-cobre-l:  #e08a3c;
+  --brand-cobre-d:  #8f4712;
+
+  --background: var(--brand-cream);
+  --foreground: var(--brand-ink);
+}
+
+@theme inline {
+  --color-vinho:     var(--brand-vinho);
+  --color-vinho-d:   var(--brand-vinho-d);
+  --color-dourado:   var(--brand-dourado);
+  --color-dourado-l: var(--brand-dourado-l);
+  --color-cream:     var(--brand-cream);
+  --color-cream2:    var(--brand-cream2);
+  --color-ink:       var(--brand-ink);
+  --color-ink-soft:  var(--brand-ink-soft);
+  --color-line:      var(--brand-line);
+  --color-wa:        var(--brand-wa);
+  --color-cobre:     var(--brand-cobre);
+  --color-cobre-l:   var(--brand-cobre-l);
+  --color-cobre-d:   var(--brand-cobre-d);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --font-serif: var(--font-jakarta);
+  --font-sans:  var(--font-jakarta);
+}
+
+/* ==========================================================================
+   Base tipográfica — estilo Apple (SF Pro → Inter). Tracking levemente
+   negativo no corpo; títulos grandes apertam mais (definido nos componentes).
+   ========================================================================== */
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-jakarta), -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3, .tracking-tight-apple { letter-spacing: -0.021em; }
+
+/* ==========================================================================
+   ESCALA TIPOGRAFICA unica do site. UMA fonte (Jakarta), hierarquia por
+   peso/tamanho. Use estas classes em vez de tamanhos soltos.
+   ========================================================================== */
+/* Titulo de tela */
+.t-h1 { font-weight: 800; font-size: 30px; line-height: 1.1; letter-spacing: -0.02em; }
+/* Subtitulo/secao */
+.t-h2 { font-weight: 700; font-size: 22px; line-height: 1.2; letter-spacing: -0.01em; }
+/* Nome de card/cliente */
+.t-cardname { font-weight: 600; font-size: 18px; letter-spacing: -0.01em; }
+/* Corpo */
+.t-body { font-weight: 400; font-size: 15px; }
+/* Secundario/descricao */
+.t-sec { font-weight: 400; font-size: 14px; }
+/* Rotulo pequeno (TOTAL, RETIRADA) */
+.t-label { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
+/* Valor em dinheiro: peso 700, numeros alinhados (o degrade vem do .text-grad-dourado) */
+.t-money { font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* Compat: font-title agora e Jakarta 800 (Fraunces foi removida). */
+.font-title { font-weight: 800; letter-spacing: -0.02em; }
+
+/* ==========================================================================
+   Degradês premium da marca (vinho + dourado + cobre).
+   Usar SÓ em destaque: sidebar, botões primários, cards grandes, números-chave.
+   ========================================================================== */
+.grad-vinho    { background: linear-gradient(160deg, var(--brand-vinho-d), var(--brand-vinho)); }
+.grad-dourado  { background: linear-gradient(135deg, #bb921f, #e7cf94); }
+.grad-cobre    { background: linear-gradient(135deg, #8f4712, #e08a3c); }
+.grad-verde    { background: linear-gradient(135deg, #1f7a43, #35c46f); }
+.grad-vermelho { background: linear-gradient(135deg, #9c1414, #e01e1e); }
+.text-grad-dourado {
+  background: linear-gradient(135deg, #bb921f, #e7cf94);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* botões de ação — gradiente + sombra + cantos 10px + texto branco */
+.btn-cobre,
+.btn-verde,
+.btn-vermelho {
+  color: #fff;
+  border-radius: 10px;
+}
+.btn-cobre    { background: linear-gradient(135deg, #8f4712, #e08a3c); box-shadow: 0 6px 16px rgba(143, 71, 18, 0.30); }
+.btn-verde    { background: linear-gradient(135deg, #1f7a43, #35c46f); box-shadow: 0 6px 16px rgba(31, 122, 67, 0.30); }
+.btn-vermelho { background: linear-gradient(135deg, #9c1414, #e01e1e); box-shadow: 0 6px 16px rgba(161, 29, 29, 0.28); }
+.btn-cobre:hover, .btn-verde:hover, .btn-vermelho:hover { filter: brightness(1.06); }
+/* badge/etiqueta de status: dourado claro + texto vinho */
+.chip-marca { background: #f4e8d6; color: var(--brand-vinho); }
+
+/* Cursor de clique em tudo que é clicável (o padrão do browser hoje é seta). */
+button:not(:disabled), a[href], [role="button"], label, summary, select {
+  cursor: pointer;
+}
+button:disabled { cursor: default; }
+/* transição suave padrão em botões/links pra dar sensação "lisa" */
+button, a { transition: filter 120ms ease, background-color 120ms ease, color 120ms ease, transform 120ms ease; }
+
+/* ==========================================================================
+   Vidro fosco (glassmorphism Apple) — usado no site inteiro.
+   .glass  = superfície clara translúcida (cards, painéis).
+   .glass-soft = mais leve (barras internas, chips).
+   Borda superior clara = "luz batendo no material" (regra do Apple).
+   ========================================================================== */
+.glass {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-top: 1px solid rgba(255, 255, 255, 0.30); /* reflexo de luz no topo */
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(73, 16, 32, 0.35);
+}
+.glass-strong {
+  background: rgba(255, 255, 255, 0.20);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-top: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(73, 16, 32, 0.4);
+}
+.glass-soft {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Fundo do app — VINHO PROFUNDO com blobs de luz tipo aurora (dourado + cobre).
+   O fundo escuro é o que faz o vidro fosco "aparecer". A base é o vinho; os
+   blobs vivem numa camada própria (::before) que respira devagar. */
+.app-mesh {
+  position: relative;
+  background: linear-gradient(160deg, var(--brand-vinho-d), var(--brand-vinho));
+  isolation: isolate;
+}
+.app-mesh::before {
+  content: "";
+  position: fixed;
+  inset: -10%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(700px 500px at 12% 8%, rgba(231, 207, 148, 0.28), transparent 55%),
+    radial-gradient(800px 600px at 88% 90%, rgba(181, 96, 26, 0.25), transparent 55%),
+    radial-gradient(500px 400px at 50% 120%, rgba(187, 146, 31, 0.18), transparent 50%);
+  animation: aurora 25s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+@keyframes aurora {
+  0%,
+  100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.9; }
+  50%  { transform: translate3d(2%, -2%, 0) scale(1.08); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-mesh::before { animation: none; }
+}
+
+/* ==========================================================================
+   Scrollbar da marca (dourado translúcido, pill) — some com a barra branca.
+   ========================================================================== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(231, 207, 148, 0.4) transparent;
+}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(231, 207, 148, 0.4);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(231, 207, 148, 0.6); }
+
+/* animação de saída do card ao aprovar/recusar */
+@keyframes card-out {
+  to { opacity: 0; transform: translateX(24px) scale(.97); }
+}
+.card-out { animation: card-out .32s ease forwards; }
+
+/* botões: feedback no pointer-down (regra Apple) */
+button, a { -webkit-tap-highlight-color: transparent; }
+.press:active { transform: scale(0.97); transition: transform 100ms ease-out; }
+
+/* ==========================================================================
+   Cupom da cozinha (na TELA): papel creme com borda inferior serrilhada.
+   A IMPRESSAO nao usa isto: e gerada como HTML limpo P&B num iframe isolado
+   (ver imprimirHTML no CupomPreview), entao sai sempre preto e branco.
+   ========================================================================== */
+.cupom-ticket {
+  -webkit-mask:
+    radial-gradient(7px at 50% 0, #0000 96%, #000) 0 100% / 18px 9px repeat-x,
+    linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 8px) no-repeat;
+  mask:
+    radial-gradient(7px at 50% 0, #0000 96%, #000) 0 100% / 18px 9px repeat-x,
+    linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 8px) no-repeat;
+}

@@ -1,0 +1,125 @@
+{
+  "_fonte": "Extraído dos 5 PDFs oficiais da Doce Pão (dados/tabelas de produtos), julho 2026. Esta é a tabela-fonte do orçamento. Preço que o sistema cotar SAI DAQUI.",
+  "_moeda": "BRL",
+  "_regra_preco": "O sabor NÃO muda o preço. O que define o valor é a linha (frito x assado, faixa do bolo, etc.). Sabores ficam como metadados pra IA saber o que oferecer.",
+
+  "forminhas_docinho": {
+    "_nota": "Cores de forminha que a IA oferece pro cliente escolher no docinho. Só a cor (sem repetir variante 'laminada'; se o cliente quiser laminada, é a mesma cor com acabamento laminado).",
+    "cores": ["amarelo","amarelo neon","azul","azul bebê","azul royal","branca","dourada","laranja","laranja neon","lilás","marrom","pink","prata","preta","rosa","rosa claro","roxo","roxo neon","verde bandeira","verde tiffany","vermelha"]
+  },
+
+  "salgados": {
+    "_regra_sabor": "FRITO = sabor fixo, a IA NAO pergunta recheio (o recheio ja esta no campo 'recheio'). ASSADO = se tiver 'recheios', a IA PERGUNTA qual o cliente quer; sem 'recheios' e fixo. Chodo, mini bolha e risolis ainda sem recheio confirmado pela dona.",
+    "frito": {
+      "preco": 1.00,
+      "itens": [
+        { "nome": "coxinha", "recheio": "frango" },
+        { "nome": "bolinha de queijo", "recheio": "queijo" },
+        { "nome": "almofadinha", "recheio": "presunto e queijo" },
+        { "nome": "croquete", "recheio": "carne com catupiry" },
+        { "nome": "mini pão de queijo", "recheio": "queijo" },
+        { "nome": "salsicha frita", "recheio": "salsicha" },
+        { "nome": "chodó" },
+        { "nome": "mini bolha" },
+        { "nome": "risólis" }
+      ]
+    },
+    "assado": {
+      "preco": 1.25,
+      "itens": [
+        { "nome": "pastel assado", "recheios": ["carne","frango","calabresa","bacon","brócolis"] },
+        { "nome": "esfirra", "recheios": ["carne","frango","calabresa","brócolis","bacon"] },
+        { "nome": "empadinha", "recheios": ["palmito","frango","carne","brócolis"] },
+        { "nome": "quiche", "recheios": ["calabresa","bacon","frango","brócolis"] },
+        { "nome": "croissant", "recheios": ["carne","frango","calabresa","bacon","brócolis"] },
+        { "nome": "mini pizza", "recheios": ["calabresa","filé","bacon","milho"] },
+        { "nome": "mini sanduíche de patê de frango" },
+        { "nome": "mini x" },
+        { "nome": "enroladinho de salsicha assado" },
+        { "nome": "pão de batata" }
+      ]
+    }
+  },
+
+  "doces": {
+    "_nota": "Preço por unidade. Especialidades variam 1,25–1,75; trufas 2,25 fixo.",
+    "itens": [
+      { "nome": "brigadeiro",            "preco": 1.25 },
+      { "nome": "beijinho",              "preco": 1.25 },
+      { "nome": "cajuzinho",             "preco": 1.25 },
+      { "nome": "café",                  "preco": 1.25 },
+      { "nome": "leite ninho",           "preco": 1.25 },
+      { "nome": "bicho de pé",           "preco": 1.75 },
+      { "nome": "camafeu de nozes",      "preco": 1.75 },
+      { "nome": "docinho de churros",    "preco": 1.75 },
+      { "nome": "leite ninho com avelã", "preco": 1.75 },
+      { "nome": "olho de sogra",         "preco": 1.75 },
+      { "nome": "ouriço",                "preco": 1.75 },
+      { "nome": "trufa",                 "preco": 2.25, "sabores": ["morango","uva","cereja","café","nozes","limão","amendoim","maracujá","brigadeiro"] }
+    ],
+    "_preco_padrao_doce": 1.25
+  },
+
+  "bolos_recheados": {
+    "_nota": "3 faixas de preço. serve = nº de pessoas por bolo (ESTIMATIVA parametrizada em rendimento.json, confirmar com a dona).",
+    "faixas": [
+      { "faixa": "A", "preco": 46.90, "sabores": ["4 leites","brigadeiro","dois amores","frutas (pêssego e abacaxi)","laka","mineira","prestígio","porto alegre","brigadeiro com maracujá"] },
+      { "faixa": "B", "preco": 49.90, "sabores": ["bombom","biz","morango","marta rocha"] },
+      { "faixa": "C", "preco": 55.90, "sabores": ["0% lactose","strogonoff de nozes"] }
+    ]
+  },
+
+  "bolos_caseiros": {
+    "_nota": "Preço por unidade (bolo inteiro caseiro).",
+    "itens": [
+      { "nome": "apim",                          "preco": 30.90 },
+      { "nome": "banana caramelizada",           "preco": 30.90 },
+      { "nome": "chocolate preto com leite ninho","preco": 30.90 },
+      { "nome": "floresta negra",                "preco": 30.90 },
+      { "nome": "formigueiro",                   "preco": 30.90 },
+      { "nome": "fubá com goiabada",             "preco": 30.90 },
+      { "nome": "inglês",                        "preco": 33.90 },
+      { "nome": "nega maluca",                   "preco": 33.90 },
+      { "nome": "prestígio com ganache",         "preco": 33.90 },
+      { "nome": "red velvet",                    "preco": 33.90 },
+      { "nome": "cenoura",                       "preco": 34.90 },
+      { "nome": "churros",                       "preco": 34.90 },
+      { "nome": "laranja caramelizada",          "preco": 34.90 },
+      { "nome": "café",                          "preco": 35.90 },
+      { "nome": "limão",                         "preco": 35.90 }
+    ]
+  },
+
+  "pizza": {
+    "_nota": "Forma 60x40cm. O rendimento (serve X pessoas) VEM DO CARDÁPIO DELA — está impresso, não é chute.",
+    "inteira": { "preco": 120.00, "serve": [6, 8], "sabores_ate": 4 },
+    "meia":    { "preco": 60.00,  "serve": [1, 4], "sabores_ate": 2 },
+    "sabores_salgados": ["bacon","bacon com milho","bacon com brócolis","4 queijos","filé ao molho madeira com fritas","filé acebolado","frango com catupiry","alho e óleo","hot dog","moda da casa","lombinho","lombinho com abacaxi","brócolis","milho","bolonhesa","vegetariana","strogonoff de frango","strogonoff de gado","calabresa","calabresa acebolada","portuguesa"],
+    "sabores_doces": ["abacaxi com coco","brigadeiro","prestígio","crocante","califórnia","banana","chocolate preto com morango","chocolate branco com morango","chocolate com confete","banana com suspiro"]
+  },
+
+  "_por_quilo": "Bolos recheados, tortas, empadão, bolo salgado, pão francês, calzone, cachorro-quente, pão de X, cuca e pizza redonda são POR QUILO: a qtd registrada é o PESO em kg (ex: 1.5) e o preço aqui é por kg. Cupcake, franciscano, pizza de forma e pão doce são por unidade. (Cuca e pão doce: a dona disse 'por quilo', confirmar se não é por unidade.)",
+  "outros_produtos": [
+    { "nome": "torta fria", "preco": 36.90, "categoria": "torta_fria", "unidade": "kg", "sabores": ["frango","legumes"] },
+    { "nome": "torta fria com palmito", "preco": 39.90, "categoria": "torta_fria", "unidade": "kg", "sabores": ["palmito","frango com palmito"] },
+    { "nome": "empadao", "preco": 34.90, "categoria": "empadao", "unidade": "kg", "sabores": ["frango","frango com legumes"] },
+    { "nome": "empadao com palmito", "preco": 39.90, "categoria": "empadao", "unidade": "kg", "sabores": ["palmito"] },
+    { "nome": "torta doce", "preco": 33.90, "categoria": "torta_recheada", "unidade": "kg", "sabores": ["limao","morango","bombom","prestigio","porto alegre"] },
+    { "nome": "torta especial", "preco": 49.90, "categoria": "torta_recheada", "unidade": "kg", "sabores": ["oreo","mousse 4 leites","mousse morango"] },
+    { "nome": "bolo salgado", "preco": 29.90, "categoria": "bolo_salgado", "unidade": "kg", "sabores": ["frango","presunto","legumes"] },
+    { "nome": "cupcake pequeno", "preco": 2.00, "categoria": "cupcake", "unidade": "un", "_nota": "2 a 3 cm, forminha de brigadeiro", "sabores": ["4 leites","brigadeiro"] },
+    { "nome": "cupcake pequeno recheado", "preco": 3.00, "categoria": "cupcake", "unidade": "un", "sabores": ["4 leites","brigadeiro"] },
+    { "nome": "cupcake grande", "preco": 5.00, "categoria": "cupcake", "unidade": "un", "_nota": "5 a 6 cm" },
+    { "nome": "cupcake grande recheado", "preco": 7.00, "categoria": "cupcake", "unidade": "un" },
+    { "nome": "franciscano", "preco": 12.00, "categoria": "franciscano", "unidade": "un", "sabores": ["calabresa","bacon","frango","presunto e queijo","salsicha com presunto e queijo","salsicha presunto queijo e bacon","so bacon","calabresa com bacon"] },
+    { "nome": "calzone", "preco": 41.90, "categoria": "calzone", "unidade": "kg", "_nota": "sabores da pizza" },
+    { "nome": "pizza redonda", "preco": 41.90, "categoria": "pizza", "unidade": "kg", "_nota": "30 cm, por quilo" },
+    { "nome": "pao frances", "preco": 11.99, "categoria": "padaria", "unidade": "kg" },
+    { "nome": "cachorro-quente mini", "preco": 20.90, "categoria": "padaria", "unidade": "kg" },
+    { "nome": "cachorro-quente", "preco": 19.90, "categoria": "padaria", "unidade": "kg", "_nota": "medio e grande" },
+    { "nome": "pao de x", "preco": 19.90, "categoria": "padaria", "unidade": "kg" },
+    { "nome": "cuca recheada", "preco": 26.90, "categoria": "padaria", "unidade": "kg", "sabores": ["chocolate","doce de leite","abacaxi","vinho","goiaba","frutas vermelhas","limao"] },
+    { "nome": "cuca", "preco": 22.90, "categoria": "padaria", "unidade": "kg", "_nota": "sem recheio" },
+    { "nome": "pao doce", "preco": 22.90, "categoria": "padaria", "unidade": "kg" }
+  ]
+}
