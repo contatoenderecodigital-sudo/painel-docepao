@@ -1,7 +1,9 @@
-// SSO: o hub (console) manda um token assinado com SSO_SECRET e loga a sessão do
-// painel automaticamente (sem login separado). Usado no iframe do MODO OWNER.
+// SSO: o hub (console) manda um token assinado com SSO_SECRET contendo só o
+// negocioId; o painel resolve o usuário (dono) daquele negócio e loga a sessão
+// automaticamente (sem login separado). Usado no iframe do MODO OWNER.
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
+import { queryUm } from "@/lib/banco/db";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +29,18 @@ export async function GET(req: Request) {
   const t = new URL(req.url).searchParams.get("t") || "";
   const data = SSO_SECRET ? verificar(t, SSO_SECRET) : null;
   const exp = data && typeof data.exp === "number" ? data.exp : 0;
-  if (!data || !data.negocioId || !data.userId || (exp && Date.now() > exp)) {
+  const negocioId = data && typeof data.negocioId === "string" ? data.negocioId : "";
+  if (!data || !negocioId || (exp && Date.now() > exp)) {
     return new NextResponse(null, { status: 303, headers: { Location: "/login" } });
   }
-  const sessao = { negocioId: data.negocioId, userId: data.userId, nome: data.nome || "", papel: data.papel || "dono" };
+  // resolve o dono do negócio na gaveta
+  const u = await queryUm<{ id: string; nome: string | null; papel: string }>(
+    "select id, nome, papel from usuarios where negocio_id = $1 order by (papel = 'dono') desc limit 1",
+    [negocioId],
+  );
+  if (!u) return new NextResponse(null, { status: 303, headers: { Location: "/login" } });
+
+  const sessao = { negocioId, userId: u.id, nome: u.nome || "", papel: u.papel || "dono" };
   const cookieVal = assinar(Buffer.from(JSON.stringify(sessao)).toString("base64url"), SESSION_SECRET);
   const res = new NextResponse(null, { status: 303, headers: { Location: "/" } });
   res.cookies.set(COOKIE, cookieVal, { httpOnly: true, sameSite: "none", secure: true, path: "/", maxAge: 60 * 60 * 24 * 30 });
