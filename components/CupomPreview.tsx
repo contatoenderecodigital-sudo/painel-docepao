@@ -47,7 +47,7 @@ function htmlDoTicket(
   const itens = t.itens
     .map(
       (it) =>
-        `<div class="row"><span class="nm"><b>${qtdLabel(it)}</b> ${pr(it.produto)}</span>${t.master ? `<span class="pc">${brl(it.subtotalCentavos)}</span>` : ""}</div>${it.obs ? `<div class="obs">${pr(it.obs)}</div>` : ""}`,
+        `<div class="row"><span class="nm"><b>${qtdLabel(it)}</b> <span class="prod">${pr(it.produto)}</span></span>${t.master ? `<span class="pc">${brl(it.subtotalCentavos)}</span>` : ""}</div>${it.obs ? `<div class="obs">${pr(it.obs)}</div>` : ""}`,
     )
     .join("");
   const rodape = t.master
@@ -77,6 +77,7 @@ const PRINT_CSS = `
   .tk { width: 72mm; padding: 5mm 4mm; font-size: 12px; line-height: 1.4; page-break-after: always; }
   .tk:last-child { page-break-after: auto; }
   .b { font-weight: bold; }
+  .prod { font-weight: bold; text-transform: uppercase; font-size: 13px; }
   .center { text-align: center; }
   .badge { display: inline-block; border: 1px solid #000; padding: 1px 8px; margin-bottom: 3px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; }
   .ln { border-top: 1px dashed #000; margin: 5px 0; }
@@ -153,7 +154,7 @@ function Ticket({
           <div key={i}>
             <div className="flex items-start justify-between gap-2">
               <span className="min-w-0">
-                <b>{qtdLabel(it)}</b> {it.produto}
+                <b>{qtdLabel(it)}</b> <b className="uppercase">{it.produto}</b>
               </span>
               {master ? <span className="shrink-0 whitespace-nowrap text-right">{brl(it.subtotalCentavos)}</span> : null}
             </div>
