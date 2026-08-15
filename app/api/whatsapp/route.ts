@@ -23,6 +23,7 @@ import {
   salvarMensagem,
   registrarPedido,
   marcarWebhookNovo,
+  salvarFotoPendente,
 } from "@/lib/banco/conversas";
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
@@ -111,8 +112,12 @@ async function processar(corpo: WebhookPayload) {
       const nomePerfil = valor.contacts?.[0]?.profile?.name;
       const clienteId = await acharOuCriarCliente(negocioId, telefone, nomePerfil);
 
-      // Extrai o texto (ou transcreve o áudio).
-      const texto = await extrairTexto(msg, creds);
+      // Extrai o texto: transcreve áudio, ou registra a foto de referência (imagem)
+      // e devolve um recado pra IA saber que chegou uma foto.
+      const texto =
+        msg.type === "image" && msg.image?.id
+          ? await tratarImagem(msg, creds, negocioId, clienteId)
+          : await extrairTexto(msg, creds);
       if (!texto) {
         // Áudio que não deu pra transcrever: não some em silêncio, pede pra escrever.
         if (msg.type === "audio") {
@@ -206,6 +211,31 @@ async function extrairTexto(msg: WhatsAppMessage, creds: CredsEnvio): Promise<st
   return "[cliente mandou uma mídia que não é texto nem áudio]";
 }
 
+// Imagem recebida: baixa o binário, guarda como foto de referência PENDENTE
+// (presa ao cliente até o pedido fechar) e devolve um recado pra IA acusar o
+// recebimento e anotar "tem foto de referência". A legenda da foto, se houver,
+// vira a mensagem do cliente. Se o download falhar, ainda avisa a IA da foto.
+async function tratarImagem(
+  msg: WhatsAppMessage,
+  creds: CredsEnvio,
+  negocioId: string,
+  clienteId: string,
+): Promise<string> {
+  const legenda = msg.image?.caption?.trim();
+  const nota = "[o cliente enviou uma foto de referência para o pedido]";
+  const base = legenda ? `${legenda}\n${nota}` : nota;
+  if (!msg.image?.id) return base;
+  try {
+    const bin = await baixarMidia(msg.image.id, creds);
+    const dados = Buffer.from(bin).toString("base64");
+    await salvarFotoPendente(negocioId, clienteId, dados, msg.image.mime_type || "image/jpeg");
+    return base;
+  } catch (e) {
+    console.error("[whatsapp] falha ao salvar foto de referência:", e);
+    return legenda ? `${legenda}\n[o cliente enviou uma foto, mas não consegui salvar]` : "[o cliente enviou uma foto, mas não consegui salvar]";
+  }
+}
+
 // Multi-tenant: mapeia o phone_number_id (do Meta) pro negócio. É uma CONSULTA
 // determinística no banco (zero token, a IA nunca adivinha o cliente). Só depois
 // de resolver o tenant aqui é que o LLM é chamado, com o cérebro DELE pronto.
@@ -236,6 +266,7 @@ type WhatsAppMessage = {
   type: string;
   text?: { body: string };
   audio?: { id: string };
+  image?: { id: string; mime_type?: string; caption?: string };
 };
 type WebhookPayload = {
   entry?: {

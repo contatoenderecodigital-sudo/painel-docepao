@@ -18,6 +18,7 @@ import {
 import { NumberTicker } from "@/components/ui/number-ticker";
 import { DeptIcone } from "@/components/DeptIcone";
 import AjudaInfo from "@/components/AjudaInfo";
+import { Image as ImageIcon } from "lucide-react";
 
 type StatusUI = "a_produzir" | "pronto" | "retirado";
 
@@ -296,6 +297,26 @@ export default function PedidosDoDia({ pedidos: pedidosIniciais }: { pedidos: Pe
                         {p.itens.map((i) => `${i.qtd}x ${i.produto}`).join(" . ")}
                       </div>
                       {p.observacoes && <div className="text-xs text-cream/55 italic mt-1 truncate">{p.observacoes}</div>}
+                      {p.temFoto && (
+                        <a
+                          href={`/api/pedido/${p.id}/foto`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 mt-2 rounded-[10px] pl-1 pr-2.5 py-1 hover:bg-white/[0.06] transition-colors"
+                          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={`/api/pedido/${p.id}/foto`}
+                            alt="Foto de referência"
+                            className="w-9 h-9 rounded-[7px] object-cover shrink-0"
+                            style={{ background: "rgba(0,0,0,0.2)" }}
+                          />
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-cream/70">
+                            <ImageIcon size={12} className="text-dourado" /> Foto de referência
+                          </span>
+                        </a>
+                      )}
                     </div>
                     <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
                       <div className="font-semibold text-cream tabular-nums">{brl(p.totalCentavos)}</div>

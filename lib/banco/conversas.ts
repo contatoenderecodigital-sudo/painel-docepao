@@ -96,8 +96,8 @@ export async function registrarPedido(
   return transacao(async (q) => {
     const ped = await q<{ id: string }>(
       `insert into pedidos
-         (negocio_id, cliente_id, status, retirada_data, retirada_hora, total_centavos, observacoes, confirmado_em)
-       values ($1, $2, 'confirmado', $3, $4, $5, $6, now())
+         (negocio_id, cliente_id, status, retirada_data, retirada_hora, total_centavos, observacoes, precisa_confirmacao, motivo_humano, confirmado_em)
+       values ($1, $2, 'confirmado', $3, $4, $5, $6, $7, $8, now())
        returning id`,
       [
         negocioId,
@@ -106,6 +106,8 @@ export async function registrarPedido(
         pedido.retiradaHora ?? null,
         totalCentavos,
         pedido.observacoes ?? null,
+        pedido.precisaConfirmacao ?? false,
+        pedido.precisaConfirmacao ? pedido.motivoHumano ?? null : null,
       ],
     );
     const pedidoId = ped[0]?.id;
@@ -118,8 +120,69 @@ export async function registrarPedido(
         [pedidoId, it.produto, it.categoria, it.qtd, it.unitCentavos, it.subtotalCentavos, it.obs, it.unidade],
       );
     }
+
+    // Foto(s) de referência que o cliente mandou ANTES do pedido fechar ficam
+    // "pendentes" (pedido_id null) presas ao cliente. Ao registrar, ligamos ao
+    // pedido — assim a foto do bolo aparece no card da aprovação e na produção.
+    await q(
+      `update pedido_fotos set pedido_id = $1
+         where negocio_id = $2 and cliente_id = $3 and pedido_id is null`,
+      [pedidoId, negocioId, clienteId],
+    );
     return pedidoId;
   });
+}
+
+// ----------------------------------------------------------------------------
+//  FOTOS DE REFERÊNCIA DO PEDIDO (Postgres). A imagem é guardada em base64 no
+//  banco (não no filesystem: o container é efêmero e some entre deploys). Uma
+//  foto entra "pendente" quando o cliente manda antes do pedido fechar, e é
+//  ligada ao pedido no registrarPedido; ou já entra ligada (fluxo do /testar).
+// ----------------------------------------------------------------------------
+
+// Foto que chegou na conversa antes do pedido existir: fica pendente pro cliente.
+export async function salvarFotoPendente(
+  negocioId: string,
+  clienteId: string,
+  dadosBase64: string,
+  mime: string,
+): Promise<void> {
+  await query(
+    `insert into pedido_fotos (negocio_id, cliente_id, pedido_id, dados, mime)
+     values ($1, $2, null, $3, $4)`,
+    [negocioId, clienteId, dadosBase64, mime || "image/jpeg"],
+  );
+}
+
+// Foto já ligada a um pedido específico (ex: teste no /testar, que registra o
+// pedido e anexa a imagem na mesma requisição).
+export async function anexarFotoAoPedido(
+  negocioId: string,
+  pedidoId: string,
+  clienteId: string | null,
+  dadosBase64: string,
+  mime: string,
+): Promise<void> {
+  await query(
+    `insert into pedido_fotos (negocio_id, cliente_id, pedido_id, dados, mime)
+     values ($1, $2, $3, $4, $5)`,
+    [negocioId, clienteId, pedidoId, dadosBase64, mime || "image/jpeg"],
+  );
+}
+
+// A imagem de um pedido pra rota que serve a foto (escopada por negócio).
+// Pega a mais recente caso haja mais de uma.
+export async function buscarFotoPedido(
+  negocioId: string,
+  pedidoId: string,
+): Promise<{ dados: string; mime: string } | null> {
+  const linha = await queryUm<{ dados: string; mime: string }>(
+    `select dados, mime from pedido_fotos
+       where negocio_id = $1 and pedido_id = $2
+       order by criado_em desc limit 1`,
+    [negocioId, pedidoId],
+  );
+  return linha;
 }
 
 // A IA guarda a data como texto livre ("sábado 25/07"). Tenta virar YYYY-MM-DD;

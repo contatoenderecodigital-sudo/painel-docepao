@@ -43,6 +43,14 @@ export type Pedido = {
   observacoes: string | null;
   itens: ItemPedido[];
   criadoEm: string; // ISO
+  // Handoff inteligente: pedido montado pela IA mas com pendencia de confirmacao
+  // da equipe (pedido pra hoje/amanha, valor de topo de bolo, item fora da tabela).
+  // A dona ve um aviso no card com o motivo e so revisa/aprova.
+  precisaConfirmacao?: boolean;
+  motivoHumano?: string | null;
+  // Foto de referencia anexada ao pedido (bolo decorado, tema de festa). A imagem
+  // fica no banco; a UI carrega por /api/pedido/[id]/foto. O cupom NAO imprime foto.
+  temFoto?: boolean;
   // Preparados para dados reais do banco (opcionais):
   formaPagamento?: FormaPagamento | null;
   historicoCliente?: HistoricoCliente | null;

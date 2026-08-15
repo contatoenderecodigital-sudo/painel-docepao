@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Pedido, FormaPagamento, HistoricoCliente } from "@/lib/tipos";
 import { brl, formatarTelefoneBR, linkWhatsapp, mesAno } from "@/lib/tipos";
-import { Repeat, UserPlus, Wallet, CalendarDays, AlertTriangle, CreditCard, Banknote, Zap, CheckCircle2, Clock } from "lucide-react";
+import { Repeat, UserPlus, Wallet, CalendarDays, AlertTriangle, CreditCard, Banknote, Zap, CheckCircle2, Clock, Image as ImageIcon } from "lucide-react";
 import CupomPreview from "./CupomPreview";
 import AjudaInfo from "./AjudaInfo";
 
@@ -139,6 +139,24 @@ function CardPedido({
         </div>
       </div>
 
+      {/* Aviso de confirmacao pendente: a IA montou o pedido mas a equipe precisa
+          confirmar algo (pedido pra hoje/amanha, valor de topo de bolo, item fora
+          da tabela). A dona ve o motivo aqui e so revisa, sem reler a conversa. */}
+      {pedido.precisaConfirmacao ? (
+        <div
+          className="mx-6 mt-4 flex items-start gap-2.5 rounded-[12px] px-3.5 py-3 border"
+          style={{ background: "rgba(231,207,148,0.12)", borderColor: "rgba(231,207,148,0.35)" }}
+        >
+          <AlertTriangle size={16} className="shrink-0 mt-[1px]" style={{ color: "#e7cf94" }} />
+          <div className="text-[13px] leading-relaxed">
+            <span className="font-semibold text-dourado">Confirme antes de aprovar</span>
+            <span className="text-cream/80">
+              {pedido.motivoHumano ? ` — ${pedido.motivoHumano}` : " — a IA marcou este pedido pra revisão da equipe."}
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       {/* Corpo: itens */}
       <div className="px-6 py-4 flex-1 flex flex-col">
         <ul className="flex flex-col">
@@ -161,6 +179,26 @@ function CardPedido({
             <svg className="mt-[3px] shrink-0 text-dourado" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v12H8l-4 4V4Z" /><path d="M8 9h8M8 12.5h5" /></svg>
             <span><span className="font-semibold text-dourado">Obs:</span> {pedido.observacoes}</span>
           </div>
+        ) : null}
+        {pedido.temFoto ? (
+          <a
+            href={`/api/pedido/${pedido.id}/foto`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 flex items-center gap-3 rounded-[12px] px-3 py-2.5 hover:bg-white/[0.06] transition-colors"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/pedido/${pedido.id}/foto`}
+              alt="Foto de referência do pedido"
+              className="w-14 h-14 rounded-[10px] object-cover shrink-0"
+              style={{ background: "rgba(0,0,0,0.2)" }}
+            />
+            <span className="inline-flex items-center gap-1.5 text-[13px] text-cream/80">
+              <ImageIcon size={14} className="text-dourado" /> Foto de referência (toque pra ampliar)
+            </span>
+          </a>
         ) : null}
       </div>
 

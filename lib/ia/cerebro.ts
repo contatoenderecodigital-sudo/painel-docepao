@@ -119,6 +119,16 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           retirada_data: { type: "string", description: "Dia da retirada, ex: 'sábado 25/07'." },
           retirada_hora: { type: "string", description: "Hora, ex: '14:00'." },
           observacoes: { type: "string" },
+          precisa_confirmacao: {
+            type: "boolean",
+            description:
+              "true quando o pedido está montado mas a EQUIPE precisa confirmar algo antes (pedido pra hoje/amanhã, valor de topo de bolo, item fora da tabela, bolo de vários andares). O pedido é registrado do mesmo jeito, só entra na fila com um aviso pra dona revisar.",
+          },
+          motivo_humano: {
+            type: "string",
+            description:
+              "Quando precisa_confirmacao=true, explique curto o que a equipe precisa confirmar. Ex: 'confirmar valor do topo de bolo', 'pedido pra amanhã, confirmar capacidade', 'item fora da tabela: bolo 3 andares'.",
+          },
         },
         required: ["itens", "retirada_data"],
       },
@@ -138,6 +148,10 @@ export type RespostaIA = {
     observacoes?: string;
     clienteNome?: string;
     totalCentavos: number;
+    // Handoff inteligente: pedido montado mas com pendência de confirmação da equipe.
+    // Cai na fila de aprovação JÁ MONTADO, com um aviso; não vira beco de humano.
+    precisaConfirmacao?: boolean;
+    motivoHumano?: string;
   };
 };
 
@@ -172,6 +186,8 @@ function executarFerramenta(
   if (nome === "registrar_pedido") {
     const itens = (input.itens as { item: string; qtd: number; obs?: string }[]) || [];
     const c = motor.cotarPorItens(itens);
+    const precisaConfirmacao = Boolean(input.precisa_confirmacao);
+    const motivoHumano = input.motivo_humano ? String(input.motivo_humano) : undefined;
     estado.pedido = {
       itens,
       linhas: c.linhas,
@@ -180,6 +196,8 @@ function executarFerramenta(
       observacoes: input.observacoes ? String(input.observacoes) : undefined,
       clienteNome: input.cliente_nome ? String(input.cliente_nome) : undefined,
       totalCentavos: Math.round(c.total * 100),
+      precisaConfirmacao,
+      motivoHumano: precisaConfirmacao ? motivoHumano : undefined,
     };
     const itensFmt = c.linhas
       .map((l) => `${l.item}: ${l.qtd} un x ${brl(l.unit)} = ${brl(l.subtotal)}`)

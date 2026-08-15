@@ -17,6 +17,9 @@ type LinhaFila = {
   total_centavos: number;
   observacoes: string | null;
   criado_em: string;
+  precisa_confirmacao: boolean | null;
+  motivo_humano: string | null;
+  tem_foto: boolean | null;
   cliente_nome: string | null;
   cliente_telefone: string | null;
   itens: ItemBruto[] | null;
@@ -43,6 +46,9 @@ function mapear(l: LinhaFila): Pedido {
     totalCentavos: l.total_centavos,
     observacoes: l.observacoes,
     criadoEm: l.criado_em,
+    precisaConfirmacao: !!l.precisa_confirmacao,
+    motivoHumano: l.motivo_humano,
+    temFoto: !!l.tem_foto,
     itens: (l.itens ?? []).map(
       (i): ItemPedido => ({
         produto: i.produto,
@@ -63,6 +69,8 @@ export async function listarFilaAprovacao(negocioId: string): Promise<Pedido[]> 
   const linhas = await query<LinhaFila>(
     `select p.id, p.status, p.retirada_data, p.retirada_hora, p.pessoas,
             p.total_centavos, p.observacoes, p.criado_em,
+            p.precisa_confirmacao, p.motivo_humano,
+            exists(select 1 from pedido_fotos f where f.pedido_id = p.id) as tem_foto,
             c.nome as cliente_nome, c.telefone as cliente_telefone,
             coalesce(
               (select json_agg(json_build_object(
@@ -84,6 +92,8 @@ export async function listarParados(negocioId: string): Promise<Pedido[]> {
   const linhas = await query<LinhaFila>(
     `select p.id, p.status, p.retirada_data, p.retirada_hora, p.pessoas,
             p.total_centavos, p.observacoes, p.criado_em,
+            p.precisa_confirmacao, p.motivo_humano,
+            exists(select 1 from pedido_fotos f where f.pedido_id = p.id) as tem_foto,
             c.nome as cliente_nome, c.telefone as cliente_telefone,
             coalesce(
               (select json_agg(json_build_object(
@@ -105,6 +115,8 @@ export async function listarDoDia(negocioId: string): Promise<Pedido[]> {
   const linhas = await query<LinhaFila>(
     `select p.id, p.status, p.retirada_data, p.retirada_hora, p.pessoas,
             p.total_centavos, p.observacoes, p.criado_em,
+            p.precisa_confirmacao, p.motivo_humano,
+            exists(select 1 from pedido_fotos f where f.pedido_id = p.id) as tem_foto,
             c.nome as cliente_nome, c.telefone as cliente_telefone,
             coalesce(
               (select json_agg(json_build_object(

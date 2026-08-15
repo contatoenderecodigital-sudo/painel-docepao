@@ -15,7 +15,7 @@ import { NextRequest } from "next/server";
 import { lerSessao } from "@/lib/auth";
 import { carregarTenant } from "@/lib/ia/tenant";
 import { responder, type Mensagem } from "@/lib/ia/cerebro";
-import { acharOuCriarCliente, registrarPedido } from "@/lib/banco/conversas";
+import { acharOuCriarCliente, registrarPedido, anexarFotoAoPedido } from "@/lib/banco/conversas";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -32,12 +32,17 @@ export async function POST(req: NextRequest) {
   const sessao = await lerSessao();
   if (!sessao) return new Response("nao autorizado", { status: 401 });
 
-  let corpo: { mensagens?: MsgEntrada[] };
+  // imagem: base64 (com ou sem prefixo data:) da foto de referência que o dono
+  // anexou na última mensagem, pra testar o fluxo completo do /testar.
+  let corpo: { mensagens?: MsgEntrada[]; imagem?: string; imagemMime?: string };
   try {
     corpo = await req.json();
   } catch {
     return new Response("bad request", { status: 400 });
   }
+
+  // Normaliza a imagem (tira o prefixo "data:...;base64," se veio do FileReader).
+  const foto = normalizarImagem(corpo.imagem, corpo.imagemMime);
 
   const negocioId = sessao.negocioId ?? process.env.NEGOCIO_PADRAO_ID;
   if (!negocioId) {
@@ -56,6 +61,16 @@ export async function POST(req: NextRequest) {
       role: m.de === "ia" ? "assistant" : "user",
       content: m.texto,
     }));
+
+  // Igual ao webhook: quando há foto anexada, a IA recebe um recado de que chegou
+  // uma foto de referência (pra acusar o recebimento e anotar no item). Cai na
+  // última mensagem do cliente; se ele mandou só a foto sem texto, vira um turno.
+  if (foto) {
+    const nota = "[o cliente enviou uma foto de referência para o pedido]";
+    const ult = historico[historico.length - 1];
+    if (ult && ult.role === "user") ult.content = ult.content ? `${ult.content}\n${nota}` : nota;
+    else historico.push({ role: "user", content: nota });
+  }
 
   if (historico.length === 0) {
     return Response.json({ erro: "Envie uma mensagem pra IA responder." });
@@ -77,7 +92,16 @@ export async function POST(req: NextRequest) {
   if (resp.pedidoRegistrado) {
     try {
       const clienteId = await acharOuCriarCliente(negocioId, TESTE_TELEFONE, TESTE_NOME);
-      await registrarPedido(negocioId, clienteId, resp.pedidoRegistrado);
+      const pedidoId = await registrarPedido(negocioId, clienteId, resp.pedidoRegistrado);
+      // Fecha o fluxo completo do /testar: se o dono anexou uma foto, ela vira a
+      // foto de referência DESTE pedido (aparece na aprovação e na produção).
+      if (foto && pedidoId) {
+        try {
+          await anexarFotoAoPedido(negocioId, pedidoId, clienteId, foto.dados, foto.mime);
+        } catch (e) {
+          console.error("[testar-ia] falha ao anexar foto ao pedido de teste:", e);
+        }
+      }
     } catch (e) {
       console.error("[testar-ia] falha ao registrar pedido de teste:", e);
       return Response.json({
@@ -92,4 +116,13 @@ export async function POST(req: NextRequest) {
     pedidoRegistrado: !!resp.pedidoRegistrado,
     precisaHumano: resp.precisaHumano,
   });
+}
+
+// Aceita a imagem em base64 puro ou como data URL ("data:image/png;base64,....").
+// Devolve os dados sem o prefixo + o mime. Ignora entradas vazias ou inválidas.
+function normalizarImagem(imagem?: string, imagemMime?: string): { dados: string; mime: string } | null {
+  if (!imagem || typeof imagem !== "string") return null;
+  const m = imagem.match(/^data:([^;]+);base64,([\s\S]*)$/);
+  if (m) return { dados: m[2], mime: imagemMime || m[1] || "image/jpeg" };
+  return { dados: imagem, mime: imagemMime || "image/jpeg" };
 }

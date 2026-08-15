@@ -8,38 +8,61 @@
 // ============================================================================
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, SendHorizontal, Trash2, Info, User } from "lucide-react";
+import { Bot, SendHorizontal, Trash2, Info, User, Paperclip, X } from "lucide-react";
 
-type Msg = { de: "cliente" | "ia"; texto: string };
+type Msg = { de: "cliente" | "ia"; texto: string; imagem?: string };
 
 export default function TestarIA() {
   const [mensagens, setMensagens] = useState<Msg[]>([]);
   const [texto, setTexto] = useState("");
   const [digitando, setDigitando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Foto de referência anexada à PRÓXIMA mensagem (data URL pra preview + envio).
+  const [anexo, setAnexo] = useState<{ dataUrl: string; mime: string } | null>(null);
   const fim = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fim.current?.scrollIntoView({ block: "end", behavior: "smooth" });
   }, [mensagens.length, digitando]);
 
+  function escolherArquivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permite reanexar o mesmo arquivo depois
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setErro("Anexe uma imagem (a foto de referência do bolo, por exemplo).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setAnexo({ dataUrl: String(reader.result), mime: file.type });
+    reader.onerror = () => setErro("Não consegui ler essa imagem. Tente outra.");
+    reader.readAsDataURL(file);
+  }
+
   async function enviar() {
     const t = texto.trim();
-    if (!t || digitando) return;
+    if ((!t && !anexo) || digitando) return;
     setErro(null);
 
     // Conversa completa (incluindo a nova mensagem) vai pro cérebro real — igual
     // ao webhook, a última mensagem é a pergunta nova do cliente.
-    const conversa: Msg[] = [...mensagens, { de: "cliente", texto: t }];
+    const conversa: Msg[] = [...mensagens, { de: "cliente", texto: t, imagem: anexo?.dataUrl }];
     setMensagens(conversa);
     setTexto("");
+    const anexoEnviar = anexo;
+    setAnexo(null);
     setDigitando(true);
 
     try {
       const r = await fetch("/api/testar-ia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensagens: conversa }),
+        body: JSON.stringify({
+          mensagens: conversa.map((m) => ({ de: m.de, texto: m.texto })),
+          imagem: anexoEnviar?.dataUrl,
+          imagemMime: anexoEnviar?.mime,
+        }),
       });
       const dados = await r.json().catch(() => ({}));
       if (r.status === 401) {
@@ -63,6 +86,7 @@ export default function TestarIA() {
     setMensagens([]);
     setErro(null);
     setTexto("");
+    setAnexo(null);
   }
 
   return (
@@ -142,6 +166,14 @@ export default function TestarIA() {
                             : { background: "rgba(255,255,255,0.92)", boxShadow: "0 3px 12px rgba(0,0,0,0.16)" }
                         }
                       >
+                        {m.imagem && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={m.imagem}
+                            alt="Foto de referência anexada"
+                            className="rounded-[10px] mb-1.5 max-h-44 w-auto object-cover block"
+                          />
+                        )}
                         {m.texto}
                       </div>
                     </div>
@@ -191,7 +223,38 @@ export default function TestarIA() {
 
         {/* composer */}
         <div className="px-3 pb-3 pt-2 border-t border-white/10" style={{ background: "rgba(255,255,255,0.04)" }}>
+          {/* preview do anexo (foto de referência da próxima mensagem) */}
+          {anexo && (
+            <div className="max-w-3xl mx-auto mb-2 flex items-center gap-2.5 rounded-[12px] px-2.5 py-2 w-fit" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={anexo.dataUrl} alt="Prévia do anexo" className="w-11 h-11 rounded-[8px] object-cover shrink-0" />
+              <span className="text-[12px] text-cream/70">Foto de referência anexada</span>
+              <button
+                onClick={() => setAnexo(null)}
+                className="press w-6 h-6 grid place-items-center rounded-full text-cream/60 hover:text-cream hover:bg-white/10"
+                aria-label="Remover anexo"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-2 max-w-3xl mx-auto">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              onChange={escolherArquivo}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={digitando}
+              className="press w-10 h-10 rounded-full grid place-items-center text-cream/70 hover:text-cream bg-white/10 hover:bg-white/[0.16] shrink-0 disabled:opacity-45 disabled:cursor-default"
+              aria-label="Anexar foto"
+              title="Anexar foto de referência"
+            >
+              <Paperclip size={18} />
+            </button>
             <input
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
@@ -204,7 +267,7 @@ export default function TestarIA() {
             />
             <button
               onClick={enviar}
-              disabled={!texto.trim() || digitando}
+              disabled={(!texto.trim() && !anexo) || digitando}
               className="grad-cobre press w-10 h-10 rounded-full grid place-items-center text-white shrink-0 shadow-[0_6px_16px_rgba(143,71,18,0.3)] disabled:opacity-45 disabled:cursor-default"
               aria-label="Enviar"
             >
