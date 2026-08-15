@@ -175,15 +175,26 @@ export async function carregarConexao(negocioId: string): Promise<ConexaoWhatsap
 // Credenciais do WhatsApp DESTE negocio (salvas pelo Embedded Signup no config).
 // O webhook usa isso pra responder pelo numero conectado do cliente, nao pelo
 // token global. Se o negocio ainda nao conectou, volta null e cai no env.
-export type CredsWhatsapp = { phoneId: string | null; token: string | null; iaAtiva: boolean };
+export type CredsWhatsapp = {
+  phoneId: string | null;
+  token: string | null;
+  wabaId: string | null; // usado pra listar/enviar templates aprovados
+  iaAtiva: boolean;
+};
 export async function carregarCredsWhatsapp(negocioId: string): Promise<CredsWhatsapp> {
-  const n = await queryUm<{ phone_id: string | null; token: string | null; ia_ativa: boolean }>(
+  const n = await queryUm<{ phone_id: string | null; token: string | null; waba_id: string | null; ia_ativa: boolean }>(
     `select config->>'whatsapp_phone_id' as phone_id, config->>'whatsapp_token' as token,
+            config->>'whatsapp_waba_id' as waba_id,
             coalesce((config->>'ia_ativa')::boolean, true) as ia_ativa
        from negocios where id = $1`,
     [negocioId],
   );
-  return { phoneId: n?.phone_id ?? null, token: n?.token ?? null, iaAtiva: n?.ia_ativa ?? true };
+  return {
+    phoneId: n?.phone_id ?? null,
+    token: n?.token ?? null,
+    wabaId: n?.waba_id ?? null,
+    iaAtiva: n?.ia_ativa ?? true,
+  };
 }
 
 // AVISO DO DIA — "cérebro temporário" que a dona escreve (ex: "sem pão após

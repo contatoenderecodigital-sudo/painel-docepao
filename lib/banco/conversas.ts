@@ -47,17 +47,50 @@ export async function carregarHistorico(
   return linhas.reverse().map((m) => ({ role: m.papel, content: m.conteudo }));
 }
 
-// Grava um turno da conversa.
+// Grava um turno da conversa. Retorna o id da mensagem.
+//
+// `papel` continua sendo o que a IA enxerga no histórico ('user'/'assistant').
+// `extra.autor` distingue quem falou na TELA ('cliente'|'ia'|'equipe'): a
+// mensagem que a DONA digita entra papel='assistant' + autor='equipe'. Mídia
+// recebida entra com tipo/mime/dados (base64) pra aparecer no chat.
+export type ExtraMensagem = {
+  autor?: "cliente" | "ia" | "equipe";
+  tipo?: "texto" | "imagem" | "audio" | "documento";
+  mime?: string | null;
+  dados?: string | null; // base64, sem prefixo data:
+  nome?: string | null; // nome do arquivo (documento)
+  wamid?: string | null;
+  lida?: boolean;
+};
 export async function salvarMensagem(
   negocioId: string,
   clienteId: string,
   papel: "user" | "assistant",
   conteudo: string,
-): Promise<void> {
-  await query(
-    "insert into mensagens (negocio_id, cliente_id, papel, conteudo) values ($1, $2, $3, $4)",
-    [negocioId, clienteId, papel, conteudo],
+  extra?: ExtraMensagem,
+): Promise<string> {
+  const autor = extra?.autor ?? (papel === "user" ? "cliente" : "ia");
+  const linha = await queryUm<{ id: string }>(
+    `insert into mensagens
+       (negocio_id, cliente_id, papel, conteudo, autor, tipo, midia_mime, midia_dados, midia_nome, wamid, lida)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     returning id`,
+    [
+      negocioId,
+      clienteId,
+      papel,
+      conteudo,
+      autor,
+      extra?.tipo ?? "texto",
+      extra?.mime ?? null,
+      extra?.dados ?? null,
+      extra?.nome ?? null,
+      extra?.wamid ?? null,
+      // não-lida só faz sentido pra mensagem do cliente; o resto já entra lido.
+      extra?.lida ?? autor !== "cliente",
+    ],
   );
+  return linha?.id ?? "";
 }
 
 // Idempotência: registra o wamid; retorna false se já tinha sido processado.

@@ -1,34 +1,30 @@
 "use client";
 
-// Tela de Atendimentos (chat) premium sobre vidro escuro. IA atende sozinha; o
-// humano assume quando precisa e devolve pra IA. Composer funcional (emoji,
-// anexo, enviar), etiquetas refinadas, info operacional e menu de acoes.
+// ============================================================================
+//  ATENDIMENTOS — o WhatsApp Web da Doce Pão.
+//  O número da padaria sai do celular pra Cloud API da Meta: a dona perde o
+//  WhatsApp normal, então ESTA tela substitui o WhatsApp dela. Funciona no PC
+//  (lista + chat lado a lado) e no celular (lista ocupa a tela; ao abrir uma
+//  conversa, ela ocupa a tela com um botão voltar).
+//
+//  Camada de dados reaproveitada: /api/conversas (lista + histórico + janela de
+//  24h), /api/conversas/enviar (texto), /api/conversas/anexo (imagem/doc),
+//  /api/conversas/templates + /template (fora da janela / conversa nova),
+//  /api/midia/[id] (mídia recebida). Atualização por POLLING leve (~6s).
+// ============================================================================
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { Conversa, Mensagem } from "@/lib/tipos";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Conversa, Mensagem, TipoMidia } from "@/lib/tipos";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import AjudaInfo from "@/components/AjudaInfo";
 import { formatarTelefoneBR, linkWhatsapp } from "@/lib/tipos";
 import {
-  Search, Plus, Paperclip, SendHorizontal, MoreVertical, Zap,
-  UserRound, Bot, ShoppingBag, Clock, CheckCheck, Archive, Ban, X, MessageSquare,
+  Search, Plus, Paperclip, SendHorizontal, ArrowLeft, Bot, X,
+  MessageSquare, Info, FileText, Download, CheckCheck, AlertCircle,
+  Clock, ShieldAlert,
 } from "lucide-react";
 
 const CORES = ["#5b8c7b", "#c58a3d", "#7a6cae", "#4a7ba6", "#a85b52", "#6f9b52", "#b0713e", "#8a5a86"];
 
-// Respostas rapidas (canned) da padaria. Digite "/" no campo ou clique no raio.
-const RESPOSTAS = [
-  "Nosso horário é das 7h às 19h, de segunda a sábado.",
-  "O cento de salgado assado sai R$ 130,00.",
-  "O cento de coxinha sai R$ 120,00.",
-  "O cento de brigadeiro sai R$ 90,00.",
-  "Pode retirar a partir das 14h.",
-  "Aceitamos PIX, cartão e dinheiro na retirada.",
-  "Bolos por encomenda pedimos com 2 dias de antecedência.",
-  "Já anotei seu pedido. Qualquer coisa é só chamar!",
-];
-
-// Popover OPACO (nao deixa o conteudo de tras vazar por cima).
 const POPOVER: React.CSSProperties = {
   background: "rgba(58,16,28,0.98)",
   backdropFilter: "blur(20px)",
@@ -37,13 +33,10 @@ const POPOVER: React.CSSProperties = {
   boxShadow: "0 16px 44px rgba(0,0,0,0.5)",
 };
 
-type Aba = "todas" | "ia" | "humano" | "resolvidas";
-const ABAS: { id: Aba; nome: string }[] = [
-  { id: "todas", nome: "Todas" },
-  { id: "ia", nome: "IA" },
-  { id: "humano", nome: "Humano" },
-  { id: "resolvidas", nome: "Resolvidas" },
-];
+// mensagem local (envio otimista): guarda o id do servidor (pra reconciliar no
+// polling) e um blobUrl (preview de anexo antes de subir).
+type Pend = Mensagem & { serverId?: string; blobUrl?: string };
+type Template = { nome: string; idioma: string; categoria: string; corpo: string; variaveis: number };
 
 function iniciais(nome: string) {
   const p = nome.trim().split(/\s+/);
@@ -58,8 +51,25 @@ function agora() {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
+function hojeISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function rotuloDia(data?: string): string {
+  if (!data) return "";
+  if (data === hojeISO()) return "Hoje";
+  const o = new Date();
+  o.setDate(o.getDate() - 1);
+  const ontem = `${o.getFullYear()}-${String(o.getMonth() + 1).padStart(2, "0")}-${String(o.getDate()).padStart(2, "0")}`;
+  if (data === ontem) return "Ontem";
+  const [Y, M, D] = data.split("-");
+  return `${D}/${M}/${Y}`;
+}
+function renderPreview(corpo: string, params: string[]): string {
+  return corpo.replace(/\{\{(\d+)\}\}/g, (_, n) => params[Number(n) - 1] || `{{${n}}}`);
+}
 
-function Avatar({ nome, tam = 40, raio = 12 }: { nome: string; tam?: number; raio?: number }) {
+function Avatar({ nome, tam = 44, raio = 12 }: { nome: string; tam?: number; raio?: number }) {
   return (
     <div
       className="shrink-0 grid place-items-center text-white font-semibold select-none"
@@ -67,20 +77,6 @@ function Avatar({ nome, tam = 40, raio = 12 }: { nome: string; tam?: number; rai
       aria-hidden="true"
     >
       {iniciais(nome)}
-    </div>
-  );
-}
-function AvatarIA({ tam = 34 }: { tam?: number }) {
-  return (
-    <div className="shrink-0 grid place-items-center text-white select-none grad-cobre" style={{ width: tam, height: tam, borderRadius: 10 }} aria-hidden="true">
-      <Bot size={tam * 0.56} strokeWidth={2} />
-    </div>
-  );
-}
-function AvatarEquipe({ tam = 34 }: { tam?: number }) {
-  return (
-    <div className="shrink-0 grid place-items-center text-white select-none" style={{ width: tam, height: tam, borderRadius: 10, background: "linear-gradient(135deg,#6e1f30,#491020)" }} aria-hidden="true">
-      <UserRound size={tam * 0.56} strokeWidth={2} />
     </div>
   );
 }
@@ -93,49 +89,99 @@ function WhatsAppIcon({ size = 12 }: { size?: number }) {
   );
 }
 
-// Etiqueta (pill pequena) com cor por tipo.
-type EtiquetaTom = "dourado" | "cobre" | "whatsapp" | "neutro";
-function Etiqueta({ tom, comPonto, icone, children, onRemover }: { tom: EtiquetaTom; comPonto?: boolean; icone?: React.ReactNode; children: React.ReactNode; onRemover?: () => void }) {
-  const est =
-    tom === "dourado" ? { bg: "rgba(231,207,148,0.14)", c: "#e7cf94" }
-    : tom === "cobre" ? { bg: "rgba(224,138,60,0.14)", c: "#e59355" }
-    : tom === "whatsapp" ? { bg: "rgba(37,211,102,0.12)", c: "#4fd07f" }
-    : { bg: "rgba(255,255,255,0.06)", c: "rgba(251,245,236,0.75)" };
-  return (
-    <span className="group inline-flex items-center gap-1.5 text-[11px] font-medium h-6 px-2.5 rounded-full" style={{ background: est.bg, color: est.c }}>
-      {comPonto && <span className="w-1.5 h-1.5 rounded-full" style={{ background: est.c }} />}
-      {icone}
-      {children}
-      {onRemover && (
-        <button onClick={onRemover} className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5" aria-label="Remover etiqueta">
-          <X size={11} />
-        </button>
-      )}
+// ---------- Balão de mensagem (texto + mídia) ----------
+function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem: (url: string) => void }) {
+  const isCliente = m.de === "cliente";
+  const src = m.blobUrl || (m.midiaId ? `/api/midia/${m.midiaId}` : null);
+  const bolhaBase =
+    "rounded-[14px] text-[13.5px] leading-[1.5] whitespace-pre-line " +
+    (isCliente ? "text-[#4a1020] rounded-bl-[4px]" : "text-white rounded-br-[4px]");
+  const bolhaStyle: React.CSSProperties = isCliente
+    ? { background: "rgba(255,255,255,0.95)", boxShadow: "0 3px 12px rgba(0,0,0,0.16)" }
+    : { background: "linear-gradient(135deg,#8f4712,#e08a3c)", boxShadow: "0 4px 14px rgba(143,71,18,0.28)" };
+
+  // legenda que acompanha a mídia: tira as notas internas ("[o cliente enviou
+  // ...]") e os rótulos automáticos (Foto/Áudio/nome do arquivo), pra não repetir.
+  const isMidia = m.tipo === "imagem" || m.tipo === "audio" || m.tipo === "documento";
+  let legenda = (m.texto || "").replace(/\[o cliente enviou[^\]]*\]/gi, "").replace(/\[midia\]/gi, "").trim();
+  const rotulosAuto = [m.midiaNome ?? "", "foto", "áudio", "audio"].map((s) => s.toLowerCase());
+  if (isMidia && legenda && rotulosAuto.includes(legenda.toLowerCase())) legenda = "";
+
+  const HoraSelo = () => (
+    <span className={"text-[10px] inline-flex items-center gap-1 align-bottom " + (isCliente ? "text-black/35" : "text-white/60")}>
+      {m.hora}
+      {!isCliente && m.de === "equipe" && m.status === "enviando" && <Clock size={11} />}
+      {!isCliente && m.de === "equipe" && m.status === "enviado" && <CheckCheck size={12} />}
+      {!isCliente && m.de === "equipe" && m.status === "erro" && <AlertCircle size={12} className="text-red-200" />}
     </span>
   );
-}
 
-// Bolha agrupada: avatar so no primeiro do bloco.
-function Balao({ de, texto, hora, nome, primeiro }: Mensagem & { nome: string; primeiro: boolean }) {
-  const isCliente = de === "cliente";
-  const av = isCliente ? <Avatar nome={nome} tam={34} raio={9} /> : de === "equipe" ? <AvatarEquipe /> : <AvatarIA />;
-  const espaco = <div style={{ width: 34 }} className="shrink-0" />;
   return (
-    <div className={"flex items-end gap-2.5 " + (primeiro ? "mt-3" : "mt-1") + (isCliente ? " justify-start" : " justify-end")}>
-      {isCliente && (primeiro ? av : espaco)}
-      <div className="max-w-[64%]">
-        {!isCliente && de === "equipe" && primeiro && <div className="text-[10px] text-cream/45 mb-0.5 text-right pr-1">Você</div>}
-        <div
-          className={"rounded-[14px] px-3.5 py-2 text-[13.5px] leading-[1.5] whitespace-pre-line " + (isCliente ? "text-[#4a1020] rounded-bl-[4px]" : "text-white rounded-br-[4px]")}
-          style={isCliente
-            ? { background: "rgba(255,255,255,0.92)", boxShadow: "0 3px 12px rgba(0,0,0,0.16)" }
-            : { background: "linear-gradient(135deg,#8f4712,#e08a3c)", boxShadow: "0 4px 14px rgba(143,71,18,0.28)" }}
-        >
-          {texto}
-          <span className={"text-[10px] ml-2 float-right relative top-[7px] " + (isCliente ? "text-black/35" : "text-white/55")}>{hora}</span>
+    <div className={"flex " + (primeiro ? "mt-3" : "mt-1") + (isCliente ? " justify-start" : " justify-end")}>
+      <div className="max-w-[78%] md:max-w-[64%]">
+        {!isCliente && m.de === "equipe" && primeiro && <div className="text-[10px] text-cream/45 mb-0.5 text-right pr-1">Você</div>}
+        {!isCliente && m.de === "ia" && primeiro && <div className="text-[10px] text-cream/45 mb-0.5 text-right pr-1 flex items-center justify-end gap-1"><Bot size={11} /> Atendente</div>}
+        <div className={bolhaBase} style={{ ...bolhaStyle, padding: m.tipo === "imagem" && src ? 4 : undefined }}>
+          {/* IMAGEM */}
+          {m.tipo === "imagem" && src && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={src}
+              alt="Imagem enviada"
+              onClick={() => onImagem(src)}
+              className="rounded-[11px] max-h-64 w-auto object-cover cursor-zoom-in block"
+            />
+          )}
+          {/* ÁUDIO */}
+          {m.tipo === "audio" && src && (
+            <div className={isCliente ? "px-2.5 py-2" : "px-2.5 py-2"}>
+              <audio controls preload="none" src={src} className="max-w-[220px] h-9" />
+            </div>
+          )}
+          {/* DOCUMENTO */}
+          {m.tipo === "documento" && (
+            <a
+              href={src ?? "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={"flex items-center gap-2.5 px-3.5 py-2.5 " + (src ? "" : "pointer-events-none opacity-70")}
+            >
+              <span className={"w-9 h-9 rounded-lg grid place-items-center shrink-0 " + (isCliente ? "bg-black/8 text-[#8f4712]" : "bg-white/20 text-white")}>
+                <FileText size={18} />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] font-medium">{m.midiaNome || "Documento"}</span>
+                <span className={"text-[11px] " + (isCliente ? "text-black/45" : "text-white/70")}>Abrir arquivo</span>
+              </span>
+              <Download size={15} className={isCliente ? "text-black/40 shrink-0" : "text-white/70 shrink-0"} />
+            </a>
+          )}
+          {/* TEXTO puro */}
+          {!isMidia && (
+            <div className="px-3.5 py-2">
+              {m.texto}
+              <span className="ml-2">
+                <HoraSelo />
+              </span>
+            </div>
+          )}
+          {/* LEGENDA da mídia (quando há uma real) */}
+          {isMidia && legenda && (
+            <div className="px-3.5 pb-2 pt-1">
+              {legenda}
+              <span className="ml-2">
+                <HoraSelo />
+              </span>
+            </div>
+          )}
+          {/* rodapé de hora quando a mídia não tem legenda */}
+          {isMidia && !legenda && (
+            <div className="flex items-center justify-end pr-2 pb-1 -mt-0.5">
+              <HoraSelo />
+            </div>
+          )}
         </div>
       </div>
-      {!isCliente && (primeiro ? av : espaco)}
     </div>
   );
 }
@@ -143,204 +189,238 @@ function Balao({ de, texto, hora, nome, primeiro }: Mensagem & { nome: string; p
 export default function Atendimentos({ conversas: conversasIniciais }: { conversas: Conversa[] }) {
   const [conversas, setConversas] = useState<Conversa[]>(conversasIniciais);
   const [busca, setBusca] = useState("");
-  const [ativaId, setAtivaId] = useState<string | undefined>(conversasIniciais[0]?.id);
+  const [ativaId, setAtivaId] = useState<string | undefined>(undefined);
+  const [vista, setVista] = useState<"lista" | "chat">("lista");
   const [texto, setTexto] = useState("");
-  const [msgsExtra, setMsgsExtra] = useState<Record<string, Mensagem[]>>({});
-  const [controle, setControle] = useState<Record<string, "ia" | "humano">>({});
-  const [tagsExtra, setTagsExtra] = useState<Record<string, string[]>>({});
-  const [notas, setNotas] = useState<Record<string, string>>({});
-  const [arquivadas, setArquivadas] = useState<Record<string, boolean>>({});
-  const [resolvidas, setResolvidas] = useState<Record<string, boolean>>({});
-  const [menuAberto, setMenuAberto] = useState(false);
-  const [addTag, setAddTag] = useState(false);
-  const [novaTag, setNovaTag] = useState("");
-  const [verPedidos, setVerPedidos] = useState(false);
-  const [aba, setAba] = useState<Aba>("todas");
-  const [respostasAbertas, setRespostasAbertas] = useState(false);
+  const [pendentes, setPendentes] = useState<Record<string, Pend[]>>({});
+  const [naoLidasLocal, setNaoLidasLocal] = useState<Record<string, number>>({});
+  const [enviando, setEnviando] = useState(false);
+  const [drawer, setDrawer] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [tplAberto, setTplAberto] = useState(false);
+  const [novaAberto, setNovaAberto] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [, setTick] = useState(0); // força recomputar a janela de 24h
   const fileRef = useRef<HTMLInputElement>(null);
   const fim = useRef<HTMLDivElement>(null);
+  const ativaIdRef = useRef<string | undefined>(undefined);
+  ativaIdRef.current = ativaId;
 
-  // Tempo real: atualiza conversas/mensagens sozinho, sem recarregar a página.
-  useEffect(() => {
-    const id = setInterval(async () => {
-      try {
-        const r = await fetch("/api/conversas", { cache: "no-store" });
-        if (r.ok) setConversas(await r.json());
-      } catch {
-        /* falha de rede: tenta de novo no próximo ciclo */
-      }
-    }, 5000);
-    return () => clearInterval(id);
+  const mostrarToast = useCallback((t: string) => {
+    setToast(t);
+    setTimeout(() => setToast((v) => (v === t ? null : v)), 3200);
   }, []);
 
-  // ultima mensagem de uma conversa (considerando as enviadas agora).
-  const ultimaDe = (c: Conversa): Mensagem | undefined => {
-    const ex = msgsExtra[c.id];
-    return ex && ex.length ? ex[ex.length - 1] : c.mensagens[c.mensagens.length - 1];
-  };
-  const controleDe = (c: Conversa) => controle[c.id] ?? "ia";
-  const aguardandoDe = (c: Conversa) => ultimaDe(c)?.de === "cliente"; // cliente esperando resposta
+  // Busca a lista/histórico do servidor e reconcilia os envios otimistas.
+  const atualizar = useCallback(async () => {
+    try {
+      const r = await fetch("/api/conversas", { cache: "no-store" });
+      if (!r.ok) return;
+      const data = (await r.json()) as Conversa[];
+      setConversas(data);
+      // reconcilia pendentes: some com o que já chegou do servidor.
+      setPendentes((prev) => {
+        const next: Record<string, Pend[]> = {};
+        for (const [id, arr] of Object.entries(prev)) {
+          const conv = data.find((c) => c.id === id);
+          if (!conv) { next[id] = arr; continue; }
+          const ids = new Set(conv.mensagens.map((m) => m.id).filter(Boolean));
+          next[id] = arr.filter((p) => {
+            if (p.status !== "enviado") return true; // mantém 'enviando'/'erro'
+            if (p.serverId && ids.has(p.serverId)) return false;
+            if (conv.mensagens.some((m) => m.de === "equipe" && m.texto === p.texto)) return false;
+            return true;
+          });
+          if (!next[id].length) delete next[id];
+        }
+        return next;
+      });
+      // mantém a conversa aberta marcada como lida (chegou mensagem enquanto lia).
+      const aid = ativaIdRef.current;
+      if (aid) {
+        const conv = data.find((c) => c.id === aid);
+        if (conv && conv.naoLidas > 0) {
+          setNaoLidasLocal((n) => ({ ...n, [aid]: 0 }));
+          fetch("/api/conversas/ler", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clienteId: aid }) }).catch(() => {});
+        }
+      }
+    } catch {
+      /* rede: tenta no próximo ciclo */
+    }
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(atualizar, 6000);
+    const jan = setInterval(() => setTick((t) => t + 1), 30000);
+    return () => { clearInterval(id); clearInterval(jan); };
+  }, [atualizar]);
 
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    const base = conversas
-      .filter((c) => !arquivadas[c.id])
-      .filter((c) => {
-        if (aba === "resolvidas") return resolvidas[c.id];
-        if (resolvidas[c.id]) return false;
-        if (aba === "ia") return controleDe(c) === "ia";
-        if (aba === "humano") return controleDe(c) === "humano";
-        return true; // todas
-      })
-      .filter((c) =>
-        !q ? true : c.clienteNome.toLowerCase().includes(q) || c.clienteTelefone.replace(/\D/g, "").includes(q.replace(/\D/g, "")) || c.previa.toLowerCase().includes(q),
-      );
-    // quem espera resposta ha mais tempo no topo; resto por mais recente.
-    return base.sort((a, b) => {
-      const aa = aguardandoDe(a), ab = aguardandoDe(b);
-      if (aa !== ab) return aa ? -1 : 1;
-      const ha = ultimaDe(a)?.hora ?? "", hb = ultimaDe(b)?.hora ?? "";
-      return aa ? ha.localeCompare(hb) : hb.localeCompare(ha);
+    const base = q
+      ? conversas.filter(
+          (c) =>
+            c.clienteNome.toLowerCase().includes(q) ||
+            c.clienteTelefone.replace(/\D/g, "").includes(q.replace(/\D/g, "")) ||
+            c.previa.toLowerCase().includes(q) ||
+            c.mensagens.some((m) => m.texto.toLowerCase().includes(q)),
+        )
+      : conversas;
+    // handoff ("precisa de você") primeiro; resto pela mais recente (já vem ordenado).
+    return [...base].sort((a, b) => {
+      const ha = a.estado === "precisa_humano" ? 1 : 0;
+      const hb = b.estado === "precisa_humano" ? 1 : 0;
+      return hb - ha;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busca, conversas, arquivadas, aba, resolvidas, controle, msgsExtra]);
+  }, [busca, conversas]);
 
-  const ativa = conversas.find((c) => c.id === ativaId) ?? filtradas[0] ?? conversas[0];
-  const ctrl = ativa ? controle[ativa.id] ?? "ia" : "ia";
-  const mensagens = useMemo(
-    () => (ativa ? [...ativa.mensagens, ...(msgsExtra[ativa.id] ?? [])] : []),
-    [ativa, msgsExtra],
+  const ativa = conversas.find((c) => c.id === ativaId);
+  const mensagens: Pend[] = useMemo(
+    () => (ativa ? [...ativa.mensagens, ...(pendentes[ativa.id] ?? [])] : []),
+    [ativa, pendentes],
   );
 
   useEffect(() => {
     fim.current?.scrollIntoView({ block: "end" });
   }, [ativa?.id, mensagens.length]);
 
-  if (!ativa) {
-    // Sem conversas ainda: mantém o layout (busca + abas) e mostra o vazio no chat.
-    return (
-      <div className="px-6 py-6 h-screen flex flex-col">
-        <div className="flex items-center gap-2 mb-3 shrink-0">
-          <span className="text-[11px] uppercase tracking-[0.2em] text-dourado font-semibold">Atendimentos</span>
-          <AjudaInfo titulo="Atendimentos" texto="As conversas do WhatsApp num só lugar. A IA atende sozinha e você assume a conversa quando quiser. Use a busca pra achar um cliente e as abas pra filtrar." />
-        </div>
-        <div className="flex-1 min-h-0">
-          <div className="grid grid-cols-[300px_1fr] gap-4 h-full">
-            {/* lista (busca + abas), vazia */}
-            <div className="glass rounded-[20px] flex flex-col min-h-0 overflow-hidden">
-              <div className="p-3">
-                <div className="relative">
-                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-cream/45" />
-                  <input
-                    value={busca}
-                    onChange={(e) => setBusca(e.target.value)}
-                    placeholder="Pesquisar"
-                    className="w-full bg-white/10 rounded-[10px] pl-9 pr-3 py-2 text-[13px] text-cream placeholder:text-cream/45 focus:outline-none focus:ring-2 focus:ring-cobre/25"
-                  />
-                </div>
-              </div>
-              <div className="px-3 pb-2 flex items-center gap-1">
-                {ABAS.map((a) => (
-                  <button key={a.id} onClick={() => setAba(a.id)} className={"text-[11.5px] font-medium px-2.5 py-1 rounded-full transition-colors " + (aba === a.id ? "bg-cobre/20 text-[color:var(--brand-cobre-l)]" : "text-cream/55 hover:text-cream hover:bg-white/8")}>
-                    {a.nome}
-                  </button>
-                ))}
-              </div>
-              <div className="flex-1 grid place-items-center px-4 text-center">
-                <div className="text-[13px] text-cream/50">Nenhum cliente ainda.</div>
-              </div>
-            </div>
-            {/* chat vazio */}
-            <div className="glass rounded-[20px] grid place-items-center px-6 text-center">
-              <div>
-                <div className="mx-auto w-14 h-14 rounded-2xl grid place-items-center text-dourado mb-3" style={{ background: "rgba(212,175,55,0.12)" }}>
-                  <MessageSquare size={26} />
-                </div>
-                <div className="tracking-tight-apple text-xl font-bold text-cream">Nenhuma conversa ainda</div>
-                <p className="text-sm text-cream/60 mt-1 max-w-xs mx-auto">
-                  Quando um cliente chamar no WhatsApp, a conversa aparece aqui.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  // janela de 24h: undefined = mock/demo (deixa aberto); null = cliente nunca
+  // escreveu (fechada, só template); número = compara com agora.
+  const janelaAberta = ativa
+    ? ativa.janelaExpiraMs === undefined
+      ? true
+      : ativa.janelaExpiraMs != null && Date.now() < ativa.janelaExpiraMs
+    : false;
+
+  function abrir(id: string) {
+    setAtivaId(id);
+    setVista("chat");
+    setDrawer(false);
+    setNaoLidasLocal((n) => ({ ...n, [id]: 0 }));
+    fetch("/api/conversas/ler", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clienteId: id }) }).catch(() => {});
   }
 
-  const resolvida = resolvidas[ativa.id];
-  const statusTxt = resolvida ? "Resolvido" : ctrl === "humano" ? "Você está atendendo" : "IA atendendo";
-  const statusCor = resolvida ? "#9aa0a6" : ctrl === "humano" ? "#e59355" : "#4fd07f";
+  function marcarPend(convId: string, tmpId: string, patch: Partial<Pend>) {
+    setPendentes((p) => ({ ...p, [convId]: (p[convId] ?? []).map((m) => (m.id === tmpId ? { ...m, ...patch } : m)) }));
+  }
 
-  const ultima = mensagens[mensagens.length - 1];
-  const aguardando = ultima?.de !== "cliente"; // se a ultima foi nossa, esperamos o cliente
-
-  const tags = tagsExtra[ativa.id] ?? [];
-
-  // respostas rapidas: abre pelo raio ou digitando "/" no campo
-  const slashQ = texto.startsWith("/") ? texto.slice(1).toLowerCase() : null;
-  const respostasFiltradas = slashQ !== null ? RESPOSTAS.filter((r) => r.toLowerCase().includes(slashQ)) : RESPOSTAS;
-  const mostrarRespostas = (respostasAbertas || slashQ !== null) && respostasFiltradas.length > 0;
-
-  function enviar() {
+  async function enviarTexto() {
     const t = texto.trim();
-    if (!t) return;
-    setMsgsExtra((m) => ({ ...m, [ativa.id]: [...(m[ativa.id] ?? []), { de: "equipe", texto: t, hora: agora() }] }));
+    if (!t || !ativa || enviando) return;
+    if (!janelaAberta) { setTplAberto(true); return; }
+    const tmpId = `tmp-${Date.now()}`;
+    const convId = ativa.id;
+    setPendentes((p) => ({ ...p, [convId]: [...(p[convId] ?? []), { de: "equipe", texto: t, hora: agora(), status: "enviando", id: tmpId, data: hojeISO() }] }));
     setTexto("");
-    setControle((c) => ({ ...c, [ativa.id]: "humano" })); // digitou = assumiu
+    setEnviando(true);
+    try {
+      const r = await fetch("/api/conversas/enviar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clienteId: convId, texto: t }) });
+      if (r.status === 409) { marcarPend(convId, tmpId, { status: "erro" }); mostrarToast("A janela de 24h fechou. Use um modelo aprovado."); setTplAberto(true); }
+      else if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        marcarPend(convId, tmpId, { status: "erro" });
+        mostrarToast(j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : "Não consegui enviar. Tente de novo.");
+      } else {
+        const j = await r.json();
+        marcarPend(convId, tmpId, { status: "enviado", serverId: j.id });
+        atualizar();
+      }
+    } catch {
+      marcarPend(convId, tmpId, { status: "erro" });
+      mostrarToast("Sem conexão. Tente de novo.");
+    } finally {
+      setEnviando(false);
+    }
   }
-  function anexar(nome: string) {
-    setMsgsExtra((m) => ({ ...m, [ativa.id]: [...(m[ativa.id] ?? []), { de: "equipe", texto: `Enviou um arquivo: ${nome}`, hora: agora() }] }));
-    setControle((c) => ({ ...c, [ativa.id]: "humano" }));
+
+  async function anexar(file: File) {
+    if (!ativa) return;
+    if (!janelaAberta) { mostrarToast("Fora da janela de 24h só dá pra mandar modelo aprovado."); return; }
+    const ehImg = file.type.startsWith("image/");
+    const convId = ativa.id;
+    const tmpId = `tmp-${Date.now()}`;
+    const blobUrl = ehImg ? URL.createObjectURL(file) : undefined;
+    setPendentes((p) => ({
+      ...p,
+      [convId]: [...(p[convId] ?? []), { de: "equipe", texto: ehImg ? "Foto" : file.name, hora: agora(), status: "enviando", id: tmpId, data: hojeISO(), tipo: (ehImg ? "imagem" : "documento") as TipoMidia, midiaMime: file.type, midiaNome: file.name, blobUrl }],
+    }));
+    const fd = new FormData();
+    fd.append("clienteId", convId);
+    fd.append("file", file);
+    try {
+      const r = await fetch("/api/conversas/anexo", { method: "POST", body: fd });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        marcarPend(convId, tmpId, { status: "erro" });
+        mostrarToast(j.erro === "janela_fechada" ? "A janela de 24h fechou." : j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : j.erro === "arquivo_grande" ? "Arquivo grande demais (máx 16MB)." : "Não consegui enviar o anexo.");
+      } else {
+        const j = await r.json();
+        marcarPend(convId, tmpId, { status: "enviado", serverId: j.id });
+        atualizar();
+      }
+    } catch {
+      marcarPend(convId, tmpId, { status: "erro" });
+      mostrarToast("Sem conexão. Tente de novo.");
+    }
   }
-  function addEtiqueta() {
-    const t = novaTag.trim();
-    if (!t) return setAddTag(false);
-    setTagsExtra((x) => ({ ...x, [ativa.id]: [...(x[ativa.id] ?? []), t] }));
-    setNovaTag("");
-    setAddTag(false);
+
+  // Envio de template (fora da janela, na conversa aberta OU nova conversa).
+  async function enviarTemplate(payload: { clienteId?: string; telefone?: string; nome: string; idioma: string; parametros: string[]; preview: string }): Promise<boolean> {
+    try {
+      const r = await fetch("/api/conversas/template", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        mostrarToast(j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : j.erro === "telefone_invalido" ? "Número inválido." : "Não consegui enviar o modelo.");
+        return false;
+      }
+      await atualizar();
+      if (j.clienteId) { setAtivaId(j.clienteId); setVista("chat"); }
+      mostrarToast("Modelo enviado.");
+      return true;
+    } catch {
+      mostrarToast("Sem conexão. Tente de novo.");
+      return false;
+    }
   }
 
   return (
-    <div className="px-6 py-6 h-screen flex flex-col">
-      <div className="text-[11px] uppercase tracking-[0.2em] text-dourado font-semibold mb-3 shrink-0">Atendimentos</div>
+    <div className="h-[100dvh] flex flex-col px-3 md:px-6 py-3 md:py-6">
+      <div className="hidden md:block text-[11px] uppercase tracking-[0.2em] text-dourado font-semibold mb-3 shrink-0">Atendimentos</div>
 
       <div className="flex-1 min-h-0">
-        <div className="grid grid-cols-[300px_1fr_280px] gap-4 h-full">
-          {/* ---------- LISTA ---------- */}
-          <div className="glass rounded-[20px] flex flex-col min-h-0 overflow-hidden">
+        <div className="h-full md:grid md:grid-cols-[minmax(300px,360px)_1fr] md:gap-4">
+          {/* ===================== LISTA ===================== */}
+          <div className={"glass rounded-[20px] flex-col min-h-0 overflow-hidden h-full " + (vista === "chat" ? "hidden md:flex" : "flex")}>
             <div className="p-3 flex items-center gap-2">
               <div className="relative flex-1">
                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-cream/45" />
                 <input
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
-                  placeholder="Pesquisar"
+                  placeholder="Pesquisar nome, número ou mensagem"
                   className="w-full bg-white/10 rounded-[10px] pl-9 pr-3 py-2 text-[13px] text-cream placeholder:text-cream/45 focus:outline-none focus:ring-2 focus:ring-cobre/25"
                 />
               </div>
+              <button onClick={() => setNovaAberto(true)} className="btn-cobre press w-9 h-9 grid place-items-center shrink-0" aria-label="Nova conversa" title="Nova conversa">
+                <Plus size={18} />
+              </button>
             </div>
-            {/* abas de filtro */}
-            <div className="px-3 pb-2 flex items-center gap-1">
-              {ABAS.map((a) => (
-                <button key={a.id} onClick={() => setAba(a.id)} className={"text-[11.5px] font-medium px-2.5 py-1 rounded-full transition-colors " + (aba === a.id ? "bg-cobre/20 text-[color:var(--brand-cobre-l)]" : "text-cream/55 hover:text-cream hover:bg-white/8")}>
-                  {a.nome}
-                </button>
-              ))}
-            </div>
+
             <ScrollArea className="flex-1 min-h-0">
               <div className="px-2 pb-2">
-                {filtradas.length === 0 && <div className="px-3 py-10 text-[13px] text-cream/55 text-center">Nada encontrado.</div>}
+                {filtradas.length === 0 && (
+                  <div className="px-3 py-10 text-[13px] text-cream/55 text-center">{busca ? "Nada encontrado." : "Nenhuma conversa ainda."}</div>
+                )}
                 {filtradas.map((c) => {
-                  const on = c.id === ativa.id;
-                  const cctrl = controle[c.id] ?? "ia";
-                  const st = resolvidas[c.id] ? "Resolvido" : cctrl === "humano" ? "Você atendendo" : "IA atendendo";
-                  const sc = resolvidas[c.id] ? "#9aa0a6" : cctrl === "humano" ? "#e59355" : "#4fd07f";
+                  const on = c.id === ativa?.id;
+                  const naoLidas = naoLidasLocal[c.id] ?? c.naoLidas;
+                  const handoff = c.estado === "precisa_humano";
                   return (
                     <button
                       key={c.id}
-                      onClick={() => setAtivaId(c.id)}
-                      className={"w-full text-left px-2.5 py-2.5 rounded-[12px] flex gap-2.5 transition-colors mb-0.5 " + (on ? "grad-cobre" : "hover:bg-white/10")}
+                      onClick={() => abrir(c.id)}
+                      className={"w-full text-left px-2.5 py-2.5 rounded-[12px] flex gap-2.5 transition-colors mb-0.5 relative " + (on ? "grad-cobre" : "hover:bg-white/10")}
+                      style={handoff && !on ? { boxShadow: "inset 3px 0 0 #e7cf94" } : undefined}
                     >
                       <Avatar nome={c.clienteNome} tam={44} raio={12} />
                       <div className="min-w-0 flex-1">
@@ -350,20 +430,16 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                         </div>
                         <div className="flex items-center justify-between gap-2 mt-0.5">
                           <span className={"text-[12px] truncate " + (on ? "text-white/85" : "text-cream/70")}>{c.previa}</span>
-                          {aguardandoDe(c) && (
-                            <span className="shrink-0">
-                              {c.naoLidas > 0 ? (
-                                <span className="min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full text-[10px] font-bold" style={{ background: on ? "#fff" : "#e08a3c", color: on ? "#8f4712" : "#fff" }}>{c.naoLidas}</span>
-                              ) : (
-                                <span className="w-2 h-2 rounded-full inline-block" style={{ background: on ? "#fff" : "#e08a3c" }} />
-                              )}
-                            </span>
+                          {naoLidas > 0 && (
+                            <span className="shrink-0 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full text-[10px] font-bold" style={{ background: on ? "#fff" : "#25d366", color: on ? "#8f4712" : "#06331a" }}>{naoLidas}</span>
                           )}
                         </div>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: on ? "#fff" : sc }} />
-                          <span className={"text-[10px] " + (on ? "text-white/85" : "")} style={on ? undefined : { color: sc }}>{st}</span>
-                        </div>
+                        {handoff && (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <ShieldAlert size={12} style={{ color: on ? "#fff" : "#e7cf94" }} />
+                            <span className="text-[10px] font-medium" style={{ color: on ? "#fff" : "#e7cf94" }}>Precisa de você</span>
+                          </div>
+                        )}
                       </div>
                     </button>
                   );
@@ -372,223 +448,338 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
             </ScrollArea>
           </div>
 
-          {/* ---------- CHAT ---------- */}
-          <div className="glass rounded-[20px] flex flex-col min-h-0 overflow-hidden">
-            {/* cabecalho */}
-            <div className="px-4 h-[58px] border-b border-white/10 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <Avatar nome={ativa.clienteNome} tam={38} raio={12} />
-                <div className="min-w-0">
-                  <div className="font-semibold text-cream text-[14.5px] truncate">{ativa.clienteNome}</div>
-                  <div className="flex items-center gap-1.5 text-[11px] mt-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusCor }} />
-                    <span style={{ color: statusCor }}>{statusTxt}</span>
+          {/* ===================== CHAT ===================== */}
+          <div className={"glass rounded-[20px] flex-col min-h-0 overflow-hidden h-full " + (vista === "lista" ? "hidden md:flex" : "flex")}>
+            {!ativa ? (
+              <div className="flex-1 grid place-items-center px-6 text-center">
+                <div>
+                  <div className="mx-auto w-14 h-14 rounded-2xl grid place-items-center text-dourado mb-3" style={{ background: "rgba(212,175,55,0.12)" }}>
+                    <MessageSquare size={26} />
                   </div>
+                  <div className="tracking-tight-apple text-xl font-bold text-cream">Selecione uma conversa</div>
+                  <p className="text-sm text-cream/60 mt-1 max-w-xs mx-auto">Escolha um cliente à esquerda pra ver e responder as mensagens do WhatsApp.</p>
                 </div>
               </div>
-              <div className="relative shrink-0">
-                <button onClick={() => setMenuAberto((v) => !v)} className="w-9 h-9 grid place-items-center rounded-full text-cream/55 hover:text-cream hover:bg-white/10 transition-colors" aria-label="Mais opções">
-                  <MoreVertical size={18} />
-                </button>
-                {menuAberto && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setMenuAberto(false)} />
-                    <div className="absolute right-0 top-11 z-20 w-52 rounded-[14px] p-1.5 text-[13px]" style={POPOVER}>
-                      <button onClick={() => { setResolvidas((r) => ({ ...r, [ativa.id]: !r[ativa.id] })); setMenuAberto(false); }} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-cream/85 hover:bg-white/10">
-                        <CheckCheck size={16} /> {resolvida ? "Reabrir conversa" : "Marcar como resolvida"}
-                      </button>
-                      <button onClick={() => { setArquivadas((a) => ({ ...a, [ativa.id]: true })); setMenuAberto(false); setAtivaId(undefined); }} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-cream/85 hover:bg-white/10">
-                        <Archive size={16} /> Arquivar conversa
-                      </button>
-                      <button onClick={() => { setArquivadas((a) => ({ ...a, [ativa.id]: true })); setMenuAberto(false); setAtivaId(undefined); }} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#ff8a8a] hover:bg-white/10">
-                        <Ban size={16} /> Bloquear contato
-                      </button>
+            ) : (
+              <>
+                {/* cabeçalho */}
+                <div className="px-3 md:px-4 h-[58px] border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <button onClick={() => setVista("lista")} className="md:hidden w-9 h-9 grid place-items-center rounded-full text-cream/70 hover:bg-white/10 -ml-1" aria-label="Voltar">
+                      <ArrowLeft size={20} />
+                    </button>
+                    <Avatar nome={ativa.clienteNome} tam={38} raio={11} />
+                    <div className="min-w-0">
+                      <div className="font-semibold text-cream text-[14.5px] truncate">{ativa.clienteNome}</div>
+                      <div className="text-[11px] text-cream/55 truncate">{formatarTelefoneBR(ativa.clienteTelefone)}</div>
                     </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* mensagens agrupadas */}
-            <ScrollArea className="flex-1 min-h-0">
-              <div className="px-6 py-4 flex flex-col">
-                {mensagens.map((m, i) => {
-                  const ant = mensagens[i - 1];
-                  const primeiro = !ant || ant.de !== m.de;
-                  return <Balao key={i} {...m} nome={ativa.clienteNome} primeiro={primeiro} />;
-                })}
-                <div ref={fim} />
-              </div>
-            </ScrollArea>
-
-            {/* controle IA / humano */}
-            <div className="px-3 pt-2.5 border-t border-white/10" style={{ background: "rgba(255,255,255,0.04)" }}>
-              <div className="flex items-center justify-between gap-2 mb-2 text-[12px]">
-                <span className="flex items-center gap-1.5" style={{ color: statusCor }}>
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: statusCor }} />
-                  {ctrl === "humano" ? "Você está atendendo" : "A IA está respondendo"}
-                </span>
-                {ctrl === "humano" ? (
-                  <button onClick={() => setControle((c) => ({ ...c, [ativa.id]: "ia" }))} className="press inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-full border border-cobre/40 text-[color:var(--brand-cobre-l)] hover:bg-cobre/10 transition-colors">
-                    <Bot size={14} /> Devolver para a IA
-                  </button>
-                ) : (
-                  <button onClick={() => setControle((c) => ({ ...c, [ativa.id]: "humano" }))} className="btn-cobre press inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5">
-                    <UserRound size={14} /> Assumir conversa
-                  </button>
-                )}
-              </div>
-
-              {/* composer */}
-              <div className="relative flex items-center gap-1.5 pb-2.5">
-                <button onClick={() => fileRef.current?.click()} className="w-9 h-9 grid place-items-center rounded-full text-cream/55 hover:text-cream hover:bg-white/10 transition-colors" aria-label="Anexar arquivo">
-                  <Paperclip size={18} />
-                </button>
-                <button onClick={() => setRespostasAbertas((v) => !v)} className="w-9 h-9 grid place-items-center rounded-full text-cream/55 hover:text-cream hover:bg-white/10 transition-colors" aria-label="Respostas rápidas" title="Respostas rápidas (ou digite /)">
-                  <Zap size={18} />
-                </button>
-                <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) anexar(f.name); e.target.value = ""; }} />
-                <input
-                  value={texto}
-                  onChange={(e) => setTexto(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") enviar(); }}
-                  placeholder="Escreva uma mensagem"
-                  className="flex-1 bg-white/10 rounded-full px-4 py-2.5 text-[13.5px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25"
-                />
-                <button onClick={enviar} disabled={!texto.trim()} className="grad-cobre press w-10 h-10 rounded-full grid place-items-center text-white shrink-0 shadow-[0_6px_16px_rgba(143,71,18,0.3)] disabled:opacity-45 disabled:cursor-default" aria-label="Enviar">
-                  <SendHorizontal size={18} />
-                </button>
-
-                {mostrarRespostas && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setRespostasAbertas(false)} />
-                    <div className="absolute left-0 right-14 bottom-14 z-20 rounded-[16px] p-1.5 max-h-72 overflow-auto" style={POPOVER}>
-                      <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-cream/40">Respostas rápidas</div>
-                      {respostasFiltradas.map((r, i) => (
-                        <button key={i} onClick={() => { setTexto(r); setRespostasAbertas(false); }} className="w-full text-left px-3 py-2 rounded-lg text-[13px] text-cream/85 hover:bg-white/10 leading-snug">
-                          {r}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* ---------- INFO DO CONTATO ---------- */}
-          <div className="glass rounded-[20px] flex flex-col min-h-0 overflow-hidden">
-            <ScrollArea className="flex-1 min-h-0">
-              <div className="p-5">
-                {/* topo */}
-                <div className="flex flex-col items-center text-center pb-4">
-                  <Avatar nome={ativa.clienteNome} tam={64} raio={18} />
-                  <div className="font-semibold text-cream text-[16px] mt-3">{ativa.clienteNome}</div>
-                  <a href={linkWhatsapp(ativa.clienteTelefone)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-cream/60 mt-1 hover:text-cream transition-colors">
-                    <span className="text-[#4fd07f]"><WhatsAppIcon size={12} /></span> {formatarTelefoneBR(ativa.clienteTelefone)}
-                  </a>
-                </div>
-
-                {/* etiquetas */}
-                <div className="border-t border-white/10 pt-4">
-                  <span className="t-label text-cream/45">Etiquetas</span>
-                  <div className="flex flex-wrap items-center gap-2 mt-2.5">
-                    <Etiqueta tom="dourado">Cliente</Etiqueta>
-                    <Etiqueta tom={ctrl === "humano" ? "cobre" : "whatsapp"} comPonto>{statusTxt}</Etiqueta>
-                    <Etiqueta tom="whatsapp" icone={<WhatsAppIcon size={11} />}>WhatsApp</Etiqueta>
-                    {tags.map((t, i) => (
-                      <Etiqueta key={i} tom="neutro" onRemover={() => setTagsExtra((x) => ({ ...x, [ativa.id]: tags.filter((_, j) => j !== i) }))}>{t}</Etiqueta>
-                    ))}
-                    {addTag ? (
-                      <input
-                        autoFocus
-                        value={novaTag}
-                        onChange={(e) => setNovaTag(e.target.value)}
-                        onBlur={addEtiqueta}
-                        onKeyDown={(e) => { if (e.key === "Enter") addEtiqueta(); if (e.key === "Escape") setAddTag(false); }}
-                        placeholder="Nome da etiqueta"
-                        className="h-6 w-32 bg-white/10 rounded-full px-3 text-[11px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25"
-                      />
-                    ) : (
-                      <button onClick={() => setAddTag(true)} className="h-6 w-6 grid place-items-center rounded-full bg-white/8 text-cream/60 hover:bg-white/15 hover:text-cream transition-colors" aria-label="Adicionar etiqueta">
-                        <Plus size={13} />
-                      </button>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {ativa.estado === "precisa_humano" && (
+                      <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 h-7 rounded-full" style={{ background: "rgba(231,207,148,0.14)", color: "#e7cf94" }}>
+                        <ShieldAlert size={13} /> Precisa de você
+                      </span>
                     )}
+                    <button onClick={() => setDrawer(true)} className="w-9 h-9 grid place-items-center rounded-full text-cream/55 hover:text-cream hover:bg-white/10 transition-colors" aria-label="Informações do contato">
+                      <Info size={18} />
+                    </button>
                   </div>
                 </div>
 
-                {/* info operacional do atendimento */}
-                <div className="border-t border-white/10 pt-4 mt-4">
-                  <span className="t-label text-cream/45">Atendimento</span>
-                  <div className="mt-2.5 space-y-2.5 text-[13px]">
-                    <div className="flex items-center gap-2.5">
-                      {ctrl === "humano" ? <UserRound size={14} className="shrink-0" style={{ color: statusCor }} /> : <Bot size={14} className="shrink-0" style={{ color: statusCor }} />}
-                      <span style={{ color: statusCor }}>{statusTxt}</span>
+                {/* mensagens */}
+                <ScrollArea className="flex-1 min-h-0">
+                  <div className="px-3 md:px-6 py-4 flex flex-col">
+                    {mensagens.map((m, i) => {
+                      const ant = mensagens[i - 1];
+                      const mostrarDia = !ant || ant.data !== m.data;
+                      const primeiro = !ant || ant.de !== m.de || mostrarDia;
+                      return (
+                        <div key={m.id ?? i}>
+                          {mostrarDia && m.data && (
+                            <div className="flex justify-center my-3">
+                              <span className="text-[11px] text-cream/70 px-3 py-1 rounded-full" style={{ background: "rgba(0,0,0,0.22)" }}>{rotuloDia(m.data)}</span>
+                            </div>
+                          )}
+                          <Balao m={m} primeiro={primeiro} onImagem={setLightbox} />
+                        </div>
+                      );
+                    })}
+                    <div ref={fim} />
+                  </div>
+                </ScrollArea>
+
+                {/* composer / aviso de janela */}
+                <div className="px-3 pt-2.5 pb-3 border-t border-white/10 shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>
+                  {janelaAberta ? (
+                    <div className="flex items-end gap-1.5">
+                      <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) anexar(f); e.target.value = ""; }} />
+                      <button onClick={() => fileRef.current?.click()} className="w-10 h-10 grid place-items-center rounded-full text-cream/55 hover:text-cream hover:bg-white/10 transition-colors shrink-0" aria-label="Anexar arquivo">
+                        <Paperclip size={18} />
+                      </button>
+                      <textarea
+                        value={texto}
+                        onChange={(e) => setTexto(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviarTexto(); } }}
+                        placeholder="Escreva uma mensagem"
+                        rows={1}
+                        className="flex-1 resize-none bg-white/10 rounded-[20px] px-4 py-2.5 text-[13.5px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25 max-h-32"
+                      />
+                      <button onClick={enviarTexto} disabled={!texto.trim() || enviando} className="grad-cobre press w-10 h-10 rounded-full grid place-items-center text-white shrink-0 shadow-[0_6px_16px_rgba(143,71,18,0.3)] disabled:opacity-45 disabled:cursor-default" aria-label="Enviar">
+                        <SendHorizontal size={18} />
+                      </button>
                     </div>
-                    <div className="flex items-center gap-2.5 text-cream/75">
-                      <Clock size={14} className="shrink-0 text-cream/45" />
-                      <span>Aberta desde {ativa.mensagens[0]?.hora ?? "-"}</span>
-                    </div>
-                    <div className="flex items-start gap-2.5 text-cream/75">
-                      <CheckCheck size={14} className="shrink-0 mt-0.5 text-cream/45" />
-                      <div className="min-w-0">
-                        <div>{aguardando ? "Aguardando cliente" : "Cliente aguardando resposta"}</div>
-                        <div className="text-[11px] text-cream/45 mt-0.5">último contato {ultima?.hora ?? "-"}</div>
+                  ) : (
+                    <div className="rounded-[14px] p-3" style={{ background: "rgba(231,207,148,0.10)", border: "1px solid rgba(231,207,148,0.22)" }}>
+                      <div className="flex items-start gap-2.5">
+                        <Clock size={16} className="text-dourado-l shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[13px] text-cream font-medium">Passou de 24h da última mensagem do cliente</div>
+                          <p className="text-[12px] text-cream/65 mt-0.5">Pela regra da Meta, agora só um modelo aprovado reabre a conversa. Escolha um pra continuar.</p>
+                        </div>
                       </div>
+                      <button onClick={() => setTplAberto(true)} className="btn-cobre press w-full mt-2.5 py-2.5 text-[13px] font-semibold flex items-center justify-center gap-2">
+                        <FileText size={16} /> Escolher modelo aprovado
+                      </button>
                     </div>
-                  </div>
+                  )}
                 </div>
-
-                {/* nota interna (memoria do cliente) */}
-                <div className="border-t border-white/10 pt-4 mt-4">
-                  <span className="t-label text-cream/45">Nota interna</span>
-                  <textarea
-                    value={notas[ativa.clienteTelefone] ?? ""}
-                    onChange={(e) => setNotas((n) => ({ ...n, [ativa.clienteTelefone]: e.target.value }))}
-                    placeholder="Adicionar nota..."
-                    rows={2}
-                    className="w-full mt-2 bg-white/[0.06] rounded-[10px] px-3 py-2 text-[12.5px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25 resize-none leading-relaxed"
-                  />
-                </div>
-
-                {/* dados */}
-                <div className="border-t border-white/10 pt-4 mt-4 space-y-3">
-                  {[["Canal", "WhatsApp"], ["Mensagens", String(mensagens.length)]].map(([l, v]) => (
-                    <div key={l} className="flex items-center justify-between gap-3">
-                      <span className="text-[11px] text-cream/45">{l}</span>
-                      <span className="text-[13px] text-cream font-medium">{v}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <button onClick={() => setVerPedidos(true)} className="w-full mt-5 py-2.5 rounded-[12px] bg-white/8 text-cream/85 text-[13px] font-medium hover:bg-white/14 transition-colors flex items-center justify-center gap-2">
-                  <ShoppingBag size={16} /> Ver pedidos do cliente
-                </button>
-              </div>
-            </ScrollArea>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      {/* modal: pedidos do cliente (dados reais do banco quando houver) */}
-      {verPedidos && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,0.5)" }} onClick={() => setVerPedidos(false)}>
-          <div className="rounded-[20px] w-full max-w-md overflow-hidden flex flex-col" style={{ background: "rgba(73,16,32,0.9)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.14)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-white/10">
-              <div>
-                <div className="t-label text-dourado">Pedidos do cliente</div>
-                <h3 className="t-h2 text-cream mt-1">{ativa.clienteNome}</h3>
-              </div>
-              <button onClick={() => setVerPedidos(false)} className="w-9 h-9 grid place-items-center rounded-full text-cream/60 hover:text-cream hover:bg-white/10" aria-label="Fechar"><X size={18} /></button>
-            </div>
-            <div className="p-6 text-center">
-              <ShoppingBag size={30} className="mx-auto text-cream/30" />
-              <div className="text-cream/70 text-sm mt-3">Nenhum pedido registrado no sistema ainda para este cliente.</div>
-              <div className="text-cream/45 text-xs mt-1">O histórico aparece aqui conforme os pedidos entram pela plataforma.</div>
-            </div>
-          </div>
+      {/* ===================== DRAWER: info do contato ===================== */}
+      {ativa && drawer && (
+        <ContatoDrawer conversa={ativa} qtdMensagens={mensagens.length} onFechar={() => setDrawer(false)} onToast={mostrarToast} />
+      )}
+
+      {/* ===================== LIGHTBOX ===================== */}
+      {lightbox && (
+        <div className="fixed inset-0 z-[60] grid place-items-center p-4" style={{ background: "rgba(0,0,0,0.82)" }} onClick={() => setLightbox(null)}>
+          <button className="absolute top-4 right-4 w-10 h-10 grid place-items-center rounded-full text-white/80 hover:bg-white/10" aria-label="Fechar"><X size={22} /></button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={lightbox} alt="Imagem" className="max-w-full max-h-full rounded-lg" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
+
+      {/* ===================== MODAL: template (fora da janela) ===================== */}
+      {tplAberto && ativa && (
+        <ModalTemplate
+          titulo="Escolher modelo aprovado"
+          comTelefone={false}
+          onFechar={() => setTplAberto(false)}
+          onEnviar={async (nome, idioma, parametros, preview) => {
+            const ok = await enviarTemplate({ clienteId: ativa.id, nome, idioma, parametros, preview });
+            if (ok) setTplAberto(false);
+          }}
+        />
+      )}
+
+      {/* ===================== MODAL: nova conversa ===================== */}
+      {novaAberto && (
+        <ModalTemplate
+          titulo="Nova conversa"
+          comTelefone
+          onFechar={() => setNovaAberto(false)}
+          onEnviar={async (nome, idioma, parametros, preview, telefone) => {
+            const ok = await enviarTemplate({ telefone, nome, idioma, parametros, preview });
+            if (ok) setNovaAberto(false);
+          }}
+        />
+      )}
+
+      {/* ===================== TOAST ===================== */}
+      {toast && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[70] px-4 py-2.5 rounded-full text-[13px] text-white font-medium" style={{ background: "rgba(58,16,28,0.98)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 10px 30px rgba(0,0,0,0.4)" }}>
+          {toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- Drawer de informações do contato ----------
+function ContatoDrawer({ conversa, qtdMensagens, onFechar, onToast }: { conversa: Conversa; qtdMensagens: number; onFechar: () => void; onToast: (t: string) => void }) {
+  const [nota, setNota] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  async function salvarNota() {
+    setSalvando(true);
+    try {
+      await fetch("/api/cliente/nota", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefone: conversa.clienteTelefone, nota }) });
+      onToast("Nota salva.");
+    } catch {
+      onToast("Não consegui salvar a nota.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" style={{ background: "rgba(0,0,0,0.5)" }} onClick={onFechar}>
+      <div className="w-full max-w-sm h-full overflow-auto" style={{ background: "rgba(73,16,32,0.96)", backdropFilter: "blur(24px)", borderLeft: "1px solid rgba(255,255,255,0.14)" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 h-[58px] border-b border-white/10">
+          <span className="text-[11px] uppercase tracking-[0.18em] text-dourado font-semibold">Contato</span>
+          <button onClick={onFechar} className="w-9 h-9 grid place-items-center rounded-full text-cream/60 hover:text-cream hover:bg-white/10" aria-label="Fechar"><X size={18} /></button>
+        </div>
+        <div className="p-5">
+          <div className="flex flex-col items-center text-center pb-4">
+            <Avatar nome={conversa.clienteNome} tam={64} raio={18} />
+            <div className="font-semibold text-cream text-[16px] mt-3">{conversa.clienteNome}</div>
+            <a href={linkWhatsapp(conversa.clienteTelefone)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-cream/60 mt-1 hover:text-cream transition-colors">
+              <span className="text-[#25d366]"><WhatsAppIcon size={12} /></span> {formatarTelefoneBR(conversa.clienteTelefone)}
+            </a>
+          </div>
+          {conversa.estado === "precisa_humano" && (
+            <div className="flex items-center gap-2 text-[12px] rounded-[10px] px-3 py-2 mb-4" style={{ background: "rgba(231,207,148,0.12)", color: "#e7cf94" }}>
+              <ShieldAlert size={14} /> A IA pediu a equipe nesta conversa.
+            </div>
+          )}
+          <div className="border-t border-white/10 pt-4">
+            <span className="t-label text-cream/45">Nota interna</span>
+            <textarea
+              value={nota}
+              onChange={(e) => setNota(e.target.value)}
+              onBlur={salvarNota}
+              placeholder="Preferências, endereço, observações..."
+              rows={3}
+              className="w-full mt-2 bg-white/[0.06] rounded-[10px] px-3 py-2 text-[12.5px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25 resize-none leading-relaxed"
+            />
+            <div className="text-[11px] text-cream/40 mt-1 h-4">{salvando ? "Salvando..." : ""}</div>
+          </div>
+          <div className="border-t border-white/10 pt-4 mt-4 space-y-3">
+            {[["Canal", "WhatsApp"], ["Mensagens", String(qtdMensagens)]].map(([l, v]) => (
+              <div key={l} className="flex items-center justify-between gap-3">
+                <span className="text-[11px] text-cream/45">{l}</span>
+                <span className="text-[13px] text-cream font-medium">{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Modal de template (reabrir fora da janela / nova conversa) ----------
+function ModalTemplate({ titulo, comTelefone, onFechar, onEnviar }: {
+  titulo: string;
+  comTelefone: boolean;
+  onFechar: () => void;
+  onEnviar: (nome: string, idioma: string, parametros: string[], preview: string, telefone?: string) => void | Promise<void>;
+}) {
+  const [templates, setTemplates] = useState<Template[] | null>(null);
+  const [motivo, setMotivo] = useState<string | undefined>();
+  const [sel, setSel] = useState<Template | null>(null);
+  const [params, setParams] = useState<string[]>([]);
+  const [telefone, setTelefone] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/conversas/templates", { cache: "no-store" });
+        const j = await r.json();
+        setTemplates(j.templates ?? []);
+        setMotivo(j.motivo);
+      } catch {
+        setTemplates([]);
+      }
+    })();
+  }, []);
+
+  function escolher(t: Template) {
+    setSel(t);
+    setParams(Array.from({ length: t.variaveis }, () => ""));
+  }
+
+  const preview = sel ? renderPreview(sel.corpo, params) : "";
+  const podeEnviar = Boolean(sel) && (!comTelefone || telefone.replace(/\D/g, "").length >= 10) && params.every((p) => p.trim());
+
+  async function confirmar() {
+    if (!sel || !podeEnviar || enviando) return;
+    setEnviando(true);
+    await onEnviar(sel.nome, sel.idioma, params, preview, comTelefone ? telefone : undefined);
+    setEnviando(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }} onClick={onFechar}>
+      <div className="rounded-[20px] w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col" style={{ background: "rgba(73,16,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.14)" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-white/10">
+          <h3 className="t-h2 text-cream">{titulo}</h3>
+          <button onClick={onFechar} className="w-9 h-9 grid place-items-center rounded-full text-cream/60 hover:text-cream hover:bg-white/10" aria-label="Fechar"><X size={18} /></button>
+        </div>
+
+        <div className="p-5 overflow-auto">
+          {comTelefone && (
+            <div className="mb-4">
+              <span className="t-label text-cream/45">Número do cliente</span>
+              <input
+                value={telefone}
+                onChange={(e) => setTelefone(e.target.value)}
+                placeholder="(49) 9 9999-9999"
+                inputMode="tel"
+                className="w-full mt-2 bg-white/10 rounded-[10px] px-3 py-2.5 text-[13.5px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25"
+              />
+            </div>
+          )}
+
+          <span className="t-label text-cream/45">Modelo aprovado</span>
+          {templates === null ? (
+            <div className="text-[13px] text-cream/55 py-6 text-center">Carregando modelos...</div>
+          ) : templates.length === 0 ? (
+            <div className="text-[13px] text-cream/65 py-6 text-center leading-relaxed">
+              {motivo === "sem_conexao"
+                ? "Conecte o WhatsApp em Conectar WhatsApp pra usar modelos aprovados."
+                : "Nenhum modelo aprovado ainda. Crie e aprove um modelo no Gerenciador da Meta."}
+            </div>
+          ) : (
+            <div className="mt-2 space-y-1.5">
+              {templates.map((t) => (
+                <button
+                  key={t.nome + t.idioma}
+                  onClick={() => escolher(t)}
+                  className={"w-full text-left px-3 py-2.5 rounded-[12px] transition-colors " + (sel?.nome === t.nome && sel?.idioma === t.idioma ? "grad-cobre text-white" : "bg-white/[0.06] hover:bg-white/12 text-cream")}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[13px] font-semibold truncate">{t.nome}</span>
+                    <span className="text-[10px] uppercase tracking-wide opacity-70">{t.idioma}</span>
+                  </div>
+                  <p className="text-[12px] opacity-80 mt-0.5 line-clamp-2">{t.corpo}</p>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {sel && sel.variaveis > 0 && (
+            <div className="mt-4 space-y-2">
+              <span className="t-label text-cream/45">Preencher variáveis</span>
+              {params.map((p, i) => (
+                <input
+                  key={i}
+                  value={p}
+                  onChange={(e) => setParams((arr) => arr.map((x, j) => (j === i ? e.target.value : x)))}
+                  placeholder={`Variável {{${i + 1}}}`}
+                  className="w-full bg-white/10 rounded-[10px] px-3 py-2 text-[13px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25"
+                />
+              ))}
+            </div>
+          )}
+
+          {sel && (
+            <div className="mt-4">
+              <span className="t-label text-cream/45">Prévia</span>
+              <div className="mt-2 rounded-[12px] px-3.5 py-2.5 text-[13px] text-white whitespace-pre-line" style={{ background: "linear-gradient(135deg,#8f4712,#e08a3c)" }}>{preview}</div>
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-white/10">
+          <button onClick={confirmar} disabled={!podeEnviar || enviando} className="btn-cobre press w-full py-2.5 text-[13.5px] font-semibold flex items-center justify-center gap-2 disabled:opacity-45 disabled:cursor-default">
+            {enviando ? "Enviando..." : (<><SendHorizontal size={16} /> Enviar {comTelefone ? "e abrir conversa" : "modelo"}</>)}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

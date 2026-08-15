@@ -25,6 +25,7 @@ import {
   marcarWebhookNovo,
   salvarFotoPendente,
 } from "@/lib/banco/conversas";
+import { definirHandoff } from "@/lib/banco/atendimentos";
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
 import crypto from "node:crypto";
@@ -112,20 +113,26 @@ async function processar(corpo: WebhookPayload) {
       const nomePerfil = valor.contacts?.[0]?.profile?.name;
       const clienteId = await acharOuCriarCliente(negocioId, telefone, nomePerfil);
 
-      // Extrai o texto: transcreve áudio, ou registra a foto de referência (imagem)
-      // e devolve um recado pra IA saber que chegou uma foto.
-      const texto =
-        msg.type === "image" && msg.image?.id
-          ? await tratarImagem(msg, creds, negocioId, clienteId)
-          : await extrairTexto(msg, creds);
-      if (!texto) {
-        // Áudio que não deu pra transcrever: não some em silêncio, pede pra escrever.
-        if (msg.type === "audio") {
+      // Monta a entrada do cliente: texto puro, áudio transcrito, imagem/documento
+      // (baixados e guardados em base64 pra aparecerem no chat do painel, que
+      // agora SUBSTITUI o WhatsApp da dona).
+      const entrada = await montarEntrada(msg, creds, negocioId, clienteId);
+
+      if (!entrada.texto) {
+        // Mídia sem texto aproveitável (ex: áudio que não transcreveu): guarda o
+        // que veio pra equipe ver, e se for áudio pede pra escrever.
+        if (entrada.midia) {
           try {
-            await salvarMensagem(negocioId, clienteId, "user", "[audio nao transcrito]");
-            if (credsTenant.iaAtiva) {
-              await enviarTexto(telefone, "Nao consegui ouvir seu audio, pode escrever pra mim?", creds);
-            }
+            await salvarMensagem(negocioId, clienteId, "user", entrada.rotulo ?? "[midia]", {
+              tipo: entrada.midia.tipo, mime: entrada.midia.mime, dados: entrada.midia.dados, nome: entrada.midia.nome, wamid: msg.id,
+            });
+          } catch (e) {
+            console.error("[whatsapp] falha ao salvar mídia sem texto:", e);
+          }
+        }
+        if (msg.type === "audio" && credsTenant.iaAtiva) {
+          try {
+            await enviarTexto(telefone, "Nao consegui ouvir seu audio, pode escrever pra mim?", creds);
           } catch (e) {
             console.error("[whatsapp] falha no fallback de audio:", e);
           }
@@ -133,8 +140,15 @@ async function processar(corpo: WebhookPayload) {
         continue;
       }
 
+      const texto = entrada.texto;
       try {
-        await salvarMensagem(negocioId, clienteId, "user", texto);
+        await salvarMensagem(negocioId, clienteId, "user", texto, {
+          tipo: entrada.midia?.tipo,
+          mime: entrada.midia?.mime,
+          dados: entrada.midia?.dados,
+          nome: entrada.midia?.nome,
+          wamid: msg.id,
+        });
       } catch (e) {
         console.error("[whatsapp] falha ao salvar mensagem do cliente:", e);
       }
@@ -189,51 +203,87 @@ async function processar(corpo: WebhookPayload) {
       } catch (e) {
         console.error("[whatsapp] falha ao salvar resposta:", e);
       }
-      // resp.precisaHumano: o painel já mostra pela conversa; marcação fina depois.
+
+      // Handoff: a IA pediu a equipe -> marca a conversa como "precisa de você"
+      // (destaque na lista do painel até alguém assumir/responder).
+      if (resp.precisaHumano) {
+        try {
+          await definirHandoff(negocioId, clienteId, true);
+        } catch (e) {
+          console.error("[whatsapp] falha ao marcar handoff:", e);
+        }
+      }
     }
   }
 }
 
-// Texto puro, ou áudio transcrito. Outros tipos: pede pra escrever.
-// Se a transcrição falhar (download/serviço fora), retorna null e o chamador
-// pede pro cliente escrever, em vez de deixar a exceção matar o processamento.
-async function extrairTexto(msg: WhatsAppMessage, creds: CredsEnvio): Promise<string | null> {
-  if (msg.type === "text") return msg.text?.body ?? null;
-  if (msg.type === "audio" && msg.audio?.id) {
-    try {
-      const bin = await baixarMidia(msg.audio.id, creds);
-      return await transcrever(bin);
-    } catch (e) {
-      console.error("[whatsapp] falha ao transcrever audio:", e);
-      return null;
-    }
-  }
-  return "[cliente mandou uma mídia que não é texto nem áudio]";
-}
+// Entrada do cliente já normalizada pro painel: o texto que a IA lê + a mídia
+// (base64) que o chat mostra. Uma imagem também vira "foto de referência" do
+// pedido (mantém o fluxo antigo), além de virar mensagem com mídia na conversa.
+type MidiaEntrada = { tipo: "imagem" | "audio" | "documento"; mime: string; dados: string; nome?: string | null };
+type Entrada = { texto: string | null; rotulo?: string; midia?: MidiaEntrada };
 
-// Imagem recebida: baixa o binário, guarda como foto de referência PENDENTE
-// (presa ao cliente até o pedido fechar) e devolve um recado pra IA acusar o
-// recebimento e anotar "tem foto de referência". A legenda da foto, se houver,
-// vira a mensagem do cliente. Se o download falhar, ainda avisa a IA da foto.
-async function tratarImagem(
+async function montarEntrada(
   msg: WhatsAppMessage,
   creds: CredsEnvio,
   negocioId: string,
   clienteId: string,
-): Promise<string> {
-  const legenda = msg.image?.caption?.trim();
-  const nota = "[o cliente enviou uma foto de referência para o pedido]";
-  const base = legenda ? `${legenda}\n${nota}` : nota;
-  if (!msg.image?.id) return base;
-  try {
-    const bin = await baixarMidia(msg.image.id, creds);
-    const dados = Buffer.from(bin).toString("base64");
-    await salvarFotoPendente(negocioId, clienteId, dados, msg.image.mime_type || "image/jpeg");
-    return base;
-  } catch (e) {
-    console.error("[whatsapp] falha ao salvar foto de referência:", e);
-    return legenda ? `${legenda}\n[o cliente enviou uma foto, mas não consegui salvar]` : "[o cliente enviou uma foto, mas não consegui salvar]";
+): Promise<Entrada> {
+  if (msg.type === "text") return { texto: msg.text?.body ?? null };
+
+  // Áudio: baixa, guarda (pra equipe reouvir) e transcreve (a IA responde texto).
+  if (msg.type === "audio" && msg.audio?.id) {
+    let dados: string | undefined;
+    let transcricao: string | null = null;
+    const mime = msg.audio.mime_type || "audio/ogg";
+    try {
+      const bin = await baixarMidia(msg.audio.id, creds);
+      dados = Buffer.from(bin).toString("base64");
+      try {
+        transcricao = await transcrever(bin);
+      } catch (e) {
+        console.error("[whatsapp] falha ao transcrever audio:", e);
+      }
+    } catch (e) {
+      console.error("[whatsapp] falha ao baixar audio:", e);
+    }
+    return { texto: transcricao, rotulo: "Áudio", midia: dados ? { tipo: "audio", mime, dados } : undefined };
   }
+
+  // Imagem: baixa, guarda como foto de referência do pedido E como mídia do chat.
+  if (msg.type === "image" && msg.image?.id) {
+    const legenda = msg.image.caption?.trim();
+    const nota = "[o cliente enviou uma foto de referência para o pedido]";
+    const mime = msg.image.mime_type || "image/jpeg";
+    let dados: string | undefined;
+    try {
+      const bin = await baixarMidia(msg.image.id, creds);
+      dados = Buffer.from(bin).toString("base64");
+      await salvarFotoPendente(negocioId, clienteId, dados, mime); // mantém a foto no pedido
+    } catch (e) {
+      console.error("[whatsapp] falha ao salvar foto de referência:", e);
+    }
+    const texto = legenda ? `${legenda}\n${nota}` : nota;
+    return { texto, rotulo: legenda || "Foto", midia: dados ? { tipo: "imagem", mime, dados } : undefined };
+  }
+
+  // Documento: baixa e guarda; a IA fica sabendo pelo nome do arquivo.
+  if (msg.type === "document" && msg.document?.id) {
+    const nome = msg.document.filename || "documento";
+    const legenda = msg.document.caption?.trim();
+    const mime = msg.document.mime_type || "application/octet-stream";
+    let dados: string | undefined;
+    try {
+      const bin = await baixarMidia(msg.document.id, creds);
+      dados = Buffer.from(bin).toString("base64");
+    } catch (e) {
+      console.error("[whatsapp] falha ao baixar documento:", e);
+    }
+    const texto = `[o cliente enviou um documento: ${nome}]${legenda ? `\n${legenda}` : ""}`;
+    return { texto, rotulo: nome, midia: dados ? { tipo: "documento", mime, dados, nome } : undefined };
+  }
+
+  return { texto: "[cliente mandou uma mídia que não é texto, áudio, imagem nem documento]" };
 }
 
 // Multi-tenant: mapeia o phone_number_id (do Meta) pro negócio. É uma CONSULTA
@@ -265,8 +315,9 @@ type WhatsAppMessage = {
   from: string;
   type: string;
   text?: { body: string };
-  audio?: { id: string };
+  audio?: { id: string; mime_type?: string };
   image?: { id: string; mime_type?: string; caption?: string };
+  document?: { id: string; mime_type?: string; filename?: string; caption?: string };
 };
 type WebhookPayload = {
   entry?: {

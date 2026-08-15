@@ -60,10 +60,23 @@ export type Pedido = {
   clienteViuEm?: string | null; // ISO da visualizacao (read receipt), se houver
 };
 
+export type TipoMidia = "texto" | "imagem" | "audio" | "documento";
+
 export type Mensagem = {
   de: "cliente" | "ia" | "equipe";
   texto: string;
   hora: string; // HH:MM
+  data?: string; // YYYY-MM-DD (America/Sao_Paulo) — pra separar por dia no chat
+  // Mídia (imagem/audio/documento). A imagem/audio/doc fica no banco em base64 e
+  // é servida por /api/midia/[id]; aqui só trafega o id + metadados (leve).
+  tipo?: TipoMidia;
+  midiaId?: string; // id da mensagem no banco -> /api/midia/[id]
+  midiaMime?: string;
+  midiaNome?: string; // nome do arquivo (documento)
+  // Só no cliente (envio otimista): status visual do balão enquanto sai.
+  status?: "enviando" | "enviado" | "erro";
+  // id da mensagem (dedupe no polling / chave estável).
+  id?: string;
 };
 
 export type Conversa = {
@@ -75,6 +88,10 @@ export type Conversa = {
   estado: "ia" | "precisa_humano" | "resolvido";
   naoLidas: number;
   mensagens: Mensagem[];
+  // Janela de 24h da Meta: epoch (ms) em que a última mensagem do cliente
+  // completa 24h. Depois disso, só template aprovado reabre a conversa.
+  // null = o cliente nunca escreveu (nova conversa proativa).
+  janelaExpiraMs?: number | null;
 };
 
 // Ficha do cliente no CRM: dados + histórico agregado + nota da equipe.

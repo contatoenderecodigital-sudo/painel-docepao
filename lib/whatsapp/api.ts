@@ -48,6 +48,102 @@ export async function enviarTexto(para: string, texto: string, creds?: CredsEnvi
   if (!r.ok) throw new Error(`Falha ao enviar WhatsApp: ${r.status} ${await r.text()}`);
 }
 
+// Manda um TEMPLATE aprovado (única forma de falar FORA da janela de 24h, e de
+// iniciar conversa proativa). `componentes` preenche as variáveis {{1}}, {{2}}...
+// do corpo, quando o template tiver. Sem variáveis, é só nome + idioma.
+export async function enviarTemplate(
+  para: string,
+  nome: string,
+  idioma: string,
+  creds?: CredsEnvio,
+  parametros?: string[],
+): Promise<void> {
+  const { token, phoneId } = resolverCreds(creds);
+  const destino = normalizarBR(para);
+  const componentes =
+    parametros && parametros.length
+      ? [{ type: "body", parameters: parametros.map((t) => ({ type: "text", text: t })) }]
+      : undefined;
+  const r = await fetch(`${BASE}/${phoneId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: destino,
+      type: "template",
+      template: { name: nome, language: { code: idioma }, ...(componentes ? { components: componentes } : {}) },
+    }),
+  });
+  if (!r.ok) throw new Error(`Falha ao enviar template: ${r.status} ${await r.text()}`);
+}
+
+// Envia um ANEXO (imagem ou documento) pela Cloud API. Dois passos: sobe o
+// binário em /media (ganha um id) e depois manda a mensagem referenciando o id.
+// `tipo` = 'image' | 'document'. `legenda`/`nome` são opcionais.
+export async function enviarMidia(
+  para: string,
+  binario: Buffer,
+  mime: string,
+  tipo: "image" | "document",
+  creds?: CredsEnvio,
+  opts?: { legenda?: string; nome?: string },
+): Promise<void> {
+  const { token, phoneId } = resolverCreds(creds);
+  const destino = normalizarBR(para);
+
+  // 1) upload do binário -> media_id
+  const form = new FormData();
+  form.append("messaging_product", "whatsapp");
+  form.append("type", mime);
+  form.append("file", new Blob([new Uint8Array(binario)], { type: mime }), opts?.nome || "arquivo");
+  const up = await fetch(`${BASE}/${phoneId}/media`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!up.ok) throw new Error(`Falha no upload da mídia: ${up.status} ${await up.text()}`);
+  const { id } = (await up.json()) as { id: string };
+
+  // 2) envia a mensagem referenciando o media_id
+  const conteudo =
+    tipo === "image"
+      ? { image: { id, ...(opts?.legenda ? { caption: opts.legenda } : {}) } }
+      : { document: { id, ...(opts?.nome ? { filename: opts.nome } : {}), ...(opts?.legenda ? { caption: opts.legenda } : {}) } };
+  const r = await fetch(`${BASE}/${phoneId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ messaging_product: "whatsapp", to: destino, type: tipo, ...conteudo }),
+  });
+  if (!r.ok) throw new Error(`Falha ao enviar mídia: ${r.status} ${await r.text()}`);
+}
+
+// Lista os TEMPLATES aprovados da WABA do tenant (pra oferecer fora da janela ou
+// em conversa nova). Precisa do waba_id + token do negócio conectado.
+export type TemplateAprovado = {
+  nome: string;
+  idioma: string;
+  categoria: string;
+  corpo: string; // texto do BODY (com {{1}}, {{2}}... quando tiver)
+  variaveis: number; // quantas variáveis o corpo espera
+};
+export async function listarTemplates(wabaId: string, token: string): Promise<TemplateAprovado[]> {
+  const r = await fetch(
+    `${BASE}/${wabaId}/message_templates?fields=name,status,language,category,components&limit=200`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!r.ok) throw new Error(`Falha ao listar templates: ${r.status} ${await r.text()}`);
+  const j = (await r.json()) as {
+    data?: { name: string; status: string; language: string; category: string; components?: { type: string; text?: string }[] }[];
+  };
+  return (j.data ?? [])
+    .filter((t) => t.status === "APPROVED")
+    .map((t) => {
+      const corpo = t.components?.find((c) => c.type === "BODY")?.text ?? "";
+      const variaveis = new Set((corpo.match(/\{\{(\d+)\}\}/g) ?? [])).size;
+      return { nome: t.name, idioma: t.language, categoria: t.category, corpo, variaveis };
+    });
+}
+
 // Baixa o binário de um áudio pelo media_id (pra transcrever). Usa o token do
 // tenant que recebeu a mídia (a URL da mídia é escopada pela WABA dele).
 export async function baixarMidia(mediaId: string, creds?: CredsEnvio): Promise<ArrayBuffer> {

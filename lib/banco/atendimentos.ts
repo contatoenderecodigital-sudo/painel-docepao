@@ -1,26 +1,64 @@
 // ============================================================================
 //  ATENDIMENTOS — as conversas REAIS do WhatsApp (tabela mensagens), pro painel.
-//  Agrupa por cliente, monta o formato Conversa que a tela usa. Por negocio_id.
+//  Agrupa por cliente, monta o formato Conversa que a tela (WhatsApp Web) usa.
+//  Isolamento multi-tenant: TODA query filtra por negocio_id.
+//
+//  A mídia (imagem/audio/documento) NÃO trafega aqui em base64 (seria pesado na
+//  lista): mandamos só o id da mensagem + metadados, e a tela busca o binário
+//  por /api/midia/[id] quando precisa mostrar.
 // ============================================================================
 
-import { query } from "./db";
-import type { Conversa } from "../tipos";
+import { query, queryUm } from "./db";
+import type { Conversa, TipoMidia } from "../tipos";
 
-type MsgBruta = { papel: string; conteudo: string; hora: string };
+type MsgBruta = {
+  id: string;
+  autor: "cliente" | "ia" | "equipe";
+  conteudo: string;
+  hora: string;
+  data: string;
+  tipo: TipoMidia;
+  mime: string | null;
+  nome: string | null;
+  tem_midia: boolean;
+};
 type LinhaConversa = {
   cliente_id: string;
   nome: string | null;
   telefone: string;
+  handoff: boolean;
+  nao_lidas: number;
+  janela_expira_ms: number | null;
   msgs: MsgBruta[] | null;
 };
 
 export async function listarConversas(negocioId: string): Promise<Conversa[]> {
   const linhas = await query<LinhaConversa>(
     `select c.id as cliente_id, c.nome, c.telefone,
+       coalesce(c.handoff, false) as handoff,
+       coalesce((
+         select count(*) from mensagens m
+          where m.cliente_id = c.id and m.negocio_id = $1
+            and coalesce(m.autor, case when m.papel = 'user' then 'cliente' else 'ia' end) = 'cliente'
+            and m.lida = false
+       ), 0)::int as nao_lidas,
+       (
+         select extract(epoch from (max(m.criado_em) + interval '24 hours')) * 1000
+           from mensagens m
+          where m.cliente_id = c.id and m.negocio_id = $1
+            and coalesce(m.autor, case when m.papel = 'user' then 'cliente' else 'ia' end) = 'cliente'
+       )::float8 as janela_expira_ms,
        coalesce(
          (select json_agg(json_build_object(
-            'papel', m.papel, 'conteudo', m.conteudo,
-            'hora', to_char(m.criado_em at time zone 'America/Sao_Paulo', 'HH24:MI'))
+            'id', m.id,
+            'autor', coalesce(m.autor, case when m.papel = 'user' then 'cliente' else 'ia' end),
+            'conteudo', m.conteudo,
+            'hora', to_char(m.criado_em at time zone 'America/Sao_Paulo', 'HH24:MI'),
+            'data', to_char(m.criado_em at time zone 'America/Sao_Paulo', 'YYYY-MM-DD'),
+            'tipo', coalesce(m.tipo, 'texto'),
+            'mime', m.midia_mime,
+            'nome', m.midia_nome,
+            'tem_midia', (m.midia_dados is not null))
           order by m.criado_em)
           from mensagens m where m.cliente_id = c.id and m.negocio_id = $1),
          '[]'::json) as msgs
@@ -28,16 +66,22 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
       where c.negocio_id = $1
         and exists (select 1 from mensagens m where m.cliente_id = c.id and m.negocio_id = $1)
       order by (select max(m.criado_em) from mensagens m where m.cliente_id = c.id and m.negocio_id = $1) desc
-      limit 30`,
+      limit 60`,
     [negocioId],
   );
 
   return linhas.map((l): Conversa => {
     const msgs = l.msgs ?? [];
     const mensagens = msgs.map((m) => ({
-      de: (m.papel === "assistant" ? "ia" : "cliente") as "cliente" | "ia" | "equipe",
+      de: m.autor,
       texto: m.conteudo,
       hora: m.hora,
+      data: m.data,
+      tipo: m.tipo,
+      midiaId: m.tem_midia ? m.id : undefined,
+      midiaMime: m.mime ?? undefined,
+      midiaNome: m.nome ?? undefined,
+      id: m.id,
     }));
     const ultima = msgs[msgs.length - 1];
     return {
@@ -45,10 +89,69 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
       clienteNome: l.nome || "Cliente",
       clienteTelefone: l.telefone,
       ultimaHora: ultima?.hora ?? "",
-      previa: ultima ? ultima.conteudo.slice(0, 60) : "",
-      estado: "ia",
-      naoLidas: 0,
+      previa: ultima ? previaDe(ultima) : "",
+      estado: l.handoff ? "precisa_humano" : "ia",
+      naoLidas: Number(l.nao_lidas) || 0,
+      janelaExpiraMs: l.janela_expira_ms != null ? Number(l.janela_expira_ms) : null,
       mensagens,
     };
   });
+}
+
+// Prévia da última mensagem na lista: mídia vira rótulo curto, texto trunca.
+function previaDe(m: MsgBruta): string {
+  if (m.tipo === "imagem") return "Foto";
+  if (m.tipo === "audio") return "Áudio";
+  if (m.tipo === "documento") return m.nome ? m.nome : "Documento";
+  return (m.conteudo || "").slice(0, 60);
+}
+
+// Marca como lidas todas as mensagens do cliente numa conversa (ao abrir/ler).
+export async function marcarConversaLida(negocioId: string, clienteId: string): Promise<void> {
+  await query(
+    `update mensagens set lida = true
+       where negocio_id = $1 and cliente_id = $2 and lida = false
+         and coalesce(autor, case when papel = 'user' then 'cliente' else 'ia' end) = 'cliente'`,
+    [negocioId, clienteId],
+  );
+}
+
+// Liga/desliga o handoff ("precisa de você") de um cliente.
+export async function definirHandoff(negocioId: string, clienteId: string, valor: boolean): Promise<void> {
+  await query("update clientes set handoff = $3 where negocio_id = $1 and id = $2", [negocioId, clienteId, valor]);
+}
+
+// Última mensagem do CLIENTE (epoch ms) — pra checar a janela de 24h no servidor
+// antes de deixar mandar texto livre. null = cliente nunca escreveu.
+export async function ultimaMsgClienteMs(negocioId: string, clienteId: string): Promise<number | null> {
+  const l = await queryUm<{ ms: number | null }>(
+    `select extract(epoch from max(criado_em)) * 1000 as ms
+       from mensagens
+      where negocio_id = $1 and cliente_id = $2
+        and coalesce(autor, case when papel = 'user' then 'cliente' else 'ia' end) = 'cliente'`,
+    [negocioId, clienteId],
+  );
+  return l?.ms != null ? Number(l.ms) : null;
+}
+
+// Serve a mídia de UMA mensagem (rota /api/midia/[id]), escopada por negócio.
+export async function buscarMidiaMensagem(
+  negocioId: string,
+  mensagemId: string,
+): Promise<{ dados: string; mime: string; nome: string | null } | null> {
+  return queryUm<{ dados: string; mime: string; nome: string | null }>(
+    `select midia_dados as dados, coalesce(midia_mime, 'application/octet-stream') as mime, midia_nome as nome
+       from mensagens
+      where negocio_id = $1 and id = $2 and midia_dados is not null`,
+    [negocioId, mensagemId],
+  );
+}
+
+// Telefone do cliente (pra enviar), escopado por negócio.
+export async function telefoneDoCliente(negocioId: string, clienteId: string): Promise<string | null> {
+  const l = await queryUm<{ telefone: string }>(
+    "select telefone from clientes where negocio_id = $1 and id = $2",
+    [negocioId, clienteId],
+  );
+  return l?.telefone ?? null;
 }
