@@ -159,3 +159,57 @@ export async function baixarMidia(mediaId: string, creds?: CredsEnvio): Promise<
   if (!bin.ok) throw new Error(`Falha ao baixar mídia: ${bin.status}`);
   return bin.arrayBuffer();
 }
+
+// ---------------------------------------------------------------------------
+// Cardápios em imagem
+// ---------------------------------------------------------------------------
+// Mandar a peça pronta em vez de a IA redigitar o cardápio: o cliente lê melhor,
+// não tem risco de a IA errar um preço no meio, e não gasta token nenhum —
+// imagem é mensagem de mídia, não texto gerado.
+//
+// Por LINK e não por upload de propósito: o media_id da Meta expira em 30 dias,
+// e aí o cardápio pararia de chegar sem ninguém perceber. As peças moram em
+// public/cardapios/ e são servidas pelo próprio painel — não expiram e sobem
+// junto com o deploy quando a dona muda um preço.
+
+export const CARDAPIOS = [
+  "salgados",
+  "docinhos",
+  "bolos-festa",
+  "bolos-caseiros",
+  "cucas-paes",
+  "tortas-empadao",
+  "pizza",
+  "cupcakes-franciscano",
+] as const;
+export type CardapioId = (typeof CARDAPIOS)[number];
+
+function baseDoApp(): string {
+  return (process.env.APP_URL || "https://docepao.enderecodigital.tech").replace(/\/+$/, "");
+}
+
+export function urlDoCardapio(id: string): string {
+  return `${baseDoApp()}/cardapios/${id}.jpg`;
+}
+
+/** Manda uma imagem por URL pública (sem upload, sem media_id que expira). */
+export async function enviarImagemPorLink(
+  para: string,
+  url: string,
+  legenda: string | undefined,
+  creds?: CredsEnvio,
+): Promise<void> {
+  const { token, phoneId } = resolverCreds(creds);
+  const destino = normalizarBR(para);
+  const r = await fetch(`${BASE}/${phoneId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: destino,
+      type: "image",
+      image: { link: url, ...(legenda ? { caption: legenda } : {}) },
+    }),
+  });
+  if (!r.ok) throw new Error(`Falha ao enviar imagem: ${r.status} ${await r.text()}`);
+}

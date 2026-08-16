@@ -11,6 +11,7 @@
 // ============================================================================
 
 import OpenAI from "openai";
+import { CARDAPIOS, type CardapioId } from "@/lib/whatsapp/api";
 import { montarSystemPrompt, DOCE_PAO, type ConfigNegocio } from "./persona";
 import { motorPadrao, formatarOrcamento, brl, type Motor, type LinhaCotacao } from "./orcamento";
 import { registrarUsoIA, type UsoTurno } from "./uso";
@@ -106,6 +107,26 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "enviar_cardapio",
+      description:
+        "Manda a FOTO do cardápio pro cliente. USE SEMPRE que ele pedir o cardápio, a lista de sabores, os tipos ou os preços de uma categoria inteira ('quais sabores de bolo?', 'me manda o cardápio', 'quanto custa os salgados?'). A imagem já tem todos os itens e preços: depois de chamar, NÃO escreva a lista em texto, só diga em uma linha que está mandando e pergunte o que a pessoa quer. Para preço de um item específico que o cliente já escolheu, use montar_orcamento em vez desta.",
+      parameters: {
+        type: "object",
+        properties: {
+          cardapios: {
+            type: "array",
+            description:
+              "Quais peças mandar. Mande só as que respondem a pergunta (uma na maioria das vezes).",
+            items: { type: "string", enum: [...CARDAPIOS] },
+          },
+        },
+        required: ["cardapios"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "registrar_pedido",
       description:
         "Registra o pedido pra equipe aprovar. USE só depois que o cliente confirmou o orçamento E informou o dia/hora da retirada.",
@@ -157,6 +178,8 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
 export type RespostaIA = {
   texto: string; // o que mandar de volta pro cliente
   precisaHumano: boolean; // se true, entra na fila de "precisa de você" do painel
+  // Peças de cardápio que o webhook deve mandar como imagem logo depois do texto.
+  cardapiosParaEnviar: CardapioId[];
   pedidoRegistrado: null | {
     itens: { item: string; qtd: number; obs?: string }[];
     linhas: LinhaCotacao[]; // já calculado pelo motor do tenant (pro banco não recalcular)
@@ -180,7 +203,7 @@ export type Mensagem = { role: "user" | "assistant"; content: string };
 function executarFerramenta(
   nome: string,
   input: Record<string, unknown>,
-  estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"] },
+  estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"]; cardapios: CardapioId[] },
   motor: Motor,
 ): string {
   if (nome === "montar_orcamento") {
@@ -198,6 +221,21 @@ function executarFerramenta(
   if (nome === "chamar_humano") {
     estado.precisaHumano = true;
     return "OK, marquei pra equipe assumir esta conversa. Avise o cliente com carinho que já já respondem.";
+  }
+
+  if (nome === "enviar_cardapio") {
+    // A imagem sai depois, no webhook: aqui só marcamos qual peça mandar. O
+    // executor é síncrono e o envio é I/O — misturar os dois travaria o turno.
+    const pedidos = (Array.isArray(input.cardapios) ? input.cardapios : [input.cardapio])
+      .map((c) => String(c || "").trim())
+      .filter((c): c is CardapioId => (CARDAPIOS as readonly string[]).includes(c));
+    if (!pedidos.length) return "Não conheço esse cardápio. Peça um destes: " + CARDAPIOS.join(", ");
+    for (const c of pedidos) if (!estado.cardapios.includes(c)) estado.cardapios.push(c);
+    return (
+      `A imagem do cardápio (${pedidos.join(", ")}) já vai ser enviada logo depois da sua mensagem. ` +
+      `NÃO liste os itens nem os preços em texto: só diga em uma linha curta que está mandando o cardápio ` +
+      `e pergunte o que a pessoa quer.`
+    );
   }
 
   if (nome === "registrar_pedido") {
@@ -348,7 +386,7 @@ async function rodarConversa(
     timeout: 15_000, // não fica pendurado; se travar, cai pro próximo provedor
     maxRetries: 0, // a cadeia de provedores já é a nossa retentativa
   });
-  const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"] };
+  const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"], cardapios: [] as CardapioId[] };
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: system },
     ...historico.map((m) => ({ role: m.role, content: m.content })),
@@ -388,6 +426,7 @@ async function rodarConversa(
         texto: (msg.content || "").trim(),
         precisaHumano: estado.precisaHumano,
         pedidoRegistrado: estado.pedido,
+        cardapiosParaEnviar: estado.cardapios,
       };
     }
 
@@ -411,6 +450,7 @@ async function rodarConversa(
     texto: "Deixa eu chamar alguém da equipe pra te ajudar com isso.",
     precisaHumano: true,
     pedidoRegistrado: estado.pedido,
+    cardapiosParaEnviar: estado.cardapios,
   };
 }
 

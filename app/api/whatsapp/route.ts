@@ -15,7 +15,7 @@
 import { NextRequest, after } from "next/server";
 import { responder } from "@/lib/ia/cerebro";
 import { carregarTenant } from "@/lib/ia/tenant";
-import { enviarTexto, baixarMidia, type CredsEnvio } from "@/lib/whatsapp/api";
+import { enviarTexto, enviarImagemPorLink, urlDoCardapio, baixarMidia, type CredsEnvio } from "@/lib/whatsapp/api";
 import { transcrever } from "@/lib/whatsapp/transcrever";
 import {
   acharOuCriarCliente,
@@ -195,8 +195,21 @@ async function processar(corpo: WebhookPayload) {
 
       // Guard contra resposta vazia (modelo devolveu nada): manda algo, não body vazio.
       const textoResp = (resp.texto || "").trim() || "Ja recebi sua mensagem, so um instante.";
+      // Cardápio pedido: manda a peça pronta depois do texto. Uma imagem custa
+      // zero token e não corre o risco de a IA errar preço redigitando a lista.
+      // Falha de imagem nunca derruba a resposta — o texto já foi entregue.
+      const mandarCardapios = async () => {
+        for (const c of resp.cardapiosParaEnviar ?? []) {
+          try {
+            await enviarImagemPorLink(telefone, urlDoCardapio(c), undefined, creds);
+          } catch (e) {
+            console.error("[whatsapp] falha ao enviar cardapio", c, e);
+          }
+        }
+      };
       try {
         await enviarTexto(telefone, textoResp, creds);
+        await mandarCardapios();
       } catch (e) {
         console.error("[whatsapp] falha ao enviar resposta:", e);
       }
