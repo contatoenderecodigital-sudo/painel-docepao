@@ -18,9 +18,8 @@ import {
 import { NumberTicker } from "@/components/ui/number-ticker";
 import { DeptIcone } from "@/components/DeptIcone";
 import AjudaInfo from "@/components/AjudaInfo";
+import PedidoDetalhe from "@/components/PedidoDetalhe";
 import { Image as ImageIcon, Printer, Check } from "lucide-react";
-
-type StatusUI = "a_produzir" | "pronto" | "retirado";
 
 const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const DOW = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
@@ -49,12 +48,6 @@ function Pill({ on, cor, children, onClick }: { on: boolean; cor?: string; child
       {children}
     </button>
   );
-}
-
-function statusInfo(s: StatusUI) {
-  if (s === "pronto") return { txt: "Pronto", cor: "#35c46f", bg: "rgba(53,196,111,0.15)" };
-  if (s === "retirado") return { txt: "Retirado", cor: "#9aa0a6", bg: "rgba(255,255,255,0.08)" };
-  return { txt: "A produzir", cor: "#e0b04a", bg: "rgba(231,207,148,0.15)" };
 }
 
 export default function PedidosDoDia({
@@ -108,11 +101,10 @@ export default function PedidosDoDia({
     return Object.keys(m).sort()[0] ?? h;
   });
   const [depto, setDepto] = useState<DeptoId | "todos">("todos");
-  const [status, setStatus] = useState<StatusUI | "todos">("todos");
   const [busca, setBusca] = useState("");
   const [mesRef, setMesRef] = useState(sel);
-  const [prontos, setProntos] = useState<Record<string, boolean>>({});
-  const [statusManual, setStatusManual] = useState<Record<string, StatusUI>>({});
+  // Detalhe completo de um pedido (clicar no card abre).
+  const [detalhe, setDetalhe] = useState<Pedido | null>(null);
 
   const comData = useMemo(() => pedidos.filter((p) => p.retiradaData), [pedidos]);
 
@@ -123,16 +115,13 @@ export default function PedidosDoDia({
     return m;
   }, [comData]);
 
-  const statusDe = (p: Pedido): StatusUI => statusManual[p.id] ?? "a_produzir";
-
-  // pedidos do dia selecionado (com busca + status)
+  // pedidos do dia selecionado (com busca)
   const doDia = useMemo(() => {
     return comData
       .filter((p) => p.retiradaData === sel)
       .filter((p) => (busca ? p.clienteNome.toLowerCase().includes(busca.trim().toLowerCase()) : true))
-      .filter((p) => (status === "todos" ? true : statusDe(p) === status))
       .sort((a, b) => (a.retiradaHora ?? "99").localeCompare(b.retiradaHora ?? "99"));
-  }, [comData, sel, busca, status, statusManual]);
+  }, [comData, sel, busca]);
 
   const agregado = useMemo(() => agregarPorDepto(doDia), [doDia]);
 
@@ -194,16 +183,6 @@ export default function PedidosDoDia({
           ))}
         </div>
 
-        <div className="w-px h-6 bg-white/12 mx-1" />
-
-        <div className="flex items-center gap-1.5">
-          {(["todos", "a_produzir", "pronto", "retirado"] as const).map((s) => (
-            <Pill key={s} on={status === s} onClick={() => setStatus(s)}>
-              {s === "todos" ? "Todos" : statusInfo(s as StatusUI).txt}
-            </Pill>
-          ))}
-        </div>
-
         <div className="relative ml-auto">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="absolute left-3 top-1/2 -translate-y-1/2 text-cream/45" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente" className="bg-white/[0.06] rounded-lg pl-9 pr-3 py-2 text-[13px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25 w-48" />
@@ -259,29 +238,12 @@ export default function PedidosDoDia({
                     {itens.length === 0 ? (
                       <div className="text-[13px] text-cream/40 py-4 text-center">Nada pra esta estação hoje.</div>
                     ) : (
-                      itens.map((it) => {
-                        const key = `${sel}:${d.id}:${it.produto}`;
-                        const done = prontos[key];
-                        return (
-                          <div key={it.produto} className={done ? "opacity-55" : ""}>
-                            <div className="flex items-center justify-between gap-3 mb-1.5">
-                              <span className="text-[14px] text-cream">
-                                <b className="text-cream tabular-nums" style={{ color: d.cor }}>{it.qtd}</b> {it.produto}
-                              </span>
-                              <button
-                                onClick={() => setProntos((p) => ({ ...p, [key]: !p[key] }))}
-                                className="press text-[11px] font-semibold px-2.5 py-1 rounded-full shrink-0 transition-colors"
-                                style={done ? { background: "rgba(53,196,111,0.15)", color: "#35c46f" } : { background: "rgba(255,255,255,0.08)", color: "#f4e8d6" }}
-                              >
-                                {done ? "Pronto" : "Marcar pronto"}
-                              </button>
-                            </div>
-                            <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-                              <div className="h-full rounded-full transition-all duration-300" style={{ width: done ? "100%" : "8%", background: done ? "#35c46f" : d.cor }} />
-                            </div>
-                          </div>
-                        );
-                      })
+                      itens.map((it) => (
+                        <div key={it.produto} className="flex items-center gap-2">
+                          <b className="text-[14px] text-cream tabular-nums" style={{ color: d.cor }}>{it.qtd}</b>
+                          <span className="text-[14px] text-cream">{it.produto}</span>
+                        </div>
+                      ))
                     )}
                   </div>
                 </div>
@@ -297,10 +259,12 @@ export default function PedidosDoDia({
                 <div className="glass rounded-[18px] px-6 py-10 text-center text-cream/55 text-sm">Nenhum pedido para este dia.</div>
               )}
               {doDia.map((p) => {
-                const st = statusDe(p);
-                const si = statusInfo(st);
                 return (
-                  <div key={p.id} className="glass rounded-[18px] px-5 py-4 flex items-center gap-5">
+                  <div
+                    key={p.id}
+                    onClick={() => setDetalhe(p)}
+                    className="glass rounded-[18px] px-5 py-4 flex items-center gap-5 cursor-pointer hover:bg-white/[0.03] transition-colors"
+                  >
                     <div className="w-16 shrink-0 text-center">
                       <div className="font-title text-2xl font-bold text-cream leading-none">{p.retiradaHora ?? "-"}</div>
                       <div className="text-[10px] uppercase tracking-wider text-cream/45 mt-1">retirada</div>
@@ -353,6 +317,7 @@ export default function PedidosDoDia({
                           href={`/api/pedido/${p.id}/foto`}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           className="inline-flex items-center gap-2 mt-2 rounded-[10px] pl-1 pr-2.5 py-1 hover:bg-white/[0.06] transition-colors"
                           style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
                         >
@@ -369,15 +334,11 @@ export default function PedidosDoDia({
                         </a>
                       )}
                     </div>
-                    <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+                    <div
+                      className="text-right shrink-0 flex flex-col items-end gap-1.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="font-semibold text-cream tabular-nums">{brl(p.totalCentavos)}</div>
-                      <button
-                        onClick={() => setStatusManual((m) => ({ ...m, [p.id]: st === "a_produzir" ? "pronto" : st === "pronto" ? "retirado" : "a_produzir" }))}
-                        className="press text-[11px] font-semibold px-2.5 py-1 rounded-full"
-                        style={{ background: si.bg, color: si.cor }}
-                      >
-                        {si.txt}
-                      </button>
                       {reimprimir ? (
                         <button
                           onClick={() => aoReimprimir(p.id)}
@@ -452,6 +413,8 @@ export default function PedidosDoDia({
           </div>
         </div>
       </div>
+
+      {detalhe && <PedidoDetalhe pedido={detalhe} onClose={() => setDetalhe(null)} />}
     </div>
   );
 }

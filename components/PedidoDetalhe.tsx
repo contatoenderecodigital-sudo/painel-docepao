@@ -8,9 +8,12 @@
 //  Usado na ficha do Cliente e no Recuperar (clicar no pedido abre isto).
 // ============================================================================
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Pedido, PedidoStatus } from "@/lib/tipos";
 import { brl, formatarTelefoneBR, linkWhatsapp } from "@/lib/tipos";
-import { X, Loader2, Image as ImageIcon, MessageSquare, AlertTriangle } from "lucide-react";
+import { aprovarPedido, recusarPedido, reimprimirPedido } from "@/app/(painel)/acoes";
+import { X, Loader2, Image as ImageIcon, MessageSquare, AlertTriangle, Check, Printer } from "lucide-react";
 
 const STATUS: Record<PedidoStatus, { label: string; fg: string; bg: string }> = {
   aberto: { label: "aberto", fg: "rgba(245,235,220,0.6)", bg: "rgba(245,235,220,0.08)" },
@@ -43,6 +46,43 @@ export default function PedidoDetalhe({
   footer?: React.ReactNode;
 }) {
   const s = pedido ? STATUS[pedido.status] : null;
+  const router = useRouter();
+  const [agindo, setAgindo] = useState<null | "aprovar" | "recusar" | "reimprimir">(null);
+  const [reimpFeito, setReimpFeito] = useState(false);
+
+  async function aprovar() {
+    if (!pedido) return;
+    setAgindo("aprovar");
+    try {
+      await aprovarPedido(pedido.id);
+      router.refresh();
+      onClose();
+    } finally {
+      setAgindo(null);
+    }
+  }
+  async function recusar() {
+    if (!pedido) return;
+    setAgindo("recusar");
+    try {
+      await recusarPedido(pedido.id);
+      router.refresh();
+      onClose();
+    } finally {
+      setAgindo(null);
+    }
+  }
+  async function reimprimir() {
+    if (!pedido) return;
+    setAgindo("reimprimir");
+    try {
+      const r = await reimprimirPedido(pedido.id);
+      setReimpFeito(r?.ok !== false);
+      setTimeout(() => setReimpFeito(false), 3000);
+    } finally {
+      setAgindo(null);
+    }
+  }
 
   return (
     <div
@@ -207,8 +247,47 @@ export default function PedidoDetalhe({
               </div>
             </div>
 
-            {/* rodapé (ações opcionais + fechar) */}
-            <div className="px-6 py-4 border-t border-white/10 flex justify-end gap-2">
+            {/* rodapé — botões padrão conforme o status do pedido */}
+            <div className="px-6 py-4 border-t border-white/10 flex flex-wrap justify-end gap-2">
+              {pedido.status === "confirmado" && (
+                <>
+                  <button
+                    onClick={recusar}
+                    disabled={agindo !== null}
+                    className="press px-4 py-2 rounded-lg text-sm font-semibold border border-white/12 inline-flex items-center gap-1.5 hover:bg-white/[0.06] transition-colors disabled:opacity-60"
+                    style={{ color: "#ff8a8a" }}
+                  >
+                    {agindo === "recusar" ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+                    Recusar
+                  </button>
+                  <button
+                    onClick={aprovar}
+                    disabled={agindo !== null}
+                    className="press px-4 py-2 rounded-lg text-sm font-semibold text-white inline-flex items-center gap-1.5 disabled:opacity-60"
+                    style={{ background: "linear-gradient(135deg,#1fae54,#128c3e)" }}
+                  >
+                    {agindo === "aprovar" ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                    Aprovar
+                  </button>
+                </>
+              )}
+              {(pedido.status === "aprovado" || pedido.status === "impresso") && (
+                <button
+                  onClick={reimprimir}
+                  disabled={agindo !== null}
+                  className="btn-cobre press px-4 py-2 rounded-lg text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-60"
+                  title="Enviar este pedido de novo pra impressora da cozinha"
+                >
+                  {agindo === "reimprimir" ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : reimpFeito ? (
+                    <Check size={14} />
+                  ) : (
+                    <Printer size={14} />
+                  )}
+                  {reimpFeito ? "Enviado pra impressora" : "Reimprimir"}
+                </button>
+              )}
               {footer}
               <button
                 onClick={onClose}
