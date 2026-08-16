@@ -32,7 +32,7 @@ const STATUS: Record<PedidoStatus, { label: string; fg: string; bg: string }> = 
   aberto: { label: "aberto", fg: "rgba(245,235,220,0.6)", bg: "rgba(245,235,220,0.08)" },
   orcado: { label: "orçamento", fg: "#e6c766", bg: "rgba(212,175,55,0.14)" },
   confirmado: { label: "aguardando aprovação", fg: "#e6c766", bg: "rgba(212,175,55,0.14)" },
-  aprovado: { label: "em produção", fg: "#e3924a", bg: "rgba(181,96,26,0.18)" },
+  aprovado: { label: "em produção", fg: "#ffc98a", bg: "rgba(255,201,138,0.16)" },
   impresso: { label: "concluído", fg: "#5fd08a", bg: "rgba(95,208,138,0.16)" },
   recusado: { label: "recusado", fg: "#ff8a8a", bg: "rgba(224,30,30,0.14)" },
   cancelado: { label: "cancelado", fg: "rgba(245,235,220,0.55)", bg: "rgba(245,235,220,0.08)" },

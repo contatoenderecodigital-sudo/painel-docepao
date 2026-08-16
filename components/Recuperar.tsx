@@ -248,7 +248,7 @@ export default function Recuperar({
         <div className="flex items-center gap-4 ml-auto">
           <button
             type="button"
-            className="text-[12px] text-dourado font-medium hover:underline"
+            className="text-[12px] text-cream font-medium hover:underline"
             onClick={() => {
               setTemplate(msgCobranca);
               setPersonalizando(true);

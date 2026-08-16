@@ -293,7 +293,7 @@ export default function PedidosDoDia({
                             </div>
                             {i.obs ? (
                               <div
-                                className="mt-1 ml-3 flex items-start gap-1.5 text-[12.5px] text-cream/85 rounded-[8px] px-2.5 py-1.5 leading-snug"
+                                className="mt-1 ml-3 inline-flex w-fit max-w-full items-start gap-1.5 text-[12.5px] text-cream/85 rounded-[8px] px-2.5 py-1.5 leading-snug"
                                 style={{ background: "rgba(231,207,148,0.1)", borderLeft: "2px solid rgba(231,207,148,0.6)" }}
                               >
                                 <svg className="mt-[2px] shrink-0 text-dourado" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v12H8l-4 4V4Z" /><path d="M8 9h8M8 12.5h5" /></svg>
@@ -305,7 +305,7 @@ export default function PedidosDoDia({
                       </ul>
                       {p.observacoes ? (
                         <div
-                          className="mt-2 flex items-start gap-1.5 text-[12.5px] text-cream/80 rounded-[8px] px-2.5 py-1.5 leading-snug"
+                          className="mt-2 inline-flex w-fit max-w-full items-start gap-1.5 text-[12.5px] text-cream/80 rounded-[8px] px-2.5 py-1.5 leading-snug"
                           style={{ background: "rgba(255,255,255,0.05)" }}
                         >
                           <span className="font-semibold text-dourado shrink-0">Obs do pedido:</span>
@@ -335,7 +335,7 @@ export default function PedidosDoDia({
                       )}
                     </div>
                     <div
-                      className="text-right shrink-0 flex flex-col items-end gap-1.5"
+                      className="text-right shrink-0 self-start flex flex-col items-end gap-2"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="font-semibold text-cream tabular-nums">{brl(p.totalCentavos)}</div>
