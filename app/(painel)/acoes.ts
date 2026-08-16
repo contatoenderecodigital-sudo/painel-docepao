@@ -90,3 +90,41 @@ export async function reimprimirPedido(pedidoId: string): Promise<{ ok: boolean 
   const ok = await reenfileirarImpressao(sessao.negocioId, pedidoId);
   return { ok };
 }
+
+// Acrescenta um item ao pedido ANTES de aprovar e recalcula o total.
+//
+// Existia um beco sem saída: a IA avisava o cliente que "a equipe vai informar
+// o valor do topo", o card pedia "confirme antes de aprovar" — e a fila só
+// tinha aprovar e recusar. Não havia onde lançar o valor. Aprovar mandava o
+// pedido sem o item mais caro; recusar perdia a venda.
+//
+// Aqui a equipe lança o que faltava (topo de bolo, taxa de entrega, um item que
+// o cliente pediu por fora) e o total volta a bater com o que vai ser cobrado.
+export async function adicionarItemPedido(
+  pedidoId: string,
+  item: { produto: string; qtd: number; valorUnitario: number },
+): Promise<{ ok: boolean; erro?: string }> {
+  if (!bancoConfigurado) return { ok: true };
+  const sessao = await lerSessao();
+  if (!sessao) return { ok: false, erro: "sem sessao" };
+
+  const produto = (item.produto || "").trim();
+  const qtd = Number(item.qtd);
+  const unit = Number(item.valorUnitario);
+  if (produto.length < 2) return { ok: false, erro: "Descreva o item." };
+  if (!Number.isFinite(qtd) || qtd <= 0) return { ok: false, erro: "Quantidade inválida." };
+  if (!Number.isFinite(unit) || unit < 0) return { ok: false, erro: "Valor inválido." };
+
+  const { adicionarItem } = await import("@/lib/banco/pedidos");
+  try {
+    await adicionarItem(pedidoId, sessao.negocioId, {
+      produto,
+      qtd,
+      unitCentavos: Math.round(unit * 100),
+    });
+    return { ok: true };
+  } catch (e) {
+    console.error("[adicionarItemPedido]", e);
+    return { ok: false, erro: "Não consegui salvar o item." };
+  }
+}

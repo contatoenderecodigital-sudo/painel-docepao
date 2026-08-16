@@ -5,7 +5,7 @@
 //  Isolamento MULTI-TENANT: toda query filtra pelo negocioId (do login).
 // ============================================================================
 
-import { query, queryUm } from "./db";
+import { query, queryUm, transacao } from "./db";
 import type { Pedido, PedidoStatus, ItemPedido } from "../tipos";
 
 type LinhaFila = {
@@ -210,4 +210,38 @@ export async function mudarStatus(
     `update pedidos set status = $1${carimbo} where id = $2 and negocio_id = $3`,
     [status, pedidoId, negocioId],
   );
+}
+
+// Acrescenta um item ao pedido e recalcula o total a partir da SOMA dos itens.
+// O total nunca é ajustado "na mão": ele é sempre a soma das linhas, senão o
+// cupom impresso e o valor cobrado divergem — e quem descobre é o cliente no
+// balcão. Só mexe em pedido que ainda não foi aprovado.
+export async function adicionarItem(
+  pedidoId: string,
+  negocioId: string,
+  item: { produto: string; qtd: number; unitCentavos: number },
+): Promise<void> {
+  const subtotal = Math.round(item.qtd * item.unitCentavos);
+  await transacao(async (q) => {
+    const dono = await q<{ id: string; status: string }>(
+      "select id, status from pedidos where id = $1 and negocio_id = $2",
+      [pedidoId, negocioId],
+    );
+    const p = dono[0];
+    if (!p) throw new Error("pedido não encontrado neste negócio");
+    if (p.status === "aprovado" || p.status === "impresso") {
+      throw new Error("pedido já aprovado: não dá pra mexer nos itens");
+    }
+    await q(
+      `insert into pedido_itens (pedido_id, produto, categoria, qtd, unit_centavos, subtotal_centavos, unidade)
+       values ($1, $2, 'extra', $3, $4, $5, 'un')`,
+      [pedidoId, item.produto, item.qtd, item.unitCentavos, subtotal],
+    );
+    await q(
+      `update pedidos set total_centavos = (
+         select coalesce(sum(subtotal_centavos), 0) from pedido_itens where pedido_id = $1
+       ) where id = $1`,
+      [pedidoId],
+    );
+  });
 }
