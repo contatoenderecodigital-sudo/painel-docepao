@@ -211,6 +211,15 @@ function CardPedido({
             />
             <span className="inline-flex items-center gap-1.5 text-[13px] text-cream/80">
               <ImageIcon size={14} className="text-dourado" /> Foto de referência (toque pra ampliar)
+                          </span>
+                          <span
+                            role="link"
+                            tabIndex={0}
+                            title="Baixar foto"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); const a=document.createElement("a"); a.href=`/api/pedido/${pedido.id}/foto?download=1`; a.download=`referencia-${pedido.id}.jpg`; a.click(); }}
+                            className="ml-2 inline-flex items-center gap-1 text-[11px] font-medium text-dourado underline-offset-2 hover:underline"
+                          >
+                            Baixar
             </span>
           </a>
         ) : null}

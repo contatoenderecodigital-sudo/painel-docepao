@@ -125,6 +125,18 @@ export async function registrarPedido(
     ? itens.reduce((s, i) => s + i.subtotalCentavos, 0)
     : pedido.totalCentavos;
 
+  // O nome do cliente vinha do perfil do WhatsApp — que a pessoa escolhe e
+  // costuma ter apelido, emoji ou só o primeiro nome. Quando ela DIZ o nome
+  // para o pedido, esse é o que vale: é o que a equipe vai chamar no balcão.
+  const nomeDito = (pedido.clienteNome || "").trim();
+  if (nomeDito.length >= 2) {
+    try {
+      await query("update clientes set nome = $1 where id = $2", [nomeDito, clienteId]);
+    } catch (e) {
+      console.error("[pedido] nao consegui atualizar o nome do cliente:", e);
+    }
+  }
+
   // Cabeçalho + itens numa TRANSAÇÃO: ou grava tudo, ou nada. Sem pedido pela metade.
   return transacao(async (q) => {
     const ped = await q<{ id: string }>(
