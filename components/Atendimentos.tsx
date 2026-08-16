@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Conversa, Mensagem, TipoMidia } from "@/lib/tipos";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatarTelefoneBR, linkWhatsapp, brl } from "@/lib/tipos";
+import CampoTelefone, { telefoneCompleto } from "@/components/CampoTelefone";
 import {
   Search, Plus, Paperclip, SendHorizontal, ArrowLeft, Bot, X,
   MessageSquare, Info, FileText, Download, CheckCheck, AlertCircle,
@@ -700,7 +701,7 @@ function ModalTemplate({ titulo, comTelefone, onFechar, onEnviar }: {
   }
 
   const preview = sel ? renderPreview(sel.corpo, params) : "";
-  const podeEnviar = Boolean(sel) && (!comTelefone || telefone.replace(/\D/g, "").length >= 10) && params.every((p) => p.trim());
+  const podeEnviar = Boolean(sel) && (!comTelefone || telefoneCompleto(telefone)) && params.every((p) => p.trim());
 
   async function confirmar() {
     if (!sel || !podeEnviar || enviando) return;
@@ -721,13 +722,7 @@ function ModalTemplate({ titulo, comTelefone, onFechar, onEnviar }: {
           {comTelefone && (
             <div className="mb-4">
               <span className="t-label text-cream/45">Número do cliente</span>
-              <input
-                value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
-                placeholder="(49) 9 9999-9999"
-                inputMode="tel"
-                className="w-full mt-2 bg-white/10 rounded-[10px] px-3 py-2.5 text-[13.5px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25"
-              />
+              <CampoTelefone value={telefone} onChange={setTelefone} className="mt-2" />
             </div>
           )}
 
