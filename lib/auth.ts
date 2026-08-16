@@ -41,20 +41,14 @@ function verificar(token: string): Sessao | null {
 
 // Confere email + senha contra o banco. Retorna a sessão ou null.
 export async function autenticar(email: string, senha: string): Promise<Sessao | null> {
-  // A tabela usuarios NÃO tem coluna `nome` (só id, negocio_id, hub_id, email,
-  // senha_hash, papel, ativo). Pedir `nome` fazia o Postgres recusar a query
-  // inteira, e o login respondia "e-mail ou senha incorretos" para todo mundo —
-  // ninguém percebeu porque o acesso normal é pelo SSO do hub, que não passa
-  // por aqui. O nome de exibição sai do próprio e-mail.
-  const u = await queryUm<{ id: string; negocio_id: string; papel: string; senha_hash: string; ativo: boolean }>(
-    "select id, negocio_id, papel, senha_hash, ativo from usuarios where email = $1",
+  const u = await queryUm<{ id: string; negocio_id: string; nome: string | null; papel: string; senha_hash: string }>(
+    "select id, negocio_id, nome, papel, senha_hash from usuarios where email = $1",
     [email.trim().toLowerCase()],
   );
-  if (!u || u.ativo === false) return null;
+  if (!u) return null;
   const ok = await bcrypt.compare(senha, u.senha_hash);
   if (!ok) return null;
-  const nome = (email.split("@")[0] || "").trim() || "Equipe";
-  return { negocioId: u.negocio_id, userId: u.id, nome, papel: u.papel };
+  return { negocioId: u.negocio_id, userId: u.id, nome: u.nome || "Equipe", papel: u.papel };
 }
 
 // Seta o cookie de sessão (chamar dentro de Server Action / Route Handler).
