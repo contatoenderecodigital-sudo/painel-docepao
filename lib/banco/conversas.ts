@@ -10,7 +10,8 @@
 import { query, queryUm, transacao } from "./db";
 import type { Mensagem, RespostaIA } from "../ia/cerebro";
 
-const LIMITE_HISTORICO = 20; // últimas N mensagens que a IA enxerga
+const LIMITE_HISTORICO = 40; // ultimas N mensagens que a IA enxerga. 20 truncava conversa
+                              // de pedido de festa e ela reperguntava o que ja tinha sido dito.
 
 // Acha o cliente pelo telefone; cria se for a primeira vez.
 // Upsert ATÔMICO: duas mensagens quase simultâneas de um cliente novo não criam
@@ -137,25 +138,63 @@ export async function registrarPedido(
     }
   }
 
+  // Um pedido POR CONVERSA, não por chamada da ferramenta.
+  //
+  // A IA chama registrar_pedido toda vez que o cliente acrescenta ou corrige
+  // algo. Inserindo a cada chamada, uma conversa só virava três pedidos na fila
+  // da dona — e cada um com um pedaço dos itens. Aqui, se já existe um pedido
+  // desta conversa ainda esperando aprovação, ele é ATUALIZADO: os itens são
+  // trocados pela lista completa que a IA mandou agora.
+  //
+  // O corte é por status: assim que a equipe aprova, o pedido sai do caminho e
+  // um novo pedido do mesmo cliente nasce separado, como tem que ser.
+  const aberto = await queryUm<{ id: string }>(
+    `select id from pedidos
+       where negocio_id = $1 and cliente_id = $2 and status = 'confirmado'
+       order by criado_em desc limit 1`,
+    [negocioId, clienteId],
+  );
+
   // Cabeçalho + itens numa TRANSAÇÃO: ou grava tudo, ou nada. Sem pedido pela metade.
   return transacao(async (q) => {
-    const ped = await q<{ id: string }>(
-      `insert into pedidos
-         (negocio_id, cliente_id, status, retirada_data, retirada_hora, total_centavos, observacoes, precisa_confirmacao, motivo_humano, confirmado_em)
-       values ($1, $2, 'confirmado', $3, $4, $5, $6, $7, $8, now())
-       returning id`,
-      [
-        negocioId,
-        clienteId,
-        parseDataRetirada(pedido.retiradaData),
-        pedido.retiradaHora ?? null,
-        totalCentavos,
-        pedido.observacoes ?? null,
-        pedido.precisaConfirmacao ?? false,
-        pedido.precisaConfirmacao ? pedido.motivoHumano ?? null : null,
-      ],
-    );
-    const pedidoId = ped[0]?.id;
+    let pedidoId: string | undefined;
+    if (aberto?.id) {
+      await q(
+        `update pedidos set retirada_data = $2, retirada_hora = $3, total_centavos = $4,
+                observacoes = $5, precisa_confirmacao = $6, motivo_humano = $7, confirmado_em = now()
+           where id = $1`,
+        [
+          aberto.id,
+          parseDataRetirada(pedido.retiradaData),
+          pedido.retiradaHora ?? null,
+          totalCentavos,
+          pedido.observacoes ?? null,
+          pedido.precisaConfirmacao ?? false,
+          pedido.precisaConfirmacao ? pedido.motivoHumano ?? null : null,
+        ],
+      );
+      // itens são substituídos pela lista completa (a IA sempre reenvia tudo)
+      await q("delete from pedido_itens where pedido_id = $1", [aberto.id]);
+      pedidoId = aberto.id;
+    } else {
+      const ped = await q<{ id: string }>(
+        `insert into pedidos
+           (negocio_id, cliente_id, status, retirada_data, retirada_hora, total_centavos, observacoes, precisa_confirmacao, motivo_humano, confirmado_em)
+         values ($1, $2, 'confirmado', $3, $4, $5, $6, $7, $8, now())
+         returning id`,
+        [
+          negocioId,
+          clienteId,
+          parseDataRetirada(pedido.retiradaData),
+          pedido.retiradaHora ?? null,
+          totalCentavos,
+          pedido.observacoes ?? null,
+          pedido.precisaConfirmacao ?? false,
+          pedido.precisaConfirmacao ? pedido.motivoHumano ?? null : null,
+        ],
+      );
+      pedidoId = ped[0]?.id;
+    }
     if (!pedidoId) throw new Error("Falha ao registrar pedido");
 
     for (const it of itens) {

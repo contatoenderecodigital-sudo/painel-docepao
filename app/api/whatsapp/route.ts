@@ -208,8 +208,11 @@ async function processar(corpo: WebhookPayload) {
         }
       };
       try {
-        await enviarTexto(telefone, textoResp, creds);
+        // Imagem ANTES do texto: a IA diz "te mandei o cardápio aqui", e se o
+        // texto chega primeiro o cliente lê a frase olhando pra uma conversa
+        // sem cardápio nenhum.
         await mandarCardapios();
+        await enviarTexto(telefone, textoResp, creds);
       } catch (e) {
         console.error("[whatsapp] falha ao enviar resposta:", e);
       }
