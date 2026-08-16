@@ -13,6 +13,7 @@
 import OpenAI from "openai";
 import { montarSystemPrompt, DOCE_PAO, type ConfigNegocio } from "./persona";
 import { motorPadrao, formatarOrcamento, brl, type Motor, type LinhaCotacao } from "./orcamento";
+import { registrarUsoIA, type UsoTurno } from "./uso";
 
 const MODELO = process.env.MODELO_IA || "gpt-4o-mini";
 
@@ -33,6 +34,9 @@ function fmtQtd(qtd: number, unidade?: "un" | "kg"): string {
 export type Tenant = {
   persona: ConfigNegocio;
   motor: Motor;
+  // Id do negócio (para creditar o consumo de tokens em public.uso_ia). Vem do
+  // carregarTenant(negocioId). Sem ele (tenant padrão de demo) a medição é pulada.
+  negocioId?: string | null;
   avisoDoDia?: string | null;
   sistemaCustom?: string | null;
   // Provedor de IA ESCOLHIDO por este tenant (config): 'claude' | 'openai' | 'gemini'.
@@ -335,6 +339,7 @@ async function rodarConversa(
   system: string,
   historico: Mensagem[],
   tenant: Tenant,
+  origem: string,
 ): Promise<RespostaIA> {
   const client = new OpenAI({
     apiKey: prov.apiKey,
@@ -348,6 +353,20 @@ async function rodarConversa(
     ...historico.map((m) => ({ role: m.role, content: m.content })),
   ];
 
+  // Acumula os tokens de TODAS as chamadas deste turno. Um round de tool-call
+  // faz várias chamadas (uma por iteração do loop); somamos tudo e gravamos uma
+  // vez só, no fim. Fire-and-forget: nunca deixa a medição travar a resposta.
+  const uso: UsoTurno = { tokensIn: 0, tokensOut: 0 };
+  const somarUso = (u: OpenAI.Completions.CompletionUsage | undefined | null) => {
+    if (!u) return;
+    uso.tokensIn += u.prompt_tokens ?? 0;
+    uso.tokensOut += u.completion_tokens ?? 0;
+  };
+  const gravarUso = () => {
+    // modelo REAL usado = prov.modelo (o que de fato respondeu neste provedor).
+    void registrarUsoIA(tenant.negocioId, prov.modelo, uso, origem);
+  };
+
   for (let i = 0; i < 6; i++) {
     const resp = await client.chat.completions.create({
       model: prov.modelo,
@@ -356,11 +375,13 @@ async function rodarConversa(
       messages,
       tools: tenant.sistemaCustom ? FERRAMENTAS_BASICAS : FERRAMENTAS,
     });
+    somarUso(resp.usage);
 
     const msg = resp.choices[0]?.message;
     if (!msg) break;
 
     if (!msg.tool_calls || msg.tool_calls.length === 0) {
+      gravarUso();
       return {
         texto: (msg.content || "").trim(),
         precisaHumano: estado.precisaHumano,
@@ -382,6 +403,8 @@ async function rodarConversa(
     }
   }
 
+  // Saiu do loop (fim das iterações ou msg vazia): ainda houve consumo, grava.
+  gravarUso();
   return {
     texto: "Deixa eu chamar alguém da equipe pra te ajudar com isso.",
     precisaHumano: true,
@@ -394,13 +417,14 @@ async function rodarConversa(
 export async function responder(
   historico: Mensagem[],
   tenant: Tenant = { persona: DOCE_PAO, motor: motorPadrao },
+  origem = "whatsapp",
 ): Promise<RespostaIA> {
   const system = montarSystemComData(tenant);
   const lista = provedores(tenant);
   let ultimoErro: unknown;
   for (const prov of lista) {
     try {
-      return await rodarConversa(prov, system, historico, tenant);
+      return await rodarConversa(prov, system, historico, tenant, origem);
     } catch (e) {
       ultimoErro = e;
       console.error(`[ia] provedor ${prov.nome} falhou, tentando o proximo:`, (e as Error)?.message ?? e);

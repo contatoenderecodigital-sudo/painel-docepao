@@ -26,7 +26,7 @@ export async function carregarTenant(negocioId: string): Promise<Tenant> {
     "select nome, cidade, config from negocios where id = $1",
     [negocioId],
   );
-  if (!n) return { persona: DOCE_PAO, motor: motorPadrao };
+  if (!n) return { persona: DOCE_PAO, motor: motorPadrao, negocioId };
 
   const cfg = n.config || {};
   const persona: ConfigNegocio = {
@@ -53,5 +53,5 @@ export async function carregarTenant(negocioId: string): Promise<Tenant> {
 
   // Preço e rendimento vêm do catalogo.json (Doce Pão) quando é padaria sem
   // cardápio próprio. Isso evita dado bugado de seed antigo gerar orçamento errado.
-  return { persona, motor: motorPadrao, avisoDoDia, sistemaCustom, provedorIa, modeloIa };
+  return { persona, motor: motorPadrao, negocioId, avisoDoDia, sistemaCustom, provedorIa, modeloIa };
 }
