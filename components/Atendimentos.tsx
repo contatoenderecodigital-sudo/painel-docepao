@@ -95,7 +95,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
   const isCliente = m.de === "cliente";
   const src = m.blobUrl || (m.midiaId ? `/api/midia/${m.midiaId}` : null);
   const bolhaBase =
-    "rounded-[14px] text-[13.5px] leading-[1.5] whitespace-pre-line " +
+    "rounded-[14px] text-[15px] md:text-[14px] leading-[1.45] whitespace-pre-line " +
     (isCliente ? "text-[#4a1020] rounded-bl-[4px]" : "text-white rounded-br-[4px]");
   const bolhaStyle: React.CSSProperties = isCliente
     ? { background: "rgba(255,255,255,0.95)", boxShadow: "0 3px 12px rgba(0,0,0,0.16)" }
@@ -466,7 +466,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                 {/* cabeçalho */}
                 <div className="px-3 md:px-4 h-[58px] border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    <button onClick={() => setVista("lista")} className="md:hidden w-9 h-9 grid place-items-center rounded-full text-cream/70 hover:bg-white/10 -ml-1" aria-label="Voltar">
+                    <button onClick={() => setVista("lista")} className="md:hidden w-11 h-11 grid place-items-center rounded-full text-cream/80 hover:bg-white/10 active:bg-white/15 -ml-1.5 shrink-0" aria-label="Voltar">
                       <ArrowLeft size={20} />
                     </button>
                     <Avatar nome={ativa.clienteNome} tam={38} raio={11} />
@@ -530,7 +530,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                         onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviarTexto(); } }}
                         placeholder="Escreva uma mensagem"
                         rows={1}
-                        className="flex-1 resize-none bg-white/10 rounded-[20px] px-4 py-2.5 text-[13.5px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25 max-h-32"
+                        className="flex-1 resize-none bg-white/10 rounded-[20px] px-4 py-2.5 text-[15px] md:text-[14px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25 max-h-32"
                       />
                       <button onClick={enviarTexto} disabled={!texto.trim() || enviando} className="grad-cobre press w-10 h-10 rounded-full grid place-items-center text-white shrink-0 shadow-[0_6px_16px_rgba(187,146,31,0.3)] disabled:opacity-45 disabled:cursor-default" aria-label="Enviar">
                         <SendHorizontal size={18} />

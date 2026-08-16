@@ -3,6 +3,7 @@
 // Fica no LAYOUT do grupo (painel), então a sidebar não re-renderiza a cada
 // troca de aba: só o conteúdo troca. A navegação da sidebar é client (usePathname).
 
+import SidebarDrawer from "@/components/SidebarDrawer";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { MapPin } from "lucide-react";
@@ -70,16 +71,12 @@ export default async function Shell({
   }
   const styleMarca = paletaDoTenant(corPrimaria, corDestaque);
 
+  // No celular vira coluna (barra superior + conteúdo); no desktop, lado a lado.
   return (
-    <div className="min-h-screen flex app-mesh text-cream" style={styleMarca}>
-      {/* Sidebar — material fosco da marca (estilo Apple) */}
-      <aside
-        className="w-60 shrink-0 text-white flex flex-col"
-        style={{
-          background: "linear-gradient(180deg, var(--brand-vinho-d), var(--brand-vinho))",
-          borderRight: "1px solid rgba(255,255,255,0.10)",
-        }}
-      >
+    <div className="min-h-screen flex flex-col lg:flex-row app-mesh text-cream" style={styleMarca}>
+      {/* Sidebar — material fosco da marca (estilo Apple).
+          Fixa no desktop, drawer no celular (ver SidebarDrawer). */}
+      <SidebarDrawer titulo={nomeNegocio}>
         <div className="px-5 py-6 border-b border-white/10 flex items-center gap-3">
           {logoUrl ? (
             // Logo anexada pelo tenant (Configurações): vale pra qualquer painel.
@@ -138,7 +135,7 @@ export default async function Shell({
             <div className="text-[11px] text-white/45">Endereço Digital · demo</div>
           )}
         </div>
-      </aside>
+      </SidebarDrawer>
 
       {/* Conteúdo */}
       <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
