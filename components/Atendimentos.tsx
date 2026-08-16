@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Conversa, Mensagem, TipoMidia } from "@/lib/tipos";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { formatarTelefoneBR, linkWhatsapp } from "@/lib/tipos";
+import { formatarTelefoneBR, linkWhatsapp, brl } from "@/lib/tipos";
 import {
   Search, Plus, Paperclip, SendHorizontal, ArrowLeft, Bot, X,
   MessageSquare, Info, FileText, Download, CheckCheck, AlertCircle,
@@ -471,7 +471,14 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                     <Avatar nome={ativa.clienteNome} tam={38} raio={11} />
                     <div className="min-w-0">
                       <div className="font-semibold text-cream text-[14.5px] truncate">{ativa.clienteNome}</div>
-                      <div className="text-[11px] text-cream/55 truncate">{formatarTelefoneBR(ativa.clienteTelefone)}</div>
+                      <div className="text-[11px] text-cream/55 truncate flex items-center gap-1.5">
+                        <span className="truncate">{formatarTelefoneBR(ativa.clienteTelefone)}</span>
+                        {ativa.custoCentavos != null && ativa.custoCentavos > 0 && (
+                          <span className="text-cream/35 shrink-0" title="Custo estimado de IA nesta conversa">
+                            · {brl(ativa.custoCentavos)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">

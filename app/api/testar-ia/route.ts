@@ -76,9 +76,20 @@ export async function POST(req: NextRequest) {
     return Response.json({ erro: "Envie uma mensagem pra IA responder." });
   }
 
+  // Cliente sintético do /testar (idempotente: acha-ou-cria sempre o mesmo).
+  // Resolvido ANTES de responder() pra amarrar o custo de IA do teste a ele —
+  // assim o consumo do chat de teste não se mistura com o de clientes reais.
+  // Se falhar (sem banco), segue sem clienteId (o log só cai como NULL).
+  let clienteId: string | undefined;
+  try {
+    clienteId = await acharOuCriarCliente(negocioId, TESTE_TELEFONE, TESTE_NOME);
+  } catch (e) {
+    console.error("[testar-ia] falha ao resolver cliente sintetico (segue sem):", e);
+  }
+
   let resp;
   try {
-    resp = await responder(historico, tenant);
+    resp = await responder(historico, tenant, "whatsapp", clienteId);
   } catch (e) {
     // Erro real dos provedores (ex: sem crédito/chave na Anthropic/OpenAI). Devolve
     // 200 com a mensagem crua pra UI mostrar o motivo — é útil o dono saber.
@@ -91,13 +102,15 @@ export async function POST(req: NextRequest) {
   // avisa mas não derruba o teste.
   if (resp.pedidoRegistrado) {
     try {
-      const clienteId = await acharOuCriarCliente(negocioId, TESTE_TELEFONE, TESTE_NOME);
-      const pedidoId = await registrarPedido(negocioId, clienteId, resp.pedidoRegistrado);
+      // Reusa o cliente sintético já resolvido acima; se não resolveu (falha
+      // pontual antes de responder), acha-ou-cria de novo (idempotente).
+      const idCliente = clienteId ?? (await acharOuCriarCliente(negocioId, TESTE_TELEFONE, TESTE_NOME));
+      const pedidoId = await registrarPedido(negocioId, idCliente, resp.pedidoRegistrado);
       // Fecha o fluxo completo do /testar: se o dono anexou uma foto, ela vira a
       // foto de referência DESTE pedido (aparece na aprovação e na produção).
       if (foto && pedidoId) {
         try {
-          await anexarFotoAoPedido(negocioId, pedidoId, clienteId, foto.dados, foto.mime);
+          await anexarFotoAoPedido(negocioId, pedidoId, idCliente, foto.dados, foto.mime);
         } catch (e) {
           console.error("[testar-ia] falha ao anexar foto ao pedido de teste:", e);
         }

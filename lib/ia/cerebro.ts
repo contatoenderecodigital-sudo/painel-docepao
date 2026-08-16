@@ -340,6 +340,7 @@ async function rodarConversa(
   historico: Mensagem[],
   tenant: Tenant,
   origem: string,
+  clienteId?: string | null,
 ): Promise<RespostaIA> {
   const client = new OpenAI({
     apiKey: prov.apiKey,
@@ -364,7 +365,8 @@ async function rodarConversa(
   };
   const gravarUso = () => {
     // modelo REAL usado = prov.modelo (o que de fato respondeu neste provedor).
-    void registrarUsoIA(tenant.negocioId, prov.modelo, uso, origem);
+    // clienteId amarra o custo à CONVERSA (custo por atendimento no painel).
+    void registrarUsoIA(tenant.negocioId, prov.modelo, uso, origem, clienteId);
   };
 
   for (let i = 0; i < 6; i++) {
@@ -418,13 +420,14 @@ export async function responder(
   historico: Mensagem[],
   tenant: Tenant = { persona: DOCE_PAO, motor: motorPadrao },
   origem = "whatsapp",
+  clienteId?: string | null,
 ): Promise<RespostaIA> {
   const system = montarSystemComData(tenant);
   const lista = provedores(tenant);
   let ultimoErro: unknown;
   for (const prov of lista) {
     try {
-      return await rodarConversa(prov, system, historico, tenant, origem);
+      return await rodarConversa(prov, system, historico, tenant, origem, clienteId);
     } catch (e) {
       ultimoErro = e;
       console.error(`[ia] provedor ${prov.nome} falhou, tentando o proximo:`, (e as Error)?.message ?? e);

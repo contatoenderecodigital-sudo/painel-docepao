@@ -164,7 +164,9 @@ async function processar(corpo: WebhookPayload) {
       // responder() lança: não deixa o cliente no vácuo, avisa que já já responde.
       let resp;
       try {
-        resp = await responder(historico, tenant);
+        // clienteId (o mesmo do acharOuCriarCliente/salvarMensagem) amarra o
+        // custo de IA a ESTA conversa — pra o painel mostrar o custo por atendimento.
+        resp = await responder(historico, tenant, "whatsapp", clienteId);
       } catch (e) {
         console.error("[whatsapp] IA falhou (todos os provedores):", e);
         try {

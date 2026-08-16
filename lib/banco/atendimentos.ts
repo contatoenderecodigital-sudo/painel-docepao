@@ -29,6 +29,7 @@ type LinhaConversa = {
   handoff: boolean;
   nao_lidas: number;
   janela_expira_ms: number | null;
+  custo_cent: number;
   msgs: MsgBruta[] | null;
 };
 
@@ -48,6 +49,14 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
           where m.cliente_id = c.id and m.negocio_id = $1
             and coalesce(m.autor, case when m.papel = 'user' then 'cliente' else 'ia' end) = 'cliente'
        )::float8 as janela_expira_ms,
+       -- Custo de IA ACUMULADO desta conversa (soma do consumo do cérebro).
+       -- A uso_ia mora no schema public (search_path do painel e docepao), por
+       -- isso referenciamos public.uso_ia EXPLICITAMENTE. cliente_id amarra o
+       -- consumo a ESTE cliente; NULL (teste/demo) nao entra na conta dele.
+       coalesce((
+         select sum(u.custo_cent) from public.uso_ia u
+          where u.negocio_id = $1 and u.cliente_id = c.id
+       ), 0)::int as custo_cent,
        coalesce(
          (select json_agg(json_build_object(
             'id', m.id,
@@ -93,6 +102,7 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
       estado: l.handoff ? "precisa_humano" : "ia",
       naoLidas: Number(l.nao_lidas) || 0,
       janelaExpiraMs: l.janela_expira_ms != null ? Number(l.janela_expira_ms) : null,
+      custoCentavos: Number(l.custo_cent) || 0,
       mensagens,
     };
   });

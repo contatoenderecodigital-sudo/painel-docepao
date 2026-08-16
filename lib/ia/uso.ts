@@ -24,11 +24,15 @@ export type UsoTurno = { tokensIn: number; tokensOut: number };
 
 // Registra o consumo de UMA resposta do cérebro. Fire-and-forget: chame sem
 // await (ou com await dentro de try/catch) — esta função NUNCA propaga erro.
+//
+// clienteId: amarra o consumo à CONVERSA (custo por atendimento). Opcional —
+// quando vazio grava NULL (não quebra: o total por negócio continua íntegro).
 export async function registrarUsoIA(
   negocioId: string | null | undefined,
   modelo: string,
   uso: UsoTurno,
   origem = "whatsapp",
+  clienteId?: string | null,
 ): Promise<void> {
   try {
     // Sem negócio escopado (ex: tenant padrão de demo) não há como creditar.
@@ -38,9 +42,9 @@ export async function registrarUsoIA(
     if (tokensIn === 0 && tokensOut === 0) return; // nada consumido, nada a gravar
     const custoCent = estimarCustoCentBRL(modelo, tokensIn, tokensOut);
     await query(
-      `INSERT INTO public.uso_ia (negocio_id, origem, modelo, tokens_in, tokens_out, custo_cent)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [negocioId, origem, modelo, tokensIn, tokensOut, custoCent],
+      `INSERT INTO public.uso_ia (negocio_id, origem, modelo, tokens_in, tokens_out, custo_cent, cliente_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [negocioId, origem, modelo, tokensIn, tokensOut, custoCent, clienteId ?? null],
     );
   } catch (e) {
     // Erro mais provável: role docepao_app sem GRANT INSERT em public.uso_ia.

@@ -92,6 +92,10 @@ export type Conversa = {
   // completa 24h. Depois disso, só template aprovado reabre a conversa.
   // null = o cliente nunca escreveu (nova conversa proativa).
   janelaExpiraMs?: number | null;
+  // Custo de IA ACUMULADO desta conversa (centavos de R$). Estimativa (preços
+  // "ajustar" na tabela de preços). Some do consumo do cérebro amarrado ao
+  // cliente. 0 = sem consumo registrado (ou registrado sem cliente).
+  custoCentavos?: number;
 };
 
 // Ficha do cliente no CRM: dados + histórico agregado + nota da equipe.
