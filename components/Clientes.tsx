@@ -133,7 +133,7 @@ export default function Clientes({
                 >
                   <span
                     className="shrink-0 w-9 h-9 rounded-full grid place-items-center font-title font-bold text-white text-[13px]"
-                    style={{ background: "linear-gradient(135deg,#8f4712,#b5601a)" }}
+                    style={{ background: "linear-gradient(135deg,#96741a,#bb921f)" }}
                   >
                     {iniciais(c.nome)}
                   </span>
@@ -211,7 +211,7 @@ function Ficha({ c }: { c: ClienteCRM }) {
       <div className="flex items-start gap-4">
         <span
           className="shrink-0 w-14 h-14 rounded-2xl grid place-items-center font-title font-bold text-white text-lg"
-          style={{ background: "linear-gradient(135deg,#8f4712,#b5601a)" }}
+          style={{ background: "linear-gradient(135deg,#96741a,#bb921f)" }}
         >
           {iniciais(c.nome)}
         </span>

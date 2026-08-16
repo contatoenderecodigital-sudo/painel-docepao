@@ -19,7 +19,7 @@ import { NumberTicker } from "@/components/ui/number-ticker";
 import { DeptIcone } from "@/components/DeptIcone";
 import AjudaInfo from "@/components/AjudaInfo";
 import PedidoDetalhe from "@/components/PedidoDetalhe";
-import { Image as ImageIcon, Printer, Check } from "lucide-react";
+import { Image as ImageIcon, Printer, Check, Eye } from "lucide-react";
 
 const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const DOW = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
@@ -339,6 +339,16 @@ export default function PedidosDoDia({
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="font-semibold text-cream tabular-nums">{brl(p.totalCentavos)}</div>
+                      {/* O card inteiro abre o detalhe, mas ninguém adivinha que
+                          é clicável. Botão explícito para quem está na correria
+                          do balcão não ter que descobrir. */}
+                      <button
+                        onClick={() => setDetalhe(p)}
+                        className="btn-cobre press inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                        title="Abrir o pedido completo"
+                      >
+                        <Eye size={12} /> Ver pedido
+                      </button>
                       {reimprimir ? (
                         <button
                           onClick={() => aoReimprimir(p.id)}

@@ -139,7 +139,7 @@ export default function TestarIA() {
             <div className="h-full grid place-items-center text-center">
               <div>
                 <div
-                  className="mx-auto w-14 h-14 rounded-2xl grid place-items-center mb-3 grad-cobre text-white"
+                  className="mx-auto w-14 h-14 rounded-2xl grid place-items-center mb-3 grad-cobre text-vinho-d"
                 >
                   <Bot size={26} />
                 </div>
@@ -162,7 +162,7 @@ export default function TestarIA() {
                     className={"flex items-end gap-2.5 mt-3 " + (isCliente ? "justify-end" : "justify-start")}
                   >
                     {!isCliente && (
-                      <div className="shrink-0 grid place-items-center text-white grad-cobre" style={{ width: 34, height: 34, borderRadius: 10 }}>
+                      <div className="shrink-0 grid place-items-center text-vinho-d grad-cobre" style={{ width: 34, height: 34, borderRadius: 10 }}>
                         <Bot size={19} />
                       </div>
                     )}
@@ -174,7 +174,7 @@ export default function TestarIA() {
                         }
                         style={
                           isCliente
-                            ? { background: "linear-gradient(135deg,#8f4712,#e08a3c)", boxShadow: "0 4px 14px rgba(143,71,18,0.28)" }
+                            ? { background: "linear-gradient(135deg,#96741a,#e7cf94)", boxShadow: "0 4px 14px rgba(187,146,31,0.28)" }
                             : { background: "rgba(255,255,255,0.92)", boxShadow: "0 3px 12px rgba(0,0,0,0.16)" }
                         }
                       >
@@ -200,7 +200,7 @@ export default function TestarIA() {
 
               {digitando && (
                 <div className="flex items-end gap-2.5 mt-3 justify-start">
-                  <div className="shrink-0 grid place-items-center text-white grad-cobre" style={{ width: 34, height: 34, borderRadius: 10 }}>
+                  <div className="shrink-0 grid place-items-center text-vinho-d grad-cobre" style={{ width: 34, height: 34, borderRadius: 10 }}>
                     <Bot size={19} />
                   </div>
                   <div
@@ -211,7 +211,7 @@ export default function TestarIA() {
                     {[0, 1, 2].map((n) => (
                       <span
                         key={n}
-                        className="w-1.5 h-1.5 rounded-full bg-[#8f4712]/60 animate-bounce"
+                        className="w-1.5 h-1.5 rounded-full bg-[#96741a]/60 animate-bounce"
                         style={{ animationDelay: `${n * 0.15}s` }}
                       />
                     ))}
@@ -281,7 +281,7 @@ export default function TestarIA() {
             <button
               onClick={enviar}
               disabled={(!texto.trim() && !anexo) || digitando}
-              className="grad-cobre press w-10 h-10 rounded-full grid place-items-center text-white shrink-0 shadow-[0_6px_16px_rgba(143,71,18,0.3)] disabled:opacity-45 disabled:cursor-default"
+              className="grad-cobre press w-10 h-10 rounded-full grid place-items-center text-white shrink-0 shadow-[0_6px_16px_rgba(187,146,31,0.3)] disabled:opacity-45 disabled:cursor-default"
               aria-label="Enviar"
             >
               <SendHorizontal size={18} />

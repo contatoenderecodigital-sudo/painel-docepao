@@ -99,7 +99,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
     (isCliente ? "text-[#4a1020] rounded-bl-[4px]" : "text-white rounded-br-[4px]");
   const bolhaStyle: React.CSSProperties = isCliente
     ? { background: "rgba(255,255,255,0.95)", boxShadow: "0 3px 12px rgba(0,0,0,0.16)" }
-    : { background: "linear-gradient(135deg,#8f4712,#e08a3c)", boxShadow: "0 4px 14px rgba(143,71,18,0.28)" };
+    : { background: "linear-gradient(135deg,#96741a,#e7cf94)", boxShadow: "0 4px 14px rgba(187,146,31,0.28)" };
 
   // legenda que acompanha a mídia: tira as notas internas ("[o cliente enviou
   // ...]") e os rótulos automáticos (Foto/Áudio/nome do arquivo), pra não repetir.
@@ -147,7 +147,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
               rel="noopener noreferrer"
               className={"flex items-center gap-2.5 px-3.5 py-2.5 " + (src ? "" : "pointer-events-none opacity-70")}
             >
-              <span className={"w-9 h-9 rounded-lg grid place-items-center shrink-0 " + (isCliente ? "bg-black/8 text-[#8f4712]" : "bg-white/20 text-white")}>
+              <span className={"w-9 h-9 rounded-lg grid place-items-center shrink-0 " + (isCliente ? "bg-black/8 text-[#96741a]" : "bg-white/20 text-white")}>
                 <FileText size={18} />
               </span>
               <span className="min-w-0">
@@ -432,7 +432,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                         <div className="flex items-center justify-between gap-2 mt-0.5">
                           <span className={"text-[12px] truncate " + (on ? "text-white/85" : "text-cream/70")}>{c.previa}</span>
                           {naoLidas > 0 && (
-                            <span className="shrink-0 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full text-[10px] font-bold" style={{ background: on ? "#fff" : "#25d366", color: on ? "#8f4712" : "#06331a" }}>{naoLidas}</span>
+                            <span className="shrink-0 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full text-[10px] font-bold" style={{ background: on ? "#fff" : "#25d366", color: on ? "#96741a" : "#06331a" }}>{naoLidas}</span>
                           )}
                         </div>
                         {handoff && (
@@ -532,7 +532,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                         rows={1}
                         className="flex-1 resize-none bg-white/10 rounded-[20px] px-4 py-2.5 text-[13.5px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25 max-h-32"
                       />
-                      <button onClick={enviarTexto} disabled={!texto.trim() || enviando} className="grad-cobre press w-10 h-10 rounded-full grid place-items-center text-white shrink-0 shadow-[0_6px_16px_rgba(143,71,18,0.3)] disabled:opacity-45 disabled:cursor-default" aria-label="Enviar">
+                      <button onClick={enviarTexto} disabled={!texto.trim() || enviando} className="grad-cobre press w-10 h-10 rounded-full grid place-items-center text-white shrink-0 shadow-[0_6px_16px_rgba(187,146,31,0.3)] disabled:opacity-45 disabled:cursor-default" aria-label="Enviar">
                         <SendHorizontal size={18} />
                       </button>
                     </div>
@@ -741,7 +741,7 @@ function ModalTemplate({ titulo, comTelefone, onFechar, onEnviar }: {
                 <button
                   key={t.nome + t.idioma}
                   onClick={() => escolher(t)}
-                  className={"w-full text-left px-3 py-2.5 rounded-[12px] transition-colors " + (sel?.nome === t.nome && sel?.idioma === t.idioma ? "grad-cobre text-white" : "bg-white/[0.06] hover:bg-white/12 text-cream")}
+                  className={"w-full text-left px-3 py-2.5 rounded-[12px] transition-colors " + (sel?.nome === t.nome && sel?.idioma === t.idioma ? "grad-cobre text-vinho-d" : "bg-white/[0.06] hover:bg-white/12 text-cream")}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[13px] font-semibold truncate">{t.nome}</span>
@@ -771,7 +771,7 @@ function ModalTemplate({ titulo, comTelefone, onFechar, onEnviar }: {
           {sel && (
             <div className="mt-4">
               <span className="t-label text-cream/45">Prévia</span>
-              <div className="mt-2 rounded-[12px] px-3.5 py-2.5 text-[13px] text-white whitespace-pre-line" style={{ background: "linear-gradient(135deg,#8f4712,#e08a3c)" }}>{preview}</div>
+              <div className="mt-2 rounded-[12px] px-3.5 py-2.5 text-[13px] text-white whitespace-pre-line" style={{ background: "linear-gradient(135deg,#96741a,#e7cf94)" }}>{preview}</div>
             </div>
           )}
         </div>

@@ -16,10 +16,13 @@
   --brand-line:     #ece0cf;
   --brand-wa:       #1faf54;
 
-  /* Cobre / trigo da logo — cor de AÇÃO da marca (substitui o verde). */
-  --brand-cobre:    #b5601a;
-  --brand-cobre-l:  #e08a3c;
-  --brand-cobre-d:  #8f4712;
+  /* Cor de AÇÃO da marca. Era cobre/laranja; passou a ser o dourado da logo
+     para o painel inteiro falar uma cor só (ícones, botões e destaques).
+     Os nomes `cobre` continuam porque são usados em dezenas de lugares —
+     trocar o token aqui repinta tudo sem caçar classe por classe. */
+  --brand-cobre:    #bb921f;
+  --brand-cobre-l:  #e7cf94;
+  --brand-cobre-d:  #96741a;
 
   --background: var(--brand-cream);
   --foreground: var(--brand-ink);
@@ -89,7 +92,7 @@ h1, h2, h3, .tracking-tight-apple { letter-spacing: -0.021em; }
    ========================================================================== */
 .grad-vinho    { background: linear-gradient(160deg, var(--brand-vinho-d), var(--brand-vinho)); }
 .grad-dourado  { background: linear-gradient(135deg, #bb921f, #e7cf94); }
-.grad-cobre    { background: linear-gradient(135deg, #8f4712, #e08a3c); }
+.grad-cobre    { background: linear-gradient(135deg, var(--brand-cobre-d), var(--brand-cobre-l)); }
 .grad-verde    { background: linear-gradient(135deg, #1f7a43, #35c46f); }
 .grad-vermelho { background: linear-gradient(135deg, #9c1414, #e01e1e); }
 .text-grad-dourado {
@@ -98,14 +101,24 @@ h1, h2, h3, .tracking-tight-apple { letter-spacing: -0.021em; }
   background-clip: text;
   color: transparent;
 }
-/* botões de ação — gradiente + sombra + cantos 10px + texto branco */
-.btn-cobre,
+/* botões de ação — gradiente + sombra + cantos 10px */
 .btn-verde,
 .btn-vermelho {
   color: #fff;
   border-radius: 10px;
 }
-.btn-cobre    { background: linear-gradient(135deg, #8f4712, #e08a3c); box-shadow: 0 6px 16px rgba(143, 71, 18, 0.30); }
+/* O dourado é claro demais para texto branco: o texto vai no vinho escuro,
+   igual ao botão Anexar. Sem isso o botão fica bonito e ilegível. */
+.btn-cobre {
+  color: var(--brand-vinho-d);
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--brand-cobre), var(--brand-cobre-l));
+  box-shadow: 0 6px 16px rgba(187, 146, 31, 0.30);
+}
+/* Qualquer coisa pintada com o gradiente de ação herda o texto escuro.
+   Componentes que ainda pedem text-white em cima do gradiente são corrigidos
+   um a um — esta regra cobre o resto. */
+.grad-cobre { color: var(--brand-vinho-d); }
 .btn-verde    { background: linear-gradient(135deg, #1f7a43, #35c46f); box-shadow: 0 6px 16px rgba(31, 122, 67, 0.30); }
 .btn-vermelho { background: linear-gradient(135deg, #9c1414, #e01e1e); box-shadow: 0 6px 16px rgba(161, 29, 29, 0.28); }
 .btn-cobre:hover, .btn-verde:hover, .btn-vermelho:hover { filter: brightness(1.06); }

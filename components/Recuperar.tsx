@@ -331,7 +331,7 @@ export default function Recuperar({
                 <div className="flex items-start gap-4">
                   <div
                     className="shrink-0 w-11 h-11 rounded-full grid place-items-center font-title font-bold text-white text-sm"
-                    style={{ background: "linear-gradient(135deg,#8f4712,#b5601a)" }}
+                    style={{ background: "linear-gradient(135deg,#96741a,#bb921f)" }}
                   >
                     {iniciais(p.clienteNome)}
                   </div>

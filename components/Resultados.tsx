@@ -46,7 +46,7 @@ const PERIODOS: [Periodo, string][] = [
 ];
 
 const OURO = "#e6c766";
-const COBRE = "#e08a3c";
+const COBRE = "#e7cf94";
 
 export default function Resultados({
   dados,
@@ -281,7 +281,7 @@ export default function Resultados({
                         className="h-full rounded-full"
                         style={{
                           width: `${Math.max(6, (p.centavos / max) * 100)}%`,
-                          background: "linear-gradient(90deg,#8f4712,#e08a3c)",
+                          background: "linear-gradient(90deg,#96741a,#e7cf94)",
                         }}
                       />
                     </div>
