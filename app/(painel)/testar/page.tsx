@@ -281,7 +281,7 @@ export default function TestarIA() {
             <button
               onClick={enviar}
               disabled={(!texto.trim() && !anexo) || digitando}
-              className="grad-cobre press w-10 h-10 rounded-full grid place-items-center text-white shrink-0 shadow-[0_6px_16px_rgba(187,146,31,0.3)] disabled:opacity-45 disabled:cursor-default"
+              className="grad-cobre press w-11 h-11 rounded-full grid place-items-center text-vinho-d shrink-0 disabled:opacity-45 disabled:cursor-default"
               aria-label="Enviar"
             >
               <SendHorizontal size={18} />

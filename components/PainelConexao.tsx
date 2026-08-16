@@ -96,7 +96,7 @@ function Onboarding() {
         {PASSOS.map((p, i) => (
           <div key={i} className="relative glass rounded-2xl p-5 text-left">
             <div className="flex items-center gap-2.5 mb-2.5">
-              <span className="grad-cobre w-8 h-8 rounded-lg grid place-items-center text-white shrink-0">
+              <span className="grad-cobre w-8 h-8 rounded-lg grid place-items-center text-vinho-d shrink-0">
                 <p.Icon size={17} />
               </span>
               <span className="grad-dourado w-6 h-6 rounded-full grid place-items-center text-vinho-d text-xs font-bold">

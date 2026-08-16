@@ -222,7 +222,7 @@ export default function Recuperar({
       {/* ---------------- Cobrança automática (compacto e configurável) ---------------- */}
       <div className="glass-soft rounded-2xl px-5 py-3.5 mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
         <div className="flex items-center gap-3">
-          <div className="grad-cobre w-9 h-9 rounded-xl grid place-items-center text-white shrink-0">
+          <div className="grad-cobre w-9 h-9 rounded-xl grid place-items-center text-vinho-d shrink-0">
             <Zap size={18} />
           </div>
           <div className="leading-tight">

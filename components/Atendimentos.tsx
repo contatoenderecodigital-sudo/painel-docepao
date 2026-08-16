@@ -528,11 +528,11 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                         value={texto}
                         onChange={(e) => setTexto(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviarTexto(); } }}
-                        placeholder="Escreva uma mensagem"
+                        placeholder="Mensagem"
                         rows={1}
                         className="flex-1 resize-none bg-white/10 rounded-[20px] px-4 py-2.5 text-[15px] md:text-[14px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25 max-h-32"
                       />
-                      <button onClick={enviarTexto} disabled={!texto.trim() || enviando} className="grad-cobre press w-10 h-10 rounded-full grid place-items-center text-white shrink-0 shadow-[0_6px_16px_rgba(187,146,31,0.3)] disabled:opacity-45 disabled:cursor-default" aria-label="Enviar">
+                      <button onClick={enviarTexto} disabled={!texto.trim() || enviando} className="grad-cobre press w-11 h-11 rounded-full grid place-items-center text-vinho-d shrink-0 disabled:opacity-45 disabled:cursor-default" aria-label="Enviar">
                         <SendHorizontal size={18} />
                       </button>
                     </div>
