@@ -151,6 +151,17 @@ button, a { transition: filter 120ms ease, background-color 120ms ease, color 12
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+/* FALLBACK — quando o navegador NÃO aplica backdrop-filter (alguns navegadores
+   anti-detect, políticas de privacidade, ou blur desligado), o "vidro" (que é
+   só 8–20% de branco) vira transparente e o conteúdo atrás vaza — modais e
+   cards ficam ilegíveis. Aqui damos uma superfície VINHO opaca pra tudo
+   continuar legível. Onde o blur funciona, o visual de vidro fosco é mantido. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: #571726; }
+  .glass-strong { background: #5f1a2b; }
+  .glass-soft { background: #4a1322; }
+}
+
 /* Fundo do app — VINHO PROFUNDO com blobs de luz tipo aurora (dourado + cobre).
    O fundo escuro é o que faz o vidro fosco "aparecer". A base é o vinho; os
    blobs vivem numa camada própria (::before) que respira devagar. */

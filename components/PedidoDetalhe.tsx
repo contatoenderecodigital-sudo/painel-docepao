@@ -50,7 +50,13 @@ export default function PedidoDetalhe({
       onClick={onClose}
     >
       <div
-        className="glass-strong rounded-2xl shadow-xl w-full max-w-lg relative flex flex-col max-h-[88vh]"
+        className="rounded-2xl shadow-xl w-full max-w-lg relative flex flex-col max-h-[88vh]"
+        style={{
+          background: "rgba(73,16,32,0.97)",
+          backdropFilter: "blur(24px) saturate(140%)",
+          WebkitBackdropFilter: "blur(24px) saturate(140%)",
+          border: "1px solid rgba(255,255,255,0.14)",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <button

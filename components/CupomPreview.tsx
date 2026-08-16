@@ -225,7 +225,7 @@ export default function CupomPreview({
       <div
         className="rounded-[20px] max-w-full max-h-full overflow-hidden flex flex-col"
         style={{
-          background: "rgba(73,16,32,0.85)",
+          background: "rgba(73,16,32,0.97)",
           backdropFilter: "blur(24px) saturate(140%)",
           WebkitBackdropFilter: "blur(24px) saturate(140%)",
           border: "1px solid rgba(255,255,255,0.14)",

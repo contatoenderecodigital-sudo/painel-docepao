@@ -594,7 +594,13 @@ function Overlay({ onClose, children }: { onClose: () => void; children: React.R
       onClick={onClose}
     >
       <div
-        className="glass-strong rounded-2xl shadow-xl w-full max-w-md p-6 relative"
+        className="rounded-2xl shadow-xl w-full max-w-md p-6 relative"
+        style={{
+          background: "rgba(73,16,32,0.97)",
+          backdropFilter: "blur(24px) saturate(140%)",
+          WebkitBackdropFilter: "blur(24px) saturate(140%)",
+          border: "1px solid rgba(255,255,255,0.14)",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
