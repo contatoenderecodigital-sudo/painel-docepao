@@ -125,7 +125,7 @@ export default async function Shell({
               <form action={sair}>
                 <button
                   type="submit"
-                  className="text-[11px] text-white/60 hover:text-white border border-white/15 rounded-md px-2 py-1 transition-colors"
+                  className="toque text-[11px] text-white/60 hover:text-white border border-white/15 rounded-md px-3 py-1 transition-colors"
                 >
                   Sair
                 </button>

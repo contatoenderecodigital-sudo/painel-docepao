@@ -402,7 +402,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                   className="w-full bg-white/10 rounded-[10px] pl-9 pr-3 py-2 text-[13px] text-cream placeholder:text-cream/45 focus:outline-none focus:ring-2 focus:ring-cobre/25"
                 />
               </div>
-              <button onClick={() => setNovaAberto(true)} className="btn-cobre press w-9 h-9 grid place-items-center shrink-0" aria-label="Nova conversa" title="Nova conversa">
+              <button onClick={() => setNovaAberto(true)} className="btn-cobre press w-11 h-11 md:w-9 md:h-9 grid place-items-center shrink-0" aria-label="Nova conversa" title="Nova conversa">
                 <Plus size={18} />
               </button>
             </div>

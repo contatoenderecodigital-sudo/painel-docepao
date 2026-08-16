@@ -161,14 +161,14 @@ export default function PedidosDoDia({
       {/* barra de controle */}
       <div className="glass rounded-[18px] p-4 flex flex-wrap items-center gap-3 mb-5">
         <div className="flex items-center gap-1">
-          <button onClick={() => setSel(addDias(sel, -1))} className="press w-8 h-8 grid place-items-center rounded-lg bg-white/[0.06] hover:bg-white/10 text-cream/80" aria-label="Dia anterior">
+          <button onClick={() => setSel(addDias(sel, -1))} className="press w-11 h-11 md:w-8 md:h-8 grid place-items-center rounded-lg bg-white/[0.06] hover:bg-white/10 text-cream/80" aria-label="Dia anterior">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m15 6-6 6 6 6" /></svg>
           </button>
           <div className="px-3 text-center min-w-[150px]">
             <div className="text-[13px] font-semibold text-cream capitalize">{fmtLongo(sel)}</div>
             {relacao && <div className="text-[10px] uppercase tracking-wider text-dourado">{relacao}</div>}
           </div>
-          <button onClick={() => setSel(addDias(sel, 1))} className="press w-8 h-8 grid place-items-center rounded-lg bg-white/[0.06] hover:bg-white/10 text-cream/80" aria-label="Proximo dia">
+          <button onClick={() => setSel(addDias(sel, 1))} className="press w-11 h-11 md:w-8 md:h-8 grid place-items-center rounded-lg bg-white/[0.06] hover:bg-white/10 text-cream/80" aria-label="Proximo dia">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m9 6 6 6-6 6" /></svg>
           </button>
         </div>

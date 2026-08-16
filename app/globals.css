@@ -123,6 +123,18 @@ h1, h2, h3, .tracking-tight-apple { letter-spacing: -0.021em; }
 .btn-verde    { background: linear-gradient(135deg, #1f7a43, #35c46f); box-shadow: 0 6px 16px rgba(31, 122, 67, 0.30); }
 .btn-vermelho { background: linear-gradient(135deg, #9c1414, #e01e1e); box-shadow: 0 6px 16px rgba(161, 29, 29, 0.28); }
 .btn-cobre:hover, .btn-verde:hover, .btn-vermelho:hover { filter: brightness(1.06); }
+
+/* Alvo de toque no celular. Os botões de ação estavam com 27 a 36px de altura;
+   abaixo de ~44px o dedo erra, e quem usa isto está de mão ocupada no balcão.
+   Só no celular: no desktop o mouse é preciso e a densidade é bem-vinda. */
+@media (max-width: 1023px) {
+  .btn-cobre, .btn-verde, .btn-vermelho, .toque {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
 /* badge/etiqueta de status: dourado claro + texto vinho */
 .chip-marca { background: #f4e8d6; color: var(--brand-vinho); }
 
