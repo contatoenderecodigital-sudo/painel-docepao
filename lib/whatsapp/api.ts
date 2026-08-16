@@ -184,6 +184,17 @@ export const CARDAPIOS = [
 ] as const;
 export type CardapioId = (typeof CARDAPIOS)[number];
 
+// Recados que acompanham a peça. O dono pediu que estas duas informações
+// saíssem do rodapé em letra miúda da imagem e virassem mensagem: no celular
+// ninguém lê rodapé de cardápio, e são justamente as regras que mais geram
+// dúvida na hora de fechar bolo de festa.
+export const RECADOS_CARDAPIO: Partial<Record<CardapioId, string[]>> = {
+  "bolos-festa": [
+    "Pode misturar sabores — vale sempre o valor do mais caro. Ex.: Laka com morango R$ 49,90, morango com nozes R$ 55,90.",
+    "Decoração à parte: papel de arroz R$ 12 e topo de bolo aprox. R$ 30 (a unidade). Parcelamos em até 3x no cartão.",
+  ],
+};
+
 function baseDoApp(): string {
   return (process.env.APP_URL || "https://docepao.enderecodigital.tech").replace(/\/+$/, "");
 }

@@ -15,7 +15,7 @@
 import { NextRequest, after } from "next/server";
 import { responder } from "@/lib/ia/cerebro";
 import { carregarTenant } from "@/lib/ia/tenant";
-import { enviarTexto, enviarImagemPorLink, urlDoCardapio, baixarMidia, type CredsEnvio } from "@/lib/whatsapp/api";
+import { enviarTexto, enviarImagemPorLink, urlDoCardapio, RECADOS_CARDAPIO, baixarMidia, type CredsEnvio } from "@/lib/whatsapp/api";
 import { transcrever } from "@/lib/whatsapp/transcrever";
 import {
   acharOuCriarCliente,
@@ -202,6 +202,10 @@ async function processar(corpo: WebhookPayload) {
         for (const c of resp.cardapiosParaEnviar ?? []) {
           try {
             await enviarImagemPorLink(telefone, urlDoCardapio(c), undefined, creds);
+            // recados da peça, um por mensagem, logo depois da imagem
+            for (const r of RECADOS_CARDAPIO[c] ?? []) {
+              await enviarTexto(telefone, r, creds);
+            }
           } catch (e) {
             console.error("[whatsapp] falha ao enviar cardapio", c, e);
           }
@@ -258,7 +262,7 @@ async function montarEntrada(
       const bin = await baixarMidia(msg.audio.id, creds);
       dados = Buffer.from(bin).toString("base64");
       try {
-        transcricao = await transcrever(bin);
+        transcricao = await transcrever(bin, { negocioId, clienteId, contato: msg.from });
       } catch (e) {
         console.error("[whatsapp] falha ao transcrever audio:", e);
       }

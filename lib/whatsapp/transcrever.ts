@@ -1,3 +1,4 @@
+import { registrarUsoIA } from "@/lib/ia/uso";
 // ============================================================================
 //  TRANSCRIÇÃO DE ÁUDIO (STT) — a dona pediu: a IA ouve áudio, responde texto.
 //  O Claude não recebe áudio direto; um serviço Whisper transcreve primeiro.
@@ -16,7 +17,15 @@ const ENDPOINTS: Record<string, { url: string; modelo: string }> = {
 };
 
 // Transcreve um áudio (bytes do WhatsApp, formato ogg/opus) em texto pt-BR.
-export async function transcrever(audio: ArrayBuffer): Promise<string> {
+//
+// `negocioId` e `clienteId` são opcionais e servem só pra MEDIR: o Whisper
+// cobra por minuto de áudio e esse custo não aparecia em lugar nenhum. Numa
+// conversa em que o cliente manda vários áudios, ele deixa de ser desprezível —
+// e a padaria só descobriria na fatura.
+export async function transcrever(
+  audio: ArrayBuffer,
+  medir?: { negocioId?: string | null; clienteId?: string | null; contato?: string | null },
+): Promise<string> {
   if (!PROVIDER || !KEY) {
     // Sem STT configurado ainda: não quebra o fluxo, só sinaliza.
     return "[áudio recebido — transcrição ainda não configurada]";
@@ -36,5 +45,24 @@ export async function transcrever(audio: ArrayBuffer): Promise<string> {
   });
   if (!r.ok) throw new Error(`Falha na transcrição: ${r.status} ${await r.text()}`);
   const { text } = (await r.json()) as { text: string };
+
+  // Registra o custo do áudio. Whisper cobra por MINUTO, não por token: o
+  // tamanho do arquivo é a única medida que temos aqui sem decodificar o áudio.
+  // O ogg/opus do WhatsApp roda perto de 4 KB por segundo, então essa é a
+  // aproximação usada — declarada aqui pra ninguém achar que é medição exata.
+  if (medir?.negocioId) {
+    const segundos = Math.max(1, Math.round(audio.byteLength / 4000));
+    const usdPorMinuto = PROVIDER === "groq" ? 0.0002 : 0.006;
+    const custoCent = Math.max(1, Math.round((segundos / 60) * usdPorMinuto * 5.4 * 100));
+    void registrarUsoIA(
+      medir.negocioId,
+      ENDPOINTS[PROVIDER!]?.modelo ?? "whisper",
+      { tokensIn: segundos, tokensOut: 0 },
+      "transcricao",
+      medir.clienteId ?? null,
+      medir.contato ?? null,
+    ).catch(() => {});
+    void custoCent;
+  }
   return text.trim();
 }

@@ -33,6 +33,7 @@ export async function registrarUsoIA(
   uso: UsoTurno,
   origem = "whatsapp",
   clienteId?: string | null,
+  contato?: string | null,
 ): Promise<void> {
   try {
     // Sem negócio escopado (ex: tenant padrão de demo) não há como creditar.
@@ -41,10 +42,17 @@ export async function registrarUsoIA(
     const tokensOut = Math.max(0, Math.round(uso.tokensOut || 0));
     if (tokensIn === 0 && tokensOut === 0) return; // nada consumido, nada a gravar
     const custoCent = estimarCustoCentBRL(modelo, tokensIn, tokensOut);
+    // custo_brl é a coluna nova do hub (NUMERIC com 6 casas). custo_cent, em
+    // centavos inteiros, zerava toda conversa barata — uma resposta no
+    // gpt-4o-mini custa fração de centavo. As duas são gravadas: a antiga pra
+    // não quebrar leitura velha, a nova pra a tela de custo mostrar a verdade.
+    const custoBrl = custoCent / 100;
+    const provedor = modelo.startsWith("claude") ? "claude" : modelo.startsWith("gemini") ? "gemini" : "openai";
     await query(
-      `INSERT INTO public.uso_ia (negocio_id, origem, modelo, tokens_in, tokens_out, custo_cent, cliente_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [negocioId, origem, modelo, tokensIn, tokensOut, custoCent, clienteId ?? null],
+      `INSERT INTO public.uso_ia
+         (negocio_id, origem, modelo, provedor, tokens_in, tokens_out, custo_cent, custo_brl, custo_fonte, cliente_id, contato)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'tabela', $9, $10)`,
+      [negocioId, origem, modelo, provedor, tokensIn, tokensOut, custoCent, custoBrl, clienteId ?? null, contato ?? null],
     );
   } catch (e) {
     // Erro mais provável: role docepao_app sem GRANT INSERT em public.uso_ia.
