@@ -92,7 +92,8 @@ h1, h2, h3, .tracking-tight-apple { letter-spacing: -0.021em; }
    ========================================================================== */
 .grad-vinho    { background: linear-gradient(160deg, var(--brand-vinho-d), var(--brand-vinho)); }
 .grad-dourado  { background: linear-gradient(135deg, #bb921f, #e7cf94); }
-.grad-cobre    { background: linear-gradient(135deg, var(--brand-cobre-d), var(--brand-cobre-l)); }
+/* mesmo degradê do .grad-dourado — um dourado só no painel inteiro */
+.grad-cobre    { background: linear-gradient(135deg, #bb921f, #e7cf94); }
 .grad-verde    { background: linear-gradient(135deg, #1f7a43, #35c46f); }
 .grad-vermelho { background: linear-gradient(135deg, #9c1414, #e01e1e); }
 .text-grad-dourado {
@@ -107,13 +108,13 @@ h1, h2, h3, .tracking-tight-apple { letter-spacing: -0.021em; }
   color: #fff;
   border-radius: 10px;
 }
-/* O dourado é claro demais para texto branco: o texto vai no vinho escuro,
-   igual ao botão Anexar. Sem isso o botão fica bonito e ilegível. */
+/* EXATAMENTE o mesmo do botão Anexar (.grad-dourado + text-vinho-d), que é o
+   dourado aprovado. Sem box-shadow de propósito: o brilho dourado por baixo
+   criava um halo que lavava o degradê e fazia o botão parecer cor chapada. */
 .btn-cobre {
   color: var(--brand-vinho-d);
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--brand-cobre), var(--brand-cobre-l));
-  box-shadow: 0 6px 16px rgba(187, 146, 31, 0.30);
+  background: linear-gradient(135deg, #bb921f, #e7cf94);
 }
 /* Qualquer coisa pintada com o gradiente de ação herda o texto escuro.
    Componentes que ainda pedem text-white em cima do gradiente são corrigidos
