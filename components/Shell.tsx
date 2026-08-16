@@ -73,7 +73,7 @@ export default async function Shell({
 
   // No celular vira coluna (barra superior + conteúdo); no desktop, lado a lado.
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row app-mesh text-cream" style={styleMarca}>
+    <div className="h-[100dvh] overflow-hidden flex flex-col lg:flex-row app-mesh text-cream" style={styleMarca}>
       {/* Sidebar — material fosco da marca (estilo Apple).
           Fixa no desktop, drawer no celular (ver SidebarDrawer). */}
       <SidebarDrawer titulo={nomeNegocio}>
@@ -138,7 +138,7 @@ export default async function Shell({
       </SidebarDrawer>
 
       {/* Conteúdo */}
-      <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
+      <main className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden">{children}</main>
     </div>
   );
 }

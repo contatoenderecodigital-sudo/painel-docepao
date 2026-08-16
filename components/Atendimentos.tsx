@@ -391,8 +391,11 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
     }
   }
 
+  // A altura vem do <main>, não de 100dvh. Somando 100dvh com a barra superior
+  // do celular, a página inteira passava a rolar e o cabeçalho subia junto — a
+  // rolagem tem que ficar SÓ dentro das mensagens.
   return (
-    <div className="h-[100dvh] flex flex-col px-3 md:px-6 py-3 md:py-6">
+    <div className="h-full min-h-0 flex flex-col px-3 md:px-6 py-3 md:py-6 overflow-hidden">
       <div className="hidden md:block text-[11px] uppercase tracking-[0.2em] text-dourado font-semibold mb-3 shrink-0">Atendimentos</div>
 
       <div className="flex-1 min-h-0">
