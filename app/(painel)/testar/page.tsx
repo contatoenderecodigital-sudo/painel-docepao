@@ -240,7 +240,7 @@ export default function TestarIA() {
           )}
           <div className="flex items-center gap-2 max-w-3xl mx-auto">
             <label
-              className={"press w-10 h-10 rounded-full grid place-items-center text-cream/70 hover:text-cream bg-white/10 hover:bg-white/[0.16] shrink-0 cursor-pointer " + (digitando ? "opacity-45 pointer-events-none" : "")}
+              className={"press relative w-10 h-10 rounded-full grid place-items-center text-cream/70 hover:text-cream bg-white/10 hover:bg-white/[0.16] shrink-0 cursor-pointer " + (digitando ? "opacity-45 pointer-events-none" : "")}
               aria-label="Anexar foto"
               title="Anexar foto de referência"
             >
@@ -251,7 +251,8 @@ export default function TestarIA() {
                 accept="image/*"
                 onChange={escolherArquivo}
                 disabled={digitando}
-                className="hidden"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                title="Anexar foto de referência"
               />
             </label>
             <input
