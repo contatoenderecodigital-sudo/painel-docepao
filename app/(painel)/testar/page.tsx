@@ -239,22 +239,21 @@ export default function TestarIA() {
             </div>
           )}
           <div className="flex items-center gap-2 max-w-3xl mx-auto">
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              onChange={escolherArquivo}
-              className="hidden"
-            />
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={digitando}
-              className="press w-10 h-10 rounded-full grid place-items-center text-cream/70 hover:text-cream bg-white/10 hover:bg-white/[0.16] shrink-0 disabled:opacity-45 disabled:cursor-default"
+            <label
+              className={"press w-10 h-10 rounded-full grid place-items-center text-cream/70 hover:text-cream bg-white/10 hover:bg-white/[0.16] shrink-0 cursor-pointer " + (digitando ? "opacity-45 pointer-events-none" : "")}
               aria-label="Anexar foto"
               title="Anexar foto de referência"
             >
               <Paperclip size={18} />
-            </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                onChange={escolherArquivo}
+                disabled={digitando}
+                className="hidden"
+              />
+            </label>
             <input
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
