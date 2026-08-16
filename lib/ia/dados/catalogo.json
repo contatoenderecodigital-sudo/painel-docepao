@@ -19,7 +19,7 @@
         { "nome": "croquete", "recheio": "carne com catupiry" },
         { "nome": "mini pão de queijo", "recheio": "queijo" },
         { "nome": "salsicha frita", "recheio": "salsicha" },
-        { "nome": "chodó" },
+        { "nome": "chodó", "recheio": "calabresa" },
         { "nome": "mini bolha" },
         { "nome": "risólis" }
       ]
@@ -98,7 +98,7 @@
     "sabores_doces": ["abacaxi com coco","brigadeiro","prestígio","crocante","califórnia","banana","chocolate preto com morango","chocolate branco com morango","chocolate com confete","banana com suspiro"]
   },
 
-  "_por_quilo": "Bolos recheados, tortas, empadão, bolo salgado, pão francês, calzone, cachorro-quente, pão de X, cuca e pizza redonda são POR QUILO: a qtd registrada é o PESO em kg (ex: 1.5) e o preço aqui é por kg. Cupcake, franciscano, pizza de forma e pão doce são por unidade. (Cuca e pão doce: a dona disse 'por quilo', confirmar se não é por unidade.)",
+  "_por_quilo": "Bolos recheados, tortas, empadão, bolo salgado, pão francês, calzone, cachorro-quente, pão de X e pizza redonda são POR QUILO: a qtd registrada é o PESO em kg (ex: 1.5) e o preço aqui é por kg. Cupcake, franciscano, pizza de forma, cuca e pão doce são por unidade (confirmado pela dona).",
   "outros_produtos": [
     { "nome": "torta fria", "preco": 36.90, "categoria": "torta_fria", "unidade": "kg", "sabores": ["frango","legumes"] },
     { "nome": "torta fria com palmito", "preco": 39.90, "categoria": "torta_fria", "unidade": "kg", "sabores": ["palmito","frango com palmito"] },
@@ -118,9 +118,9 @@
     { "nome": "cachorro-quente mini", "preco": 20.90, "categoria": "padaria", "unidade": "kg" },
     { "nome": "cachorro-quente", "preco": 19.90, "categoria": "padaria", "unidade": "kg", "_nota": "medio e grande" },
     { "nome": "pao de x", "preco": 19.90, "categoria": "padaria", "unidade": "kg" },
-    { "nome": "cuca recheada", "preco": 26.90, "categoria": "padaria", "unidade": "kg", "sabores": ["chocolate","doce de leite","abacaxi","vinho","goiaba","frutas vermelhas","limao"] },
-    { "nome": "cuca", "preco": 22.90, "categoria": "padaria", "unidade": "kg", "_nota": "sem recheio" },
-    { "nome": "pao doce", "preco": 22.90, "categoria": "padaria", "unidade": "kg" },
+    { "nome": "cuca recheada", "preco": 26.90, "categoria": "padaria", "unidade": "un", "sabores": ["chocolate","doce de leite","abacaxi","vinho","goiaba","frutas vermelhas","limao"] },
+    { "nome": "cuca", "preco": 22.90, "categoria": "padaria", "unidade": "un", "_nota": "sem recheio, por unidade (confirmado pela dona)" },
+    { "nome": "pao doce", "preco": 22.90, "categoria": "padaria", "unidade": "un" },
     { "nome": "papel de arroz", "preco": 12.00, "categoria": "adicional_bolo", "unidade": "un", "_nota": "Adicional do bolo decorado, valor fixo. Topo de bolo NAO entra aqui: valor varia, vai por precisa_confirmacao." }
   ]
 }

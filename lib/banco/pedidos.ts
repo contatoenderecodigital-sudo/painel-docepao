@@ -5,7 +5,7 @@
 //  Isolamento MULTI-TENANT: toda query filtra pelo negocioId (do login).
 // ============================================================================
 
-import { query } from "./db";
+import { query, queryUm } from "./db";
 import type { Pedido, PedidoStatus, ItemPedido } from "../tipos";
 
 type LinhaFila = {
@@ -131,6 +131,44 @@ export async function listarDoDia(negocioId: string): Promise<Pedido[]> {
     [negocioId],
   );
   return linhas.map(mapear);
+}
+
+// Dados mínimos pra avisar o cliente no WhatsApp quando a equipe aprova/recusa.
+// Volta null se o pedido não tiver cliente com telefone (não dá pra avisar).
+export type AvisoPedido = {
+  clienteId: string;
+  telefone: string;
+  nome: string;
+  retiradaFmt: string | null; // "DD/MM/AAAA" já formatada no banco
+  retiradaHora: string | null;
+};
+export async function dadosAvisoPedido(
+  pedidoId: string,
+  negocioId: string,
+): Promise<AvisoPedido | null> {
+  const r = await queryUm<{
+    cliente_id: string | null;
+    nome: string | null;
+    telefone: string | null;
+    retirada_fmt: string | null;
+    retirada_hora: string | null;
+  }>(
+    `select p.cliente_id, c.nome, c.telefone,
+            to_char(p.retirada_data, 'DD/MM/YYYY') as retirada_fmt,
+            p.retirada_hora
+       from pedidos p
+       left join clientes c on c.id = p.cliente_id
+      where p.id = $1 and p.negocio_id = $2`,
+    [pedidoId, negocioId],
+  );
+  if (!r || !r.cliente_id || !r.telefone) return null;
+  return {
+    clienteId: r.cliente_id,
+    telefone: r.telefone,
+    nome: r.nome || "",
+    retiradaFmt: r.retirada_fmt,
+    retiradaHora: r.retirada_hora,
+  };
 }
 
 // Muda o status de um pedido. 'aprovado' dispara o trigger da fila de impressão.
