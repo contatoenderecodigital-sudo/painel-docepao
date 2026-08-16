@@ -1,4 +1,4 @@
-// ⚠️ ROTA DE PREVIEW — só pra iterar o design sem login/banco. Apagar depois.
+// ATENCAO: ROTA DE PREVIEW, só pra iterar o design sem login/banco. Apagar depois.
 import Atendimentos from "@/components/Atendimentos";
 import { CONVERSAS_MOCK } from "@/lib/mock";
 

@@ -117,7 +117,7 @@ export default function CampoTelefone({
       </div>
       {!semAviso && erro && (
         <p className="mt-1 text-[11.5px] text-[#e8897f]">
-          Número incompleto — precisa de DDD + 9 dígitos.
+          Número incompleto. Precisa de DDD mais os 9 dígitos.
         </p>
       )}
     </div>

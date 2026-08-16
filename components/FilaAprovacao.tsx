@@ -151,7 +151,7 @@ function CardPedido({
           <div className="text-[13px] leading-relaxed">
             <span className="font-semibold text-dourado">Confirme antes de aprovar</span>
             <span className="text-cream/80">
-              {pedido.motivoHumano ? ` — ${pedido.motivoHumano}` : " — a IA marcou este pedido pra revisão da equipe."}
+              {pedido.motivoHumano ? `: ${pedido.motivoHumano}` : ": a IA montou este pedido, mas pediu sua conferência."}
             </span>
           </div>
         </div>

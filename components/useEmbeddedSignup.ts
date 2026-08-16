@@ -118,8 +118,9 @@ export function useEmbeddedSignup() {
             }
           })
           .catch((e) => {
+            console.error("[ES] falha ao finalizar conexão:", e);
             setEstado("erro");
-            setMsg(String(e));
+            setMsg("Não consegui concluir a conexão. Verifique a internet e tente de novo.");
             onDone?.(false);
           });
       },

@@ -127,8 +127,8 @@ export default function TestarIA() {
       >
         <Info size={15} className="shrink-0 mt-0.5" style={{ color: "var(--brand-cobre-l)" }} />
         <div className="text-cream/80">
-          Chat de teste — usa o cérebro real. Se a IA fechar o pedido, ele cai na Fila de Aprovação.{" "}
-          <span className="text-cream/55">Precisa da OPENAI_API_KEY + crédito na OpenAI pra IA responder.</span>
+          Este chat usa a mesma IA que atende no WhatsApp. Se ela fechar o pedido, ele cai na Fila de
+          Aprovação, do mesmo jeito que aconteceria com um cliente de verdade.
         </div>
       </div>
 
