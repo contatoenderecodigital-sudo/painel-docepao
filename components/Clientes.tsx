@@ -10,6 +10,8 @@ import type { ClienteCRM, PedidoStatus } from "@/lib/tipos";
 import { brl, formatarTelefoneBR, linkWhatsapp, mesAno } from "@/lib/tipos";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import AjudaInfo from "@/components/AjudaInfo";
+import PedidoDetalhe from "@/components/PedidoDetalhe";
+import type { Pedido } from "@/lib/tipos";
 import {
   Users,
   Search,
@@ -23,6 +25,7 @@ import {
   Loader2,
   Check,
   Star,
+  ChevronRight,
 } from "lucide-react";
 
 const STATUS: Record<PedidoStatus, { label: string; fg: string; bg: string }> = {
@@ -167,6 +170,24 @@ function Ficha({ c }: { c: ClienteCRM }) {
   const [nota, setNota] = useState(c.nota ?? "");
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
+  // Detalhe de um pedido do histórico (a ficha só tem o resumo; busca o completo).
+  const [detalheAberto, setDetalheAberto] = useState(false);
+  const [detalhe, setDetalhe] = useState<Pedido | null>(null);
+  const [carregandoDetalhe, setCarregandoDetalhe] = useState(false);
+
+  async function abrirPedido(id: string) {
+    setDetalhe(null);
+    setDetalheAberto(true);
+    setCarregandoDetalhe(true);
+    try {
+      const r = await fetch(`/api/pedido/${id}`);
+      if (r.ok) setDetalhe((await r.json()) as Pedido);
+    } catch {
+      /* o modal mostra o estado de erro */
+    } finally {
+      setCarregandoDetalhe(false);
+    }
+  }
 
   async function salvar() {
     setSalvando(true);
@@ -272,7 +293,11 @@ function Ficha({ c }: { c: ClienteCRM }) {
             {c.pedidos.map((p) => {
               const s = STATUS[p.status];
               return (
-                <div key={p.id} className="flex items-center gap-3 rounded-xl bg-white/[0.04] px-4 py-3">
+                <button
+                  key={p.id}
+                  onClick={() => abrirPedido(p.id)}
+                  className="group w-full text-left flex items-center gap-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] px-4 py-3 transition-colors"
+                >
                   <div className="min-w-0 flex-1">
                     <div className="text-sm text-cream/90">
                       {p.itens} {p.itens === 1 ? "item" : "itens"}
@@ -286,12 +311,21 @@ function Ficha({ c }: { c: ClienteCRM }) {
                   <span className="text-sm font-semibold text-cream tabular-nums w-24 text-right">
                     {brl(p.totalCentavos)}
                   </span>
-                </div>
+                  <ChevronRight size={16} className="text-cream/30 group-hover:text-dourado transition-colors shrink-0" />
+                </button>
               );
             })}
           </div>
         )}
       </div>
+
+      {detalheAberto && (
+        <PedidoDetalhe
+          pedido={detalhe}
+          carregando={carregandoDetalhe}
+          onClose={() => setDetalheAberto(false)}
+        />
+      )}
     </div>
   );
 }

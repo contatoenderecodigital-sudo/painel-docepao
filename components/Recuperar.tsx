@@ -11,6 +11,7 @@ import type { Pedido } from "@/lib/tipos";
 import { brl, formatarTelefoneBR, linkWhatsapp } from "@/lib/tipos";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import AjudaInfo from "@/components/AjudaInfo";
+import PedidoDetalhe from "@/components/PedidoDetalhe";
 import {
   AlertTriangle,
   TrendingUp,
@@ -322,7 +323,8 @@ export default function Recuperar({
             return (
               <div
                 key={p.id}
-                className="glass rounded-2xl p-5"
+                onClick={() => setDetalhe(p)}
+                className="glass rounded-2xl p-5 cursor-pointer hover:bg-white/[0.03] transition-colors"
                 style={{ boxShadow: `inset 3px 0 0 ${cor.ring}` }}
               >
                 {/* topo: cliente + badge tempo + valor */}
@@ -350,6 +352,7 @@ export default function Recuperar({
                       href={linkWhatsapp(p.clienteTelefone)}
                       target="_blank"
                       rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
                       className="inline-flex items-center gap-1.5 text-[13px] text-cream/60 hover:text-dourado transition-colors mt-0.5"
                     >
                       <WhatsAppGlyph />
@@ -374,7 +377,10 @@ export default function Recuperar({
                 </div>
 
                 {/* rodapé: status cobrança + ações */}
-                <div className="flex flex-wrap items-center gap-3 mt-4 pt-3.5 border-t border-white/10">
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex flex-wrap items-center gap-3 mt-4 pt-3.5 border-t border-white/10"
+                >
                   <div className="flex items-center gap-1.5 text-[12.5px]" style={{ color: sc.fg }}>
                     <sc.Icon size={14} />
                     {sc.label}
@@ -490,60 +496,12 @@ export default function Recuperar({
         </Overlay>
       ) : null}
 
-      {/* ---------------- Modal: orçamento completo ---------------- */}
+      {/* ---------------- Modal: pedido completo (detalhe reutilizável) ---------------- */}
       {detalhe ? (
-        <Overlay onClose={() => setDetalhe(null)}>
-          <div className="text-[11px] uppercase tracking-wider text-dourado font-semibold">
-            Orçamento completo
-          </div>
-          <h3 className="tracking-tight-apple text-lg font-bold text-cream mt-1">
-            {detalhe.clienteNome}
-          </h3>
-          <a
-            href={linkWhatsapp(detalhe.clienteTelefone)}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-[13px] text-cream/60 hover:text-dourado transition-colors"
-          >
-            <WhatsAppGlyph /> {formatarTelefoneBR(detalhe.clienteTelefone)}
-          </a>
-
-          <div className="mt-4 flex flex-col gap-2">
-            {detalhe.itens.map((i, k) => (
-              <div key={k} className="flex items-baseline justify-between gap-3 text-sm">
-                <span className="text-cream/85">
-                  <b className="text-cream">{i.qtd}×</b> {i.produto}
-                </span>
-                <span className="text-cream/60 tabular-nums">{brl(i.subtotalCentavos)}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10">
-            <span className="text-sm text-cream/70">Total</span>
-            <span className="font-title text-xl font-bold text-grad-dourado">
-              {brl(detalhe.totalCentavos)}
-            </span>
-          </div>
-          {(detalhe.retiradaData || detalhe.observacoes) && (
-            <div className="mt-3 text-[12.5px] text-cream/60 space-y-1">
-              {detalhe.retiradaData && (
-                <div>
-                  Retirada: {dataBr(detalhe.retiradaData)}
-                  {detalhe.retiradaHora ? ` às ${detalhe.retiradaHora}` : ""}
-                </div>
-              )}
-              {detalhe.observacoes && <div className="italic">"{detalhe.observacoes}"</div>}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 mt-5">
-            <button
-              onClick={() => setDetalhe(null)}
-              className="px-3.5 py-2 rounded-lg text-sm text-cream/70 border border-white/12 hover:bg-white/[0.06] transition-colors"
-            >
-              Fechar
-            </button>
+        <PedidoDetalhe
+          pedido={detalhe}
+          onClose={() => setDetalhe(null)}
+          footer={
             <button
               onClick={() => {
                 setPreview(detalhe);
@@ -553,8 +511,8 @@ export default function Recuperar({
             >
               <Send size={14} /> Cobrar de volta
             </button>
-          </div>
-        </Overlay>
+          }
+        />
       ) : null}
     </div>
   );

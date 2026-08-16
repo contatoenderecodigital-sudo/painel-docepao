@@ -1,0 +1,219 @@
+"use client";
+
+// ============================================================================
+//  DETALHE DE UM PEDIDO (modal reutilizável) — mostra TUDO de um pedido:
+//  itens com a observação de cada um (forminha, customização do bolo), obs do
+//  pedido, foto de referência, data/hora de retirada, status, e o aviso de
+//  "confirme antes de aprovar" quando a IA deixou pendência pra equipe.
+//  Usado na ficha do Cliente e no Recuperar (clicar no pedido abre isto).
+// ============================================================================
+
+import type { Pedido, PedidoStatus } from "@/lib/tipos";
+import { brl, formatarTelefoneBR, linkWhatsapp } from "@/lib/tipos";
+import { X, Loader2, Image as ImageIcon, MessageSquare, AlertTriangle } from "lucide-react";
+
+const STATUS: Record<PedidoStatus, { label: string; fg: string; bg: string }> = {
+  aberto: { label: "aberto", fg: "rgba(245,235,220,0.6)", bg: "rgba(245,235,220,0.08)" },
+  orcado: { label: "orçamento", fg: "#e6c766", bg: "rgba(212,175,55,0.14)" },
+  confirmado: { label: "aguardando aprovação", fg: "#e6c766", bg: "rgba(212,175,55,0.14)" },
+  aprovado: { label: "em produção", fg: "#e3924a", bg: "rgba(181,96,26,0.18)" },
+  impresso: { label: "concluído", fg: "#5fd08a", bg: "rgba(95,208,138,0.16)" },
+  recusado: { label: "recusado", fg: "#ff8a8a", bg: "rgba(224,30,30,0.14)" },
+  cancelado: { label: "cancelado", fg: "rgba(245,235,220,0.55)", bg: "rgba(245,235,220,0.08)" },
+};
+
+function dataBr(iso: string | null) {
+  if (!iso) return null;
+  const [a, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${a}`;
+}
+function qtdFmt(qtd: number, unidade?: "un" | "kg") {
+  return unidade === "kg" ? `${String(qtd).replace(".", ",")} kg` : `${qtd}x`;
+}
+
+export default function PedidoDetalhe({
+  pedido,
+  carregando = false,
+  onClose,
+  footer,
+}: {
+  pedido: Pedido | null;
+  carregando?: boolean;
+  onClose: () => void;
+  footer?: React.ReactNode;
+}) {
+  const s = pedido ? STATUS[pedido.status] : null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/55 flex items-center justify-center p-4 sm:p-6"
+      onClick={onClose}
+    >
+      <div
+        className="glass-strong rounded-2xl shadow-xl w-full max-w-lg relative flex flex-col max-h-[88vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 text-cream/50 hover:text-cream transition-colors z-10"
+          aria-label="Fechar"
+        >
+          <X size={18} />
+        </button>
+
+        {carregando ? (
+          <div className="grid place-items-center py-20 text-cream/60">
+            <Loader2 size={26} className="animate-spin" />
+          </div>
+        ) : !pedido ? (
+          <div className="grid place-items-center py-20 text-cream/60 text-sm px-6 text-center">
+            Não consegui carregar este pedido. Tente de novo.
+          </div>
+        ) : (
+          <>
+            {/* cabeçalho */}
+            <div className="px-6 pt-6 pb-4 border-b border-white/10">
+              <div className="flex items-center gap-2.5 flex-wrap pr-8">
+                <span className="text-[11px] uppercase tracking-wider text-dourado font-semibold">
+                  Pedido
+                </span>
+                {s && (
+                  <span
+                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                    style={{ background: s.bg, color: s.fg }}
+                  >
+                    {s.label}
+                  </span>
+                )}
+              </div>
+              <h3 className="tracking-tight-apple text-lg font-bold text-cream mt-1">
+                {pedido.clienteNome}
+              </h3>
+              {pedido.clienteTelefone && (
+                <a
+                  href={linkWhatsapp(pedido.clienteTelefone)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[13px] text-cream/60 hover:text-dourado transition-colors"
+                >
+                  {formatarTelefoneBR(pedido.clienteTelefone)}
+                </a>
+              )}
+            </div>
+
+            {/* corpo rolável */}
+            <div className="px-6 py-4 overflow-y-auto">
+              {/* pendência pra equipe */}
+              {pedido.precisaConfirmacao && (
+                <div
+                  className="flex items-start gap-2 rounded-xl px-3.5 py-2.5 mb-4 text-[13px] leading-snug"
+                  style={{ background: "rgba(231,207,148,0.12)", border: "1px solid rgba(231,207,148,0.3)" }}
+                >
+                  <AlertTriangle size={15} className="text-dourado shrink-0 mt-0.5" />
+                  <span className="text-cream/90">
+                    <b className="text-dourado">Confirme antes de aprovar:</b>{" "}
+                    {pedido.motivoHumano || "a equipe precisa revisar este pedido."}
+                  </span>
+                </div>
+              )}
+
+              {/* retirada + pessoas */}
+              <div className="flex flex-wrap gap-x-6 gap-y-1 text-[13px] text-cream/70 mb-4">
+                <span>
+                  Retirada:{" "}
+                  <b className="text-cream">
+                    {dataBr(pedido.retiradaData) ?? "a combinar"}
+                    {pedido.retiradaHora ? ` às ${pedido.retiradaHora}` : ""}
+                  </b>
+                </span>
+                {pedido.pessoas ? (
+                  <span>
+                    Festa de <b className="text-cream">{pedido.pessoas} pessoas</b>
+                  </span>
+                ) : null}
+              </div>
+
+              {/* itens */}
+              <ul className="flex flex-col gap-2.5">
+                {pedido.itens.map((i, ix) => (
+                  <li key={ix}>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-sm text-cream/90">
+                        <b className="text-cream tabular-nums">{qtdFmt(i.qtd, i.unidade)}</b>{" "}
+                        {i.produto}
+                      </span>
+                      <span className="text-[13px] text-cream/60 tabular-nums shrink-0">
+                        {brl(i.subtotalCentavos)}
+                      </span>
+                    </div>
+                    {i.obs ? (
+                      <div
+                        className="mt-1 ml-3 flex items-start gap-1.5 text-[12.5px] text-cream/85 rounded-[8px] px-2.5 py-1.5 leading-snug"
+                        style={{ background: "rgba(231,207,148,0.1)", borderLeft: "2px solid rgba(231,207,148,0.6)" }}
+                      >
+                        <MessageSquare size={12} className="mt-[2px] shrink-0 text-dourado" />
+                        <span>{i.obs}</span>
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+
+              {/* obs do pedido */}
+              {pedido.observacoes ? (
+                <div
+                  className="mt-3 flex items-start gap-1.5 text-[12.5px] text-cream/80 rounded-[8px] px-2.5 py-1.5 leading-snug"
+                  style={{ background: "rgba(255,255,255,0.05)" }}
+                >
+                  <span className="font-semibold text-dourado shrink-0">Obs do pedido:</span>
+                  <span>{pedido.observacoes}</span>
+                </div>
+              ) : null}
+
+              {/* foto de referência */}
+              {pedido.temFoto && (
+                <a
+                  href={`/api/pedido/${pedido.id}/foto`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 mt-3 rounded-[10px] pl-1 pr-2.5 py-1 hover:bg-white/[0.06] transition-colors"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/api/pedido/${pedido.id}/foto`}
+                    alt="Foto de referência"
+                    className="w-10 h-10 rounded-[7px] object-cover shrink-0"
+                    style={{ background: "rgba(0,0,0,0.2)" }}
+                  />
+                  <span className="inline-flex items-center gap-1 text-[12px] font-medium text-cream/70">
+                    <ImageIcon size={12} className="text-dourado" /> Foto de referência
+                  </span>
+                </a>
+              )}
+
+              {/* total */}
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10">
+                <span className="text-sm text-cream/70">Total</span>
+                <span className="font-title text-xl font-bold text-grad-dourado">
+                  {brl(pedido.totalCentavos)}
+                </span>
+              </div>
+            </div>
+
+            {/* rodapé (ações opcionais + fechar) */}
+            <div className="px-6 py-4 border-t border-white/10 flex justify-end gap-2">
+              {footer}
+              <button
+                onClick={onClose}
+                className="px-3.5 py-2 rounded-lg text-sm text-cream/70 border border-white/12 hover:bg-white/[0.06] transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

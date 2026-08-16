@@ -133,6 +133,33 @@ export async function listarDoDia(negocioId: string): Promise<Pedido[]> {
   return linhas.map(mapear);
 }
 
+// Um pedido COMPLETO por id (com itens, obs, foto). Usado pra abrir o detalhe
+// de um pedido a partir de uma lista que só tem o resumo (ex: ficha do cliente).
+// Escopado pelo negócio (multi-tenant): nunca vaza pedido de outro tenant.
+export async function buscarPedido(
+  pedidoId: string,
+  negocioId: string,
+): Promise<Pedido | null> {
+  const linhas = await query<LinhaFila>(
+    `select p.id, p.status, p.retirada_data, p.retirada_hora, p.pessoas,
+            p.total_centavos, p.observacoes, p.criado_em,
+            p.precisa_confirmacao, p.motivo_humano,
+            exists(select 1 from pedido_fotos f where f.pedido_id = p.id) as tem_foto,
+            c.nome as cliente_nome, c.telefone as cliente_telefone,
+            coalesce(
+              (select json_agg(json_build_object(
+                 'produto', i.produto, 'categoria', i.categoria, 'qtd', i.qtd,
+                 'unit_centavos', i.unit_centavos, 'subtotal_centavos', i.subtotal_centavos, 'obs', i.obs, 'unidade', i.unidade))
+               from pedido_itens i where i.pedido_id = p.id),
+              '[]'::json) as itens
+       from pedidos p
+       left join clientes c on c.id = p.cliente_id
+      where p.id = $1 and p.negocio_id = $2`,
+    [pedidoId, negocioId],
+  );
+  return linhas[0] ? mapear(linhas[0]) : null;
+}
+
 // Dados mínimos pra avisar o cliente no WhatsApp quando a equipe aprova/recusa.
 // Volta null se o pedido não tiver cliente com telefone (não dá pra avisar).
 export type AvisoPedido = {
