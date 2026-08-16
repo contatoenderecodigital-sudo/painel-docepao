@@ -18,6 +18,7 @@ import type { Conversa, Mensagem, TipoMidia } from "@/lib/tipos";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatarTelefoneBR, linkWhatsapp, brl } from "@/lib/tipos";
 import CampoTelefone, { telefoneCompleto } from "@/components/CampoTelefone";
+import AudioBolha from "@/components/AudioBolha";
 import {
   Search, Plus, Paperclip, SendHorizontal, ArrowLeft, Bot, X,
   MessageSquare, Info, FileText, Download, CheckCheck, AlertCircle,
@@ -142,8 +143,8 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
           )}
           {/* ÁUDIO */}
           {m.tipo === "audio" && src && (
-            <div className={isCliente ? "px-2.5 py-2" : "px-2.5 py-2"}>
-              <audio controls preload="none" src={src} className="max-w-[220px] h-9" />
+            <div className="px-2.5 py-1.5">
+              <AudioBolha src={src} claro={!isCliente} />
             </div>
           )}
           {/* DOCUMENTO */}
