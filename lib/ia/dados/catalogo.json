@@ -120,6 +120,7 @@
     { "nome": "pao de x", "preco": 19.90, "categoria": "padaria", "unidade": "kg" },
     { "nome": "cuca recheada", "preco": 26.90, "categoria": "padaria", "unidade": "kg", "sabores": ["chocolate","doce de leite","abacaxi","vinho","goiaba","frutas vermelhas","limao"] },
     { "nome": "cuca", "preco": 22.90, "categoria": "padaria", "unidade": "kg", "_nota": "sem recheio" },
-    { "nome": "pao doce", "preco": 22.90, "categoria": "padaria", "unidade": "kg" }
+    { "nome": "pao doce", "preco": 22.90, "categoria": "padaria", "unidade": "kg" },
+    { "nome": "papel de arroz", "preco": 12.00, "categoria": "adicional_bolo", "unidade": "un", "_nota": "Adicional do bolo decorado, valor fixo. Topo de bolo NAO entra aqui: valor varia, vai por precisa_confirmacao." }
   ]
 }

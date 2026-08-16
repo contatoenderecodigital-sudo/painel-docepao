@@ -16,6 +16,15 @@ import { motorPadrao, formatarOrcamento, brl, type Motor, type LinhaCotacao } fr
 
 const MODELO = process.env.MODELO_IA || "gpt-4o-mini";
 
+// Formata quantidade + unidade pro resumo. Itens por quilo (bolo, tortas, empadão...)
+// saem como "2 kg" / "1,5 kg"; por unidade como "20 un". A unidade vem do motor
+// (fonte da verdade), a IA NUNCA decide isso de cabeça — evita o bug de bolo "2 un".
+function fmtQtd(qtd: number, unidade?: "un" | "kg"): string {
+  const u = unidade ?? "un";
+  const n = u === "kg" ? String(qtd).replace(".", ",") : String(Math.round(qtd));
+  return `${n} ${u}`;
+}
+
 // Um tenant = a persona (voz/regras) + o motor de orçamento (cardápio) do negócio.
 // avisoDoDia: "cérebro temporário" do dia (já filtrado: só vem preenchido se for de hoje).
 // sistemaCustom: cérebro PRÓPRIO do tenant (texto livre no config). Quando setado,
@@ -105,12 +114,16 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
             items: {
               type: "object",
               properties: {
-                item: { type: "string" },
+                item: {
+                  type: "string",
+                  description:
+                    "Nome ESPECÍFICO do item na tabela, nunca genérico. Use 'pastel assado', 'esfirra', 'coxinha', 'brigadeiro', 'trufa', 'bolo brigadeiro', 'papel de arroz'. NUNCA 'salgado assado', 'salgado frito' ou 'docinho' quando já sabe o tipo. Bolo e itens por quilo: qtd é o PESO em kg (ex 2 ou 1.5). NUNCA registre 'topo de bolo' como item (valor variável, vai só na obs + precisa_confirmacao).",
+                },
                 qtd: { type: "number" },
                 obs: {
                   type: "string",
                   description:
-                    "Observação SÓ deste item, quando houver: 'forminha rosa' no docinho, 'topo da Moana, nome Sofia, 5 anos' no bolo, 'tem foto de referencia'. Nunca misture observação de itens diferentes; cada uma no seu item.",
+                    "Observação SÓ deste item, quando houver: o recheio do salgado assado ('carne', 'frango'), o sabor da trufa ('morango'), 'forminha rosa' no docinho, 'topo da Moana, nome Sofia, 5 anos' no bolo, 'tem foto de referencia'. Nunca misture observação de itens diferentes; cada uma no seu item.",
                 },
               },
               required: ["item", "qtd"],
@@ -200,9 +213,12 @@ function executarFerramenta(
       motivoHumano: precisaConfirmacao ? motivoHumano : undefined,
     };
     const itensFmt = c.linhas
-      .map((l) => `${l.item}: ${l.qtd} un x ${brl(l.unit)} = ${brl(l.subtotal)}`)
+      .map((l) => `${l.item}: ${fmtQtd(l.qtd, l.unidade)} x ${brl(l.unit)} = ${brl(l.subtotal)}`)
       .join("\n");
-    return `Pedido salvo pra equipe. Envie o resumo no formato de FECHAMENTO DE PEDIDO usando EXATAMENTE estas linhas e este total, sem recalcular nada de cabeça:\n${itensFmt}\nTotal: ${brl(c.total)}\nMantenha o formato (asteriscos de negrito, sem linha em branco dentro do resumo).`;
+    const avisosFmt = c.avisos?.length
+      ? `\nATENCAO: ${c.avisos.join(" ")} Registre precisa_confirmacao=true e avise que a equipe confirma esse item.`
+      : "";
+    return `Pedido salvo pra equipe. Envie o resumo no formato de FECHAMENTO DE PEDIDO copiando EXATAMENTE estas linhas de item e este total, sem recalcular, sem trocar a unidade e sem inventar um total diferente da soma:\n${itensFmt}\nTotal: ${brl(c.total)}${avisosFmt}\nMantenha o formato (asteriscos de negrito, sem linha em branco dentro do resumo). O total do resumo tem que ser exatamente ${brl(c.total)}.`;
   }
 
   return "Ferramenta desconhecida.";

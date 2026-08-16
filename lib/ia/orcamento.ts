@@ -150,7 +150,10 @@ export function formatarOrcamento(c: Cotacao, titulo = "Orçamento"): string {
   const L: string[] = [];
   L.push(titulo);
   L.push("".padEnd(28, "."));
-  for (const l of c.linhas) L.push(`${l.qtd}x ${l.item}: ${brl(l.subtotal)}`);
+  for (const l of c.linhas) {
+    const q = (l.unidade ?? "un") === "kg" ? `${String(l.qtd).replace(".", ",")} kg` : `${l.qtd}x`;
+    L.push(`${q} ${l.item}: ${brl(l.subtotal)}`);
+  }
   L.push("".padEnd(28, "."));
   L.push(`*Total: ${brl(c.total)}*`);
   L.push("(paga na retirada)");
