@@ -11,6 +11,7 @@
 //  Protegido pela sessão do painel (lerSessao), como as outras rotas do painel.
 // ============================================================================
 
+import { urlDoCardapio } from "@/lib/whatsapp/api";
 import { NextRequest } from "next/server";
 import { lerSessao } from "@/lib/auth";
 import { carregarTenant } from "@/lib/ia/tenant";
@@ -128,6 +129,9 @@ export async function POST(req: NextRequest) {
     resposta: resp.texto,
     pedidoRegistrado: !!resp.pedidoRegistrado,
     precisaHumano: resp.precisaHumano,
+    // Mesmas peças que o webhook mandaria no WhatsApp. Sem isto o /testar
+    // mostrava só o texto e dava a impressão de que o cardápio não foi enviado.
+    cardapios: (resp.cardapiosParaEnviar ?? []).map(urlDoCardapio),
   });
 }
 

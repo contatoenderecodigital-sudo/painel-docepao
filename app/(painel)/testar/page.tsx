@@ -82,7 +82,14 @@ export default function TestarIA() {
       } else if (dados.erro) {
         setErro(dados.erro);
       } else if (dados.resposta) {
-        setMensagens((m) => [...m, { de: "ia", texto: dados.resposta }]);
+        // texto + as peças de cardápio que a IA mandou (uma mensagem por imagem,
+        // igual chega no WhatsApp do cliente).
+        const extras: Msg[] = ((dados.cardapios as string[] | undefined) ?? []).map((url) => ({
+          de: "ia" as const,
+          texto: "",
+          imagem: url,
+        }));
+        setMensagens((m) => [...m, { de: "ia", texto: dados.resposta }, ...extras]);
         if (dados.aviso) setErro(dados.aviso);
       } else {
         setErro("A IA não devolveu resposta. Tente de novo.");
