@@ -34,7 +34,7 @@ export default async function Page() {
   const ativoHoje = ehHojeBR(atualizadoEm);
 
   return (
-    <div className="px-8 py-7">
+    <div className="px-4 py-5 md:px-8 md:py-7">
       <div className="text-[11px] uppercase tracking-[0.2em] text-dourado font-semibold">Configurações</div>
       <div className="flex items-center gap-2 mt-1">
         <h1 className="font-title text-3xl font-bold text-cream">Configurações</h1>

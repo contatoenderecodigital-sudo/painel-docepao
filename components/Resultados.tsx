@@ -79,7 +79,7 @@ export default function Resultados({
   const semDados = !dados.temDados;
 
   return (
-    <div className="px-8 py-7">
+    <div className="px-4 py-5 md:px-8 md:py-7">
       {/* cabeçalho + ações */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>

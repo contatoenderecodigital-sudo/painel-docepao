@@ -44,7 +44,7 @@ export default function PainelConexao({
   nome: string;
 }) {
   return (
-    <div className="px-8 py-7">
+    <div className="px-4 py-5 md:px-8 md:py-7">
       <div className="text-[11px] uppercase tracking-[0.2em] text-dourado font-semibold">Conectar</div>
       <div className="flex items-center gap-2 mt-1">
         <h1 className="font-title text-3xl font-bold text-cream">
@@ -257,7 +257,7 @@ function Status({ conexao }: { conexao: ConexaoWhatsapp }) {
         </div>
 
         {/* indicadores */}
-        <div className="grid grid-cols-3 gap-3 mt-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
           <Indicador
             icon={<span className="w-2 h-2 rounded-full inline-block" style={{ background: caiu ? "#ff8a8a" : "#5fd08a" }} />}
             rotulo="Status"

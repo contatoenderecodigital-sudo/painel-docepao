@@ -148,7 +148,7 @@ export default function PedidosDoDia({
   const relacao = sel === hoje ? "Hoje" : sel === addDias(hoje, 1) ? "Amanhã" : sel === addDias(hoje, -1) ? "Ontem" : "";
 
   return (
-    <div className="px-8 py-7 min-h-screen">
+    <div className="px-4 py-5 md:px-8 md:py-7 min-h-screen">
       <div className="text-[11px] uppercase tracking-[0.2em] text-dourado font-semibold">Pedidos do dia</div>
       <div className="flex items-center gap-2 mt-1">
         <h1 className="font-title text-3xl font-bold text-cream">Produção da cozinha</h1>

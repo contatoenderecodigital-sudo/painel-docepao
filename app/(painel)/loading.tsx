@@ -2,7 +2,7 @@
 // conteúdo carrega no servidor. A sidebar (layout) permanece fixa.
 export default function Loading() {
   return (
-    <div className="px-8 py-7 animate-pulse">
+    <div className="px-4 py-5 md:px-8 md:py-7 animate-pulse">
       <div className="h-3 w-40 rounded bg-vinho/10" />
       <div className="h-8 w-96 max-w-[70%] rounded-lg bg-vinho/10 mt-3" />
       <div className="h-4 w-[28rem] max-w-[80%] rounded bg-vinho/5 mt-3" />

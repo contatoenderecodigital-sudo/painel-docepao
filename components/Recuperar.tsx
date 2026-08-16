@@ -148,7 +148,7 @@ export default function Recuperar({
   const nadaParado = parados.length === 0;
 
   return (
-    <div className="px-8 py-7">
+    <div className="px-4 py-5 md:px-8 md:py-7">
       <div className="text-[11px] uppercase tracking-[0.2em] text-dourado font-semibold">
         Recuperar orçamento
       </div>

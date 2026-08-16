@@ -80,7 +80,7 @@ export default function Clientes({
   ).length;
 
   return (
-    <div className="px-8 py-7">
+    <div className="px-4 py-5 md:px-8 md:py-7">
       <div className="text-[11px] uppercase tracking-[0.2em] text-dourado font-semibold">CRM</div>
       <div className="flex items-center gap-2 mt-1">
         <h1 className="font-title text-3xl font-bold text-cream">Clientes</h1>
@@ -92,7 +92,7 @@ export default function Clientes({
       </p>
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-4 mb-5 max-w-2xl">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5 max-w-2xl">
         <MiniKpi icon={<Users size={16} />} rotulo="Clientes">
           <NumberTicker value={totalClientes} className="font-title text-2xl font-bold text-cream" />
         </MiniKpi>
@@ -252,7 +252,7 @@ function Ficha({ c }: { c: ClienteCRM }) {
       </div>
 
       {/* KPIs do cliente */}
-      <div className="grid grid-cols-3 gap-3 mt-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
         <FichaKpi icon={<ShoppingBag size={15} />} rotulo="Pedidos" valor={String(c.qtdPedidos)} />
         <FichaKpi icon={<Banknote size={15} />} rotulo="Total gasto" valor={brl(c.totalGastoCentavos)} dourado />
         <FichaKpi icon={<CalendarClock size={15} />} rotulo="Cliente desde" valor={c.clienteDesde ? mesAno(c.clienteDesde) : "-"} />

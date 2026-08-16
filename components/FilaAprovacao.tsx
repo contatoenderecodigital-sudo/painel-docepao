@@ -304,7 +304,7 @@ export default function FilaAprovacao({
   }
 
   return (
-    <div className="px-8 py-7">
+    <div className="px-4 py-5 md:px-8 md:py-7">
       {/* cabeçalho */}
       <div className="flex items-end justify-between gap-4 mb-1">
         <div>

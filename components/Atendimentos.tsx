@@ -96,7 +96,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
   const src = m.blobUrl || (m.midiaId ? `/api/midia/${m.midiaId}` : null);
   const bolhaBase =
     "rounded-[14px] text-[15px] md:text-[14px] leading-[1.45] whitespace-pre-line " +
-    (isCliente ? "text-[#4a1020] rounded-bl-[4px]" : "text-white rounded-br-[4px]");
+    (isCliente ? "text-[#4a1020] rounded-bl-[4px]" : "text-[#3d1219] rounded-br-[4px]");
   const bolhaStyle: React.CSSProperties = isCliente
     ? { background: "rgba(255,255,255,0.95)", boxShadow: "0 3px 12px rgba(0,0,0,0.16)" }
     : { background: "linear-gradient(135deg,#96741a,#e7cf94)", boxShadow: "0 4px 14px rgba(187,146,31,0.28)" };
@@ -109,11 +109,11 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
   if (isMidia && legenda && rotulosAuto.includes(legenda.toLowerCase())) legenda = "";
 
   const HoraSelo = () => (
-    <span className={"text-[10px] inline-flex items-center gap-1 align-bottom " + (isCliente ? "text-black/35" : "text-white/60")}>
+    <span className={"text-[10px] inline-flex items-center gap-1 align-bottom " + (isCliente ? "text-black/35" : "text-black/45")}>
       {m.hora}
       {!isCliente && m.de === "equipe" && m.status === "enviando" && <Clock size={11} />}
       {!isCliente && m.de === "equipe" && m.status === "enviado" && <CheckCheck size={12} />}
-      {!isCliente && m.de === "equipe" && m.status === "erro" && <AlertCircle size={12} className="text-red-200" />}
+      {!isCliente && m.de === "equipe" && m.status === "erro" && <AlertCircle size={12} className="text-red-900" />}
     </span>
   );
 
@@ -152,7 +152,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-medium">{m.midiaNome || "Documento"}</span>
-                <span className={"text-[11px] " + (isCliente ? "text-black/45" : "text-white/70")}>Abrir arquivo</span>
+                <span className={"text-[11px] " + (isCliente ? "text-black/45" : "text-black/55")}>Abrir arquivo</span>
               </span>
               <Download size={15} className={isCliente ? "text-black/40 shrink-0" : "text-white/70 shrink-0"} />
             </a>
@@ -488,7 +488,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                         <ShieldAlert size={13} /> Precisa de você
                       </span>
                     )}
-                    <button onClick={() => setDrawer(true)} className="w-9 h-9 grid place-items-center rounded-full text-cream/55 hover:text-cream hover:bg-white/10 transition-colors" aria-label="Informações do contato">
+                    <button onClick={() => setDrawer(true)} className="w-11 h-11 shrink-0 grid place-items-center rounded-full text-cream/70 hover:text-cream hover:bg-white/10 active:bg-white/15 transition-colors" aria-label="Informações do contato">
                       <Info size={18} />
                     </button>
                   </div>
