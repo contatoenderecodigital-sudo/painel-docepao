@@ -42,7 +42,7 @@ function Pill({ on, cor, children, onClick }: { on: boolean; cor?: string; child
   return (
     <button
       onClick={onClick}
-      className={"press text-[13px] font-medium px-3.5 py-1.5 rounded-full transition-colors " + (on ? "text-vinho-d" : "text-cream/70 hover:text-cream bg-white/[0.06] hover:bg-white/10")}
+      className={"press toque text-[13px] font-medium px-3.5 py-1.5 rounded-full transition-colors " + (on ? "text-vinho-d" : "text-cream/70 hover:text-cream bg-white/[0.06] hover:bg-white/10")}
       style={on ? { background: cor ?? "#e7cf94" } : undefined}
     >
       {children}
@@ -172,7 +172,7 @@ export default function PedidosDoDia({
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m9 6 6 6-6 6" /></svg>
           </button>
         </div>
-        <button onClick={() => { setSel(hoje); setMesRef(hoje); }} className="press text-[13px] font-medium px-3 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/10 text-cream/80">Hoje</button>
+        <button onClick={() => { setSel(hoje); setMesRef(hoje); }} className="press toque text-[13px] font-medium px-3 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/10 text-cream/80">Hoje</button>
 
         <div className="w-px h-6 bg-white/12 mx-1" />
 

@@ -115,7 +115,7 @@ export default function LogoUpload({ inicial }: { inicial: string | null }) {
         type="button"
         onClick={() => input.current?.click()}
         disabled={salvando}
-        className="shrink-0 text-[13px] font-semibold text-vinho-d grad-dourado rounded-lg px-3 py-2 press disabled:opacity-60"
+        className="toque shrink-0 text-[13px] font-semibold text-vinho-d grad-dourado rounded-lg px-4 py-2 press disabled:opacity-60"
       >
         {logo ? "Trocar" : "Anexar"}
       </button>
