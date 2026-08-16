@@ -28,3 +28,15 @@ export async function recusarPedido(pedidoId: string): Promise<{ ok: boolean }> 
   await mudarStatus(pedidoId, "recusado", sessao.negocioId);
   return { ok: true };
 }
+
+// Reimprime um pedido JÁ APROVADO: recoloca um job 'pendente' na fila de
+// impressão (mesmo formato do trigger on_pedido_aprovado), e a ponte imprime de
+// novo no próximo poll. Em demo (sem banco) é no-op de sucesso.
+export async function reimprimirPedido(pedidoId: string): Promise<{ ok: boolean }> {
+  if (!bancoConfigurado) return { ok: true };
+  const sessao = await lerSessao();
+  if (!sessao) return { ok: false };
+  const { reenfileirarImpressao } = await import("@/lib/banco/fila");
+  const ok = await reenfileirarImpressao(sessao.negocioId, pedidoId);
+  return { ok };
+}

@@ -161,13 +161,27 @@ function CardPedido({
       <div className="px-6 py-4 flex-1 flex flex-col">
         <ul className="flex flex-col">
           {pedido.itens.map((it, i) => (
-            <li key={i} className="flex items-baseline justify-between gap-4 py-2 text-[14px]">
-              <span className="text-cream/90 min-w-0">
-                <span className="font-semibold text-cream">{it.qtd}×</span> {it.produto}
-              </span>
-              <span className="text-cream/65 tabular-nums shrink-0">
-                {brl(it.subtotalCentavos)}
-              </span>
+            <li key={i} className="py-2 text-[14px]">
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="text-cream/90 min-w-0">
+                  <span className="font-semibold text-cream">
+                    {it.unidade === "kg" ? `${String(it.qtd).replace(".", ",")} kg` : `${it.qtd}×`}
+                  </span>{" "}
+                  {it.produto}
+                </span>
+                <span className="text-cream/65 tabular-nums shrink-0">
+                  {brl(it.subtotalCentavos)}
+                </span>
+              </div>
+              {it.obs ? (
+                <div
+                  className="mt-1.5 ml-1 flex items-start gap-2 text-[13px] text-cream/85 rounded-[8px] px-2.5 py-1.5 leading-snug"
+                  style={{ background: "rgba(231,207,148,0.1)", borderLeft: "2px solid rgba(231,207,148,0.6)" }}
+                >
+                  <svg className="mt-[3px] shrink-0 text-dourado" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v12H8l-4 4V4Z" /><path d="M8 9h8M8 12.5h5" /></svg>
+                  <span>{it.obs}</span>
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

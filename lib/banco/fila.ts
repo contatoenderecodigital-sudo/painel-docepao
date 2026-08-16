@@ -106,6 +106,29 @@ export async function jobsPendentes(negocioId: string): Promise<JobImpressao[]> 
   }));
 }
 
+// REIMPRESSÃO MANUAL — recoloca um pedido JÁ APROVADO na fila de impressão.
+// Replica exatamente o que o trigger `on_pedido_aprovado` faz ao aprovar: insere
+// uma linha 'pendente' referenciando o pedido (a fila só guarda pedido_id; a
+// ponte remonta o cupom a partir do pedido/itens/cliente em jobsPendentes()).
+// Guarda de tenant + estado: só reimprime pedido do próprio negócio que já
+// passou pela aprovação (status 'aprovado' ou 'impresso'). Retorna false se o
+// pedido não existe/não é do negócio/ainda não foi aprovado.
+export async function reenfileirarImpressao(
+  negocioId: string,
+  pedidoId: string,
+): Promise<boolean> {
+  const linhas = await query<{ id: string }>(
+    `insert into fila_impressao (pedido_id, negocio_id, status)
+     select p.id, p.negocio_id, 'pendente'::impressao_status
+       from pedidos p
+      where p.id = $1 and p.negocio_id = $2
+        and p.status in ('aprovado', 'impresso')
+     returning id`,
+    [pedidoId, negocioId],
+  );
+  return linhas.length > 0;
+}
+
 // Quantas vezes tentar imprimir um job antes de desistir e marcar 'erro'.
 const MAX_TENTATIVAS = 5;
 

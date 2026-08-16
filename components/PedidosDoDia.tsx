@@ -18,7 +18,7 @@ import {
 import { NumberTicker } from "@/components/ui/number-ticker";
 import { DeptIcone } from "@/components/DeptIcone";
 import AjudaInfo from "@/components/AjudaInfo";
-import { Image as ImageIcon } from "lucide-react";
+import { Image as ImageIcon, Printer, Check } from "lucide-react";
 
 type StatusUI = "a_produzir" | "pronto" | "retirado";
 
@@ -57,8 +57,33 @@ function statusInfo(s: StatusUI) {
   return { txt: "A produzir", cor: "#e0b04a", bg: "rgba(231,207,148,0.15)" };
 }
 
-export default function PedidosDoDia({ pedidos: pedidosIniciais }: { pedidos: Pedido[] }) {
+export default function PedidosDoDia({
+  pedidos: pedidosIniciais,
+  reimprimir,
+}: {
+  pedidos: Pedido[];
+  reimprimir?: (id: string) => Promise<{ ok: boolean }>;
+}) {
   const [pedidos, setPedidos] = useState(pedidosIniciais);
+  // Estado por pedido do botão Reimprimir: enviando -> enviado (some sozinho) / erro.
+  const [reimp, setReimp] = useState<Record<string, "enviando" | "enviado" | "erro">>({});
+
+  async function aoReimprimir(id: string) {
+    if (reimp[id] === "enviando") return;
+    setReimp((m) => ({ ...m, [id]: "enviando" }));
+    try {
+      const r = await reimprimir?.(id);
+      const ok = r?.ok !== false;
+      setReimp((m) => ({ ...m, [id]: ok ? "enviado" : "erro" }));
+    } catch {
+      setReimp((m) => ({ ...m, [id]: "erro" }));
+    }
+    setTimeout(() => setReimp((m) => {
+      const n = { ...m };
+      delete n[id];
+      return n;
+    }), 3000);
+  }
 
   // Auto-update: busca os pedidos do dia a cada 8s (produção nova aparece sozinha).
   useEffect(() => {
@@ -293,10 +318,36 @@ export default function PedidosDoDia({ pedidos: pedidosIniciais }: { pedidos: Pe
                           );
                         })}
                       </div>
-                      <div className="text-sm text-cream/65 mt-1 truncate">
-                        {p.itens.map((i) => `${i.qtd}x ${i.produto}`).join(" . ")}
-                      </div>
-                      {p.observacoes && <div className="text-xs text-cream/55 italic mt-1 truncate">{p.observacoes}</div>}
+                      <ul className="mt-1.5 flex flex-col gap-1.5">
+                        {p.itens.map((i, ix) => (
+                          <li key={ix}>
+                            <div className="text-sm text-cream/85">
+                              <span className="font-semibold text-cream tabular-nums">
+                                {i.unidade === "kg" ? `${String(i.qtd).replace(".", ",")} kg` : `${i.qtd}x`}
+                              </span>{" "}
+                              {i.produto}
+                            </div>
+                            {i.obs ? (
+                              <div
+                                className="mt-1 ml-3 flex items-start gap-1.5 text-[12.5px] text-cream/85 rounded-[8px] px-2.5 py-1.5 leading-snug"
+                                style={{ background: "rgba(231,207,148,0.1)", borderLeft: "2px solid rgba(231,207,148,0.6)" }}
+                              >
+                                <svg className="mt-[2px] shrink-0 text-dourado" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v12H8l-4 4V4Z" /><path d="M8 9h8M8 12.5h5" /></svg>
+                                <span>{i.obs}</span>
+                              </div>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                      {p.observacoes ? (
+                        <div
+                          className="mt-2 flex items-start gap-1.5 text-[12.5px] text-cream/80 rounded-[8px] px-2.5 py-1.5 leading-snug"
+                          style={{ background: "rgba(255,255,255,0.05)" }}
+                        >
+                          <span className="font-semibold text-dourado shrink-0">Obs do pedido:</span>
+                          <span>{p.observacoes}</span>
+                        </div>
+                      ) : null}
                       {p.temFoto && (
                         <a
                           href={`/api/pedido/${p.id}/foto`}
@@ -327,6 +378,31 @@ export default function PedidosDoDia({ pedidos: pedidosIniciais }: { pedidos: Pe
                       >
                         {si.txt}
                       </button>
+                      {reimprimir ? (
+                        <button
+                          onClick={() => aoReimprimir(p.id)}
+                          disabled={reimp[p.id] === "enviando"}
+                          className="press inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors disabled:opacity-70"
+                          style={
+                            reimp[p.id] === "enviado"
+                              ? { background: "rgba(53,196,111,0.15)", color: "#35c46f" }
+                              : reimp[p.id] === "erro"
+                                ? { background: "rgba(224,30,30,0.15)", color: "#ff8a8a" }
+                                : { background: "rgba(255,255,255,0.08)", color: "#f4e8d6" }
+                          }
+                          title="Enviar este pedido de novo pra impressora da cozinha"
+                        >
+                          {reimp[p.id] === "enviado" ? (
+                            <><Check size={12} /> Enviado pra impressora</>
+                          ) : reimp[p.id] === "erro" ? (
+                            <><Printer size={12} /> Falhou, tente de novo</>
+                          ) : reimp[p.id] === "enviando" ? (
+                            <><Printer size={12} /> Enviando...</>
+                          ) : (
+                            <><Printer size={12} /> Reimprimir</>
+                          )}
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 );
