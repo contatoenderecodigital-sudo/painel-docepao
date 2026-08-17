@@ -121,7 +121,15 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
       // 1) match exato; 2) nome parcial (ex: "coxinha" acha "Cento de coxinha")
       let ref: Produto | undefined = PRECOS[chave];
       if (!ref) {
-        ref = produtos.find((p) => {
+        // BOLO SÓ CASA COM BOLO.
+        //
+        // "bolo brigadeiro com morango" não existe na tabela (lá é "bolo
+        // brigadeiro"), então caía na busca por pedaço e casava com o DOCINHO
+        // brigadeiro: o bolo de 4 kg virava R$ 5,00 e a guarda passava a dizer
+        // que o pedido não tinha bolo nenhum, travando o fechamento.
+        const ehBolo = /^bolo\b/.test(chave);
+        const universo = ehBolo ? produtos.filter((p) => /^bolo\b/.test(norm(p.nome))) : produtos;
+        ref = universo.find((p) => {
           const pn = norm(p.nome);
           if (pn.includes(chave) || chave.includes(pn)) return true;
           const ultima = pn.split(" ").pop() || "";
