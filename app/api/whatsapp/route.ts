@@ -234,19 +234,21 @@ async function processar(corpo: WebhookPayload) {
       // Falha de imagem nunca derruba a resposta — o texto já foi entregue.
       const mandarCardapios = async () => {
         for (const c of resp.cardapiosParaEnviar ?? []) {
+          const urlPeca = urlDoCardapio(c);
+          // A peça entra no histórico ANTES do envio, e fora do try do envio.
+          // Estava depois: quando o envio falhava (token vencido, número
+          // errado), a mensagem nunca era gravada e a dona abria a conversa
+          // vendo a Dora dizer "te mandei o cardápio" sem cardápio nenhum,
+          // sem pista de que o problema tinha sido no envio.
           try {
-            const urlPeca = urlDoCardapio(c);
+            await salvarMensagem(negocioId, clienteId, "assistant", `Cardápio de ${c.replace(/-/g, " ")}`, {
+              tipo: "imagem", mime: "image/jpeg", url: urlPeca, autor: "ia",
+            });
+          } catch (e) {
+            console.error("[whatsapp] falha ao salvar cardapio no historico:", e);
+          }
+          try {
             await enviarImagemPorLink(telefone, urlPeca, undefined, creds);
-            // Grava a peça no histórico: sem isso a dona abre a conversa e vê a
-            // Dora dizendo "te mandei o cardápio" sem cardápio nenhum, e fica
-            // sem saber o que o cliente recebeu pra continuar o atendimento.
-            try {
-              await salvarMensagem(negocioId, clienteId, "assistant", `Cardápio de ${c.replace(/-/g, " ")}`, {
-                tipo: "imagem", mime: "image/jpeg", url: urlPeca, autor: "ia",
-              });
-            } catch (e) {
-              console.error("[whatsapp] falha ao salvar cardapio no historico:", e);
-            }
             // A imagem vai por LINK: a Meta ainda precisa baixar a URL antes de
             // entregar, e um texto mandado na sequência passa na frente dela.
             // Era por isso que o recado do bolo aparecia colado no cardápio de
