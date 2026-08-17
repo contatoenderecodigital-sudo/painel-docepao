@@ -25,7 +25,7 @@ import {
   marcarWebhookNovo,
   salvarFotoPendente,
 } from "@/lib/banco/conversas";
-import { definirHandoff } from "@/lib/banco/atendimentos";
+import { definirHandoff, iaPausada } from "@/lib/banco/atendimentos";
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
 import crypto from "node:crypto";
@@ -156,6 +156,15 @@ async function processar(corpo: WebhookPayload) {
       // IA desligada no painel: guarda a mensagem pra equipe ver, mas não
       // responde automático (a equipe assume pelo Atendimentos).
       if (!credsTenant.iaAtiva) continue;
+
+      // Alguém da equipe assumiu ESTA conversa: a IA fica calada até devolverem.
+      // Sem isto, a dona respondia e a IA respondia por cima dela — dois
+      // atendentes falando com o mesmo cliente ao mesmo tempo.
+      try {
+        if (await iaPausada(negocioId, clienteId)) continue;
+      } catch (e) {
+        console.error("[whatsapp] falha ao checar pausa da IA (segue respondendo):", e);
+      }
 
       const historico = await carregarHistorico(negocioId, clienteId);
       const tenant = await carregarTenant(negocioId); // cardápio/persona DESTE negócio

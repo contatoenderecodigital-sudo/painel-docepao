@@ -11,7 +11,7 @@ import { lerSessao } from "@/lib/auth";
 import { enviarTexto } from "@/lib/whatsapp/api";
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { salvarMensagem } from "@/lib/banco/conversas";
-import { ultimaMsgClienteMs, definirHandoff, telefoneDoCliente } from "@/lib/banco/atendimentos";
+import { ultimaMsgClienteMs, definirHandoff, definirPausaIA, telefoneDoCliente } from "@/lib/banco/atendimentos";
 
 export const dynamic = "force-dynamic";
 const JANELA_MS = 24 * 60 * 60 * 1000;
@@ -50,5 +50,9 @@ export async function POST(req: NextRequest) {
 
   const id = await salvarMensagem(negocioId, body.clienteId, "assistant", texto, { autor: "equipe" });
   await definirHandoff(negocioId, body.clienteId, false).catch(() => {});
+  // Quem digita, assume. Se a dona respondeu na mão, ela está nessa conversa —
+  // a IA calar sozinha é o que qualquer pessoa espera, sem precisar lembrar de
+  // apertar um botão antes. Pra devolver, existe o botão no cabeçalho.
+  await definirPausaIA(negocioId, body.clienteId, true).catch(() => {});
   return Response.json({ ok: true, id });
 }

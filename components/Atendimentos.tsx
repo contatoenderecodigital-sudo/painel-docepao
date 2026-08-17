@@ -22,7 +22,7 @@ import AudioBolha from "@/components/AudioBolha";
 import {
   Search, Plus, Paperclip, SendHorizontal, ArrowLeft, Bot, X,
   MessageSquare, Info, FileText, Download, CheckCheck, AlertCircle,
-  Clock, ShieldAlert,
+  Clock, ShieldAlert, Hand,
 } from "lucide-react";
 
 const CORES = ["#5b8c7b", "#c58a3d", "#7a6cae", "#4a7ba6", "#a85b52", "#6f9b52", "#b0713e", "#8a5a86"];
@@ -130,6 +130,21 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
       <div className="max-w-[78%] md:max-w-[64%]">
         {!isCliente && m.de === "equipe" && primeiro && <div className="text-[10px] text-cream/45 mb-0.5 text-right pr-1">Você</div>}
         {!isCliente && m.de === "ia" && primeiro && <div className="text-[10px] text-cream/45 mb-0.5 text-right pr-1 flex items-center justify-end gap-1"><Bot size={11} /> Atendente</div>}
+        {/* Bico do balão: no WhatsApp é o que separa uma fala da outra num
+            relance. Só na primeira da sequência, e ancorado no balão — não no
+            rótulo que vem acima dele. */}
+        <div className="relative">
+        {primeiro && (
+          <span
+            aria-hidden="true"
+            className="absolute top-0 w-0 h-0"
+            style={
+              isCliente
+                ? { left: -7, borderTop: "8px solid #3d1522", borderLeft: "8px solid transparent" }
+                : { right: -7, borderTop: "8px solid #5c4712", borderRight: "8px solid transparent" }
+            }
+          />
+        )}
         <div className={bolhaBase} style={{ ...bolhaStyle, padding: m.tipo === "imagem" && src ? 4 : undefined }}>
           {/* IMAGEM */}
           {m.tipo === "imagem" && src && (
@@ -190,6 +205,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
             </div>
           )}
         </div>
+        </div>
       </div>
     </div>
   );
@@ -207,6 +223,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
   const [drawer, setDrawer] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [tplAberto, setTplAberto] = useState(false);
+  const [assumindo, setAssumindo] = useState<string | null>(null);
   const [novaAberto, setNovaAberto] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [, setTick] = useState(0); // força recomputar a janela de 24h
@@ -219,6 +236,28 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
     setToast(t);
     setTimeout(() => setToast((v) => (v === t ? null : v)), 3200);
   }, []);
+
+  // Assumir a conversa (a IA para de responder este cliente) ou devolver.
+  // O estado muda na hora na tela — quem clica precisa ver que pegou, sem
+  // esperar o próximo polling pra ter certeza de que a IA calou.
+  const alternarAssumir = useCallback(async (clienteId: string, assumir: boolean) => {
+    setAssumindo(clienteId);
+    setConversas((prev) => prev.map((c) => (c.id === clienteId ? { ...c, estado: assumir ? "humano" : "ia" } : c)));
+    try {
+      const r = await fetch("/api/conversas/assumir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clienteId, assumir }),
+      });
+      if (!r.ok) throw new Error("falha");
+      mostrarToast(assumir ? "Você assumiu. A IA não responde mais este cliente." : "Devolvido: a IA volta a atender.");
+    } catch {
+      setConversas((prev) => prev.map((c) => (c.id === clienteId ? { ...c, estado: assumir ? "ia" : "humano" } : c)));
+      mostrarToast("Não consegui mudar quem atende. Tente de novo.");
+    } finally {
+      setAssumindo(null);
+    }
+  }, [mostrarToast]);
 
   // Busca a lista/histórico do servidor e reconcilia os envios otimistas.
   const atualizar = useCallback(async () => {
@@ -499,6 +538,21 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                         <ShieldAlert size={13} /> Precisa de você
                       </span>
                     )}
+                    {/* Assumir/devolver: enquanto assumida, a IA não responde este
+                        cliente. É o botão que faltava pra dona entrar na conversa. */}
+                    <button
+                      onClick={() => alternarAssumir(ativa.id, ativa.estado !== "humano")}
+                      disabled={assumindo === ativa.id}
+                      title={ativa.estado === "humano" ? "A IA está parada nesta conversa. Devolver o atendimento pra ela." : "Você passa a responder e a IA para de falar com este cliente."}
+                      className="press toque inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12.5px] font-semibold disabled:opacity-60 transition-colors"
+                      style={
+                        ativa.estado === "humano"
+                          ? { background: "rgba(231,207,148,0.16)", color: "#e7cf94", border: "1px solid rgba(231,207,148,0.35)" }
+                          : { background: "rgba(255,255,255,0.08)", color: "rgba(255,247,235,0.85)", border: "1px solid rgba(255,255,255,0.14)" }
+                      }
+                    >
+                      {ativa.estado === "humano" ? <><Bot size={14} /> <span className="hidden sm:inline">Devolver pra IA</span></> : <><Hand size={14} /> <span className="hidden sm:inline">Assumir</span></>}
+                    </button>
                     <button onClick={() => setDrawer(true)} className="w-11 h-11 shrink-0 grid place-items-center rounded-full text-cream/70 hover:text-cream hover:bg-white/10 active:bg-white/15 transition-colors" aria-label="Informações do contato">
                       <Info size={18} />
                     </button>
@@ -507,6 +561,19 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
 
                 {/* mensagens */}
                 <ScrollArea className="flex-1 min-h-0" style={{ background: "#2a0a12" }}>
+                  {/* Enquanto a equipe está com a conversa, isso precisa ficar na
+                      cara: sem o aviso, ninguém lembra de devolver e o cliente
+                      fica sem a IA pra sempre. */}
+                  {ativa.estado === "humano" && (
+                    <div className="sticky top-0 z-10 px-3 md:px-6 py-2 flex items-center justify-center gap-2 text-[12px] font-medium"
+                         style={{ background: "rgba(231,207,148,0.13)", color: "#e7cf94", backdropFilter: "blur(8px)" }}>
+                      <Hand size={13} className="shrink-0" />
+                      <span>Você está atendendo. A IA não responde este cliente.</span>
+                      <button onClick={() => alternarAssumir(ativa.id, false)} className="underline underline-offset-2 font-semibold shrink-0">
+                        devolver
+                      </button>
+                    </div>
+                  )}
                   {/* textura discreta, no lugar dos rabiscos do app: dá a mesma
                       sensação de "papel de parede" sem carregar imagem externa */}
                   <div

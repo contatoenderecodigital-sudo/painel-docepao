@@ -27,6 +27,7 @@ type LinhaConversa = {
   nome: string | null;
   telefone: string;
   handoff: boolean;
+  ia_pausada: boolean;
   nao_lidas: number;
   janela_expira_ms: number | null;
   custo_cent: number;
@@ -37,6 +38,7 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
   const linhas = await query<LinhaConversa>(
     `select c.id as cliente_id, c.nome, c.telefone,
        coalesce(c.handoff, false) as handoff,
+       coalesce(c.ia_pausada, false) as ia_pausada,
        coalesce((
          select count(*) from mensagens m
           where m.cliente_id = c.id and m.negocio_id = $1
@@ -99,7 +101,8 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
       clienteTelefone: l.telefone,
       ultimaHora: ultima?.hora ?? "",
       previa: ultima ? previaDe(ultima) : "",
-      estado: l.handoff ? "precisa_humano" : "ia",
+      // quem assumiu manda: a pausa da equipe vence o pedido de socorro da IA.
+      estado: l.ia_pausada ? "humano" : l.handoff ? "precisa_humano" : "ia",
       naoLidas: Number(l.nao_lidas) || 0,
       janelaExpiraMs: l.janela_expira_ms != null ? Number(l.janela_expira_ms) : null,
       custoCentavos: Number(l.custo_cent) || 0,
@@ -124,6 +127,31 @@ export async function marcarConversaLida(negocioId: string, clienteId: string): 
          and coalesce(autor, case when papel = 'user' then 'cliente' else 'ia' end) = 'cliente'`,
     [negocioId, clienteId],
   );
+}
+
+// Liga/desliga a pausa da IA (a equipe assumiu a conversa).
+//
+// Assumir também limpa o handoff: se a IA tinha pedido socorro, o socorro
+// chegou — deixar os dois ligados faria a conversa gritar por ajuda sendo que
+// alguém já está nela.
+export async function definirPausaIA(negocioId: string, clienteId: string, valor: boolean): Promise<void> {
+  await query(
+    `update clientes
+        set ia_pausada = $3,
+            ia_pausada_em = case when $3 then now() else null end,
+            handoff = case when $3 then false else handoff end
+      where negocio_id = $1 and id = $2`,
+    [negocioId, clienteId, valor],
+  );
+}
+
+// A IA está pausada nesta conversa? (o webhook pergunta antes de responder)
+export async function iaPausada(negocioId: string, clienteId: string): Promise<boolean> {
+  const l = await queryUm<{ p: boolean }>(
+    "select coalesce(ia_pausada, false) as p from clientes where negocio_id = $1 and id = $2",
+    [negocioId, clienteId],
+  );
+  return !!l?.p;
 }
 
 // Liga/desliga o handoff ("precisa de você") de um cliente.

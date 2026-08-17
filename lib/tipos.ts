@@ -85,7 +85,7 @@ export type Conversa = {
   clienteTelefone: string;
   ultimaHora: string;
   previa: string;
-  estado: "ia" | "precisa_humano" | "resolvido";
+  estado: "ia" | "precisa_humano" | "humano" | "resolvido";
   naoLidas: number;
   mensagens: Mensagem[];
   // Janela de 24h da Meta: epoch (ms) em que a última mensagem do cliente
