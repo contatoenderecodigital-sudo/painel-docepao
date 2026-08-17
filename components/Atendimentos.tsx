@@ -225,6 +225,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [tplAberto, setTplAberto] = useState(false);
   const [assumindo, setAssumindo] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(false);
   const [aba, setAba] = useState<"todas" | "ia" | "humano" | "atencao">("todas");
   const [novaAberto, setNovaAberto] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -693,10 +694,43 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
 
       {/* ===================== LIGHTBOX ===================== */}
       {lightbox && (
-        <div className="fixed inset-0 z-[60] grid place-items-center p-4" style={{ background: "rgba(0,0,0,0.82)" }} onClick={() => setLightbox(null)}>
-          <button className="absolute top-4 right-4 w-10 h-10 grid place-items-center rounded-full text-white/80 hover:bg-white/10" aria-label="Fechar"><X size={22} /></button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={lightbox} alt="Imagem" className="max-w-full max-h-full rounded-lg" onClick={(e) => e.stopPropagation()} />
+        // A peça de cardápio é alta e cheia de texto miúdo. Antes o `max-h-full`
+        // não segurava nada (percentual contra linha de grid automática não
+        // restringe), então a imagem abria em tamanho natural e só dava pra ver
+        // o cabeçalho. Agora ela cabe inteira na tela, e um toque amplia pra
+        // largura pra dar pra ler os preços, com a tela rolando.
+        <div
+          className="fixed inset-0 z-[60] overflow-auto"
+          style={{ background: "rgba(0,0,0,0.9)" }}
+          onClick={() => { setLightbox(null); setZoom(false); }}
+        >
+          <div className="min-h-full flex items-center justify-center p-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={lightbox}
+              alt="Imagem"
+              onClick={(e) => { e.stopPropagation(); setZoom((z) => !z); }}
+              className={"rounded-lg " + (zoom ? "w-full max-w-[1100px] cursor-zoom-out" : "max-h-[88dvh] max-w-full object-contain cursor-zoom-in")}
+            />
+          </div>
+          <button
+            onClick={() => { setLightbox(null); setZoom(false); }}
+            className="fixed top-3 right-3 w-11 h-11 grid place-items-center rounded-full text-white/90"
+            style={{ background: "rgba(0,0,0,0.5)" }}
+            aria-label="Fechar"
+          >
+            <X size={22} />
+          </button>
+          <a
+            href={lightbox}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="fixed bottom-3 left-1/2 -translate-x-1/2 text-[12.5px] text-white/85 px-3.5 py-2 rounded-full"
+            style={{ background: "rgba(0,0,0,0.55)" }}
+          >
+            {zoom ? "Toque na imagem pra caber na tela" : "Toque na imagem pra ampliar"}
+          </a>
         </div>
       )}
 
