@@ -201,10 +201,53 @@ Correção: a ferramenta agora diz quais produtos são de cada família.
 **Campo de quantidade esticando por cima da linha.** `w-full` na classe base
 anulava a largura fixa de cada campo.
 
+## Conversa de festa inteira, ponta a ponta (17/08/2026, noite)
+
+Rodei a conversa como cliente de verdade: chegando pelo aniversário, pedindo os
+cardápios, escolhendo em cima deles. O que quebrou:
+
+**O pedido antigo vazava pro novo.** Cliente que já encomendou volta pra
+encomendar de novo e recebia de volta os salgados, o bolo e a forminha da
+encomenda anterior. Correção: o pedido fechado vira só o resumo no histórico. O
+resumo também vai pro fim do prompt, senão ela responde "o que você fechou" com
+o pedido que está sendo montado agora.
+
+**Sabor em aberto passava batido.** Ela pulava pros docinhos com o pastel frito,
+o risólis e o tipo dos assados sem definir. Correção: a pendência é calculada
+cruzando o anotado com o cardápio, e a própria ferramenta de anotar avisa no
+mesmo turno (a lista do fim do prompt chega uma mensagem atrasada, e foi assim
+que ela perguntou a cor da forminha antes do sabor da trufa).
+
+**200 fritos viraram 600.** Ela repetiu o total em cada tipo escolhido.
+Correção: o lembrete soma por família e avisa que total falado é pra dividir.
+
+**Topo de bolo sem preço fazia ela chamar a equipe** em vez de registrar, e a
+festa ficava fora da fila. Valor desconhecido é caso de precisa_confirmacao.
+
+**Bolo cobrado duas vezes.** Uma linha certa de 4 kg a R$ 49,90 e outra como
+docinho brigadeiro de R$ 1,25, porque a lista que ela reescreve no fechamento
+ainda podia acrescentar item. Correção: pedido anotado manda sozinho.
+
+**Cliente sem saber que encomendou.** Ela registrou R$ 904 e respondeu só
+"deixa eu chamar alguém da equipe".
+
+**"pastel frito" na comanda.** Não diz que peça fazer: é a mini bolha.
+
+**O morango sumia do nome do bolo** e o misto saía a R$ 46,90 o quilo em vez de
+R$ 49,90.
+
+Passou: cardápios enviados e escolhidos em cima deles, 200 fritos divididos em
+67/67/66, recheios de todos os itens, trufa com sabor, papel de arroz cobrado,
+topo sinalizado pra dona, e a correção da equipe pela tela (150 coxinhas no
+lugar das 100 que o cliente pediu) valendo na hora de fechar.
+
 ---
 
 ## Ainda aberto
 
+- **Foto de referência do bolo** ainda não testada ponta a ponta: o simulador
+  de webhook manda só texto, e a tela do Testar IA aceita imagem mas não grava o
+  pedido em montagem.
 - **Sino**: falta decidir se leva "marcar como lido" (hoje o contador é o estado
   real do trabalho, e sair da lista exige resolver).
 - **Gemini como reserva**: o modelo foi corrigido (2.5-flash saiu do ar pra
