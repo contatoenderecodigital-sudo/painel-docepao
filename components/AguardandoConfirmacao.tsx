@@ -49,8 +49,8 @@ export default function AguardandoConfirmacao({ pedidos }: { pedidos: Pedido[] }
         </div>
         <div className="tracking-tight-apple text-xl font-bold text-cream">Nada pendente agora</div>
         <p className="text-sm text-cream/60 mt-1 max-w-md mx-auto">
-          Quando a Dora montar um pedido que ela não pode fechar sozinha — valor de topo de bolo, item fora da
-          tabela, encomenda pra hoje — ele aparece aqui em vez de ir direto pra aprovação.
+          Quando a Dora montar um pedido que ela não pode fechar sozinha (valor de topo de bolo, item fora da
+          tabela, encomenda pra hoje), ele aparece aqui em vez de ir direto pra aprovação.
         </p>
       </div>
     );

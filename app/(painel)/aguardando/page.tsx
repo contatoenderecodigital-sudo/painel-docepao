@@ -26,7 +26,7 @@ export default async function Aguardando() {
               : `${pedidos.length} pedidos esperando um valor`}
         </h1>
         <p className="text-sm text-cream/60 mt-1 max-w-2xl">
-          A Dora montou tudo, mas não podia fechar sozinha — quase sempre é o valor do topo de bolo, que não está
+          A Dora montou tudo, mas não podia fechar sozinha. Quase sempre é o valor do topo de bolo, que não está
           na tabela. Combine com o cliente, lance aqui, e ela avisa o total novo. Só depois disso o pedido entra na
           fila de aprovação.
         </p>
