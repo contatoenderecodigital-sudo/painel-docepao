@@ -364,7 +364,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       if (cat === "papel_de_arroz") return { ...i, item: "papel de arroz" };
       return i;
     });
-    const c = motor.cotarPorItens(itens);
+    const c = motor.cotarPorItens(itens.filter((i) => Number(i.qtd) > 0));
     // PEDIDO VAZIO NÃO EXISTE.
     //
     // Depois que o cliente aceitou o orçamento com um "Ok", ela chamou
@@ -504,6 +504,24 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     //
     // Agora ela só conversa. O texto que fecha o pedido sai daqui, com os
     // números da ferramenta e só com o que a gente de fato sabe.
+    // RESUMO ERRADO NÃO VAI PRO CLIENTE.
+    //
+    // As guardas acima já pegam bolo que sumiu, data que virou hoje e item sem
+    // recheio. Só que o resumo era montado e enviado assim mesmo: o cliente
+    // recebia "Data: 17/08" quando tinha dito 28/08, e um pedido de festa sem o
+    // bolo. A equipe via o aviso; ele via o erro.
+    //
+    // Com problema grave, o pedido é registrado (não se perde a venda) mas o
+    // cliente recebe um recado honesto em vez de um resumo furado.
+    const GRAVE = /bolo|data/i;
+    const problemaGrave = pendencias.some((p) => GRAVE.test(p));
+    if (problemaGrave) {
+      estado.resumo =
+        "Anotei tudo aqui.\n\n" +
+        "Só vou confirmar uns detalhes com a equipe antes de te passar o resumo fechado, pra não te mandar nada errado.\n\n" +
+        "Já já te aviso por aqui.";
+    }
+
     const linhaPagamento = formaPagamento ? `*Forma de pagamento:* ${formaPagamento}\n` : "";
     const nomeResumo = nomeInformado && !pendencias.some((p) => p.includes("nome")) ? `*Nome:* ${nomeInformado}\n` : "";
     const temTopo = itens.some((i) => /topo/i.test(String(i.obs ?? "")));
