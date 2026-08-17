@@ -1370,7 +1370,26 @@ async function rodarConversa(
       gravarUso();
       // Fechou pedido: o texto que vai pro cliente e o resumo montado em
       // codigo, nao o que ela escreveu. Ela ja tentou reescrever o total.
-      const textoFinal = estado.resumo ?? umaPerguntaSo((msg.content || "").trim());
+      let textoFinal = estado.resumo ?? umaPerguntaSo((msg.content || "").trim());
+
+      // ELA TRAVA REPETINDO A PROPRIA FRASE.
+      //
+      // Depois de responder "deixa eu chamar alguem da equipe" uma vez, ela
+      // passou a repetir isso identico a cada mensagem do cliente, sem chamar
+      // ferramenta nenhuma: o cliente pedia o resumo do pedido e recebia a mesma
+      // frase. Repetir palavra por palavra a ultima resposta nunca e o certo.
+      const ultimaDela = [...historico].reverse().find((h) => h.role === "assistant")?.content ?? "";
+      const igual = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+      if (textoFinal && igual(textoFinal, String(ultimaDela)) && i < 5) {
+        messages.push({
+          role: "system",
+          content:
+            "Voce acabou de escrever exatamente a mesma resposta de antes, palavra por palavra. Isso deixa o cliente " +
+            "em loop. Leia o que ele pediu na ultima mensagem e responda AQUILO. Se o pedido esta completo e ele " +
+            "mandou fechar, chame registrar_pedido agora em vez de repetir.",
+        });
+        continue;
+      }
       return {
         texto: textoFinal,
         precisaHumano: estado.precisaHumano,
@@ -1398,6 +1417,8 @@ async function rodarConversa(
         .map((m) => m.content as string)
         .join("  ");
       const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemAtual, pedidoAguardando);
+      // Sem isto, quando ela faz besteira so da pra adivinhar o que ela chamou.
+      console.log(`[ia] ${tc.function.name} -> ${saida.slice(0, 90)}`);
       messages.push({ role: "tool", tool_call_id: tc.id, content: saida });
     }
   }
