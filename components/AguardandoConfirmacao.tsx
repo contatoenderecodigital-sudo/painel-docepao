@@ -17,7 +17,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertTriangle, MessageSquare, Check, Loader2, Image as ImgIcon, Clock } from "lucide-react";
+import { AlertTriangle, MessageSquare, Check, Loader2, Image as ImgIcon } from "lucide-react";
 import type { Pedido } from "@/lib/tipos";
 import { brl, formatarTelefoneBR } from "@/lib/tipos";
 import { resolverPendencia, liberarParaAprovacao } from "@/app/(painel)/acoes";
@@ -30,6 +30,10 @@ function formataData(iso: string | null) {
   const dias = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
   const dt = new Date(Number(ano), Number(mes) - 1, Number(dia));
   return `${dias[dt.getDay()]} ${dia}/${mes}`;
+}
+
+function fmtBRL(v: number) {
+  return "R$ " + v.toFixed(2).replace(".", ",");
 }
 
 function fmtQtd(qtd: number, unidade?: string | null) {
@@ -98,7 +102,8 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
     aoResolver();
   }
 
-  const podeEnviar = produto.trim().length > 1 && Number(valor.replace(",", ".")) >= 0 && valor.trim() !== "";
+  const valorNum = Number(valor.replace(",", ".")) || 0;
+  const podeEnviar = produto.trim().length > 1 && valor.trim() !== "" && valorNum >= 0;
 
   return (
     <div className="glass rounded-[20px] overflow-hidden flex flex-col">
@@ -167,7 +172,7 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
           </div>
         )}
         <div className="text-[12px] text-cream/65 mb-2" hidden={pedido.aguardandoCliente}>
-          Lance o valor que você acertou. A Dora avisa o cliente com o total novo e o pedido vai pra aprovação.
+          Digite o valor que você acertou com o cliente. A Dora avisa ele com o total novo.
         </div>
         <div className="flex flex-wrap gap-2" hidden={pedido.aguardandoCliente}>
           <input
@@ -197,7 +202,7 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
 
         {erro && <div className="text-[12.5px] mt-2" style={{ color: "#ff8a8a" }}>{erro}</div>}
 
-        <div className="flex flex-wrap gap-2 mt-3">
+        <div className="flex flex-wrap items-center gap-2 mt-3">
           <Link
             href={`/atendimentos?cliente=${encodeURIComponent(pedido.clienteTelefone)}`}
             className="press toque inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-[10px] text-cream"
@@ -205,23 +210,35 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
           >
             <MessageSquare size={15} /> Abrir conversa
           </Link>
-          <button
-            onClick={() => enviar(true)}
-            hidden={pedido.aguardandoCliente}
-            disabled={salvando || !podeEnviar}
-            className="btn-verde press toque px-3.5 py-2 text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-50"
-          >
-            {salvando ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Lançar e avisar cliente
-          </button>
+          {pedido.aguardandoCliente ? (
+            <button
+              onClick={() => enviar(false)}
+              disabled={salvando}
+              className="btn-verde press toque px-4 py-2 text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {salvando ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Ele aceitou, liberar
+            </button>
+          ) : (
+            <button
+              onClick={() => enviar(true)}
+              disabled={salvando || !podeEnviar}
+              className="btn-verde press toque px-4 py-2 text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-50"
+              title={podeEnviar ? undefined : "Preencha o valor primeiro."}
+            >
+              {salvando ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+              {valorNum > 0 ? `Lançar ${fmtBRL(valorNum * (Number(qtd.replace(",", ".")) || 1))} e avisar` : "Lançar valor e avisar cliente"}
+            </button>
+          )}
+        </div>
+        {!pedido.aguardandoCliente && (
           <button
             onClick={() => enviar(false)}
             disabled={salvando}
-            className="press toque px-3 py-2 text-sm text-cream/70 inline-flex items-center gap-1.5 disabled:opacity-50"
-            title="Manda o pedido pra fila de aprovação sem cobrar nada a mais."
+            className="mt-2.5 text-[12px] text-cream/50 hover:text-cream/80 underline underline-offset-2 disabled:opacity-50"
           >
-            <Clock size={15} /> {pedido.aguardandoCliente ? "Liberar pra aprovação" : "Só liberar"}
+            Não tem valor a cobrar, mandar direto pra aprovação
           </button>
-        </div>
+        )}
       </div>
     </div>
   );
