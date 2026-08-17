@@ -101,10 +101,16 @@ export async function anotarItem(
     : m.itens.findIndex((x) => mesmaLinha(x, item) && marca(x.obs) === marca(item.obs));
 
   // Só existe uma linha desse produto: é correção dela, não linha nova. Cobre
-  // "muda pra 150 coxinhas" (sem recheio) e "as coxinhas são de frango"
-  // (acrescentando o recheio numa linha que ainda estava sem).
-  if (i < 0 && mesmoNome.length === 1 && (!marca(item.obs) || !marca(mesmoNome[0].obs))) {
-    i = m.itens.indexOf(mesmoNome[0]);
+  // "muda pra 150 coxinhas" (sem recheio), "as coxinhas são de frango"
+  // (acrescentando o recheio numa linha que ainda estava sem) e o caso que
+  // duplicou a trufa: a linha tinha "forminha azul royal" e o sabor chegou
+  // depois como "morango, forminha azul royal". Uma observação que CONTÉM a
+  // outra é a mesma linha ficando mais completa, não um item novo.
+  if (i < 0 && mesmoNome.length === 1) {
+    const antiga = marca(mesmoNome[0].obs);
+    const nova = marca(item.obs);
+    const refinamento = !antiga || !nova || nova.includes(antiga) || antiga.includes(nova);
+    if (refinamento) i = m.itens.indexOf(mesmoNome[0]);
   }
 
   if (i >= 0) {
@@ -121,7 +127,20 @@ export async function anotarItem(
     // O detalhe sai de dentro do genérico: o cliente pediu 300 assados e agora
     // está dizendo quais são. Sem isso o pedido fecha com 450 salgados.
     if (!ehGenerico(item.produto)) {
-      const g = m.itens.find((x) => x.categoria === item.categoria && ehGenerico(x.produto));
+      // A linha genérica costuma vir com a categoria errada ("salgado" anotado
+      // como outro), então o que casa é a FAMÍLIA: salgado com salgado, docinho
+      // com docinho, bolo com bolo. Sem isso sobrou um "salgado 200" fantasma
+      // no pedido, junto dos salgados de verdade.
+      const familia = (c: string, p: string) =>
+        /^salgado/.test(c) || /^salgado/.test(p.trim().toLowerCase())
+          ? "salgado"
+          : c === "docinho" || /^(docinho|doce)s?$/.test(p.trim().toLowerCase())
+            ? "docinho"
+            : /^bolo/.test(c) || /^bolos?$/.test(p.trim().toLowerCase())
+              ? "bolo"
+              : c;
+      const fam = familia(item.categoria, item.produto);
+      const g = m.itens.find((x) => ehGenerico(x.produto) && familia(x.categoria, x.produto) === fam);
       if (g) {
         g.qtd = Math.max(0, Number(g.qtd) - Number(item.qtd));
         if (g.qtd <= 0) m.itens = m.itens.filter((x) => x !== g);
