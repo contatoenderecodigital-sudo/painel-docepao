@@ -801,12 +801,23 @@ export async function responder(
   const system = montarSystemComData(tenant);
   const lista = provedores(tenant);
   let ultimoErro: unknown;
+  // Cada provedor ganha DUAS tentativas antes de passar a vez.
+  //
+  // O que derrubava o atendimento nao era o modelo errar: era um soluco de rede
+  // no OpenAI cair direto no proximo da fila, e o proximo (Gemini) estar
+  // quebrado, devolvendo 404. Um tropeco passageiro virava "tive um probleminha"
+  // pro cliente. Repetir no mesmo provedor resolve a esmagadora maioria desses
+  // casos, porque a falha e de rede e nao de pedido.
   for (const prov of lista) {
-    try {
-      return await rodarConversa(prov, system, historico, tenant, origem, clienteId);
-    } catch (e) {
-      ultimoErro = e;
-      console.error(`[ia] provedor ${prov.nome} falhou, tentando o proximo:`, (e as Error)?.message ?? e);
+    for (let tentativa = 1; tentativa <= 2; tentativa++) {
+      try {
+        return await rodarConversa(prov, system, historico, tenant, origem, clienteId);
+      } catch (e) {
+        ultimoErro = e;
+        const msg = (e as Error)?.message ?? String(e);
+        console.error(`[ia] provedor ${prov.nome} falhou (tentativa ${tentativa}/2):`, msg);
+        if (tentativa === 1) await new Promise((r) => setTimeout(r, 800));
+      }
     }
   }
   throw new Error("Todos os provedores de IA falharam: " + String((ultimoErro as Error)?.message ?? ultimoErro));
