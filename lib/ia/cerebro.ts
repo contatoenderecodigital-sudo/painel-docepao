@@ -217,6 +217,26 @@ function detectarPagamento(fala: string): string | undefined {
   return undefined;
 }
 
+
+// Corta a pergunta a mais. A regra "uma pergunta por vez" está no prompt com
+// exemplo, e ainda assim ela furou em 8 de 8 turnos num teste automatizado:
+// "Anotei a data. Vamos começar pelos salgados? Prefere fritos ou assados?".
+// A primeira pergunta é retórica e a segunda é a real, então guardamos a
+// ÚLTIMA e jogamos fora as anteriores. O texto que não pergunta fica intacto.
+function umaPerguntaSo(texto: string): string {
+  const blocos = texto.split(/\n\s*\n/);
+  // Cumprimento não conta como pergunta: "Oi, tudo bem?" é educação, e
+  // cortá-lo deixaria a Dora entrando seca na conversa.
+  const cortesia = /tudo bem|tudo certo|como vai|bom dia|boa tarde|boa noite/i;
+  const indices = blocos
+    .map((b, i) => (b.includes("?") && !cortesia.test(b) ? i : -1))
+    .filter((i) => i >= 0);
+  if (indices.length < 2) return texto;
+  const manter = indices[indices.length - 1];
+  const limpo = blocos.filter((_, i) => !indices.includes(i) || i === manter);
+  return limpo.join("\n\n").trim();
+}
+
 function executarFerramenta(
   nome: string,
   input: Record<string, unknown>,
@@ -273,12 +293,15 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const pendencias: string[] = [];
 
     // A IA preencheu a forma de pagamento sem o cliente ter falado nisso. Num
-    // teste real ela escreveu "pix" numa conversa em que pagamento nunca foi
-    // mencionado: a equipe passa a acreditar num combinado que não existiu.
-    // Só aceitamos o que aparece na fala DELE.
-    const dizPagamento = /(pix|cart[ãa]o|credito|crédito|debito|débito|dinheiro|esp[ée]cie|na retirada|parcel)/i;
+    // Ela erra dos DOIS lados: já preencheu "pix" numa conversa sem pagamento
+    // nenhum, e já escreveu "pix" só no texto do resumo sem preencher o campo,
+    // deixando o pedido sem forma nenhuma no painel. Por isso o valor é LIDO da
+    // fala do cliente, não aceito da palavra dela.
+    const formaDita = detectarPagamento(falaDoCliente);
     let formaPagamento = input.forma_pagamento ? String(input.forma_pagamento) : undefined;
-    if (formaPagamento && !dizPagamento.test(falaDoCliente)) {
+    if (formaDita) {
+      formaPagamento = formaDita;
+    } else if (formaPagamento) {
       formaPagamento = undefined;
       precisaConfirmacao = true;
       pendencias.push("confirmar a forma de pagamento (o cliente não falou)");
@@ -483,7 +506,7 @@ async function rodarConversa(
 
     if (!msg.tool_calls || msg.tool_calls.length === 0) {
       gravarUso();
-      const textoFinal = (msg.content || "").trim();
+      const textoFinal = umaPerguntaSo((msg.content || "").trim());
       return {
         texto: textoFinal,
         precisaHumano: estado.precisaHumano,
