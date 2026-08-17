@@ -272,7 +272,32 @@ async function processar(corpo: WebhookPayload) {
       // zero token e não corre o risco de a IA errar preço redigitando a lista.
       // Falha de imagem nunca derruba a resposta — o texto já foi entregue.
       const mandarCardapios = async () => {
+        // PEÇA JÁ MANDADA NÃO VAI DE NOVO.
+        //
+        // A IA repetiu enviar_cardapio em dois turnos seguidos e o cliente
+        // recebeu os três cardápios duas vezes em vinte segundos. Vira spam, e
+        // spam num número comercial é o caminho mais curto pra ele bloquear a
+        // padaria. O histórico já sabe o que foi enviado; basta perguntar.
+        let jaEnviados: string[] = [];
+        try {
+          const { query } = await import("@/lib/banco/db");
+          const linhas = await query<{ conteudo: string }>(
+            `select conteudo from mensagens
+              where negocio_id = $1 and cliente_id = $2 and tipo = 'imagem'
+                and midia_url is not null and criado_em > now() - interval '2 hours'`,
+            [negocioId, clienteId],
+          );
+          jaEnviados = linhas.map((l) => (l.conteudo || "").toLowerCase());
+        } catch (e) {
+          console.error("[whatsapp] falha ao checar cardapios ja enviados:", e);
+        }
+
         for (const c of resp.cardapiosParaEnviar ?? []) {
+          const rotulo = `cardápio de ${c.replace(/-/g, " ")}`.toLowerCase();
+          if (jaEnviados.some((j) => j.includes(rotulo))) {
+            console.log("[whatsapp] cardapio", c, "ja foi enviado nesta conversa; nao repito");
+            continue;
+          }
           const urlPeca = urlDoCardapio(c);
           // A peça entra no histórico ANTES do envio, e fora do try do envio.
           // Estava depois: quando o envio falhava (token vencido, número

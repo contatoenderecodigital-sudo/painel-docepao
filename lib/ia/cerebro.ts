@@ -475,8 +475,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const PEDE_RECHEIO = /^(pastel assado|esfirra|croissant|empadinha|quiche|mini pizza|mini bolha)/i;
     const semRecheio = c.linhas.filter((l) => PEDE_RECHEIO.test(l.item) && !String(l.obs ?? "").trim());
     if (semRecheio.length > 0) {
-      precisaConfirmacao = true;
-      pendencias.push(`confirmar o recheio de: ${semRecheio.map((l) => l.item).join(", ")}`);
+      // Devolve SEM registrar: o recheio ainda dá pra perguntar, e perguntar é
+      // melhor que a equipe adivinhar depois. Avisar só no painel deixava o
+      // cliente com um pedido fechado que ninguém sabe produzir.
+      const faltam = semRecheio.map((l) => l.item).join(", ");
+      return (
+        `NÃO registrei ainda: falta o recheio de ${faltam}. ` +
+        `Pergunte o recheio numa única mensagem (as opções são carne, frango, calabresa, bacon ou brócolis, ` +
+        `e empadinha também tem palmito) e só depois chame registrar_pedido de novo com tudo. ` +
+        `Não invente recheio e não registre sem ele.`
+      );
     }
 
     const motivoHumano = input.motivo_humano ? String(input.motivo_humano) : undefined;
