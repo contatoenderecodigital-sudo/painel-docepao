@@ -72,6 +72,12 @@ const mesmaLinha = (a: ItemMontagem, b: { produto: string; categoria: CategoriaI
 
 const marca = (o?: string | null) => (o ?? "").trim().toLowerCase();
 
+// O bolo da festa é UM só: o cliente vai refinando a observação (o pão de ló, o
+// tema, o nome, a foto) e cada refinamento é a mesma linha. Tratar a observação
+// como identidade aqui criava dois bolos de 2 kg no mesmo pedido, e a conta
+// dobrava. Nos salgados é o contrário: frango e calabresa são linhas separadas.
+const UMA_LINHA_SO: CategoriaItem[] = ["bolo_festa", "bolo_caseiro", "papel_de_arroz"];
+
 // Nomes que o cliente usa quando ainda não escolheu o tipo. Quando ele detalha
 // depois ("desses 300, metade frango"), o detalhe sai de dentro do genérico.
 const GENERICOS = ["salgado", "salgado assado", "salgado frito", "docinho", "doce", "bolo recheado", "bolo"];
@@ -90,7 +96,9 @@ export async function anotarItem(
   // "metade frango e metade calabresa" virava uma linha só: o calabresa
   // entrava por cima do frango e sumiam 150 salgados do pedido. Agora a
   // observação faz parte da identidade da linha.
-  let i = m.itens.findIndex((x) => mesmaLinha(x, item) && marca(x.obs) === marca(item.obs));
+  let i = UMA_LINHA_SO.includes(item.categoria)
+    ? m.itens.findIndex((x) => mesmaLinha(x, item))
+    : m.itens.findIndex((x) => mesmaLinha(x, item) && marca(x.obs) === marca(item.obs));
 
   // Só existe uma linha desse produto: é correção dela, não linha nova. Cobre
   // "muda pra 150 coxinhas" (sem recheio) e "as coxinhas são de frango"
@@ -102,7 +110,12 @@ export async function anotarItem(
   if (i >= 0) {
     // Corrigir NÃO apaga o que já estava: a observação antiga sobrevive quando
     // a nova vem vazia. Senão "muda pra 200" limparia o recheio já combinado.
-    m.itens[i] = { ...m.itens[i], ...item, obs: item.obs ?? m.itens[i].obs ?? null };
+    // E quando a nova é só um pedaço da antiga (ela reescreve o recheio do bolo
+    // pela metade), fica a antiga, que é a completa.
+    const antiga = m.itens[i].obs ?? null;
+    const nova = item.obs ?? null;
+    const obs = !marca(nova) ? antiga : marca(antiga).includes(marca(nova)) ? antiga : nova;
+    m.itens[i] = { ...m.itens[i], ...item, obs };
   } else {
     m.itens.push(item);
     // O detalhe sai de dentro do genérico: o cliente pediu 300 assados e agora

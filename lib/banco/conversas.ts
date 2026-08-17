@@ -45,7 +45,33 @@ export async function carregarHistorico(
        order by criado_em desc limit $3`,
     [negocioId, clienteId, LIMITE_HISTORICO],
   );
-  return linhas.reverse().map((m) => ({ role: m.papel, content: m.conteudo }));
+  return marcarPedidoFechado(linhas.reverse().map((m) => ({ role: m.papel, content: m.conteudo })));
+}
+
+// PEDIDO FECHADO É PONTO FINAL, NÃO RASCUNHO.
+//
+// O cliente que já encomendou volta semanas depois pra encomendar de novo, e a
+// IA lia a conversa inteira como se fosse um pedido só: pediu comida pra 20
+// pessoas e recebeu de volta os 500 salgados, o bolo do Batman e a forminha
+// verde do aniversário anterior. Aqui o fechamento vira uma linha divisória
+// explícita no histórico: o que está acima já foi entregue pra equipe.
+const MARCA_FECHADO = /^\*Pedido recebido\*/m;
+
+function marcarPedidoFechado(msgs: Mensagem[]): Mensagem[] {
+  let ultimo = -1;
+  msgs.forEach((m, i) => {
+    if (m.role === "assistant" && MARCA_FECHADO.test(m.content)) ultimo = i;
+  });
+  if (ultimo < 0 || ultimo === msgs.length - 1) return msgs;
+
+  const aviso: Mensagem = {
+    role: "user",
+    content:
+      "[ AVISO DO SISTEMA, nao e o cliente falando ] O pedido acima JA FOI FECHADO e entregue pra equipe. " +
+      "Daqui pra baixo e uma encomenda NOVA, do zero: nao reaproveite item, quantidade, sabor, data nem tema do pedido antigo, " +
+      "e nao repita aquele pedido como se ainda estivesse sendo montado. Pergunte tudo de novo pra esta encomenda.",
+  };
+  return [...msgs.slice(0, ultimo + 1), aviso, ...msgs.slice(ultimo + 1)];
 }
 
 // Grava um turno da conversa. Retorna o id da mensagem.
