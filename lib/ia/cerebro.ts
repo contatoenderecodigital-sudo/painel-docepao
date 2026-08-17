@@ -211,6 +211,7 @@ function executarFerramenta(
   input: Record<string, unknown>,
   estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"]; cardapios: CardapioId[] },
   motor: Motor,
+  falaDoCliente = "",
 ): string {
   if (nome === "montar_orcamento") {
     if (input.modo === "itens") {
@@ -247,19 +248,47 @@ function executarFerramenta(
   if (nome === "registrar_pedido") {
     const itens = (input.itens as { item: string; qtd: number; obs?: string }[]) || [];
     const c = motor.cotarPorItens(itens);
-    const precisaConfirmacao = Boolean(input.precisa_confirmacao);
+    let precisaConfirmacao = Boolean(input.precisa_confirmacao);
+    const pendencias: string[] = [];
+
+    // A IA preencheu a forma de pagamento sem o cliente ter falado nisso. Num
+    // teste real ela escreveu "pix" numa conversa em que pagamento nunca foi
+    // mencionado: a equipe passa a acreditar num combinado que não existiu.
+    // Só aceitamos o que aparece na fala DELE.
+    const dizPagamento = /(pix|cart[ãa]o|credito|crédito|debito|débito|dinheiro|esp[ée]cie|na retirada|parcel)/i;
+    let formaPagamento = input.forma_pagamento ? String(input.forma_pagamento) : undefined;
+    if (formaPagamento && !dizPagamento.test(falaDoCliente)) {
+      formaPagamento = undefined;
+      precisaConfirmacao = true;
+      pendencias.push("confirmar a forma de pagamento (o cliente não falou)");
+    }
+
+    // Nome do pedido igual ao nome que está na observação do bolo = ela usou o
+    // do aniversariante. Quem retira e paga é outra pessoa, e o pedido sai no
+    // nome errado no balcão.
+    const nomeInformado = input.cliente_nome ? String(input.cliente_nome).trim() : "";
+    if (nomeInformado) {
+      const primeiro = nomeInformado.split(/\s+/)[0].toLowerCase();
+      const obsTodas = itens.map((i) => String(i.obs ?? "")).join(" ").toLowerCase();
+      if (primeiro.length > 2 && obsTodas.includes(primeiro)) {
+        precisaConfirmacao = true;
+        pendencias.push("confirmar em nome de quem fica o pedido (parece ser o do aniversariante)");
+      }
+    }
     const motivoHumano = input.motivo_humano ? String(input.motivo_humano) : undefined;
     estado.pedido = {
       itens,
       linhas: c.linhas,
       retiradaData: String(input.retirada_data || ""),
       retiradaHora: input.retirada_hora ? String(input.retirada_hora) : undefined,
-      formaPagamento: input.forma_pagamento ? String(input.forma_pagamento) : undefined,
+      formaPagamento,
       observacoes: input.observacoes ? String(input.observacoes) : undefined,
       clienteNome: input.cliente_nome ? String(input.cliente_nome) : undefined,
       totalCentavos: Math.round(c.total * 100),
       precisaConfirmacao,
-      motivoHumano: precisaConfirmacao ? motivoHumano : undefined,
+      motivoHumano: precisaConfirmacao
+        ? [motivoHumano, ...pendencias].filter(Boolean).join("; ") || undefined
+        : undefined,
     };
     const itensFmt = c.linhas
       .map((l) => `${l.item}: ${fmtQtd(l.qtd, l.unidade)} x ${brl(l.unit)} = ${brl(l.subtotal)}`)
@@ -451,7 +480,14 @@ async function rodarConversa(
       } catch {
         args = {};
       }
-      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor);
+      // TUDO que o cliente escreveu na conversa serve de prova pras guardas.
+      // Só a última mensagem daria falso positivo: ele pode ter falado o
+      // pagamento cinco mensagens antes de fechar.
+      const falaDoCliente = historico
+        .filter((m) => m.role === "user" && typeof m.content === "string")
+        .map((m) => m.content as string)
+        .join("  ");
+      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente);
       messages.push({ role: "tool", tool_call_id: tc.id, content: saida });
     }
   }
