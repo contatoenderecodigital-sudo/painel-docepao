@@ -1141,7 +1141,23 @@ function pendenciasDeSabor(itens: MontagemAtual["itens"]): string[] {
 // onde ela trocava bolo por docinho e perdia item), ela lê o que está guardado.
 // A equipe também mexe nisso pela tela, então o que vier aqui pode ter sido
 // corrigido na mão e vale mais que a lembrança dela.
-function descreverMontagem(m?: MontagemAtual | null): string {
+function descreverMontagem(m?: MontagemAtual | null, pedidoAguardando = false): string {
+  // PEDIDO JA REGISTRADO ESPERANDO O ACEITE NAO SE MONTA DE NOVO.
+  //
+  // Com a montagem limpa (o pedido virou pedido de verdade), o lembrete mandava
+  // anotar tudo de novo: ela reanotou os itens do pedido ja fechado, montou um
+  // orcamento novo e devolveu pro cliente o total VELHO, contradizendo o valor
+  // que ela mesma tinha acabado de passar depois do ajuste da equipe.
+  if (pedidoAguardando) {
+    return (
+      "# EXISTE UM PEDIDO DESTE CLIENTE JA REGISTRADO, ESPERANDO SO O ACEITE DELE" + "\n" +
+      "A equipe ajustou o valor e voce ja passou pra ele. Agora e so a resposta." + "\n" + "\n" +
+      "NAO anote item, NAO monte orcamento e NAO some nada: o pedido ja existe e o total certo e o que a equipe " +
+      "fechou, nao o que voce calcularia de novo. Se ele concordou (de qualquer jeito: ok, pode, ta certo, um " +
+      "joinha), chame cliente_aceitou_orcamento. Se ele discordou, pediu desconto ou quis mudar alguma coisa, chame a equipe."
+    );
+  }
+
   const itens = m?.itens ?? [];
   const rotulos: Record<string, string> = {
     cliente_nome: "Nome de quem retira",
@@ -1349,7 +1365,7 @@ async function rodarConversa(
   // O que já está anotado entra DEPOIS do histórico, nunca dentro do system: o
   // system é o prefixo que a OpenAI guarda em cache, e mexer nele a cada turno
   // jogaria o cache fora (a conta triplica). No fim ele é lido do mesmo jeito.
-  messages.push({ role: "system", content: descreverMontagem(montagemAtual) });
+  messages.push({ role: "system", content: descreverMontagem(montagemAtual, pedidoAguardando) });
 
   // FERRAMENTA QUE NAO CABE AGORA NEM E OFERECIDA.
   //
@@ -1360,8 +1376,14 @@ async function rodarConversa(
     (montagemAtual?.itens?.length ?? 0) > 0 && pendenciasDeSabor(montagemAtual?.itens ?? []).length === 0;
   const ferramentas = (tenant.sistemaCustom ? FERRAMENTAS_BASICAS : FERRAMENTAS).filter((f) => {
     const nome = "function" in f ? f.function.name : "";
+    if (nome === "cliente_aceitou_orcamento") return pedidoAguardando;
+    // Esperando o aceite, so existem tres caminhos: ele aceita, ele reclama (e
+    // a equipe entra), ou ele pergunta alguma coisa. Montar pedido ali e o que
+    // fez ela recalcular por cima de um pedido ja fechado.
+    if (pedidoAguardando) {
+      return !["anotar_item", "remover_item", "anotar_dados", "montar_orcamento", "registrar_pedido"].includes(nome);
+    }
     if (nome === "registrar_pedido" && !podeFechar) return false;
-    if (nome === "cliente_aceitou_orcamento" && !pedidoAguardando) return false;
     return true;
   });
 
