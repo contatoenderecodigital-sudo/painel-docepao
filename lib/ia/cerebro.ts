@@ -298,7 +298,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // deixando o pedido sem forma nenhuma no painel. Por isso o valor é LIDO da
     // fala do cliente, não aceito da palavra dela.
     const formaDita = detectarPagamento(falaDoCliente);
-    console.log("[dbg-pagamento] fala=" + falaDoCliente.length + "ch detectado=" + (formaDita ?? "nada") + " daIA=" + (input.forma_pagamento ?? "nada"));
+    console.log("[dbg-pagamento] texto=<" + falaDoCliente.slice(0, 90) + "> detectado=" + (formaDita ?? "nada"));
     let formaPagamento = input.forma_pagamento ? String(input.forma_pagamento) : undefined;
     if (formaDita) {
       formaPagamento = formaDita;
