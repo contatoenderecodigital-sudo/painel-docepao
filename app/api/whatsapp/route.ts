@@ -34,6 +34,24 @@ import crypto from "node:crypto";
 
 const pausa = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Recado do próprio Meta chegando pelo webhook (aviso de configuração da conta,
+// sempre em inglês e sempre sobre a conta, nunca sobre padaria). Cliente da
+// Doce Pão escreve em português e fala de comida; o corte é por essas frases,
+// pra não engolir mensagem de gente de verdade.
+const FRASES_META = [
+  /continue setting up/i,
+  /finish setting up/i,
+  /your (whatsapp )?business (account|profile)/i,
+  /verify your business/i,
+  /this message is from meta/i,
+  /you're all set/i,
+];
+function recadoDoMeta(msg: WhatsAppMessage): boolean {
+  const t = msg.text?.body ?? "";
+  if (!t) return false;
+  return FRASES_META.some((r) => r.test(t));
+}
+
 // Quanto a Glorinha "demora pra digitar". Uma pessoa lê, pensa e escreve; a IA
 // responde em 700ms e isso sozinho denuncia que não é gente. Base de leitura +
 // ritmo de digitação, entre 1,5s e 7s.
@@ -122,6 +140,15 @@ async function processar(corpo: WebhookPayload) {
       const creds = { phoneId: phoneNumberId ?? credsTenant.phoneId, token: credsTenant.token };
 
       const telefone = msg.from;
+
+      // O próprio Meta manda recado no número (aviso de configuração da conta,
+      // em inglês). A Dora respondeu um deles como se fosse cliente, oferecendo
+      // salgadinho pro robô da Meta. Recado do Meta não é atendimento: ignora.
+      if (recadoDoMeta(msg)) {
+        console.log("[whatsapp] recado do Meta ignorado:", msg.text?.body?.slice(0, 60));
+        continue;
+      }
+
       const nomePerfil = valor.contacts?.[0]?.profile?.name;
       const clienteId = await acharOuCriarCliente(negocioId, telefone, nomePerfil);
 

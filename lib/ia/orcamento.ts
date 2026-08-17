@@ -63,6 +63,32 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
   // Aconteceu num teste real, com o pedido já fechado e o cliente avisado.
   const MARCA_DE_BOLO = /p[ãa]o de l[óo]|topo d|papel de arroz|aniversariante|prato aberto|caixa com tampa|andar/i;
 
+  // Os sabores de bolo recheado, do mais caro pro mais barato, pra saber qual
+  // vale quando o cliente pede dois no mesmo bolo.
+  // O cliente fala "com nozes", não "strogonoff de nozes", então a última
+  // palavra do sabor também vale como apelido. Casar duas vezes o mesmo sabor
+  // não faz mal: o preço só muda quando o outro é mais caro de verdade.
+  const SABORES_BOLO = produtos
+    .filter((p) => p.categoria === "bolo_recheado" && norm(p.nome).startsWith("bolo ") && !norm(p.nome).startsWith("bolo recheado "))
+    .flatMap((p) => {
+      const sabor = norm(p.nome).slice(5);
+      const ultima = (sabor.split(" ").pop() || "").replace(/[^a-zà-ú0-9]/g, "");
+      const lista = [{ sabor, produto: p }];
+      if (ultima.length > 3 && ultima !== sabor) lista.push({ sabor: ultima, produto: p });
+      return lista;
+    })
+    .filter((x) => x.sabor.length > 3)
+    .sort((a, b) => b.produto.preco - a.produto.preco);
+
+  // "brigadeiro com morango": vale o morango. Sem isso o bolo misto saía pelo
+  // preço do primeiro sabor que casasse, quase sempre o mais barato.
+  function saborMaisCaro(texto: string): Produto | undefined {
+    const t = norm(texto);
+    const achados = SABORES_BOLO.filter((x) => t.includes(x.sabor));
+    if (achados.length < 2) return undefined;
+    return achados[0].produto; // já vem ordenado do mais caro
+  }
+
   function cotarPorItens(pedido: { item: string; qtd: number; obs?: string }[]): Cotacao {
     const linhas: LinhaCotacao[] = [];
     const avisos: string[] = [];
@@ -105,6 +131,20 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
       if (!ref) {
         avisos.push(`Não achei "${item}" no cardápio, conferir com a equipe.`);
         continue;
+      }
+      // Dois sabores no mesmo bolo: vale o mais caro. É a regra da casa, está
+      // escrita na própria peça do cardápio, e o motor não aplicava: brigadeiro
+      // com morango saía a R$ 46,90 o quilo em vez de R$ 49,90.
+      if (ref.categoria === "bolo_recheado") {
+        const caro = saborMaisCaro(chave + " " + (obs ?? ""));
+        if (caro && caro.preco > ref.preco) {
+          const outro = caro.nome.replace(/^bolo /, "");
+          avisos.push(`Bolo com mais de um sabor: cobrei pelo mais caro (${outro}).`);
+          // O nome guarda os DOIS sabores: quem lê na cozinha precisa saber que
+          // o bolo é misto, e quem lê o orçamento precisa entender o preço.
+          const nome = chave.includes(outro) ? ref.nome : `${ref.nome} com ${outro}`;
+          ref = { ...caro, nome };
+        }
       }
       const q = Number(qtd) || 0;
       const subtotal = ref.preco * q;
