@@ -19,7 +19,8 @@
 // ============================================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, BellOff } from "lucide-react";
+import Link from "next/link";
+import { Bell, BellOff, ChevronRight, AlertTriangle } from "lucide-react";
 
 const CHAVE = "docepao:som-notificacao";
 const INTERVALO_MS = 20000;
@@ -28,6 +29,7 @@ type Contagem = { fila: number; aguardando: number };
 
 export default function SinoNotificacao() {
   const [som, setSom] = useState(false);
+  const [aberto, setAberto] = useState(false);
   const [contagem, setContagem] = useState<Contagem | null>(null);
   const anterior = useRef<Contagem | null>(null);
   const audioCtx = useRef<AudioContext | null>(null);
@@ -112,26 +114,79 @@ export default function SinoNotificacao() {
   const total = (contagem?.fila ?? 0) + (contagem?.aguardando ?? 0);
 
   return (
-    <button
-      onClick={alternar}
-      title={som ? "Som ligado: toca quando entrar pedido novo. Clique pra silenciar." : "Som desligado. Clique pra ser avisada com som quando entrar pedido."}
-      aria-label={som ? "Silenciar aviso de pedido novo" : "Ativar aviso sonoro de pedido novo"}
-      className="press toque relative w-10 h-10 grid place-items-center rounded-full transition-colors"
-      style={
-        som
-          ? { background: "rgba(231,207,148,0.16)", color: "#e7cf94", border: "1px solid rgba(231,207,148,0.35)" }
-          : { background: "rgba(255,255,255,0.07)", color: "rgba(255,247,235,0.6)", border: "1px solid rgba(255,255,255,0.12)" }
-      }
-    >
-      {som ? <Bell size={17} /> : <BellOff size={17} />}
-      {total > 0 && (
-        <span
-          className="absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 rounded-full text-[10px] font-bold grid place-items-center"
-          style={{ background: "#e7cf94", color: "#3d1219" }}
-        >
-          {total > 99 ? "99" : total}
-        </span>
+    <div className="relative">
+      <button
+        onClick={() => setAberto((v) => !v)}
+        title={total > 0 ? total + " pedido(s) esperando você" : "Nenhum pedido esperando"}
+        aria-label="Notificações"
+        className="press toque relative w-10 h-10 grid place-items-center rounded-full transition-colors"
+        style={
+          total > 0
+            ? { background: "rgba(231,207,148,0.16)", color: "#e7cf94", border: "1px solid rgba(231,207,148,0.35)" }
+            : { background: "rgba(255,255,255,0.07)", color: "rgba(255,247,235,0.6)", border: "1px solid rgba(255,255,255,0.12)" }
+        }
+      >
+        {som ? <Bell size={17} /> : <BellOff size={17} />}
+        {total > 0 && (
+          <span
+            className="absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 rounded-full text-[10px] font-bold grid place-items-center"
+            style={{ background: "#e7cf94", color: "#3d1219" }}
+          >
+            {total > 99 ? "99" : total}
+          </span>
+        )}
+      </button>
+
+      {aberto && (
+        <>
+          {/* clicar fora fecha, sem precisar mirar de novo no sino */}
+          <button className="fixed inset-0 z-40 cursor-default" aria-label="Fechar" onClick={() => setAberto(false)} />
+          <div
+            className="absolute bottom-12 right-0 z-50 w-[270px] rounded-[14px] overflow-hidden text-left"
+            style={{ background: "rgba(58,16,28,0.98)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 16px 44px rgba(0,0,0,0.5)" }}
+          >
+            <div className="px-3.5 py-2.5 border-b border-white/10 text-[11px] uppercase tracking-[0.16em] text-dourado font-semibold">
+              Esperando você
+            </div>
+
+            {total === 0 ? (
+              <div className="px-3.5 py-4 text-[13px] text-cream/60">Nada pendente agora.</div>
+            ) : (
+              <>
+                {/* Cada linha diz DE ONDE veio e leva pra lá. Um número sozinho
+                    não ajuda: ela precisa saber se é aprovar ou orçar. */}
+                {(contagem?.fila ?? 0) > 0 && (
+                  <Link href="/" onClick={() => setAberto(false)} className="flex items-center gap-2.5 px-3.5 py-3 hover:bg-white/[0.07] transition-colors">
+                    <Bell size={15} className="text-dourado shrink-0" />
+                    <span className="text-[13px] text-cream flex-1">
+                      {contagem?.fila} pedido{(contagem?.fila ?? 0) > 1 ? "s" : ""} pra aprovar
+                    </span>
+                    <ChevronRight size={15} className="text-cream/40" />
+                  </Link>
+                )}
+                {(contagem?.aguardando ?? 0) > 0 && (
+                  <Link href="/aguardando" onClick={() => setAberto(false)} className="flex items-center gap-2.5 px-3.5 py-3 border-t border-white/10 hover:bg-white/[0.07] transition-colors">
+                    <AlertTriangle size={15} className="text-dourado shrink-0" />
+                    <span className="text-[13px] text-cream flex-1">
+                      {contagem?.aguardando} esperando valor ou cliente
+                    </span>
+                    <ChevronRight size={15} className="text-cream/40" />
+                  </Link>
+                )}
+              </>
+            )}
+
+            <button
+              onClick={alternar}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 border-t border-white/10 hover:bg-white/[0.07] transition-colors text-left"
+            >
+              {som ? <Bell size={14} className="text-dourado shrink-0" /> : <BellOff size={14} className="text-cream/50 shrink-0" />}
+              <span className="text-[12.5px] text-cream/75">{som ? "Som ligado" : "Som desligado"}</span>
+              <span className="ml-auto text-[11px] text-dourado">{som ? "silenciar" : "ativar"}</span>
+            </button>
+          </div>
+        </>
       )}
-    </button>
+    </div>
   );
 }
