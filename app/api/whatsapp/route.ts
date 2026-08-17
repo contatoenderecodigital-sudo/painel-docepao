@@ -377,11 +377,26 @@ async function resolverNegocio(phoneNumberId?: string): Promise<string | null> {
   if (n) return n.id;
   // Transição: o número de TESTE do env (antes do cliente conectar pelo Embedded
   // Signup) cai no NEGOCIO_PADRAO. Qualquer OUTRO número desconhecido = descarta.
+  //
+  // Mas SÓ enquanto o tenant padrão ainda não tem número próprio. Depois que ele
+  // conecta, este atalho vira um ponteiro pro número ANTIGO que ficou no env — e
+  // a Meta recicla id de número de teste. Sem esta checagem, mensagem de uma
+  // empresa estranha que herdasse aquele id cairia dentro deste cliente.
   if (
     process.env.NEGOCIO_PADRAO_ID &&
     process.env.WHATSAPP_PHONE_NUMBER_ID &&
     phoneNumberId === process.env.WHATSAPP_PHONE_NUMBER_ID
   ) {
+    const jaConectado = await queryUm<{ id: string }>(
+      "select id from negocios where id = $1 and config->>'whatsapp_phone_id' is not null",
+      [process.env.NEGOCIO_PADRAO_ID],
+    );
+    if (jaConectado) {
+      console.error(
+        "[whatsapp] numero do env (" + phoneNumberId + ") esta velho: o tenant ja tem numero proprio. Mensagem descartada.",
+      );
+      return null;
+    }
     return process.env.NEGOCIO_PADRAO_ID;
   }
   return null;
