@@ -624,6 +624,26 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
   }
 
   if (nome === "chamar_humano") {
+    // PEDIDO PRONTO NAO VIRA HANDOFF.
+    //
+    // Com o pedido inteiro montado e o cliente mandando fechar, ela respondeu
+    // "deixa eu chamar alguem da equipe" duas vezes seguidas, so porque o topo
+    // de bolo nao tem preco. A festa ficava fora da fila. Topo sem preco e caso
+    // de registrar com precisa_confirmacao, que e como sempre funcionou.
+    const d = montagemAtual?.dados ?? {};
+    const completo =
+      (montagemAtual?.itens?.length ?? 0) > 0 &&
+      ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento"].every(
+        (k) => d[k] && String(d[k]).trim() !== "",
+      );
+    const pediuGente = /falar com (alguem|algu[ée]m|uma pessoa|atendente|humano|voc[êe]s)|quero falar com/i.test(falaDoCliente);
+    if (completo && !estado.pedido && !pediuGente) {
+      return (
+        "NAO chamei a equipe: este pedido esta completo e o cliente quer fechar. Valor que voce nao sabe (o topo de " +
+        "bolo) nao e motivo pra passar a conversa: chame registrar_pedido com precisa_confirmacao=true e o motivo, " +
+        "que a equipe informa o valor depois. Passar a conversa em vez de registrar deixa a festa fora da fila."
+      );
+    }
     estado.precisaHumano = true;
     // Ela registrou um pedido de R$ 904 e respondeu ao cliente so "deixa eu
     // chamar alguem da equipe": ele saiu da conversa sem saber que tinha
