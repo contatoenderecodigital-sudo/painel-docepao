@@ -453,7 +453,27 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const categoria = String(input.categoria || "outro");
     const qtd = Number(input.qtd) || 0;
     if (!produto || qtd <= 0) return "Não anotei: preciso do produto e de uma quantidade maior que zero.";
-    estado.montagem.push({ tipo: "item", produto, categoria, qtd, obs: input.obs ? String(input.obs) : null });
+    const obsItem = input.obs ? String(input.obs) : null;
+    estado.montagem.push({ tipo: "item", produto, categoria, qtd, obs: obsItem });
+
+    // O aviso de sabor faltando vem AQUI, no mesmo turno. A lista de pendências
+    // do fim do prompt é montada antes da resposta, então ela só enxergaria a
+    // falta na mensagem seguinte: foi assim que ela anotou 50 trufas e foi
+    // perguntar a cor da forminha sem perguntar o sabor da trufa.
+    const opcoes = SABORES[produto.toLowerCase()];
+    if (opcoes && !String(obsItem ?? "").trim()) {
+      return (
+        `Anotei ${qtd} de ${produto}, mas FALTA O SABOR: as opções são ${opcoes.join(", ")}. ` +
+        `Pergunte isso antes de seguir pra outra coisa. Se o cliente já disse o sabor na conversa, ` +
+        `chame anotar_item de novo com ele na observação, em vez de perguntar de novo.`
+      );
+    }
+    if (semTipo(produto)) {
+      return (
+        `Anotei ${qtd} de ${produto}, mas isso é genérico demais pra cozinha produzir: falta o cliente dizer QUAIS, ` +
+        `um por um, com a quantidade de cada. Pergunte agora.`
+      );
+    }
     return `Anotei ${qtd} de ${produto} no pedido. Continue a conversa normalmente; o pedido fica guardado e você não precisa repetir os itens anteriores.`;
   }
 
@@ -966,7 +986,7 @@ function descreverMontagem(m?: MontagemAtual | null): string {
     "Isto esta guardado e a equipe ja pode ter corrigido na tela. Vale mais que a sua lembranca da conversa." + "\n\n" +
     (linhas.length ? "Itens:" + "\n" + linhas.join("\n") + "\n\n" : "Nenhum item anotado ainda." + "\n\n") +
     (dados.length ? "Dados:" + "\n" + dados.join("\n") + "\n\n" : "") +
-    (totais.length ? "Somando o que esta anotado: " + totais.join(" e ") + ". Confira se bate com o tamanho da festa antes de seguir." + "\n\n" : "") +
+    (totais.length ? "Somando o que esta anotado: " + totais.join(" e ") + ". Confira se bate com o tamanho da festa. Quando o cliente fala um total (ex: 200 fritos) e escolhe varios tipos, esse total e pra DIVIDIR entre os tipos, nunca pra repetir em cada um: repetir triplicou o pedido de um cliente." + "\n\n" : "") +
     "Nao pergunte de novo nada que ja esta aqui em cima: o cliente ja respondeu e vai achar que voce nao anotou. Falta so o que NAO aparece nesta lista." + "\n\n" +
     ordem +
     cobrar +
