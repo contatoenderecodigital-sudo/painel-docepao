@@ -152,10 +152,44 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
             {it.obs && <div className="text-[12px] text-cream/55 pl-1 mt-0.5">{it.obs}</div>}
           </div>
         ))}
+        {/* A foto do topo aparece AQUI porque é aqui que ela precifica: sem ver
+            a peça, não tem como dizer quanto custa fazer. Antes era só um aviso
+            de texto dizendo que a foto existia em outro lugar. */}
         {pedido.temFoto && (
-          <div className="flex items-center gap-1.5 text-[12px] text-cream/60 pt-1">
-            <ImgIcon size={13} /> tem foto de referência na conversa
-          </div>
+          <a
+            href={`/api/pedido/${pedido.id}/foto`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 flex items-center gap-3 rounded-[12px] px-3 py-2.5 hover:bg-white/[0.06] transition-colors"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/pedido/${pedido.id}/foto`}
+              alt="Foto de referência do pedido"
+              className="w-14 h-14 rounded-[10px] object-cover shrink-0"
+              style={{ background: "rgba(0,0,0,0.2)" }}
+            />
+            <span className="inline-flex items-center gap-1.5 text-[13px] text-cream/80">
+              <ImgIcon size={14} className="text-dourado" /> Foto de referência (toque pra ampliar)
+            </span>
+            <span
+              role="link"
+              tabIndex={0}
+              title="Baixar foto"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const a = document.createElement("a");
+                a.href = `/api/pedido/${pedido.id}/foto?download=1`;
+                a.download = `referencia-${pedido.id}.jpg`;
+                a.click();
+              }}
+              className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-dourado underline-offset-2 hover:underline"
+            >
+              Baixar
+            </span>
+          </a>
         )}
       </div>
 

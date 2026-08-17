@@ -112,6 +112,13 @@ export async function registrarPedido(
   clienteId: string,
   pedido: NonNullable<RespostaIA["pedidoRegistrado"]>,
 ): Promise<string> {
+  // NUNCA gravar pedido sem item. Como um pedido por conversa é ATUALIZADO, uma
+  // chamada vazia apagava as linhas do pedido real e zerava o total: o cliente
+  // via a encomenda dele virar R$ 0,00 e a fila mostrava um pedido fantasma.
+  // Aconteceu quando ele respondeu "Ok" pra aceitar o orçamento.
+  if (!pedido.linhas || pedido.linhas.length === 0) {
+    throw new Error("registrarPedido: lista de itens vazia, nao gravo (protege o pedido existente)");
+  }
   // Usa as linhas já calculadas pelo motor do tenant (não recalcula com cardápio errado).
   // Converte cada linha pra centavos ANTES, e deriva o total da SOMA dos subtotais
   // em centavos (inteiros), pra o total nunca divergir das linhas por arredondamento.

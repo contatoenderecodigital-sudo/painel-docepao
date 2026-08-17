@@ -365,6 +365,20 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       return i;
     });
     const c = motor.cotarPorItens(itens);
+    // PEDIDO VAZIO NÃO EXISTE.
+    //
+    // Depois que o cliente aceitou o orçamento com um "Ok", ela chamou
+    // registrar_pedido de novo sem item nenhum e mandou "*Pedido recebido* /
+    // Total: R$ 0,00" por cima do pedido real. O cliente vê o pedido dele virar
+    // zero e a fila ganha um fantasma.
+    if (c.linhas.length === 0) {
+      return (
+        "NÃO registrei: a lista de itens veio vazia e pedido sem item não existe. " +
+        "Se o cliente só confirmou algo que já estava combinado, responda com uma frase curta " +
+        "e NÃO chame registrar_pedido de novo. Só chame com a lista completa quando houver mudança de verdade."
+      );
+    }
+
     let precisaConfirmacao = Boolean(input.precisa_confirmacao);
     const pendencias: string[] = [];
 
