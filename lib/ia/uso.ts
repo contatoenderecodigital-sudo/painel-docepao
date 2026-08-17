@@ -45,14 +45,19 @@ export async function registrarUsoIA(
     if (tokensIn === 0 && tokensOut === 0) return; // nada consumido, nada a gravar
     // O que veio do cache sai da entrada cheia e entra com desconto.
     const lido = Math.min(Number(uso.cacheRead ?? 0), tokensIn);
-    const custoCent =
+    // Fracionário de propósito: o desconto de 25% do cache quase nunca cai num
+    // centavo redondo. custo_cent é INTEIRO no banco e rejeitava o valor com
+    // vírgula, derrubando o registro justamente nas chamadas em que o cache
+    // pegou. O preciso vai pro custo_brl (NUMERIC); o inteiro só arredonda.
+    const custoPreciso =
       estimarCustoCentBRL(modelo, tokensIn - lido, tokensOut) +
       estimarCustoCentBRL(modelo, lido, 0) * 0.25;
+    const custoCent = Math.round(custoPreciso);
     // custo_brl é a coluna nova do hub (NUMERIC com 6 casas). custo_cent, em
     // centavos inteiros, zerava toda conversa barata — uma resposta no
     // gpt-4o-mini custa fração de centavo. As duas são gravadas: a antiga pra
     // não quebrar leitura velha, a nova pra a tela de custo mostrar a verdade.
-    const custoBrl = custoCent / 100;
+    const custoBrl = custoPreciso / 100;
     const provedor = modelo.startsWith("claude") ? "claude" : modelo.startsWith("gemini") ? "gemini" : "openai";
     await query(
       `INSERT INTO public.uso_ia
