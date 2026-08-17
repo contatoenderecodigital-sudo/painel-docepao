@@ -25,7 +25,7 @@ import {
   marcarWebhookNovo,
   salvarFotoPendente,
 } from "@/lib/banco/conversas";
-import { definirHandoff, iaPausada } from "@/lib/banco/atendimentos";
+import { definirHandoff, iaPausada, ultimaMsgClienteMs } from "@/lib/banco/atendimentos";
 import { registrarAceiteCliente } from "@/lib/banco/pedidos";
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
@@ -167,6 +167,30 @@ async function processar(corpo: WebhookPayload) {
       // IA desligada no painel: guarda a mensagem pra equipe ver, mas não
       // responde automático (a equipe assume pelo Atendimentos).
       if (!credsTenant.iaAtiva) continue;
+
+      // ESPERA O CLIENTE TERMINAR DE FALAR.
+      //
+      // Gente manda a ideia em pedaços: "o que é topo de bolo?" e, dois
+      // segundos depois, "a massa quero de chocolate". Cada uma disparava uma
+      // resposta, e as duas explicavam a mesma coisa com outras palavras. Era a
+      // "mensagem duplicada" que aparecia nos testes.
+      //
+      // Aqui a gente segura alguns segundos e confere se ainda é a última
+      // mensagem dele. Se chegou outra no meio, esta desiste: a próxima chamada
+      // responde com o histórico completo, uma vez só. A mensagem já foi salva
+      // acima, então o painel mostra tudo mesmo quando a resposta é pulada.
+      const ESPERA_MS = 7000;
+      try {
+        const antes = await ultimaMsgClienteMs(negocioId, clienteId);
+        await pausa(ESPERA_MS);
+        const depois = await ultimaMsgClienteMs(negocioId, clienteId);
+        if (antes && depois && depois > antes) {
+          console.log("[whatsapp] cliente ainda estava escrevendo; deixo a proxima mensagem responder");
+          continue;
+        }
+      } catch (e) {
+        console.error("[whatsapp] falha ao checar se o cliente terminou (segue respondendo):", e);
+      }
 
       // Alguém da equipe assumiu ESTA conversa: a IA fica calada até devolverem.
       // Sem isto, a dona respondia e a IA respondia por cima dela — dois
