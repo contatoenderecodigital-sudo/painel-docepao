@@ -63,8 +63,11 @@ const OPCAO = { background: "#3d1219", color: "#fff7eb" } as const;
 const campo =
   "min-w-0 bg-white/8 rounded-lg px-2.5 py-2 text-[13px] text-cream placeholder:text-cream/35 focus:outline-none focus:ring-2 focus:ring-cobre/25 border border-white/8";
 
+type OpcaoCardapio = { nome: string; categoria: Categoria; unidade: "un" | "kg"; sabores: string[] };
+
 export default function PedidoMontado({ clienteId, versao }: { clienteId: string; versao: number }) {
   const [aberto, setAberto] = useState(false);
+  const [cardapio, setCardapio] = useState<OpcaoCardapio[]>([]);
   const [itens, setItens] = useState<Item[]>([]);
   const [dados, setDados] = useState<Dados>({});
   const [sujo, setSujo] = useState(false);
@@ -82,6 +85,15 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       /* silencioso: o painel é auxiliar, não pode quebrar o chat */
     }
   }, [clienteId]);
+
+  // O cardápio inteiro, uma vez só: é ele que oferece o produto e os sabores
+  // prontos, pra equipe não digitar nome que não casa com a tabela de preço.
+  useEffect(() => {
+    fetch("/api/cardapio/opcoes")
+      .then((r) => r.json())
+      .then((j) => setCardapio(Array.isArray(j.produtos) ? j.produtos : []))
+      .catch(() => {});
+  }, []);
 
   // Troca de conversa zera tudo. E enquanto a equipe está editando, a
   // atualização automática não entra por cima do que ela está digitando.
@@ -168,6 +180,11 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
 
       {aberto && (
         <div className="mt-2.5">
+          <datalist id="cardapio-produtos">
+            {cardapio.map((c) => (
+              <option key={c.categoria + c.nome} value={c.nome} />
+            ))}
+          </datalist>
           <div className="flex flex-col gap-2">
             {itens.map((it, i) => (
               <div key={i} className="rounded-[12px] p-2.5 border border-white/8" style={{ background: "rgba(0,0,0,0.18)" }}>
@@ -177,7 +194,14 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                 <div className="flex items-center gap-1.5">
                   <input
                     value={it.produto}
-                    onChange={(e) => mexerItem(i, { produto: e.target.value })}
+                    list="cardapio-produtos"
+                    onChange={(e) => {
+                      const nome = e.target.value;
+                      // Escolheu um produto do cardápio: a categoria e a unidade
+                      // vêm junto, que é o que faz o preço sair certo.
+                      const achado = cardapio.find((c) => c.nome.toLowerCase() === nome.trim().toLowerCase());
+                      mexerItem(i, achado ? { produto: nome, categoria: achado.categoria, unidade: achado.unidade } : { produto: nome });
+                    }}
                     placeholder="produto"
                     className={campo + " flex-1"}
                     aria-label="Produto"
@@ -236,6 +260,43 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                   className={campo + " w-full mt-1.5"}
                   aria-label="Observação do item"
                 />
+                {/* Os sabores DESTE produto, prontos pra clicar. Digitar na mão
+                    esquece o sabor e erra o nome, e sabor faltando é a cozinha
+                    fazendo o padrão e o cliente descobrindo na festa. */}
+                {(() => {
+                  const ops = cardapio.find((c) => c.nome.toLowerCase() === it.produto.trim().toLowerCase())?.sabores ?? [];
+                  if (!ops.length) return null;
+                  const atual = (it.obs ?? "").toLowerCase();
+                  return (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {ops.map((sab) => {
+                        const marcado = atual.includes(sab.toLowerCase());
+                        return (
+                          <button
+                            key={sab}
+                            onClick={() => {
+                              const obs = (it.obs ?? "").trim();
+                              const novo = marcado
+                                ? obs.replace(new RegExp(`\\s*,?\\s*${sab}`, "i"), "").replace(/^,\s*/, "").trim()
+                                : obs
+                                  ? `${obs}, ${sab}`
+                                  : sab;
+                              mexerItem(i, { obs: novo });
+                            }}
+                            className="px-2 h-6 rounded-full text-[11px] transition-colors"
+                            style={
+                              marcado
+                                ? { background: "rgba(231,207,148,0.22)", color: "#e7cf94", border: "1px solid rgba(231,207,148,0.45)" }
+                                : { background: "rgba(255,255,255,0.06)", color: "rgba(255,247,235,0.6)", border: "1px solid rgba(255,255,255,0.10)" }
+                            }
+                          >
+                            {sab}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             ))}
 

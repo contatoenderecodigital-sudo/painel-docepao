@@ -156,13 +156,18 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
               "A família REAL do produto. É ela que separa o que tem nome igual: brigadeiro DOCINHO custa por unidade, bolo brigadeiro é bolo_festa e custa por quilo. Sem isso o bolo vira docinho. Empadinha, esfirra, croissant, pastel assado e enroladinho são salgado_assado; coxinha, risoles, bolinha e pastel frito são salgado_frito. Use por_unidade e por_quilo SÓ pro que não cabe em nenhuma família (cuca, pão doce, torta, empadão): é a cozinha que lê isso.",
           },
           qtd: { type: "number", description: "Quantidade. Em bolo_festa e por_quilo é o PESO em kg (ex 2 ou 1.5); no resto é o número de unidades." },
+          dois_bolos: {
+            type: ["boolean", "null"],
+            description:
+              "Só pra bolo, e só depois de CONFIRMAR com o cliente que ele quer mais de um bolo na mesma festa. true acrescenta um segundo bolo em vez de corrigir o que já está anotado. Em qualquer outro caso mande null.",
+          },
           obs: {
             type: ["string", "null"],
             description:
               "O que o cliente disse SOBRE ESTE item: recheio do assado, sabor da trufa, cor da forminha, e no bolo o pão de ló, tema, nome e idade do aniversariante. Use as palavras dele, nunca exemplo. Null se não houver.",
           },
         },
-        required: ["produto", "categoria", "qtd", "obs"],
+        required: ["produto", "categoria", "qtd", "obs", "dois_bolos"],
         additionalProperties: false,
       },
       strict: true,
@@ -478,6 +483,30 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         `chame anotar_item de novo com ele na observação, em vez de perguntar de novo.`
       );
     }
+    // DOIS BOLOS NA MESMA FESTA SO SE O CLIENTE PEDIR DOIS.
+    //
+    // Ela anotou um "bolo 4 leites" que ninguem pediu, do lado do bolo de
+    // brigadeiro com morango que o cliente escolheu: o 4 leites e o primeiro da
+    // peca do cardapio, e ela copiou de la. Dois bolos anotados viram dois bolos
+    // cobrados e dois bolos assados.
+    const boloJaAnotado = (montagemAtual?.itens ?? []).find(
+      (x) => x.categoria === "bolo_festa" || x.categoria === "bolo_caseiro",
+    );
+    if (
+      (categoria === "bolo_festa" || categoria === "bolo_caseiro") &&
+      boloJaAnotado &&
+      boloJaAnotado.produto.trim().toLowerCase() !== produto.trim().toLowerCase()
+    ) {
+      if (!input.dois_bolos) {
+        return (
+          `NAO anotei ainda: ja existe um bolo neste pedido, o "${boloJaAnotado.produto}". ` +
+          `Se o cliente TROCOU o sabor, chame anotar_item com o nome "${boloJaAnotado.produto}" corrigido pro sabor ` +
+          `novo, que ai eu substituo. Se ele quer DOIS bolos mesmo (acontece em festa grande), CONFIRME com ele e ` +
+          `chame de novo com dois_bolos=true. Nunca acrescente por conta propria um bolo que ele nao pediu.`
+        );
+      }
+    }
+
     // BOLO DE DOIS SABORES: os dois tem que estar no NOME.
     //
     // O cliente pediu brigadeiro com morango e ela anotou so "bolo brigadeiro",
