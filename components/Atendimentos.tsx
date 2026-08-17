@@ -566,7 +566,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                       fica sem a IA pra sempre. */}
                   {ativa.estado === "humano" && (
                     <div className="sticky top-0 z-10 px-3 md:px-6 py-2 flex items-center justify-center gap-2 text-[12px] font-medium"
-                         style={{ background: "rgba(231,207,148,0.13)", color: "#e7cf94", backdropFilter: "blur(8px)" }}>
+                         style={{ background: "#3a2417", color: "#e7cf94", borderBottom: "1px solid rgba(231,207,148,0.22)" }}>
                       <Hand size={13} className="shrink-0" />
                       <span>Você está atendendo. A IA não responde este cliente.</span>
                       <button onClick={() => alternarAssumir(ativa.id, false)} className="underline underline-offset-2 font-semibold shrink-0">
