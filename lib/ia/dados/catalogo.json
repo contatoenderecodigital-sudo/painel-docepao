@@ -9,7 +9,7 @@
   },
 
   "salgados": {
-    "_regra_sabor": "FRITO = sabor fixo, a IA NAO pergunta recheio (o recheio ja esta no campo 'recheio'). ASSADO = se tiver 'recheios', a IA PERGUNTA qual o cliente quer; sem 'recheios' e fixo. Chodo, mini bolha e risolis ainda sem recheio confirmado pela dona.",
+    "_regra_sabor": "FRITO = sabor fixo, a IA NAO pergunta recheio (o recheio ja esta no campo 'recheio'). ASSADO = se tiver 'recheios', a IA PERGUNTA qual o cliente quer; sem 'recheios' e fixo. Frito com 'recheios' (risolis) a IA PERGUNTA igual ao assado. Chodo e mini bolha seguem sem recheio confirmado pela dona.",
     "frito": {
       "preco": 1.00,
       "itens": [
@@ -21,7 +21,7 @@
         { "nome": "salsicha frita", "recheio": "salsicha" },
         { "nome": "chodó", "recheio": "calabresa" },
         { "nome": "mini bolha" },
-        { "nome": "risólis" }
+        { "nome": "risólis", "recheios": ["carne","frango"] }
       ]
     },
     "assado": {

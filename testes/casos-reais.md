@@ -205,7 +205,6 @@ anulava a largura fixa de cada campo.
 
 ## Ainda aberto
 
-- **Risólis** tem opção de recheio? Pergunta pra dona.
 - **Sino**: falta decidir se leva "marcar como lido" (hoje o contador é o estado
   real do trabalho, e sair da lista exige resolver).
 - **Gemini como reserva**: o modelo foi corrigido (2.5-flash saiu do ar pra
