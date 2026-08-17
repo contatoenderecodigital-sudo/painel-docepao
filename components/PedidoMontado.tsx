@@ -54,8 +54,10 @@ const CAMPOS: { chave: keyof Dados; rotulo: string; dica: string }[] = [
   { chave: "observacoes", rotulo: "Observação geral", dica: "ex: entregar na portaria" },
 ];
 
+// Sem largura no base: quem usa define. Com `w-full` aqui, o campo de
+// quantidade esticava por cima da linha inteira e o produto saía da tela.
 const campo =
-  "w-full bg-white/8 rounded-lg px-2.5 py-2 text-[13px] text-cream placeholder:text-cream/35 focus:outline-none focus:ring-2 focus:ring-cobre/25 border border-white/8";
+  "min-w-0 bg-white/8 rounded-lg px-2.5 py-2 text-[13px] text-cream placeholder:text-cream/35 focus:outline-none focus:ring-2 focus:ring-cobre/25 border border-white/8";
 
 export default function PedidoMontado({ clienteId, versao }: { clienteId: string; versao: number }) {
   const [aberto, setAberto] = useState(false);
@@ -183,13 +185,13 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                     step={it.unidade === "kg" ? 0.5 : 1}
                     value={it.qtd}
                     onChange={(e) => mexerItem(i, { qtd: Number(e.target.value) })}
-                    className={campo + " w-[68px] shrink-0 text-center"}
+                    className={campo + " w-[64px] shrink-0 text-center"}
                     aria-label="Quantidade"
                   />
                   <select
                     value={it.unidade}
                     onChange={(e) => mexerItem(i, { unidade: e.target.value as "un" | "kg" })}
-                    className={campo + " w-[62px] shrink-0"}
+                    className={campo + " w-[58px] shrink-0"}
                     aria-label="Unidade"
                   >
                     <option value="un">un</option>
@@ -199,7 +201,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                     value={it.produto}
                     onChange={(e) => mexerItem(i, { produto: e.target.value })}
                     placeholder="produto"
-                    className={campo + " flex-1 min-w-0"}
+                    className={campo + " flex-1"}
                     aria-label="Produto"
                   />
                   <button
@@ -221,7 +223,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                       const porQuilo = CATEGORIAS.find((c) => c.id === cat)?.porQuilo;
                       mexerItem(i, { categoria: cat, unidade: porQuilo ? "kg" : it.unidade });
                     }}
-                    className={campo + " w-[132px] shrink-0"}
+                    className={campo + " w-[124px] shrink-0"}
                     aria-label="Categoria"
                   >
                     {CATEGORIAS.map((c) => (
@@ -234,7 +236,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                     value={it.obs ?? ""}
                     onChange={(e) => mexerItem(i, { obs: e.target.value })}
                     placeholder="recheio, sabor, tema..."
-                    className={campo + " flex-1 min-w-0"}
+                    className={campo + " flex-1"}
                     aria-label="Observação do item"
                   />
                 </div>
@@ -260,7 +262,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                     value={(dados[c.chave] ?? "") as string}
                     onChange={(e) => mexerDados(c.chave, e.target.value)}
                     placeholder={c.dica}
-                    className={campo}
+                    className={campo + " w-full"}
                   />
                 </label>
               ))}
