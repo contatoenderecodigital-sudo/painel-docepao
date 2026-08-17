@@ -365,6 +365,34 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         pendencias.push("confirmar em nome de quem fica o pedido (parece ser o do aniversariante)");
       }
     }
+    // DATA IGUAL A HOJE SEM O CLIENTE TER DITO "HOJE".
+    // A data de hoje está no fim do prompt (pra completar o ano), e ela usa isso
+    // como retirada quando não tem certeza. O pedido sai marcado pra hoje, a
+    // cozinha se organiza pro dia errado e o cliente recebe "fica pra hoje".
+    const hojeISO = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+    const dataDita = String(input.retirada_data || "");
+    const mHoje = hojeISO.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (mHoje) {
+      const diaMes = mHoje[3] + "/" + mHoje[2];
+      const pareceHoje = new RegExp("\\b" + mHoje[3] + "\\s*[/-]\\s*" + mHoje[2] + "\\b").test(dataDita);
+      const clienteFalouHoje = /\bhoje\b/i.test(falaDoCliente) || falaDoCliente.includes(diaMes);
+      if (pareceHoje && !clienteFalouHoje) {
+        precisaConfirmacao = true;
+        pendencias.push("conferir a data: ficou pra hoje e o cliente não disse hoje");
+      }
+    }
+
+    // BOLO QUE SUMIU. Se a conversa tem topo, papel de arroz ou pão de ló, houve
+    // bolo — e se nenhuma linha é da categoria bolo, ele virou outra coisa (já
+    // virou "brigadeiro: 1 un x R$ 1,25" duas vezes). Melhor a equipe conferir
+    // do que a cozinha receber uma festa sem bolo.
+    const falaDeBolo = /topo de bolo|papel de arroz|p[ãa]o de l[óo]|bolo/i;
+    const temLinhaDeBolo = c.linhas.some((l) => l.categoria === "bolo");
+    if (!temLinhaDeBolo && (falaDeBolo.test(falaDoCliente) || itens.some((i) => falaDeBolo.test(String(i.obs ?? ""))))) {
+      precisaConfirmacao = true;
+      pendencias.push("o cliente falou de bolo e nenhum bolo entrou no pedido, conferir");
+    }
+
     const motivoHumano = input.motivo_humano ? String(input.motivo_humano) : undefined;
     estado.pedido = {
       itens,
