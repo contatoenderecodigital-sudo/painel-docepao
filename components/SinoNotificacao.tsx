@@ -21,11 +21,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, BellOff, ChevronRight, AlertTriangle } from "lucide-react";
+import { brl } from "@/lib/tipos";
 
 const CHAVE = "docepao:som-notificacao";
 const INTERVALO_MS = 20000;
 
-type Contagem = { fila: number; aguardando: number };
+type Item = { id: string; nome: string; total: number; onde: "fila" | "aguardando"; motivo: string | null };
+type Contagem = { fila: number; aguardando: number; itens?: Item[] };
 
 export default function SinoNotificacao() {
   const [som, setSom] = useState(false);
@@ -67,6 +69,21 @@ export default function SinoNotificacao() {
     }
   }, []);
 
+  // Pede permissão pro navegador na hora que ela liga o som: é o mesmo gesto,
+  // e assim o aviso funciona com a aba minimizada, que é o caso real da padaria.
+  const avisarNoNavegador = useCallback((texto: string) => {
+    try {
+      if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+      const n = new Notification("Padaria Doce Pão", { body: texto, tag: "docepao-fila" });
+      n.onclick = () => {
+        window.focus();
+        n.close();
+      };
+    } catch {
+      // aviso é conforto, nunca pode derrubar o painel
+    }
+  }, []);
+
   useEffect(() => {
     let vivo = true;
     const checar = async () => {
@@ -96,7 +113,7 @@ export default function SinoNotificacao() {
       vivo = false;
       clearInterval(id);
     };
-  }, [som, tocar]);
+  }, [som, tocar, avisarNoNavegador]);
 
   function alternar() {
     const novo = !som;
@@ -108,7 +125,16 @@ export default function SinoNotificacao() {
     }
     // Ligar JÁ toca uma vez: é o gesto do usuário que libera o áudio no
     // navegador, e também prova pra ela que o som funciona.
-    if (novo) tocar();
+    if (novo) {
+      tocar();
+      try {
+        if (typeof Notification !== "undefined" && Notification.permission === "default") {
+          void Notification.requestPermission();
+        }
+      } catch {
+        // navegador sem suporte: o som sozinho já ajuda
+      }
+    }
   }
 
   const total = (contagem?.fila ?? 0) + (contagem?.aguardando ?? 0);

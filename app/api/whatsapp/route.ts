@@ -227,10 +227,25 @@ async function processar(corpo: WebhookPayload) {
         resp = await responder(historico, tenant, "whatsapp", clienteId);
       } catch (e) {
         console.error("[whatsapp] IA falhou (todos os provedores):", e);
+        const desculpa = "Tive um probleminha aqui agora, ja ja te respondo, ta?";
         try {
-          await enviarTexto(telefone, "Tive um probleminha aqui agora, ja ja te respondo, ta?", creds);
+          await enviarTexto(telefone, desculpa, creds);
         } catch {
           // se nem isso enviar, a equipe ve a conversa parada no painel
+        }
+        // A desculpa TAMBÉM entra no histórico. Sem isso a dona abre a conversa,
+        // vê o cliente esperando e não entende por que a Dora parou: a mensagem
+        // existe no WhatsApp dele e não existe no painel dela.
+        try {
+          await salvarMensagem(negocioId, clienteId, "assistant", desculpa, { autor: "ia" });
+        } catch (e2) {
+          console.error("[whatsapp] falha ao salvar a desculpa no historico:", e2);
+        }
+        // A conversa precisa de gente: a IA caiu e o cliente ficou esperando.
+        try {
+          await definirHandoff(negocioId, clienteId, true);
+        } catch {
+          // destaque na lista é conforto; não pode derrubar o webhook
         }
         continue;
       }

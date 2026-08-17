@@ -672,7 +672,11 @@ async function rodarConversa(
   const client = new OpenAI({
     apiKey: prov.apiKey,
     baseURL: prov.baseURL,
-    timeout: 15_000, // não fica pendurado; se travar, cai pro próximo provedor
+    // 15s era pouco: conversa longa, com transcricao de audio e varias chamadas
+    // de ferramenta no mesmo turno, estourava e o cliente recebia "tive um
+    // probleminha" sem a IA ter errado nada. 30s cobre o turno pesado e ainda
+    // deixa margem pro webhook (maxDuration 60).
+    timeout: 30_000,
     maxRetries: 0, // a cadeia de provedores já é a nossa retentativa
   });
   const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"], cardapios: [] as CardapioId[], resumo: undefined as string | undefined };
