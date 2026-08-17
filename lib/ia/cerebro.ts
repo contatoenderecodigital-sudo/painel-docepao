@@ -1038,6 +1038,11 @@ function mapaDeSabores(): Record<string, string[]> {
 }
 const SABORES = mapaDeSabores();
 
+// As cores de forminha do cardapio, pra saber se a observacao do docinho ja tem
+// uma. Sem a cor a cozinha nao sabe em que forminha embrulhar.
+const CORES_FORMINHA =
+  /amarel|azul|branc|dourad|laranja|lil[áa]s|marrom|pink|prata|pret|ros[ae]|roxo|verde|vermelh|laminad/i;
+
 // Os tipos de cada familia, pra cobrar a escolha do TIPO com a lista na mao.
 const TIPOS_DA_FAMILIA: Record<string, string[]> = (() => {
   type ItemCat = { nome: string };
@@ -1081,6 +1086,16 @@ function pendenciasDeSabor(itens: MontagemAtual["itens"]): string[] {
       );
       continue;
     }
+    // Docinho sem a cor da forminha para a producao do mesmo jeito: a cozinha
+    // nao sabe em que forminha embrulhar. E a cor vem depois do sabor, nunca
+    // antes, senao e escolher a cor de uma coisa que ainda nao existe.
+    if (i.categoria === "docinho" && !CORES_FORMINHA.test(String(i.obs ?? ""))) {
+      p.push(
+        `- ${i.produto}: falta a COR DA FORMINHA. Pergunte depois de fechar os sabores, uma vez so pra todos os docinhos.`,
+      );
+      continue;
+    }
+
     const ops = SABORES[nome.toLowerCase()];
     if (ops && faltaSabor(i.obs, ops)) {
       p.push(`- ${nome}: falta o sabor. As opcoes sao ${ops.join(", ")}.`);
