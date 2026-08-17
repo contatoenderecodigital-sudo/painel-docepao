@@ -5,7 +5,7 @@
 
 import type { Pedido } from "./tipos";
 
-export type DeptoId = "padaria" | "salgados" | "confeitaria" | "bolos";
+export type DeptoId = "salgados" | "confeitaria" | "bolos";
 
 export type Departamento = {
   id: DeptoId;
@@ -15,7 +15,6 @@ export type Departamento = {
 };
 
 export const DEPARTAMENTOS: Departamento[] = [
-  { id: "padaria", nome: "Padaria", cor: "#d9a441", corClara: "#ecc16a" },
   { id: "salgados", nome: "Salgados", cor: "#c46a1e", corClara: "#e59355" },
   { id: "confeitaria", nome: "Confeitaria", cor: "#c65f7a", corClara: "#e58fa6" },
   { id: "bolos", nome: "Bolos", cor: "#a06a3c", corClara: "#cf9a68" },
@@ -29,7 +28,11 @@ export function deptoInfo(id: DeptoId): Departamento {
 export function deptoDe(item: { categoria?: string; produto: string }): DeptoId {
   const c = (item.categoria || "").toLowerCase();
   const p = item.produto.toLowerCase();
-  if (c.startsWith("bolo") || p.includes("bolo")) return "bolos";
+  // Acessorio de bolo e da estacao de BOLOS. O papel de arroz tem categoria
+  // "adicional_bolo", que nao comeca com "bolo", e por isso caia na padaria:
+  // saia um cupom inteiro so pro papel de arroz, na estacao errada, e quem faz
+  // o bolo nao via que tinha papel de arroz nele.
+  if (c.includes("bolo") || p.includes("bolo") || p.includes("papel de arroz") || c === "extra") return "bolos";
   if (
     c.startsWith("doce") ||
     p.includes("brigadeiro") ||
@@ -39,9 +42,20 @@ export function deptoDe(item: { categoria?: string; produto: string }): DeptoId 
     p.includes("docinho")
   )
     return "confeitaria";
-  if (c.startsWith("salgado") || p.includes("salgado") || p.includes("coxinha") || p.includes("cento"))
+  if (
+    c.startsWith("salgado") ||
+    c === "pizza" ||
+    p.includes("salgado") ||
+    p.includes("coxinha") ||
+    p.includes("cento") ||
+    p.includes("pizza") ||
+    p.includes("calzone") ||
+    p.includes("cachorro") ||
+    p.includes("empad")
+  )
     return "salgados";
-  return "padaria"; // pizza, pao, etc.
+  // Sobrou: cuca, pao doce, franciscano, cupcake. Tudo isso e da confeitaria.
+  return "confeitaria";
 }
 
 export type ItemAgregado = { produto: string; qtd: number };
@@ -49,7 +63,6 @@ export type ItemAgregado = { produto: string; qtd: number };
 // Soma consolidada de todos os itens do dia, por departamento.
 export function agregarPorDepto(pedidos: Pedido[]): Record<DeptoId, ItemAgregado[]> {
   const mapas: Record<DeptoId, Map<string, number>> = {
-    padaria: new Map(),
     salgados: new Map(),
     confeitaria: new Map(),
     bolos: new Map(),

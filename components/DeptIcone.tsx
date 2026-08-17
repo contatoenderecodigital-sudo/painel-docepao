@@ -1,13 +1,11 @@
 // Icone unico por estacao/departamento, usado em TODO lugar (cards de producao,
 // filtros, tickets do cupom). Assim cada estacao tem sempre o mesmo icone.
-//   Padaria = Croissant · Salgados = Drumstick · Confeitaria = Cookie
-//   Bolos = Cake · Caixa = Receipt
+//   Salgados = Drumstick · Confeitaria = Cookie · Bolos = Cake
 
-import { Croissant, Drumstick, Cookie, Cake, Receipt } from "lucide-react";
+import { Drumstick, Cookie, Cake, Receipt } from "lucide-react";
 import type { DeptoId } from "@/lib/departamentos";
 
-const ICONES: Record<DeptoId, typeof Croissant> = {
-  padaria: Croissant,
+const ICONES: Record<DeptoId, typeof Cake> = {
   salgados: Drumstick,
   confeitaria: Cookie,
   bolos: Cake,
