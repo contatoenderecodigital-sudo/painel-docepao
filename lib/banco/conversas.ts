@@ -157,12 +157,21 @@ export async function registrarPedido(
   //
   // O corte é por status: assim que a equipe aprova, o pedido sai do caminho e
   // um novo pedido do mesmo cliente nasce separado, como tem que ser.
-  const aberto = await queryUm<{ id: string }>(
-    `select id from pedidos
+  const aberto = await queryUm<{ id: string; equipe_ajustou: boolean }>(
+    `select id, coalesce(equipe_ajustou, false) as equipe_ajustou from pedidos
        where negocio_id = $1 and cliente_id = $2 and status = 'confirmado'
        order by criado_em desc limit 1`,
     [negocioId, clienteId],
   );
+
+  // A equipe já lançou valor neste pedido (o topo de bolo, por exemplo). A IA
+  // registrando de novo apagaria esse item e reabriria a pendência, que foi
+  // exatamente o que aconteceu num teste: o topo de R$ 33 sumiu e o pedido
+  // voltou pra Aguardando depois de o cliente já ter aceitado. O trabalho da
+  // equipe vale mais que a última tentativa do modelo.
+  if (aberto?.equipe_ajustou) {
+    throw new Error("registrarPedido: a equipe ja ajustou este pedido, nao sobrescrevo");
+  }
 
   // Cabeçalho + itens numa TRANSAÇÃO: ou grava tudo, ou nada. Sem pedido pela metade.
   return transacao(async (q) => {

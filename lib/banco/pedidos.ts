@@ -309,8 +309,11 @@ export async function adicionarItem(
        values ($1, $2, 'extra', $3, $4, $5, 'un')`,
       [pedidoId, item.produto, item.qtd, item.unitCentavos, subtotal],
     );
+    // Marca que a EQUIPE mexeu: a partir daqui a IA não sobrescreve mais este
+    // pedido. Sem isso ela registrava de novo com a lista antiga, o item que a
+    // equipe lançou sumia e a pendência reabria.
     await q(
-      `update pedidos set total_centavos = (
+      `update pedidos set equipe_ajustou = true, total_centavos = (
          select coalesce(sum(subtotal_centavos), 0) from pedido_itens where pedido_id = $1
        ) where id = $1`,
       [pedidoId],
