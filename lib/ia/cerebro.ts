@@ -227,18 +227,24 @@ function detectarPagamento(fala: string): string | undefined {
 // deixaria a Dora entrando seca na conversa.
 const CORTESIA = /tudo bem|tudo certo|como vai|bom dia|boa tarde|boa noite/i;
 
-// Dentro de um bloco, a pergunta que vale é a PRIMEIRA: a segunda quase sempre
-// é um acréscimo ("quais docinhos você quer? Quer que eu mande o cardápio?").
-// Entre blocos é o contrário — o primeiro costuma ser retórico. Por isso as
-// duas passadas são diferentes.
-function primeiraPerguntaDoBloco(bloco: string): string {
+// Dentro de um bloco com duas perguntas, fica a que CARREGA A INFORMAÇÃO, que
+// é sempre a mais longa. Tentei antes ficar com a primeira e o resultado foi
+// pior: "E dos croissants? Qual recheio prefere: carne, frango ou bacon?"
+// virava só "E dos croissants?", que não diz nada. Nos outros casos a primeira
+// é a longa mesmo ("quais docinhos você quer?" vs "quer que eu mande?"), então
+// a regra do comprimento acerta os dois.
+function perguntaQueVale(bloco: string): string {
   if ((bloco.match(/\?/g) || []).length < 2) return bloco;
-  const corte = bloco.indexOf("?") + 1;
-  return bloco.slice(0, corte).trim();
+  const frases = bloco.split(/(?<=\?)\s+/).filter((f) => f.trim());
+  const perguntas = frases.filter((f) => f.includes("?"));
+  if (perguntas.length < 2) return bloco;
+  const melhor = perguntas.reduce((a, b) => (b.length > a.length ? b : a));
+  const antes = frases.slice(0, frases.indexOf(perguntas[0])).join(" ");
+  return (antes ? antes + " " : "") + melhor.trim();
 }
 
 function umaPerguntaSo(texto: string): string {
-  const blocos = texto.split(/\n\s*\n/).map(primeiraPerguntaDoBloco);
+  const blocos = texto.split(/\n\s*\n/).map(perguntaQueVale);
   const indices = blocos
     .map((b, i) => (b.includes("?") && !CORTESIA.test(b) ? i : -1))
     .filter((i) => i >= 0);
