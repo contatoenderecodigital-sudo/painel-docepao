@@ -457,8 +457,18 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // disparar em todo pedido com bolo, inclusive nos que estavam corretos.
     const temLinhaDeBolo = c.linhas.some((l) => /^bolo/i.test(l.item));
     if (!temLinhaDeBolo && (falaDeBolo.test(falaDoCliente) || itens.some((i) => falaDeBolo.test(String(i.obs ?? ""))))) {
-      precisaConfirmacao = true;
-      pendencias.push("o cliente falou de bolo e nenhum bolo entrou no pedido, conferir");
+      // RECUSA, não avisa. Sinalizar deixava o pedido ir pra cozinha sem bolo,
+      // cobrando R$ 97 a menos, com um aviso que a dona teria que ler e
+      // corrigir. Já aconteceu três vezes: o bolo vira "brigadeiro: 2 un x
+      // R$ 1,25" porque ela manda o SABOR no lugar do nome do item.
+      return (
+        "NÃO registrei: o cliente pediu BOLO e nenhum item do pedido é bolo.\n" +
+        "O erro é o nome do item: você mandou só o sabor (ex: \"brigadeiro\"), que no cardápio é o " +
+        "docinho de R$ 1,25. Bolo tem que ir como \"bolo <sabor>\" (ex: \"bolo brigadeiro\", " +
+        "\"bolo 4 leites\"), com categoria bolo_festa e a quantidade em QUILOS, não em unidades.\n" +
+        "Corrija só isso e chame registrar_pedido de novo com a lista inteira. " +
+        "NÃO pergunte nada ao cliente: ele já disse tudo, o problema é como você preencheu."
+      );
     }
 
     // SABOR DO BOLO QUE O CLIENTE NUNCA DISSE.
@@ -509,7 +519,9 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         return (
           `NÃO registrei: o ${l.item} está com recheio "${inventado}" e o cliente não pediu esse recheio. ` +
           `Se o que ele pediu não existe pra esse item, DIGA quais existem e pergunte qual ele quer. ` +
-          `Nunca troque por um parecido em silêncio. Depois que ele responder, chame registrar_pedido com tudo.`
+          `Nunca troque por um parecido em silêncio. Depois que ele responder, chame registrar_pedido com tudo.` + `
+
+ATENCAO: recusar o registro NAO quer dizer recomecar a coletar. Tudo que o cliente ja respondeu continua valendo. Releia a conversa, preencha os campos com o que ele JA disse, e chame registrar_pedido de novo. Perguntar outra vez a data, o nome, o pagamento ou o recheio que ele ja deu faz ele achar que voce nao anotou nada.`
         );
       }
     }
@@ -521,10 +533,14 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       // cliente com um pedido fechado que ninguém sabe produzir.
       const faltam = semRecheio.map((l) => l.item).join(", ");
       return (
-        `NÃO registrei ainda: falta o recheio de ${faltam}. ` +
-        `Pergunte o recheio numa única mensagem (as opções são carne, frango, calabresa, bacon ou brócolis, ` +
-        `e empadinha também tem palmito) e só depois chame registrar_pedido de novo com tudo. ` +
-        `Não invente recheio e não registre sem ele.`
+        `NÃO registrei: ${faltam} veio sem o recheio no campo obs do item.\n` +
+        `PRIMEIRO releia a conversa: se o cliente JÁ disse o recheio desses itens, ele está lá. ` +
+        `Só copie pro campo obs de cada item e chame registrar_pedido de novo, SEM perguntar nada. ` +
+        `Perguntar de novo o que ele já respondeu faz ele achar que você não anotou nada.\n` +
+        `Só pergunte se ele realmente NÃO disse (opções: carne, frango, calabresa, bacon ou brócolis; ` +
+        `empadinha também tem palmito), e aí numa mensagem só.` + `
+
+ATENCAO: recusar o registro NAO quer dizer recomecar a coletar. Tudo que o cliente ja respondeu continua valendo. Releia a conversa, preencha os campos com o que ele JA disse, e chame registrar_pedido de novo. Perguntar outra vez a data, o nome, o pagamento ou o recheio que ele ja deu faz ele achar que voce nao anotou nada.`
       );
     }
 
