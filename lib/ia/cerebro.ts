@@ -503,8 +503,14 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       const ditos = String(l.obs ?? "").match(RECHEIOS) ?? [];
       const inventado = ditos.find((r) => !new RegExp(r.replace(/[óo]/i, "[óo]"), "i").test(falaDoCliente));
       if (inventado) {
-        precisaConfirmacao = true;
-        pendencias.push(`o recheio "${inventado}" do ${l.item} não foi pedido pelo cliente, conferir`);
+        // Devolve SEM registrar. Sinalizar não bastava: o pedido ia pra dona
+        // com o sabor errado e ela teria que corrigir, que é exatamente o que
+        // não pode acontecer. Enquanto dá pra perguntar, pergunta-se.
+        return (
+          `NÃO registrei: o ${l.item} está com recheio "${inventado}" e o cliente não pediu esse recheio. ` +
+          `Se o que ele pediu não existe pra esse item, DIGA quais existem e pergunte qual ele quer. ` +
+          `Nunca troque por um parecido em silêncio. Depois que ele responder, chame registrar_pedido com tudo.`
+        );
       }
     }
 
