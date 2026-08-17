@@ -220,7 +220,18 @@ async function processar(corpo: WebhookPayload) {
       const mandarCardapios = async () => {
         for (const c of resp.cardapiosParaEnviar ?? []) {
           try {
-            await enviarImagemPorLink(telefone, urlDoCardapio(c), undefined, creds);
+            const urlPeca = urlDoCardapio(c);
+            await enviarImagemPorLink(telefone, urlPeca, undefined, creds);
+            // Grava a peça no histórico: sem isso a dona abre a conversa e vê a
+            // Dora dizendo "te mandei o cardápio" sem cardápio nenhum, e fica
+            // sem saber o que o cliente recebeu pra continuar o atendimento.
+            try {
+              await salvarMensagem(negocioId, clienteId, "assistant", `Cardápio de ${c.replace(/-/g, " ")}`, {
+                tipo: "imagem", mime: "image/jpeg", url: urlPeca, autor: "ia",
+              });
+            } catch (e) {
+              console.error("[whatsapp] falha ao salvar cardapio no historico:", e);
+            }
             // A imagem vai por LINK: a Meta ainda precisa baixar a URL antes de
             // entregar, e um texto mandado na sequência passa na frente dela.
             // Era por isso que o recado do bolo aparecia colado no cardápio de

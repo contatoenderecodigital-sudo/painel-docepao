@@ -94,7 +94,9 @@ function WhatsAppIcon({ size = 12 }: { size?: number }) {
 // ---------- Balão de mensagem (texto + mídia) ----------
 function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem: (url: string) => void }) {
   const isCliente = m.de === "cliente";
-  const src = m.blobUrl || (m.midiaId ? `/api/midia/${m.midiaId}` : null);
+  // midiaUrl = peça já publicada (cardápio); midiaId = arquivo que o
+  // cliente mandou e está no banco em base64.
+  const src = m.blobUrl || m.midiaUrl || (m.midiaId ? `/api/midia/${m.midiaId}` : null);
   // Balão claro pra quem recebe e degradê dourado pra quem envia — o desenho
   // original do painel. Tentei trocar isso pela paleta chapada do WhatsApp e
   // ficou pior: o degradê é o que dá o acabamento da marca, e achatar cor é

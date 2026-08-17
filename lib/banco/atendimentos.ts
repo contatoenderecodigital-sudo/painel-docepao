@@ -21,6 +21,7 @@ type MsgBruta = {
   mime: string | null;
   nome: string | null;
   tem_midia: boolean;
+  url: string | null;
 };
 type LinhaConversa = {
   cliente_id: string;
@@ -69,7 +70,8 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
             'tipo', coalesce(m.tipo, 'texto'),
             'mime', m.midia_mime,
             'nome', m.midia_nome,
-            'tem_midia', (m.midia_dados is not null))
+            'tem_midia', (m.midia_dados is not null),
+            'url', m.midia_url)
           order by m.criado_em)
           from mensagens m where m.cliente_id = c.id and m.negocio_id = $1),
          '[]'::json) as msgs
@@ -90,6 +92,7 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
       data: m.data,
       tipo: m.tipo,
       midiaId: m.tem_midia ? m.id : undefined,
+      midiaUrl: m.url ?? undefined,
       midiaMime: m.mime ?? undefined,
       midiaNome: m.nome ?? undefined,
       id: m.id,

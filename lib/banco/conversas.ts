@@ -59,6 +59,7 @@ export type ExtraMensagem = {
   tipo?: "texto" | "imagem" | "audio" | "documento";
   mime?: string | null;
   dados?: string | null; // base64, sem prefixo data:
+  url?: string | null; // imagem ja publicada (cardapio): guarda o link, nao o base64
   nome?: string | null; // nome do arquivo (documento)
   wamid?: string | null;
   lida?: boolean;
@@ -73,8 +74,8 @@ export async function salvarMensagem(
   const autor = extra?.autor ?? (papel === "user" ? "cliente" : "ia");
   const linha = await queryUm<{ id: string }>(
     `insert into mensagens
-       (negocio_id, cliente_id, papel, conteudo, autor, tipo, midia_mime, midia_dados, midia_nome, wamid, lida)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       (negocio_id, cliente_id, papel, conteudo, autor, tipo, midia_mime, midia_dados, midia_nome, midia_url, wamid, lida)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      returning id`,
     [
       negocioId,
@@ -86,6 +87,7 @@ export async function salvarMensagem(
       extra?.mime ?? null,
       extra?.dados ?? null,
       extra?.nome ?? null,
+      extra?.url ?? null,
       extra?.wamid ?? null,
       // não-lida só faz sentido pra mensagem do cliente; o resto já entra lido.
       extra?.lida ?? autor !== "cliente",

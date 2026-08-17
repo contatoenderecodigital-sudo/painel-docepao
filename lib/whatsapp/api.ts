@@ -190,8 +190,8 @@ export type CardapioId = (typeof CARDAPIOS)[number];
 // dúvida na hora de fechar bolo de festa.
 export const RECADOS_CARDAPIO: Partial<Record<CardapioId, string[]>> = {
   "bolos-festa": [
-    "Pode misturar sabores — vale sempre o valor do mais caro. Ex.: Laka com morango R$ 49,90, morango com nozes R$ 55,90.",
-    "Decoração à parte: papel de arroz R$ 12 e topo de bolo aprox. R$ 30 (a unidade). Parcelamos em até 3x no cartão.",
+    "Pode misturar sabores: vale sempre o valor do mais caro. Ex.: Laka com morango R$ 49,90, morango com nozes R$ 55,90.",
+    "Decoração à parte: papel de arroz R$ 12. O topo de bolo a equipe orça, porque o valor muda com o tema.",
   ],
 };
 

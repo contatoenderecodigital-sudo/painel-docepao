@@ -71,6 +71,7 @@ export type Mensagem = {
   // é servida por /api/midia/[id]; aqui só trafega o id + metadados (leve).
   tipo?: TipoMidia;
   midiaId?: string; // id da mensagem no banco -> /api/midia/[id]
+  midiaUrl?: string; // imagem publicada (cardapio); dispensa guardar base64
   midiaMime?: string;
   midiaNome?: string; // nome do arquivo (documento)
   // Só no cliente (envio otimista): status visual do balão enquanto sai.

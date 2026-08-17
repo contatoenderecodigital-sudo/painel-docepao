@@ -433,11 +433,12 @@ async function rodarConversa(
 
     if (!msg.tool_calls || msg.tool_calls.length === 0) {
       gravarUso();
+      const textoFinal = (msg.content || "").trim();
       return {
-        texto: (msg.content || "").trim(),
+        texto: textoFinal,
         precisaHumano: estado.precisaHumano,
         pedidoRegistrado: estado.pedido,
-        cardapiosParaEnviar: estado.cardapios,
+        cardapiosParaEnviar: honrarCardapioPrometido(textoFinal, estado.cardapios),
       };
     }
 
@@ -463,6 +464,35 @@ async function rodarConversa(
     pedidoRegistrado: estado.pedido,
     cardapiosParaEnviar: estado.cardapios,
   };
+}
+
+
+// A IA às vezes ESCREVE que mandou o cardápio sem ter chamado enviar_cardapio.
+// O cliente fica olhando pra "te mandei o cardápio aqui" e nada chega; ele
+// avisa, ela promete de novo, e a conversa entra em loop de desculpa (aconteceu
+// três vezes seguidas num teste real com o cardápio de docinhos).
+//
+// O prompt sozinho não resolve isso: é comportamento, não regra. Aqui a gente
+// cumpre a promessa que ela fez — se o texto anuncia uma peça e nenhuma foi
+// enfileirada, a peça citada entra na fila.
+function honrarCardapioPrometido(texto: string, jaNaFila: CardapioId[]): CardapioId[] {
+  if (jaNaFila.length > 0) return jaNaFila;
+  const t = texto.toLowerCase();
+  if (!/(mandei|mandando|enviei|enviando|mandar).{0,24}card[áa]pio|card[áa]pio.{0,24}(aqui|pra voc|de novo)/.test(t)) {
+    return jaNaFila;
+  }
+  const apelidos: [CardapioId, RegExp][] = [
+    ["docinhos", /docinho|doce(s)?|brigadeiro|trufa/],
+    ["salgados", /salgado|coxinha|esfirra|frito|assado/],
+    ["bolos-festa", /bolo de festa|bolos de festa|bolo recheado|festa/],
+    ["bolos-caseiros", /bolo caseiro|bolos caseiros|caseiro/],
+    ["cucas-paes", /cuca|p[ãa]o doce/],
+    ["tortas-empadao", /torta|empad[ãa]o/],
+    ["pizza", /pizza/],
+    ["cupcakes-franciscano", /cupcake|franciscano/],
+  ];
+  for (const [id, re] of apelidos) if (re.test(t)) return [id];
+  return jaNaFila;
 }
 
 // O turno principal: recebe o histórico + a mensagem nova, devolve a resposta.
