@@ -978,7 +978,10 @@ function descreverMontagem(m?: MontagemAtual | null): string {
   const fechar = completo
     ? "\n\nNAO FALTA NADA NESTE PEDIDO. Se o cliente ja mandou fechar, chame registrar_pedido AGORA, nesta mesma resposta, " +
       "com o que esta anotado aqui em cima. Nao pergunte se pode passar pra equipe: ele ja pediu. Prometer que vai passar e nao chamar a ferramenta " +
-      "deixa o cliente achando que encomendou sem existir pedido nenhum."
+      "deixa o cliente achando que encomendou sem existir pedido nenhum. " +
+      "Valor que voce nao sabe (o topo de bolo, por exemplo) NAO e motivo pra chamar_humano: registre o pedido com " +
+      "precisa_confirmacao=true e o motivo, que a equipe informa o valor depois. Chamar a equipe em vez de registrar " +
+      "deixa o pedido fora da fila e a festa sem producao."
     : "";
 
   return (
