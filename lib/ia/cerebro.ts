@@ -554,6 +554,18 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       }
     }
 
+    // Topo ou papel de arroz sem foto do tema: peca uma vez, sem insistir. A
+    // peca e fabricada em cima do tema, e com a foto a producao acerta melhor.
+    // Nao trava o pedido: muita gente nao tem foto nenhuma.
+    const pedeArte = /topo|papel de arroz/i.test(String(obsItem ?? ""));
+    const temFoto = /foto/i.test(String(obsItem ?? ""));
+    if ((categoria === "bolo_festa" || categoria === "bolo_caseiro") && pedeArte && !temFoto) {
+      return (
+        `Anotei ${qtd} kg de ${produto}. Como tem topo ou papel de arroz, peca a foto do tema UMA vez, numa frase ` +
+        `("se tiver uma foto do tema, me manda que ajuda bastante"). Se ele nao tiver, tudo bem, siga o pedido.`
+      );
+    }
+
     // BOLO DE DOIS SABORES: os dois tem que estar no NOME.
     //
     // O cliente pediu brigadeiro com morango e ela anotou so "bolo brigadeiro",
@@ -1086,6 +1098,26 @@ function pendenciasDeSabor(itens: MontagemAtual["itens"]): string[] {
       );
       continue;
     }
+    // Topo de bolo e papel de arroz sao FABRICADOS com o nome e a idade do
+    // aniversariante. Sem esses dois a producao para, e ela fechou pedido com
+    // topo sem perguntar nenhum dos dois.
+    const obsBolo = String(i.obs ?? "");
+    if (
+      (i.categoria === "bolo_festa" || i.categoria === "bolo_caseiro") &&
+      /topo|papel de arroz/i.test(obsBolo)
+    ) {
+      const temIdade = /\b\d{1,2}\s*anos?\b/i.test(obsBolo);
+      const temNome = /nome/i.test(obsBolo);
+      if (!temNome || !temIdade) {
+        p.push(
+          `- ${i.produto}: tem topo ou papel de arroz, e falta ${!temNome ? "o NOME do aniversariante" : ""}` +
+            `${!temNome && !temIdade ? " e " : ""}${!temIdade ? "a IDADE" : ""}. ` +
+            `A peca e fabricada com esses dados; sem eles a producao para. Escreva na observacao como "nome Fulano, 8 anos".`,
+        );
+        continue;
+      }
+    }
+
     // Docinho sem a cor da forminha para a producao do mesmo jeito: a cozinha
     // nao sabe em que forminha embrulhar. E a cor vem depois do sabor, nunca
     // antes, senao e escolher a cor de uma coisa que ainda nao existe.
