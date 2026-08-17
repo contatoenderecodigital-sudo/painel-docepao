@@ -449,7 +449,12 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
   }
 
   if (nome === "anotar_item") {
-    const produto = String(input.produto || "").trim();
+    // Como o cliente chama x como a cozinha le: "pastel frito" e a mini bolha.
+    // Sem isso a linha casava com o generico "salgado frito" e a producao
+    // recebia "salgado frito de carne", que nao diz que peca fazer.
+    const APELIDOS: Record<string, string> = { "pastel frito": "mini bolha", "pastel": "mini bolha" };
+    const cru = String(input.produto || "").trim();
+    const produto = APELIDOS[cru.toLowerCase()] ?? cru;
     const categoria = String(input.categoria || "outro");
     const qtd = Number(input.qtd) || 0;
     if (!produto || qtd <= 0) return "Não anotei: preciso do produto e de uma quantidade maior que zero.";
@@ -499,6 +504,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
 
   if (nome === "chamar_humano") {
     estado.precisaHumano = true;
+    // Ela registrou um pedido de R$ 904 e respondeu ao cliente so "deixa eu
+    // chamar alguem da equipe": ele saiu da conversa sem saber que tinha
+    // encomendado. Avisar a equipe nao substitui confirmar o pedido.
+    if (estado.pedido) {
+      return (
+        "OK, a equipe foi avisada. MAS o pedido acabou de ser registrado neste mesmo turno: " +
+        "mande pro cliente a confirmacao do pedido, com os itens e o total, e nao so um 'vou chamar a equipe'. " +
+        "Sem isso ele sai da conversa sem saber que encomendou."
+      );
+    }
     return "OK, marquei pra equipe assumir esta conversa. Avise o cliente com carinho que já já respondem.";
   }
 
@@ -535,10 +550,12 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     }));
     const chave = (x: { item?: string; categoria?: string }) =>
       String(x.item || "").trim().toLowerCase() + "|" + String(x.categoria || "");
-    const vistos = new Set(anotados.map(chave));
-    const brutos = anotados.length
-      ? [...anotados, ...daIA.filter((i) => !vistos.has(chave(i)))]
-      : daIA;
+    void chave;
+    // Quando existe pedido anotado, ele manda SOZINHO. Deixar a lista dela
+    // acrescentar o que "faltava" fez o bolo entrar duas vezes: uma certa, de
+    // 4 kg a R$ 49,90, e outra como docinho brigadeiro de R$ 1,25, porque ela
+    // reescreveu o bolo de cabeca na hora de fechar.
+    const brutos = anotados.length ? anotados : daIA;
     // A CATEGORIA desfaz a ambiguidade antes de qualquer busca de preço.
     // "brigadeiro" sozinho é ambíguo: existe como docinho de R$ 1,25 e como
     // sabor de bolo de R$ 46,90 o quilo. Duas vezes o bolo de 2 kg virou
