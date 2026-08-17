@@ -155,6 +155,11 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
             },
           },
           retirada_data: { type: "string", description: "Dia da retirada, ex: 'sábado 25/07'." },
+          forma_pagamento: {
+            type: "string",
+            description:
+              "Como o cliente disse que vai pagar: 'pix', 'cartao' ou 'dinheiro'. NUNCA invente nem assuma: se ele não falou, PERGUNTE antes de fechar.",
+          },
           retirada_hora: { type: "string", description: "Hora, ex: '14:00'." },
           observacoes: { type: "string" },
           precisa_confirmacao: {
@@ -185,6 +190,7 @@ export type RespostaIA = {
     linhas: LinhaCotacao[]; // já calculado pelo motor do tenant (pro banco não recalcular)
     retiradaData: string;
     retiradaHora?: string;
+    formaPagamento?: string;
     observacoes?: string;
     clienteNome?: string;
     totalCentavos: number;
@@ -248,6 +254,7 @@ function executarFerramenta(
       linhas: c.linhas,
       retiradaData: String(input.retirada_data || ""),
       retiradaHora: input.retirada_hora ? String(input.retirada_hora) : undefined,
+      formaPagamento: input.forma_pagamento ? String(input.forma_pagamento) : undefined,
       observacoes: input.observacoes ? String(input.observacoes) : undefined,
       clienteNome: input.cliente_nome ? String(input.cliente_nome) : undefined,
       totalCentavos: Math.round(c.total * 100),

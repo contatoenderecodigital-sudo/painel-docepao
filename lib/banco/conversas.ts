@@ -161,7 +161,8 @@ export async function registrarPedido(
     if (aberto?.id) {
       await q(
         `update pedidos set retirada_data = $2, retirada_hora = $3, total_centavos = $4,
-                observacoes = $5, precisa_confirmacao = $6, motivo_humano = $7, confirmado_em = now()
+                observacoes = $5, precisa_confirmacao = $6, motivo_humano = $7,
+                forma_pagamento = coalesce($8, forma_pagamento), confirmado_em = now()
            where id = $1`,
         [
           aberto.id,
@@ -171,6 +172,7 @@ export async function registrarPedido(
           pedido.observacoes ?? null,
           pedido.precisaConfirmacao ?? false,
           pedido.precisaConfirmacao ? pedido.motivoHumano ?? null : null,
+          pedido.formaPagamento ?? null,
         ],
       );
       // itens são substituídos pela lista completa (a IA sempre reenvia tudo)
@@ -179,8 +181,8 @@ export async function registrarPedido(
     } else {
       const ped = await q<{ id: string }>(
         `insert into pedidos
-           (negocio_id, cliente_id, status, retirada_data, retirada_hora, total_centavos, observacoes, precisa_confirmacao, motivo_humano, confirmado_em)
-         values ($1, $2, 'confirmado', $3, $4, $5, $6, $7, $8, now())
+           (negocio_id, cliente_id, status, retirada_data, retirada_hora, total_centavos, observacoes, precisa_confirmacao, motivo_humano, forma_pagamento, confirmado_em)
+         values ($1, $2, 'confirmado', $3, $4, $5, $6, $7, $8, $9, now())
          returning id`,
         [
           negocioId,
@@ -191,6 +193,7 @@ export async function registrarPedido(
           pedido.observacoes ?? null,
           pedido.precisaConfirmacao ?? false,
           pedido.precisaConfirmacao ? pedido.motivoHumano ?? null : null,
+          pedido.formaPagamento ?? null,
         ],
       );
       pedidoId = ped[0]?.id;

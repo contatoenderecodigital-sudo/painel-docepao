@@ -16,6 +16,7 @@ type LinhaFila = {
   pessoas: number | null;
   total_centavos: number;
   observacoes: string | null;
+  forma_pagamento: string | null;
   criado_em: string;
   precisa_confirmacao: boolean | null;
   motivo_humano: string | null;
@@ -45,6 +46,7 @@ function mapear(l: LinhaFila): Pedido {
     pessoas: l.pessoas,
     totalCentavos: l.total_centavos,
     observacoes: l.observacoes,
+    formaPagamento: (l.forma_pagamento as Pedido["formaPagamento"]) ?? null,
     criadoEm: l.criado_em,
     precisaConfirmacao: !!l.precisa_confirmacao,
     motivoHumano: l.motivo_humano,
@@ -68,7 +70,7 @@ function mapear(l: LinhaFila): Pedido {
 export async function listarFilaAprovacao(negocioId: string): Promise<Pedido[]> {
   const linhas = await query<LinhaFila>(
     `select p.id, p.status, p.retirada_data, p.retirada_hora, p.pessoas,
-            p.total_centavos, p.observacoes, p.criado_em,
+            p.total_centavos, p.observacoes, p.forma_pagamento, p.criado_em,
             p.precisa_confirmacao, p.motivo_humano,
             exists(select 1 from pedido_fotos f where f.pedido_id = p.id) as tem_foto,
             c.nome as cliente_nome, c.telefone as cliente_telefone,
@@ -91,7 +93,7 @@ export async function listarFilaAprovacao(negocioId: string): Promise<Pedido[]> 
 export async function listarParados(negocioId: string): Promise<Pedido[]> {
   const linhas = await query<LinhaFila>(
     `select p.id, p.status, p.retirada_data, p.retirada_hora, p.pessoas,
-            p.total_centavos, p.observacoes, p.criado_em,
+            p.total_centavos, p.observacoes, p.forma_pagamento, p.criado_em,
             p.precisa_confirmacao, p.motivo_humano,
             exists(select 1 from pedido_fotos f where f.pedido_id = p.id) as tem_foto,
             c.nome as cliente_nome, c.telefone as cliente_telefone,
@@ -114,7 +116,7 @@ export async function listarParados(negocioId: string): Promise<Pedido[]> {
 export async function listarDoDia(negocioId: string): Promise<Pedido[]> {
   const linhas = await query<LinhaFila>(
     `select p.id, p.status, p.retirada_data, p.retirada_hora, p.pessoas,
-            p.total_centavos, p.observacoes, p.criado_em,
+            p.total_centavos, p.observacoes, p.forma_pagamento, p.criado_em,
             p.precisa_confirmacao, p.motivo_humano,
             exists(select 1 from pedido_fotos f where f.pedido_id = p.id) as tem_foto,
             c.nome as cliente_nome, c.telefone as cliente_telefone,
@@ -142,7 +144,7 @@ export async function buscarPedido(
 ): Promise<Pedido | null> {
   const linhas = await query<LinhaFila>(
     `select p.id, p.status, p.retirada_data, p.retirada_hora, p.pessoas,
-            p.total_centavos, p.observacoes, p.criado_em,
+            p.total_centavos, p.observacoes, p.forma_pagamento, p.criado_em,
             p.precisa_confirmacao, p.motivo_humano,
             exists(select 1 from pedido_fotos f where f.pedido_id = p.id) as tem_foto,
             c.nome as cliente_nome, c.telefone as cliente_telefone,
