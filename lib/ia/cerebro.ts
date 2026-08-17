@@ -420,7 +420,10 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // virou "brigadeiro: 1 un x R$ 1,25" duas vezes). Melhor a equipe conferir
     // do que a cozinha receber uma festa sem bolo.
     const falaDeBolo = /topo de bolo|papel de arroz|p[ãa]o de l[óo]|bolo/i;
-    const temLinhaDeBolo = c.linhas.some((l) => l.categoria === "bolo");
+    // Pelo NOME, nao pela categoria: os bolos recheados nao vivem no catalogo.json
+    // e a categoria deles nao e "bolo", entao comparar categoria fazia a guarda
+    // disparar em todo pedido com bolo, inclusive nos que estavam corretos.
+    const temLinhaDeBolo = c.linhas.some((l) => /^bolo/i.test(l.item));
     if (!temLinhaDeBolo && (falaDeBolo.test(falaDoCliente) || itens.some((i) => falaDeBolo.test(String(i.obs ?? ""))))) {
       precisaConfirmacao = true;
       pendencias.push("o cliente falou de bolo e nenhum bolo entrou no pedido, conferir");
