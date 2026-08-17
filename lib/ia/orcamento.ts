@@ -199,7 +199,10 @@ export function formatarOrcamento(c: Cotacao, titulo = "Orçamento"): string {
   }
   L.push("".padEnd(28, "."));
   L.push(`*Total: ${brl(c.total)}*`);
-  L.push("(paga na retirada)");
+  // Nao existe "paga na retirada" combinado: e o cliente que escolhe pix,
+  // cartao ou dinheiro. Esta linha vinha colada em TODO orcamento e a IA a
+  // repetia como se fosse condicao acertada, do mesmo jeito que ela ja tinha
+  // inventado "pix" no resumo do pedido.
   if (c.estimativa) L.push("\nEssa quantidade é uma sugestão pro tamanho da festa. Se quiser mais ou menos de algo, é só falar.");
   if (c.avisos?.length) L.push("\n" + c.avisos.join("\n"));
   return L.join("\n");
