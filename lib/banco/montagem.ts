@@ -70,19 +70,50 @@ async function gravar(negocioId: string, clienteId: string, m: Montagem): Promis
 const mesmaLinha = (a: ItemMontagem, b: { produto: string; categoria: CategoriaItem }) =>
   a.categoria === b.categoria && a.produto.trim().toLowerCase() === b.produto.trim().toLowerCase();
 
+const marca = (o?: string | null) => (o ?? "").trim().toLowerCase();
+
+// Nomes que o cliente usa quando ainda não escolheu o tipo. Quando ele detalha
+// depois ("desses 300, metade frango"), o detalhe sai de dentro do genérico.
+const GENERICOS = ["salgado", "salgado assado", "salgado frito", "docinho", "doce", "bolo recheado", "bolo"];
+const ehGenerico = (produto: string) => GENERICOS.includes(produto.trim().toLowerCase());
+
 export async function anotarItem(
   negocioId: string,
   clienteId: string,
   item: ItemMontagem,
 ): Promise<Montagem> {
   const m = await lerMontagem(negocioId, clienteId);
-  const i = m.itens.findIndex((x) => mesmaLinha(x, item));
+  const mesmoNome = m.itens.filter((x) => mesmaLinha(x, item));
+
+  // MESMO PRODUTO COM RECHEIOS DIFERENTES SÃO DUAS LINHAS.
+  //
+  // "metade frango e metade calabresa" virava uma linha só: o calabresa
+  // entrava por cima do frango e sumiam 150 salgados do pedido. Agora a
+  // observação faz parte da identidade da linha.
+  let i = m.itens.findIndex((x) => mesmaLinha(x, item) && marca(x.obs) === marca(item.obs));
+
+  // Só existe uma linha desse produto: é correção dela, não linha nova. Cobre
+  // "muda pra 150 coxinhas" (sem recheio) e "as coxinhas são de frango"
+  // (acrescentando o recheio numa linha que ainda estava sem).
+  if (i < 0 && mesmoNome.length === 1 && (!marca(item.obs) || !marca(mesmoNome[0].obs))) {
+    i = m.itens.indexOf(mesmoNome[0]);
+  }
+
   if (i >= 0) {
     // Corrigir NÃO apaga o que já estava: a observação antiga sobrevive quando
     // a nova vem vazia. Senão "muda pra 200" limparia o recheio já combinado.
     m.itens[i] = { ...m.itens[i], ...item, obs: item.obs ?? m.itens[i].obs ?? null };
   } else {
     m.itens.push(item);
+    // O detalhe sai de dentro do genérico: o cliente pediu 300 assados e agora
+    // está dizendo quais são. Sem isso o pedido fecha com 450 salgados.
+    if (!ehGenerico(item.produto)) {
+      const g = m.itens.find((x) => x.categoria === item.categoria && ehGenerico(x.produto));
+      if (g) {
+        g.qtd = Math.max(0, Number(g.qtd) - Number(item.qtd));
+        if (g.qtd <= 0) m.itens = m.itens.filter((x) => x !== g);
+      }
+    }
   }
   await gravar(negocioId, clienteId, m);
   return m;

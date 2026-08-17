@@ -886,7 +886,10 @@ function cadeiaGlobal(): Provedor[] {
       nome: "gemini",
       apiKey: process.env.GEMINI_API_KEY,
       baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-      modelo: process.env.GEMINI_MODELO || "gemini-2.5-flash",
+      // O 2.5-flash foi fechado pra conta nova: o Google devolvia 404 e a
+      // reserva do atendimento nunca funcionou de verdade. Hoje o 3.6-flash
+      // responde; falta credito na conta do AI Studio pra ela valer como reserva.
+      modelo: process.env.GEMINI_MODELO || "gemini-3.6-flash",
     });
   }
   if (process.env.IA_RESERVA_API_KEY && process.env.IA_RESERVA_BASE_URL) {
