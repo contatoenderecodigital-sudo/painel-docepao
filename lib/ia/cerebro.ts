@@ -376,7 +376,12 @@ function perguntaQueVale(bloco: string): string {
   const frases = bloco.split(/(?<=\?)\s+/).filter((f) => f.trim());
   const perguntas = frases.filter((f) => f.includes("?"));
   if (perguntas.length < 2) return bloco;
-  const melhor = perguntas.reduce((a, b) => (b.length > a.length ? b : a));
+  // Guardar a pergunta MAIS COMPRIDA deixava sobrar frase sem sentido: o
+  // cliente recebia "Qual você prefere?" sozinho, sem as opções que estavam na
+  // pergunta anterior. A que vale é a primeira que realmente pergunta alguma
+  // coisa; "qual você prefere?" e "certo?" são rabicho da anterior.
+  const substancial = perguntas.find((f) => / ou |quais|quantos|qual sabor|que recheio/i.test(f) && f.length >= 20);
+  const melhor = substancial ?? perguntas.reduce((a, b) => (b.length > a.length ? b : a));
   const antes = frases.slice(0, frases.indexOf(perguntas[0])).join(" ");
   return (antes ? antes + " " : "") + melhor.trim();
 }
