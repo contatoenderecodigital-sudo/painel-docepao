@@ -1,0 +1,162 @@
+# Casos reais: cada bug que apareceu no WhatsApp de verdade
+
+Este arquivo é a memória dos erros. Cada linha aqui saiu de uma conversa real do
+dono com a Dora, não de teste inventado. Serve pra três coisas: não repetir a
+mesma correção, não "consertar" de um jeito que reabre outro, e ter roteiro
+pronto quando alguém mexer na persona.
+
+Quem tem verificação automática está marcado. O resto é teste manual até virar
+checagem em `qa-conversa.cjs` ou `qa-painel.cjs`.
+
+---
+
+## Dinheiro e produção (os que doem)
+
+**Bolo virando docinho.** Cliente pediu bolo de brigadeiro 2 kg; foi registrado
+"brigadeiro: 1 un x R$ 1,25". A festa iria pra cozinha sem bolo, cobrando R$ 90
+a menos. Aconteceu duas vezes, com prompts diferentes.
+Correção: nome canônico no motor ("bolo de brigadeiro" vira "bolo brigadeiro"),
+guarda que sinaliza quando a conversa fala de bolo e nenhuma linha é de bolo, e
+campo `categoria` na ferramenta. Verificado em `qa-painel.cjs`.
+
+**Sabor do bolo herdado do docinho.** Ela pulou a pergunta do sabor e registrou
+"bolo brigadeiro" porque brigadeiro era o DOCINHO escolhido dois passos antes.
+O cliente receberia um bolo que não pediu, sem nunca ter sido perguntado.
+Correção: guarda que exige o sabor do bolo aparecer na fala do cliente.
+
+**Pedido inteiro apagado.** O cliente respondeu "Ok" pra aceitar o orçamento e a
+IA chamou registrar_pedido de novo sem item nenhum. Como é um pedido por
+conversa, isso ATUALIZOU o real: onze linhas apagadas, total zerado, e o cliente
+recebeu "Total: R$ 0,00" por cima de uma encomenda de R$ 752,70.
+Correção: lista vazia não registra, nem no cérebro nem no banco.
+
+**Papel de arroz não cobrado.** Ficava só na observação do bolo e os R$ 12
+sumiam do total.
+Correção: o motor lança como item quando a observação pede. Verificado.
+
+**Recheio inventado.** Cliente pediu "empadinha e croissant"; foi registrado
+"croissant de carne, empadinha de queijo". Ninguém falou carne nem queijo.
+Correção: proibição explícita na persona, e guarda que manda pra confirmação
+quando assado com opção de recheio vem sem observação.
+
+**Assado fechando sem recheio.** Ela anotou esfirra e pastel assado e passou
+pros docinhos sem perguntar o recheio de nenhum. Reincidência da regra acima.
+Correção: virou guarda de código, não só texto.
+
+**Detalhe do item perdido.** "Croquete de creme com catupiry" virou só
+"croquete". O recheio pedido sumiu e a cozinha faria o padrão.
+Correção: tudo que o cliente fala vai na observação daquele item, mesmo fora da
+tabela, com precisa_confirmacao.
+
+**Mini bolha classificada como sabor fixo.** O cardápio diz "nos sabores carne,
+queijo, presunto ou frango" e a persona dizia pra não perguntar.
+Correção: entrou na lista dos que pedem recheio.
+
+**Data virando hoje.** A data de hoje está no prompt (pra completar o ano) e ela
+usava como data de retirada quando não tinha certeza.
+Correção: guarda que compara com a fala do cliente.
+
+**Forma de pagamento inventada.** Escreveu "pix" numa conversa em que pagamento
+nunca foi mencionado. Em outra, escreveu pix no texto e não preencheu o campo.
+Correção: o valor é LIDO da fala do cliente. Verificado.
+
+**Pedido no nome do aniversariante.** O resumo saiu "Nome: Vinicius", a criança
+de 10 anos, em vez de quem retira e paga.
+Correção: guarda comparando o nome com as observações dos itens, sem acento.
+
+**Total caindo sozinho.** Ela refez a sugestão com uma lista menor, sem o bolo, e
+o total desceu de R$ 418,80 pra R$ 325,00 na frente do cliente.
+Correção: regra de sempre remontar com todos os itens.
+
+---
+
+## Conversa (os que irritam)
+
+**Cardápio prometido e não enviado.** "Te mandei o cardápio de docinhos aqui" sem
+ter chamado a ferramenta, três vezes seguidas, virando loop de desculpa.
+Correção: o código cumpre a promessa, enfileirando a peça citada. Verificado.
+
+**Peça de cardápio invisível no painel.** A dona via "te mandei o cardápio" e
+nenhum cardápio, sem saber o que o cliente recebeu.
+Correção: a peça entra no histórico como imagem, gravada ANTES do envio.
+
+**Duas e três perguntas na mesma mensagem.** Furou em 8 de 8 turnos mesmo com a
+regra escrita e exemplo.
+Correção: o código corta, mantendo a pergunta que carrega a informação.
+Verificado.
+
+**Mensagem duplicada.** Cliente manda a ideia em pedaços e cada pedaço gerava uma
+resposta, as duas explicando a mesma coisa.
+Correção: espera de 7s pra ver se ele ainda está escrevendo.
+
+**Boa tarde às 9 da manhã.** O prompt tinha a data e não a hora.
+Correção: hora de São Paulo no prompt, com a regra de cada período.
+
+**Forminha antes do sabor.** Perguntou a cor da forminha antes de saber quais
+docinhos, que é a cor de uma coisa que ainda não existe.
+
+**Sugestão citando tipo não escolhido.** "300 salgados fritos e 150 brigadeiros"
+antes de o cliente escolher, fazendo parecer decidido.
+
+**Perguntar se pode mandar o cardápio.** Mandava a imagem e perguntava "quer que
+eu mande?" na mesma mensagem.
+
+**Narrar o interno.** "Anotei tem foto de referência na observação do bolo" e "o
+bolo brigadeiro é faixa B". O cliente não sabe que existe campo de observação
+nem faixa de preço. Correção: proibido, com limpeza no código. Verificado.
+
+**Travessão.** Em três camadas: no prompt, nos recados e dentro da imagem do
+cardápio. Verificado em toda resposta.
+
+**Nome do cardápio que o cliente não usa.** Ele pediu "pastel frito" e ouviu que
+não existe. Existe: é a mini bolha.
+Correção: apelidos na persona, com ordem de oferecer o equivalente.
+
+---
+
+## Painel
+
+**Dois botões iguais.** O dono digitou R$ 25 no topo, clicou no cinza ao lado do
+verde, e o pedido foi liberado SEM o item.
+Correção: uma ação principal com o valor no rótulo; sair sem cobrar virou link.
+
+**Pedido indo pra aprovação sem o cliente aceitar.** A dona podia imprimir um
+orçamento que o cliente nunca viu.
+Correção: estado "esperando o cliente". Verificado.
+
+**Foto de referência só como texto.** O card dizia "tem foto na conversa" sem
+mostrar, justamente na tela onde se precifica o topo.
+Correção: miniatura com ampliar e baixar.
+
+**Visualizador abrindo gigante.** Só dava pra ver o cabeçalho do cardápio.
+
+---
+
+## Infraestrutura (os invisíveis)
+
+**Regex com byte de backspace.** Editar código por heredoc do shell fez `\b`
+virar 0x08. Compila, roda, e a regex nunca casa. Matou a leitura da forma de
+pagamento e a guarda do bolo, em dias diferentes.
+Como achar: `sed -n 'Np' arquivo | cat -A` e procurar `^H`.
+
+**Falha de envio desconectando o cliente.** A verificação tratava o código 100 da
+Meta como token morto e apagava a credencial. Uma instabilidade derrubava a
+padaria inteira.
+Correção: só 190, 102 e OAuthException desconectam.
+
+**Atalho de roteamento pro número velho.** Número não mapeado que batesse com o
+do env caía no tenant padrão, e a Meta recicla id de número de teste.
+Correção: o atalho só vale enquanto o tenant não tem número próprio.
+
+**Coolify perdendo o webhook.** O deploy não saiu e eu testei código que não
+estava no ar. Conferir a imagem do container antes de duvidar do código.
+
+---
+
+## Ainda aberto
+
+- **Risólis** tem opção de recheio? Pergunta pra dona.
+- **Sino**: falta decidir se leva "marcar como lido" (hoje o contador é o estado
+  real do trabalho, e sair da lista exige resolver).
+- **Mensagem automática da Meta** ("Continue setting up your account") foi
+  respondida como se fosse cliente. Filtrar mensagem de sistema.
