@@ -145,7 +145,7 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
                     "Nome ESPECÍFICO do item na tabela, nunca genérico. Use 'pastel assado', 'esfirra', 'coxinha', 'brigadeiro', 'trufa', 'bolo brigadeiro', 'papel de arroz'. NUNCA 'salgado assado', 'salgado frito' ou 'docinho' quando já sabe o tipo. Bolo e itens por quilo: qtd é o PESO em kg (ex 2 ou 1.5). NUNCA registre 'topo de bolo' como item (valor variável, vai só na obs + precisa_confirmacao).",
                 },
                 categoria: {
-                  type: "string",
+                  type: ["string", "null"],
                   enum: [
                     "bolo_festa",
                     "bolo_caseiro",
@@ -157,6 +157,7 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
                     "por_unidade",
                     "cupcake",
                     "papel_de_arroz",
+                    null,
                   ],
                   description:
                     "A FAMÍLIA do item, obrigatória. É ela que desfaz a ambiguidade: 'brigadeiro' com categoria bolo_festa é bolo por quilo; com categoria docinho é o docinho de unidade. bolo_festa e por_quilo têm qtd em KG; o resto em unidades.",
