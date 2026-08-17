@@ -867,15 +867,39 @@ function descreverMontagem(m?: MontagemAtual | null): string {
     );
   }
 
+  // TEM TUDO? ENTAO FECHA.
+  //
+  // Ela chegou a responder "ja vou passar pra equipe, pode ser?" com o pedido
+  // inteiro anotado e o cliente ja tendo dito "pode fechar". O cliente sai da
+  // conversa achando que encomendou e nao existe pedido nenhum. Quando nao
+  // falta nada, a ordem de fechar aparece aqui, no fim do prompt.
+  const preciso = (k: string) => {
+    const v = m?.dados?.[k];
+    return !!v && String(v).trim() !== "";
+  };
+  const completo =
+    linhas.length > 0 &&
+    preciso("cliente_nome") &&
+    preciso("retirada_data") &&
+    preciso("retirada_hora") &&
+    preciso("forma_pagamento");
+  const fechar = completo
+    ? "\n\nNAO FALTA NADA NESTE PEDIDO. Se o cliente ja mandou fechar, chame registrar_pedido AGORA, nesta mesma resposta, " +
+      "com o que esta anotado aqui em cima. Nao pergunte se pode passar pra equipe: ele ja pediu. Prometer que vai passar e nao chamar a ferramenta " +
+      "deixa o cliente achando que encomendou sem existir pedido nenhum."
+    : "";
+
   return (
     "# O QUE JA ESTA ANOTADO NESTE PEDIDO" + "\n" +
     "Isto esta guardado e a equipe ja pode ter corrigido na tela. Vale mais que a sua lembranca da conversa." + "\n\n" +
     (linhas.length ? "Itens:" + "\n" + linhas.join("\n") + "\n\n" : "Nenhum item anotado ainda." + "\n\n") +
     (dados.length ? "Dados:" + "\n" + dados.join("\n") + "\n\n" : "") +
     "Nao pergunte de novo nada que ja esta aqui em cima: o cliente ja respondeu e vai achar que voce nao anotou. Falta so o que NAO aparece nesta lista." + "\n\n" +
-    ordem
+    ordem +
+    fechar
   );
 }
+
 // Cadeia de provedores de IA, todos falando a API da OpenAI (ferramentas iguais).
 // Tenta o 1º; se cair, vai pro próximo. Assim a queda de um provedor não deixa o
 // cliente no vácuo. Configurável por env: coloque as chaves que tiver de reserva.
