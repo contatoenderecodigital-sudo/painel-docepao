@@ -387,8 +387,14 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       `\n*Total: ${brl(c.total)}*` +
       (temTopo ? `\nA equipe vai te informar o valor do topo.` : "") +
       `\nJá passei pra nossa equipe. Assim que confirmarem, eu te aviso por aqui.` +
-      (formaPagamento ? "" : `\n\nSó me diz uma coisa: vai ser pix, cartão ou dinheiro na retirada?`) +
-      (nomeResumo ? "" : `\n\nE o pedido fica no nome de quem?`);
+      // Falta nome E pagamento: pergunta UMA coisa só, senão o próprio resumo
+      // quebra a regra de uma pergunta por vez. O nome vem primeiro porque é
+      // ele que a padaria grita no balcão na hora da retirada.
+      (!nomeResumo
+        ? `\n\nSó me diz: o pedido fica no nome de quem?`
+        : !formaPagamento
+          ? `\n\nSó falta combinar: vai ser pix, cartão ou dinheiro na retirada?`
+          : "");
 
     const itensFmt = c.linhas
       .map((l) => `${l.item}: ${fmtQtd(l.qtd, l.unidade)} x ${brl(l.unit)} = ${brl(l.subtotal)}`)
