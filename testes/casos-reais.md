@@ -153,10 +153,60 @@ estava no ar. Conferir a imagem do container antes de duvidar do código.
 
 ---
 
+## Pedido em montagem (17/08/2026)
+
+Depois que a IA passou a anotar item por item em vez de remontar o pedido a
+cada mensagem, os testes acharam estes. Todos rodaram no webhook de verdade,
+com conversa inteira, e todos foram corrigidos.
+
+**Ela não anotava nada.** A ordem de anotar estava só na persona, no começo do
+prompt. Correção: o que está anotado (ou o aviso de que não tem nada) entra
+como mensagem de sistema DEPOIS do histórico, que é a última coisa que ela lê.
+Não pode ir dentro do system: é o prefixo que a OpenAI guarda em cache.
+
+**Metade frango, metade calabresa virou uma linha só.** O segundo recheio
+entrava por cima do primeiro e sumiam 150 salgados.
+Correção: a observação faz parte da identidade da linha. Quando existe uma
+linha só daquele produto, continua sendo correção dela.
+
+**300 assados + 150 pastéis = 450 salgados.** Quem pede genérico e detalha
+depois ficava com os dois.
+Correção: item específico decrementa o genérico da mesma categoria.
+
+**Bolo de dois sabores pelo preço do mais barato.** Brigadeiro com morango saía
+a R$ 46,90 o quilo. A regra "vale o mais caro" está na peça do cardápio e o
+motor não aplicava.
+Correção: no motor, com o nome guardando os dois sabores.
+
+**"1 kg de pão doce" virou um pão doce.** Ela converteu calada o que é vendido
+inteiro. Correção: perguntar quantos, nunca converter.
+
+**Sabor emprestado do produto vizinho.** Perguntaram o sabor do pão doce e ela
+ofereceu a lista da cuca recheada. Correção: sabor que não está na lista DELE
+ela não tem; confirma com a equipe.
+
+**"Pode fechar" não registrava pedido nenhum.** Ela usava a ferramenta de
+aceite de orçamento (que é pro cliente concordar com o valor que a EQUIPE
+ajustou depois) e respondia "já passei pra equipe". A fila ficava vazia com o
+cliente achando que tinha encomendado.
+Correção: o aceite só vale quando existe pedido esperando esse cliente.
+
+**"Já vou passar pra equipe, pode ser?"** com o pedido inteiro anotado e o
+cliente já tendo mandado fechar. Correção: quando não falta item nem nome,
+data, hora ou pagamento, a ordem de registrar aparece no fim do prompt.
+
+**Empadinha entrando como "por unidade".** A categoria é o que a cozinha lê.
+Correção: a ferramenta agora diz quais produtos são de cada família.
+
+**Campo de quantidade esticando por cima da linha.** `w-full` na classe base
+anulava a largura fixa de cada campo.
+
+---
+
 ## Ainda aberto
 
 - **Risólis** tem opção de recheio? Pergunta pra dona.
 - **Sino**: falta decidir se leva "marcar como lido" (hoje o contador é o estado
   real do trabalho, e sair da lista exige resolver).
-- **Mensagem automática da Meta** ("Continue setting up your account") foi
-  respondida como se fosse cliente. Filtrar mensagem de sistema.
+- **Gemini como reserva**: o modelo foi corrigido (2.5-flash saiu do ar pra
+  conta nova), mas a conta do AI Studio está sem crédito e devolve 429.
