@@ -38,6 +38,9 @@ export async function acharOuCriarCliente(
 export async function carregarHistorico(
   negocioId: string,
   clienteId: string,
+  // Pedido fechado esperando o cliente aceitar o valor que a equipe ajustou:
+  // aí a conversa anterior AINDA está viva e o corte não vale.
+  pedidoEmAberto = false,
 ): Promise<Mensagem[]> {
   const linhas = await query<{ papel: "user" | "assistant"; conteudo: string }>(
     `select papel, conteudo from mensagens
@@ -45,33 +48,43 @@ export async function carregarHistorico(
        order by criado_em desc limit $3`,
     [negocioId, clienteId, LIMITE_HISTORICO],
   );
-  return marcarPedidoFechado(linhas.reverse().map((m) => ({ role: m.papel, content: m.conteudo })));
+  const msgs = linhas.reverse().map((m) => ({ role: m.papel, content: m.conteudo }));
+  return pedidoEmAberto ? msgs : cortarNoPedidoFechado(msgs);
 }
 
-// PEDIDO FECHADO É PONTO FINAL, NÃO RASCUNHO.
+// PEDIDO FECHADO VIRA RESUMO, NÃO CONTINUA SENDO CONVERSA.
 //
-// O cliente que já encomendou volta semanas depois pra encomendar de novo, e a
-// IA lia a conversa inteira como se fosse um pedido só: pediu comida pra 20
-// pessoas e recebeu de volta os 500 salgados, o bolo do Batman e a forminha
-// verde do aniversário anterior. Aqui o fechamento vira uma linha divisória
-// explícita no histórico: o que está acima já foi entregue pra equipe.
+// O cliente que já encomendou volta pra encomendar de novo, e a IA lia tudo
+// como se fosse um pedido só: ele pediu comida pra festa de 20 pessoas e
+// recebeu de volta os 500 salgados, o bolo do Batman e a forminha verde da
+// encomenda anterior. Mesmo avisada de que aquilo estava fechado, ela anotava
+// os itens velhos no pedido novo, porque o vaivém inteiro ainda estava ali.
+//
+// Aqui o que sobra do pedido fechado é a mensagem de fechamento, que já é o
+// resumo dele. Ela continua podendo responder "o que eu pedi mesmo?" e repetir
+// a encomenda se ele quiser a mesma coisa; o que sumiu é o rastro que fazia
+// item velho reaparecer sozinho.
 const MARCA_FECHADO = /^\*Pedido recebido\*/m;
 
-function marcarPedidoFechado(msgs: Mensagem[]): Mensagem[] {
+function cortarNoPedidoFechado(msgs: Mensagem[]): Mensagem[] {
   let ultimo = -1;
   msgs.forEach((m, i) => {
     if (m.role === "assistant" && MARCA_FECHADO.test(m.content)) ultimo = i;
   });
+  // Sem pedido fechado, ou fechado agora mesmo (o cliente ainda nem respondeu):
+  // a conversa segue inteira.
   if (ultimo < 0 || ultimo === msgs.length - 1) return msgs;
 
   const aviso: Mensagem = {
     role: "user",
     content:
-      "[ AVISO DO SISTEMA, nao e o cliente falando ] O pedido acima JA FOI FECHADO e entregue pra equipe. " +
-      "Daqui pra baixo e uma encomenda NOVA, do zero: nao reaproveite item, quantidade, sabor, data nem tema do pedido antigo, " +
-      "e nao repita aquele pedido como se ainda estivesse sendo montado. Pergunte tudo de novo pra esta encomenda.",
+      "[ AVISO DO SISTEMA, nao e o cliente falando ] O pedido acima JA FOI FECHADO e esta com a equipe, e por isso a " +
+      "conversa que o montou nao aparece mais aqui. Daqui pra baixo e uma encomenda NOVA, do zero: nao anote nada daquele " +
+      "pedido por conta propria. Aquele resumo ali em cima serve pra duas coisas, so: responder se ele PERGUNTAR o que " +
+      "pediu, e repetir os itens se ele PEDIR a mesma coisa de novo. Se ele quiser mexer no pedido que ja foi, chame a " +
+      "equipe, porque a cozinha pode ja ter comecado.",
   };
-  return [...msgs.slice(0, ultimo + 1), aviso, ...msgs.slice(ultimo + 1)];
+  return [msgs[ultimo], aviso, ...msgs.slice(ultimo + 1)];
 }
 
 // Grava um turno da conversa. Retorna o id da mensagem.

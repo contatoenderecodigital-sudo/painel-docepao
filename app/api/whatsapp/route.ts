@@ -230,7 +230,10 @@ async function processar(corpo: WebhookPayload) {
       }
 
 
-      const historico = await carregarHistorico(negocioId, clienteId);
+      // Pedido esperando o cliente aceitar o valor da equipe: a conversa
+      // anterior ainda esta viva e o historico vai inteiro.
+      const aguardando = await temPedidoAguardandoCliente(negocioId, clienteId).catch(() => false);
+      const historico = await carregarHistorico(negocioId, clienteId, aguardando);
       const tenant = await carregarTenant(negocioId); // cardápio/persona DESTE negócio
 
       // A IA tenta os provedores em cadeia (OpenAI, Gemini, ...). Se TODOS caírem,
@@ -239,10 +242,6 @@ async function processar(corpo: WebhookPayload) {
       // reconstrói tudo de cabeça a cada mensagem, e é aí que perde item, troca
       // bolo por docinho e pergunta de novo o que o cliente já respondeu.
       const montado = await lerMontagem(negocioId, clienteId).catch(() => null);
-      // Existe pedido deste cliente esperando ele aceitar o valor que a equipe
-      // ajustou? So nesse caso o "pode fechar" dele e aceite de orcamento; fora
-      // disso e o fechamento normal, e o pedido ainda precisa ser registrado.
-      const aguardando = await temPedidoAguardandoCliente(negocioId, clienteId).catch(() => false);
 
       let resp;
       try {
