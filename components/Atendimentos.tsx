@@ -661,9 +661,6 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                 <span className="text-[11px] uppercase tracking-[0.18em] text-dourado font-semibold">Contato</span>
               </div>
               <ScrollArea className="flex-1 min-h-0">
-                <div className="flex flex-col items-center text-center pt-5">
-                  <Avatar nome={ativa.clienteNome} tam={64} raio={18} />
-                </div>
                 <PainelContato conversa={ativa} qtdMensagens={mensagens.length} onToast={mostrarToast} />
               </ScrollArea>
             </div>
