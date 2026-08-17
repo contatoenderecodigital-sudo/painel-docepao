@@ -466,7 +466,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // falta na mensagem seguinte: foi assim que ela anotou 50 trufas e foi
     // perguntar a cor da forminha sem perguntar o sabor da trufa.
     const opcoes = SABORES[produto.toLowerCase()];
-    if (opcoes && !String(obsItem ?? "").trim()) {
+    if (opcoes && faltaSabor(obsItem, opcoes)) {
       return (
         `Anotei ${qtd} de ${produto}, mas FALTA O SABOR: as opções são ${opcoes.join(", ")}. ` +
         `Pergunte isso antes de seguir pra outra coisa. Se o cliente já disse o sabor na conversa, ` +
@@ -910,6 +910,15 @@ function mapaDeSabores(): Record<string, string[]> {
 }
 const SABORES = mapaDeSabores();
 
+// Nao basta a observacao estar preenchida: ela tem que trazer um sabor DA LISTA
+// daquele produto. A trufa passou batido com a observacao "forminha azul royal",
+// que fala da forminha e nao do sabor.
+function faltaSabor(obs: string | null | undefined, ops: string[]): boolean {
+  const t = String(obs ?? "").trim().toLowerCase();
+  if (!t) return true;
+  return !ops.some((o) => t.includes(o.trim().toLowerCase()));
+}
+
 function pendenciasDeSabor(itens: MontagemAtual["itens"]): string[] {
   const p: string[] = [];
   for (const i of itens) {
@@ -920,7 +929,7 @@ function pendenciasDeSabor(itens: MontagemAtual["itens"]): string[] {
       continue;
     }
     const ops = SABORES[nome.toLowerCase()];
-    if (ops && !String(i.obs ?? "").trim()) {
+    if (ops && faltaSabor(i.obs, ops)) {
       p.push(`- ${nome}: falta o sabor. As opcoes sao ${ops.join(", ")}.`);
     }
   }
