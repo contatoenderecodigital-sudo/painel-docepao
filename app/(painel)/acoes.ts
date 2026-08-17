@@ -199,3 +199,26 @@ export async function resolverPendencia(
   revalidatePath("/aguardando");
   return { ok: true };
 }
+
+// Libera na mão um pedido que estava esperando o aceite do cliente. Existe
+// porque nem todo "pode fazer" chega pelo WhatsApp: o cliente liga, passa na
+// loja, responde por outro canal. Sem isto o pedido ficaria preso pra sempre.
+export async function liberarParaAprovacao(pedidoId: string): Promise<{ ok: boolean; erro?: string }> {
+  if (!bancoConfigurado) return { ok: true };
+  const sessao = await lerSessao();
+  if (!sessao) return { ok: false, erro: "sem sessao" };
+  try {
+    const { query } = await import("@/lib/banco/db");
+    await query(
+      `update pedidos set aguardando_cliente = false, precisa_confirmacao = false, motivo_humano = null
+        where id = $1 and negocio_id = $2`,
+      [pedidoId, sessao.negocioId],
+    );
+  } catch (e) {
+    console.error("[liberarParaAprovacao]", e);
+    return { ok: false, erro: "Não consegui liberar o pedido." };
+  }
+  revalidatePath("/");
+  revalidatePath("/aguardando");
+  return { ok: true };
+}

@@ -19,6 +19,7 @@ type LinhaFila = {
   forma_pagamento: string | null;
   criado_em: string;
   precisa_confirmacao: boolean | null;
+  aguardando_cliente: boolean | null;
   motivo_humano: string | null;
   tem_foto: boolean | null;
   cliente_nome: string | null;
@@ -49,6 +50,7 @@ function mapear(l: LinhaFila): Pedido {
     formaPagamento: (l.forma_pagamento as Pedido["formaPagamento"]) ?? null,
     criadoEm: l.criado_em,
     precisaConfirmacao: !!l.precisa_confirmacao,
+    aguardandoCliente: !!l.aguardando_cliente,
     motivoHumano: l.motivo_humano,
     temFoto: !!l.tem_foto,
     itens: (l.itens ?? []).map(
@@ -71,7 +73,7 @@ export async function listarFilaAprovacao(negocioId: string): Promise<Pedido[]> 
   const linhas = await query<LinhaFila>(
     `select p.id, p.status, p.retirada_data, p.retirada_hora, p.pessoas,
             p.total_centavos, p.observacoes, p.forma_pagamento, p.criado_em,
-            p.precisa_confirmacao, p.motivo_humano,
+            p.precisa_confirmacao, p.motivo_humano, p.aguardando_cliente,
             exists(select 1 from pedido_fotos f where f.pedido_id = p.id) as tem_foto,
             c.nome as cliente_nome, c.telefone as cliente_telefone,
             coalesce(
@@ -84,6 +86,7 @@ export async function listarFilaAprovacao(negocioId: string): Promise<Pedido[]> 
        left join clientes c on c.id = p.cliente_id
       where p.negocio_id = $1 and p.status = 'confirmado'
         and coalesce(p.precisa_confirmacao, false) = false
+        and coalesce(p.aguardando_cliente, false) = false
       order by p.criado_em asc`,
     [negocioId],
   );
@@ -98,7 +101,7 @@ export async function listarAguardandoConfirmacao(negocioId: string): Promise<Pe
   const linhas = await query<LinhaFila>(
     `select p.id, p.status, p.retirada_data, p.retirada_hora, p.pessoas,
             p.total_centavos, p.observacoes, p.forma_pagamento, p.criado_em,
-            p.precisa_confirmacao, p.motivo_humano,
+            p.precisa_confirmacao, p.motivo_humano, p.aguardando_cliente,
             exists(select 1 from pedido_fotos f where f.pedido_id = p.id) as tem_foto,
             c.nome as cliente_nome, c.telefone as cliente_telefone,
             coalesce(
@@ -110,7 +113,8 @@ export async function listarAguardandoConfirmacao(negocioId: string): Promise<Pe
        from pedidos p
        left join clientes c on c.id = p.cliente_id
       where p.negocio_id = $1 and p.status = 'confirmado'
-        and coalesce(p.precisa_confirmacao, false) = true
+        and (coalesce(p.precisa_confirmacao, false) = true
+             or coalesce(p.aguardando_cliente, false) = true)
       order by p.criado_em asc`,
     [negocioId],
   );
@@ -118,12 +122,38 @@ export async function listarAguardandoConfirmacao(negocioId: string): Promise<Pe
 }
 
 // Tira a pendência: o pedido deixa de precisar de humano e cai na fila normal.
+// A pendência da equipe some, mas o pedido NÃO vai direto pra aprovação: fica
+// esperando o cliente dizer que aceita o total novo.
 export async function limparPendencia(pedidoId: string, negocioId: string): Promise<void> {
   await query(
-    `update pedidos set precisa_confirmacao = false, motivo_humano = null
+    `update pedidos set precisa_confirmacao = false, motivo_humano = null, aguardando_cliente = true
       where id = $1 and negocio_id = $2`,
     [pedidoId, negocioId],
   );
+}
+
+// O cliente respondeu que está certo: agora sim entra na fila de aprovação.
+export async function registrarAceiteCliente(negocioId: string, clienteId: string): Promise<boolean> {
+  const r = await query<{ id: string }>(
+    `update pedidos set aguardando_cliente = false
+      where negocio_id = $1 and cliente_id = $2 and status = 'confirmado'
+        and coalesce(aguardando_cliente, false) = true
+      returning id`,
+    [negocioId, clienteId],
+  );
+  return r.length > 0;
+}
+
+// Existe pedido esperando o aceite deste cliente? (o cérebro pergunta antes de
+// gastar uma ferramenta com isso)
+export async function temPedidoAguardandoCliente(negocioId: string, clienteId: string): Promise<boolean> {
+  const l = await queryUm<{ n: string }>(
+    `select count(*) as n from pedidos
+      where negocio_id = $1 and cliente_id = $2 and status = 'confirmado'
+        and coalesce(aguardando_cliente, false) = true`,
+    [negocioId, clienteId],
+  );
+  return Number(l?.n) > 0;
 }
 
 // Orçamentos PARADOS (status 'orcado') — a tela de recuperação.
@@ -131,7 +161,7 @@ export async function listarParados(negocioId: string): Promise<Pedido[]> {
   const linhas = await query<LinhaFila>(
     `select p.id, p.status, p.retirada_data, p.retirada_hora, p.pessoas,
             p.total_centavos, p.observacoes, p.forma_pagamento, p.criado_em,
-            p.precisa_confirmacao, p.motivo_humano,
+            p.precisa_confirmacao, p.motivo_humano, p.aguardando_cliente,
             exists(select 1 from pedido_fotos f where f.pedido_id = p.id) as tem_foto,
             c.nome as cliente_nome, c.telefone as cliente_telefone,
             coalesce(
@@ -154,7 +184,7 @@ export async function listarDoDia(negocioId: string): Promise<Pedido[]> {
   const linhas = await query<LinhaFila>(
     `select p.id, p.status, p.retirada_data, p.retirada_hora, p.pessoas,
             p.total_centavos, p.observacoes, p.forma_pagamento, p.criado_em,
-            p.precisa_confirmacao, p.motivo_humano,
+            p.precisa_confirmacao, p.motivo_humano, p.aguardando_cliente,
             exists(select 1 from pedido_fotos f where f.pedido_id = p.id) as tem_foto,
             c.nome as cliente_nome, c.telefone as cliente_telefone,
             coalesce(
@@ -182,7 +212,7 @@ export async function buscarPedido(
   const linhas = await query<LinhaFila>(
     `select p.id, p.status, p.retirada_data, p.retirada_hora, p.pessoas,
             p.total_centavos, p.observacoes, p.forma_pagamento, p.criado_em,
-            p.precisa_confirmacao, p.motivo_humano,
+            p.precisa_confirmacao, p.motivo_humano, p.aguardando_cliente,
             exists(select 1 from pedido_fotos f where f.pedido_id = p.id) as tem_foto,
             c.nome as cliente_nome, c.telefone as cliente_telefone,
             coalesce(

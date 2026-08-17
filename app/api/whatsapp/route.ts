@@ -26,6 +26,7 @@ import {
   salvarFotoPendente,
 } from "@/lib/banco/conversas";
 import { definirHandoff, iaPausada } from "@/lib/banco/atendimentos";
+import { registrarAceiteCliente } from "@/lib/banco/pedidos";
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
 import crypto from "node:crypto";
@@ -174,6 +175,20 @@ async function processar(corpo: WebhookPayload) {
         if (await iaPausada(negocioId, clienteId)) continue;
       } catch (e) {
         console.error("[whatsapp] falha ao checar pausa da IA (segue respondendo):", e);
+      }
+
+      // O cliente estava com um orçamento atualizado na mão (a equipe lançou o
+      // valor do topo). Se ele responde que aceita, o pedido entra na fila de
+      // aprovação. Fica em código e não em ferramenta da IA: é mudança de
+      // estado do pedido, não pode depender de o modelo lembrar de chamar algo.
+      try {
+        if (/^\s*(sim|isso|ok|okay|blz|beleza|pode ser|pode|fechado|fechou|t[áa] certo|ta certo|certo|confirmo|aceito|perfeito|combinado|pode passar|manda|bora)/i.test(texto)) {
+          if (await registrarAceiteCliente(negocioId, clienteId)) {
+            console.log("[whatsapp] cliente aceitou o orcamento; pedido liberado pra aprovacao");
+          }
+        }
+      } catch (e) {
+        console.error("[whatsapp] falha ao registrar aceite do cliente:", e);
       }
 
       const historico = await carregarHistorico(negocioId, clienteId);

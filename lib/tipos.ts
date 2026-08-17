@@ -47,6 +47,7 @@ export type Pedido = {
   // da equipe (pedido pra hoje/amanha, valor de topo de bolo, item fora da tabela).
   // A dona ve um aviso no card com o motivo e so revisa/aprova.
   precisaConfirmacao?: boolean;
+  aguardandoCliente?: boolean; // esperando o cliente aceitar o total atualizado
   motivoHumano?: string | null;
   // Foto de referencia anexada ao pedido (bolo decorado, tema de festa). A imagem
   // fica no banco; a UI carrega por /api/pedido/[id]/foto. O cupom NAO imprime foto.

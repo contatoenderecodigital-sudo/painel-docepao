@@ -7,7 +7,6 @@
 // Anima otimista (some na hora) e grava no banco por trás via Server Action.
 
 import { useEffect, useRef, useState } from "react";
-import AjustarPedido from "@/components/AjustarPedido";
 import type { Pedido, FormaPagamento, HistoricoCliente } from "@/lib/tipos";
 import { brl, formatarTelefoneBR, linkWhatsapp, mesAno } from "@/lib/tipos";
 import { Repeat, UserPlus, Wallet, CalendarDays, AlertTriangle, CreditCard, Banknote, Zap, CheckCircle2, Clock, Image as ImageIcon } from "lucide-react";
@@ -238,7 +237,6 @@ function CardPedido({
           </div>
         </div>
         <div className="flex gap-2 flex-wrap shrink-0 items-center">
-          <AjustarPedido pedidoId={pedido.id} aoSalvar={() => location.reload()} />
           <button
             onClick={() => onVerCupom(pedido)}
             className="btn-cobre press px-3.5 py-2 text-sm font-semibold"

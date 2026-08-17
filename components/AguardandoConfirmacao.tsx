@@ -20,7 +20,7 @@ import Link from "next/link";
 import { AlertTriangle, MessageSquare, Check, Loader2, Image as ImgIcon, Clock } from "lucide-react";
 import type { Pedido } from "@/lib/tipos";
 import { brl, formatarTelefoneBR } from "@/lib/tipos";
-import { resolverPendencia } from "@/app/(painel)/acoes";
+import { resolverPendencia, liberarParaAprovacao } from "@/app/(painel)/acoes";
 
 // Mesma leitura da fila de aprovação: "sex 28/08" diz mais que "2026-08-28"
 // pra quem organiza a semana de produção.
@@ -75,6 +75,15 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
   async function enviar(comItem: boolean) {
     setErro(null);
     setSalvando(true);
+    // Já esperando o cliente: liberar aqui significa "ele aceitou por fora",
+    // não recomeçar o ciclo de aviso.
+    if (pedido.aguardandoCliente) {
+      const r0 = await liberarParaAprovacao(pedido.id);
+      setSalvando(false);
+      if (!r0.ok) { setErro(r0.erro ?? "Não consegui liberar."); return; }
+      aoResolver();
+      return;
+    }
     const r = await resolverPendencia(
       pedido.id,
       comItem
@@ -111,8 +120,18 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
       <div className="mx-5 mb-3 rounded-[12px] px-3 py-2.5 flex items-start gap-2" style={{ background: "rgba(231,207,148,0.10)", border: "1px solid rgba(231,207,148,0.25)" }}>
         <AlertTriangle size={15} className="shrink-0 mt-0.5" style={{ color: "#e7cf94" }} />
         <div className="text-[13px] text-cream/90">
-          <span style={{ color: "#e7cf94" }} className="font-semibold">Falta pra fechar: </span>
-          {pedido.motivoHumano || "confirmar detalhe com o cliente"}
+          {pedido.aguardandoCliente ? (
+            <>
+              <span style={{ color: "#e7cf94" }} className="font-semibold">Esperando o cliente: </span>
+              a Dora já mandou o total atualizado. Quando ele responder que aceita, o pedido entra sozinho na
+              fila de aprovação.
+            </>
+          ) : (
+            <>
+              <span style={{ color: "#e7cf94" }} className="font-semibold">Falta pra fechar: </span>
+              {pedido.motivoHumano || "confirmar detalhe com o cliente"}
+            </>
+          )}
         </div>
       </div>
 
@@ -142,10 +161,15 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
 
       {/* ação: lançar o que faltava e deixar a Dora avisar */}
       <div className="mt-auto px-5 pb-5 pt-3 border-t border-white/10">
-        <div className="text-[12px] text-cream/65 mb-2">
+        {pedido.aguardandoCliente && (
+          <div className="text-[12px] text-cream/65 mb-2">
+            Se ele responder por telefone ou pessoalmente, use o botão abaixo pra liberar na mão.
+          </div>
+        )}
+        <div className="text-[12px] text-cream/65 mb-2" hidden={pedido.aguardandoCliente}>
           Lance o valor que você acertou. A Dora avisa o cliente com o total novo e o pedido vai pra aprovação.
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" hidden={pedido.aguardandoCliente}>
           <input
             value={produto}
             onChange={(e) => setProduto(e.target.value)}
@@ -183,6 +207,7 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
           </Link>
           <button
             onClick={() => enviar(true)}
+            hidden={pedido.aguardandoCliente}
             disabled={salvando || !podeEnviar}
             className="btn-verde press toque px-3.5 py-2 text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-50"
           >
@@ -192,9 +217,9 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
             onClick={() => enviar(false)}
             disabled={salvando}
             className="press toque px-3 py-2 text-sm text-cream/70 inline-flex items-center gap-1.5 disabled:opacity-50"
-            title="Nada a cobrar a mais: só libera o pedido pra fila de aprovação."
+            title="Manda o pedido pra fila de aprovação sem cobrar nada a mais."
           >
-            <Clock size={15} /> Só liberar
+            <Clock size={15} /> {pedido.aguardandoCliente ? "Liberar pra aprovação" : "Só liberar"}
           </button>
         </div>
       </div>

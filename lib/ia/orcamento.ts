@@ -57,12 +57,35 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
 
   const norm = (s: string) => String(s).trim().toLowerCase();
 
+  // Sinais de que a linha é o BOLO da festa, e não um docinho de mesmo nome.
+  // Sem isto, "brigadeiro" com a observação do bolo casa com o docinho de
+  // R$ 1,25: o bolo de 2 kg vira R$ 2,50 e a cozinha recebe um pedido sem bolo.
+  // Aconteceu num teste real, com o pedido já fechado e o cliente avisado.
+  const MARCA_DE_BOLO = /p[ãa]o de l[óo]|topo d|papel de arroz|aniversariante|prato aberto|caixa com tampa|andar/i;
+
   function cotarPorItens(pedido: { item: string; qtd: number; obs?: string }[]): Cotacao {
     const linhas: LinhaCotacao[] = [];
     const avisos: string[] = [];
     let total = 0;
     for (const { item, qtd, obs } of pedido) {
       const chave = norm(item);
+      // Bolo disfarçado de docinho: tenta o mesmo sabor na família dos bolos.
+      if (obs && MARCA_DE_BOLO.test(obs) && !chave.startsWith("bolo")) {
+        const comoBolo =
+          PRECOS[norm("bolo " + item)] ??
+          produtos.find((p) => p.categoria === "bolo" && norm(p.nome).includes(chave));
+        if (comoBolo) {
+          const q0 = Number(qtd) || 0;
+          const sub0 = comoBolo.preco * q0;
+          total += sub0;
+          linhas.push({
+            item: comoBolo.nome, categoria: comoBolo.categoria, qtd: q0, unit: comoBolo.preco,
+            subtotal: sub0, obs: obs || undefined, unidade: comoBolo.unidade ?? "kg",
+          });
+          avisos.push(`"${item}" foi cotado como ${comoBolo.nome} (a observação é de bolo de festa).`);
+          continue;
+        }
+      }
       // 1) match exato; 2) nome parcial (ex: "coxinha" acha "Cento de coxinha")
       let ref: Produto | undefined = PRECOS[chave];
       if (!ref) {
@@ -81,6 +104,20 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
       const subtotal = ref.preco * q;
       total += subtotal;
       linhas.push({ item: ref.nome, categoria: ref.categoria, qtd: q, unit: ref.preco, subtotal, obs: obs || undefined, unidade: ref.unidade ?? "un" });
+    }
+
+    // Papel de arroz citado só na observação do bolo é papel de arroz não
+    // cobrado: são R$ 12 que somem do pedido e reaparecem como prejuízo na
+    // produção. Se a observação pede e ele não está entre os itens, entra.
+    const citaPapel = linhas.some((l) => /papel de arroz/i.test(l.obs ?? ""));
+    const temPapel = linhas.some((l) => /papel de arroz/i.test(l.item));
+    if (citaPapel && !temPapel) {
+      const ref = PRECOS[norm("papel de arroz")] ?? produtos.find((p) => norm(p.nome).includes("papel de arroz"));
+      if (ref) {
+        total += ref.preco;
+        linhas.push({ item: ref.nome, categoria: ref.categoria, qtd: 1, unit: ref.preco, subtotal: ref.preco, unidade: "un" });
+        avisos.push("Papel de arroz estava só na observação; lancei como item pra entrar no total.");
+      }
     }
     return { linhas, avisos, total };
   }
