@@ -201,26 +201,6 @@ async function processar(corpo: WebhookPayload) {
         console.error("[whatsapp] falha ao checar pausa da IA (segue respondendo):", e);
       }
 
-      // O cliente estava com um orçamento atualizado na mão (a equipe lançou o
-      // valor do topo). Se ele responde que aceita, o pedido entra na fila de
-      // aprovação. Fica em código e não em ferramenta da IA: é mudança de
-      // estado do pedido, não pode depender de o modelo lembrar de chamar algo.
-      try {
-        // O joinha conta como sim. É a forma mais comum de concordar no
-        // WhatsApp e ficava de fora: o cliente mandou 👍, nada aconteceu, e ele
-        // não tinha como saber que precisava escrever a palavra.
-        const soEmojiDeSim = /^[\s\p{Emoji_Presentation}\u{1F44D}\u{1F44C}\u{2705}\u{1F919}\u{1F44F}]+$/u.test(texto);
-        if (
-          soEmojiDeSim ||
-          /^\s*(sim|isso|ok|okay|blz|beleza|pode ser|pode|fechado|fechou|t[áa] certo|ta certo|certo|confirmo|aceito|perfeito|combinado|pode passar|manda|bora|show|top|joia|isso ai|e isso)\b/i.test(texto)
-        ) {
-          if (await registrarAceiteCliente(negocioId, clienteId)) {
-            console.log("[whatsapp] cliente aceitou o orcamento; pedido liberado pra aprovacao");
-          }
-        }
-      } catch (e) {
-        console.error("[whatsapp] falha ao registrar aceite do cliente:", e);
-      }
 
       const historico = await carregarHistorico(negocioId, clienteId);
       const tenant = await carregarTenant(negocioId); // cardápio/persona DESTE negócio
@@ -259,6 +239,22 @@ async function processar(corpo: WebhookPayload) {
 
       // Registra o pedido ANTES de confirmar pro cliente (durabilidade primeiro).
       // Se falhar, NÃO manda a confirmação de "pedido salvo" (evita pedido fantasma).
+      // Quem decide se o cliente aceitou é a IA, não uma lista de palavras.
+      // Antes era um regex com "sim", "ok", "isso" e alguns emojis, e o cliente
+      // mandou 👍 e nada aconteceu. Lista nunca cobre tudo: falta o "fechou
+      // então", o "pode mandar", o joinha duplo. Entender o que a pessoa quis
+      // dizer é justamente o que o modelo faz bem — diferente de calcular
+      // preço, que é onde código ganha.
+      if (resp.aceitouOrcamento) {
+        try {
+          if (await registrarAceiteCliente(negocioId, clienteId)) {
+            console.log("[whatsapp] a IA entendeu que o cliente aceitou; pedido liberado pra aprovacao");
+          }
+        } catch (e) {
+          console.error("[whatsapp] falha ao registrar aceite do cliente:", e);
+        }
+      }
+
       if (resp.pedidoRegistrado) {
         try {
           await registrarPedido(negocioId, clienteId, resp.pedidoRegistrado);

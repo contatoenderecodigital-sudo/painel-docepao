@@ -127,6 +127,16 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "cliente_aceitou_orcamento",
+      description:
+        "USE quando o cliente CONCORDAR com o valor atualizado que você mandou depois que a equipe informou o preço de algo (o topo de bolo, por exemplo). Vale qualquer forma de concordar: 'sim', 'ok', 'pode ser', um joinha, um 'fechou', ou qualquer coisa que signifique que ele aceitou. NÃO use se ele discordar, pedir desconto, mudar de ideia ou fizer outra pergunta: aí é conversa normal. NÃO use pra confirmar item ou quantidade no meio do pedido, só pro aceite do valor.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+      strict: true,
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "registrar_pedido",
       description:
         "Registra o pedido pra equipe aprovar. USE só depois que o cliente confirmou o orçamento E informou o dia/hora da retirada.",
@@ -219,6 +229,9 @@ export type RespostaIA = {
   precisaHumano: boolean; // se true, entra na fila de "precisa de você" do painel
   // Peças de cardápio que o webhook deve mandar como imagem logo depois do texto.
   cardapiosParaEnviar: CardapioId[];
+  // O cliente concordou com o valor atualizado (quem decide isso e a IA, que
+  // entende "joinha", "fechou" e o que mais ele inventar).
+  aceitouOrcamento?: boolean;
   pedidoRegistrado: null | {
     itens: { item: string; qtd: number; obs?: string }[];
     linhas: LinhaCotacao[]; // já calculado pelo motor do tenant (pro banco não recalcular)
@@ -301,7 +314,7 @@ function umaPerguntaSo(texto: string): string {
 function executarFerramenta(
   nome: string,
   input: Record<string, unknown>,
-  estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"]; cardapios: CardapioId[]; resumo?: string },
+  estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"]; cardapios: CardapioId[]; resumo?: string; aceitouOrcamento?: boolean },
   motor: Motor,
   falaDoCliente = "",
 ): string {
@@ -325,6 +338,11 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       `ele ainda não escolheu os tipos, e citar um faz parecer que já está decidido. ` +
       `O valor e o total, esses sim, são os desta ferramenta.`
     );
+  }
+
+  if (nome === "cliente_aceitou_orcamento") {
+    estado.aceitouOrcamento = true;
+    return "Anotado: o cliente aceitou o valor. Responda com uma frase curta confirmando que voce ja passou pra equipe, e NAO chame registrar_pedido: o pedido ja esta montado e a equipe ja ajustou.";
   }
 
   if (nome === "chamar_humano") {
@@ -705,7 +723,7 @@ async function rodarConversa(
     timeout: 30_000,
     maxRetries: 0, // a cadeia de provedores já é a nossa retentativa
   });
-  const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"], cardapios: [] as CardapioId[], resumo: undefined as string | undefined };
+  const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"], cardapios: [] as CardapioId[], resumo: undefined as string | undefined, aceitouOrcamento: false };
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: system },
     ...historico.map((m) => ({ role: m.role, content: m.content })),
@@ -769,6 +787,7 @@ async function rodarConversa(
         texto: textoFinal,
         precisaHumano: estado.precisaHumano,
         pedidoRegistrado: estado.pedido,
+        aceitouOrcamento: estado.aceitouOrcamento,
         cardapiosParaEnviar: honrarCardapioPrometido(textoFinal, estado.cardapios),
       };
     }
