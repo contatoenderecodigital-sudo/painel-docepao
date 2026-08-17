@@ -470,7 +470,9 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // opção de recheio: sem essa informação a cozinha faz o sabor padrão e o
     // cliente descobre na festa. A regra está no prompt e mesmo assim ela já
     // fechou pedido sem perguntar, então a equipe confere antes de produzir.
-    const PEDE_RECHEIO = /^(pastel assado|esfirra|croissant|empadinha|quiche|mini pizza)/i;
+    // Mini bolha entra aqui: o cardapio diz "nos sabores carne, queijo, presunto
+    // ou frango", e eu tinha classificado ela como sabor fixo por engano.
+    const PEDE_RECHEIO = /^(pastel assado|esfirra|croissant|empadinha|quiche|mini pizza|mini bolha)/i;
     const semRecheio = c.linhas.filter((l) => PEDE_RECHEIO.test(l.item) && !String(l.obs ?? "").trim());
     if (semRecheio.length > 0) {
       precisaConfirmacao = true;
