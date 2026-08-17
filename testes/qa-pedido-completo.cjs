@@ -34,7 +34,10 @@ const ROTEIRO = [
   "quero sim",
   "me manda o cardapio de salgados",
   "quero 50 coxinha, 50 bolinha de queijo, 50 esfirra e 50 pastel assado",
+  // Pede um recheio que NAO existe pro item de proposito: ela tem que avisar
+  // em vez de trocar em silencio, e o cliente entao escolhe um valido.
   "esfirra de carne e pastel assado de palmito",
+  "entao pastel assado de calabresa",
   "e os docinhos?",
   "50 brigadeiro e 50 beijinho",
   "forminha vermelha",
@@ -102,7 +105,7 @@ function checa(id, ok, detalhe) {
     checa("BOLO-PRECO-DE-BOLO", bolo && bolo.unit_centavos >= 4000, bolo ? bolo.unit_centavos + "c" : "-");
     checa("PAPEL-DE-ARROZ", !!acha(/papel de arroz/i));
     checa("ESFIRRA-COM-CARNE", /carne/i.test(obsDe(/esfirra/i)), obsDe(/esfirra/i) || "sem obs");
-    checa("PASTEL-COM-PALMITO", /palmito/i.test(obsDe(/pastel/i)), obsDe(/pastel/i) || "sem obs");
+    checa("PASTEL-COM-CALABRESA", /calabresa/i.test(obsDe(/pastel/i)), obsDe(/pastel/i) || "sem obs");
     checa("FORMINHA-VERMELHA", /vermelh/i.test(obsDe(/brigadeiro/i)), obsDe(/brigadeiro/i) || "sem obs");
     checa("TOPO-COM-NOME-E-IDADE", /davi/i.test(obsDe(/^bolo/i)) && /10/.test(obsDe(/^bolo/i)), obsDe(/^bolo/i).slice(0, 60));
     checa("TOPO-NAO-VIROU-ITEM", !acha(/topo/i), acha(/topo/i)?.produto || "correto");
