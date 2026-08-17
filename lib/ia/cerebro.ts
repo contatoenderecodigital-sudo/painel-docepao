@@ -1304,6 +1304,20 @@ async function rodarConversa(
   // jogaria o cache fora (a conta triplica). No fim ele é lido do mesmo jeito.
   messages.push({ role: "system", content: descreverMontagem(montagemAtual) });
 
+  // FERRAMENTA QUE NAO CABE AGORA NEM E OFERECIDA.
+  //
+  // Ela tentou registrar o pedido quatro vezes seguidas, apanhou da guarda nas
+  // quatro, e no fim desistiu e chamou a equipe. Fechar so existe quando da pra
+  // fechar; aceite de orcamento so existe quando ha pedido esperando o cliente.
+  const podeFechar =
+    (montagemAtual?.itens?.length ?? 0) > 0 && pendenciasDeSabor(montagemAtual?.itens ?? []).length === 0;
+  const ferramentas = (tenant.sistemaCustom ? FERRAMENTAS_BASICAS : FERRAMENTAS).filter((f) => {
+    const nome = "function" in f ? f.function.name : "";
+    if (nome === "registrar_pedido" && !podeFechar) return false;
+    if (nome === "cliente_aceitou_orcamento" && !pedidoAguardando) return false;
+    return true;
+  });
+
   // O pedido que ESTE cliente ja fechou, pra ela nao confundir com o de agora.
   if (pedidoAnterior) {
     messages.push({
@@ -1351,14 +1365,14 @@ async function rodarConversa(
             // consulta: 4000 tokens todos no raciocínio e nada de texto).
             max_completion_tokens: 4000,
             messages,
-            tools: tenant.sistemaCustom ? FERRAMENTAS_BASICAS : FERRAMENTAS,
+            tools: ferramentas,
           }
         : {
             model: prov.modelo,
             max_tokens: 350, // resposta de WhatsApp é curta; corta desperdício de token
             temperature: 0.4, // menos "criatividade" = segue mais as regras (usar a ferramenta)
             messages,
-            tools: tenant.sistemaCustom ? FERRAMENTAS_BASICAS : FERRAMENTAS,
+            tools: ferramentas,
           },
     );
     somarUso(resp.usage);
