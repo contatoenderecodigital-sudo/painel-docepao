@@ -385,8 +385,15 @@ function perguntaQueVale(bloco: string): string {
   // cliente recebia "Qual você prefere?" sozinho, sem as opções que estavam na
   // pergunta anterior. A que vale é a primeira que realmente pergunta alguma
   // coisa; "qual você prefere?" e "certo?" são rabicho da anterior.
-  const substancial = perguntas.find((f) => / ou |quais|quantos|qual sabor|que recheio/i.test(f) && f.length >= 20);
-  const melhor = substancial ?? perguntas.reduce((a, b) => (b.length > a.length ? b : a));
+  //
+  // E pergunta que COMEÇA pendurada na anterior ("Se sim, ...", "E o resto?")
+  // não pode ser a escolhida: sozinha ela não diz do que está falando. O
+  // cliente já recebeu "Se sim, quer que eu divida igual?" sem nada antes.
+  const pendurada = /^(se\s|então|entao|e\s|ou\s|certo\b|pode ser\b|qual (você|voce) prefere)/i;
+  const soltas = perguntas.filter((f) => !pendurada.test(f.trim()));
+  const candidatas = soltas.length ? soltas : perguntas;
+  const substancial = candidatas.find((f) => / ou |quais|quantos|qual sabor|que recheio/i.test(f) && f.length >= 20);
+  const melhor = substancial ?? candidatas.reduce((a, b) => (b.length > a.length ? b : a));
   const antes = frases.slice(0, frases.indexOf(perguntas[0])).join(" ");
   return (antes ? antes + " " : "") + melhor.trim();
 }
