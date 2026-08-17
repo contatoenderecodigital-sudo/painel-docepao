@@ -95,19 +95,16 @@ function WhatsAppIcon({ size = 12 }: { size?: number }) {
 function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem: (url: string) => void }) {
   const isCliente = m.de === "cliente";
   const src = m.blobUrl || (m.midiaId ? `/api/midia/${m.midiaId}` : null);
-  // ESTRUTURA do WhatsApp (bolha com bico só na primeira da sequência, hora
-  // dentro da bolha, cantos de 8px), com as CORES da marca: vinho para quem
-  // recebe, dourado escuro para quem envia. A equipe reconhece o formato que
-  // usa o dia inteiro sem o painel virar uma cópia descolorida do app.
+  // Balão claro pra quem recebe e degradê dourado pra quem envia — o desenho
+  // original do painel. Tentei trocar isso pela paleta chapada do WhatsApp e
+  // ficou pior: o degradê é o que dá o acabamento da marca, e achatar cor é
+  // erro que já tinha sido apontado antes.
   const bolhaBase =
-    "text-[15px] md:text-[14.5px] leading-[1.4] whitespace-pre-line text-cream " +
-    (isCliente
-      ? "rounded-[8px] " + (primeiro ? "rounded-tl-[2px]" : "")
-      : "rounded-[8px] " + (primeiro ? "rounded-tr-[2px]" : ""));
-  const bolhaStyle: React.CSSProperties = {
-    background: isCliente ? "#3d1522" : "#5c4712",
-    boxShadow: "0 1px 0.5px rgba(11,20,26,0.13)",
-  };
+    "rounded-[14px] text-[15px] md:text-[14px] leading-[1.45] whitespace-pre-line " +
+    (isCliente ? "text-[#4a1020] rounded-bl-[4px]" : "text-[#3d1219] rounded-br-[4px]");
+  const bolhaStyle: React.CSSProperties = isCliente
+    ? { background: "rgba(255,255,255,0.95)", boxShadow: "0 3px 12px rgba(0,0,0,0.16)" }
+    : { background: "linear-gradient(135deg,#96741a,#e7cf94)", boxShadow: "0 4px 14px rgba(187,146,31,0.28)" };
 
   // legenda que acompanha a mídia: tira as notas internas ("[o cliente enviou
   // ...]") e os rótulos automáticos (Foto/Áudio/nome do arquivo), pra não repetir.
@@ -117,7 +114,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
   if (isMidia && legenda && rotulosAuto.includes(legenda.toLowerCase())) legenda = "";
 
   const HoraSelo = () => (
-    <span className="text-[11px] inline-flex items-center gap-1 align-bottom text-cream/55">
+    <span className={"text-[10px] inline-flex items-center gap-1 align-bottom " + (isCliente ? "text-black/35" : "text-black/45")}>
       {m.hora}
       {!isCliente && m.de === "equipe" && m.status === "enviando" && <Clock size={11} />}
       {!isCliente && m.de === "equipe" && m.status === "enviado" && <CheckCheck size={12} />}
@@ -130,21 +127,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
       <div className="max-w-[78%] md:max-w-[64%]">
         {!isCliente && m.de === "equipe" && primeiro && <div className="text-[10px] text-cream/45 mb-0.5 text-right pr-1">Você</div>}
         {!isCliente && m.de === "ia" && primeiro && <div className="text-[10px] text-cream/45 mb-0.5 text-right pr-1 flex items-center justify-end gap-1"><Bot size={11} /> Atendente</div>}
-        {/* Bico do balão: no WhatsApp é o que separa uma fala da outra num
-            relance. Só na primeira da sequência, e ancorado no balão — não no
-            rótulo que vem acima dele. */}
-        <div className="relative">
-        {primeiro && (
-          <span
-            aria-hidden="true"
-            className="absolute top-0 w-0 h-0"
-            style={
-              isCliente
-                ? { left: -7, borderTop: "8px solid #3d1522", borderLeft: "8px solid transparent" }
-                : { right: -7, borderTop: "8px solid #5c4712", borderRight: "8px solid transparent" }
-            }
-          />
-        )}
+        <div>
         <div className={bolhaBase} style={{ ...bolhaStyle, padding: m.tipo === "imagem" && src ? 4 : undefined }}>
           {/* IMAGEM */}
           {m.tipo === "imagem" && src && (
@@ -159,7 +142,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
           {/* ÁUDIO */}
           {m.tipo === "audio" && src && (
             <div className="px-2.5 py-1.5">
-              <AudioBolha src={src} claro={!isCliente} />
+              <AudioBolha src={src} />
             </div>
           )}
           {/* DOCUMENTO */}
@@ -560,7 +543,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                 </div>
 
                 {/* mensagens */}
-                <ScrollArea className="flex-1 min-h-0" style={{ background: "#2a0a12" }}>
+                <ScrollArea className="flex-1 min-h-0">
                   {/* Enquanto a equipe está com a conversa, isso precisa ficar na
                       cara: sem o aviso, ninguém lembra de devolver e o cliente
                       fica sem a IA pra sempre. */}
@@ -574,18 +557,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                       </button>
                     </div>
                   )}
-                  {/* textura discreta, no lugar dos rabiscos do app: dá a mesma
-                      sensação de "papel de parede" sem carregar imagem externa */}
-                  <div
-                    className="px-3 md:px-6 py-4 flex flex-col min-h-full"
-                    style={{
-                      backgroundImage:
-                        "radial-gradient(circle at 12% 18%, rgba(231,207,148,0.05) 0 2px, transparent 2px)," +
-                        "radial-gradient(circle at 68% 42%, rgba(231,207,148,0.04) 0 2px, transparent 2px)," +
-                        "radial-gradient(circle at 34% 78%, rgba(231,207,148,0.035) 0 2px, transparent 2px)",
-                      backgroundSize: "180px 180px, 240px 240px, 200px 200px",
-                    }}
-                  >
+                  <div className="px-3 md:px-6 py-4 flex flex-col min-h-full">
                     {mensagens.map((m, i) => {
                       const ant = mensagens[i - 1];
                       const mostrarDia = !ant || ant.data !== m.data;
@@ -606,7 +578,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                 </ScrollArea>
 
                 {/* composer / aviso de janela */}
-                <div className="px-3 pt-2.5 pb-3 shrink-0" style={{ background: "#3a1420", borderTop: "1px solid rgba(255,255,255,0.10)" }}>
+                <div className="px-3 pt-2.5 pb-3 border-t border-white/10 shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>
                   {janelaAberta ? (
                     <div className="flex items-end gap-1.5">
                       <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) anexar(f); e.target.value = ""; }} />
@@ -619,7 +591,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                         onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviarTexto(); } }}
                         placeholder="Mensagem"
                         rows={1}
-                        className="flex-1 resize-none rounded-[22px] px-4 py-2.5 text-[15px] md:text-[14.5px] text-cream placeholder:text-cream/40 focus:outline-none max-h-32" style={{ background: "rgba(255,255,255,0.10)" }}
+                        className="flex-1 resize-none bg-white/10 rounded-[20px] px-4 py-2.5 text-[15px] md:text-[14px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25 max-h-32"
                       />
                       <button onClick={enviarTexto} disabled={!texto.trim() || enviando} className="grad-cobre press w-11 h-11 rounded-full grid place-items-center text-vinho-d shrink-0 disabled:opacity-45 disabled:cursor-default" aria-label="Enviar">
                         <SendHorizontal size={18} />

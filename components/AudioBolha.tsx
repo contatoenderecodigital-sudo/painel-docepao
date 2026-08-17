@@ -70,8 +70,10 @@ export default function AudioBolha({ src, claro }: { src: string; claro?: boolea
   }
 
   const progresso = dur > 0 ? pos / dur : 0;
-  const cor = claro ? "rgba(255,255,255,0.9)" : "var(--brand-dourado-l)";
-  const corFraca = claro ? "rgba(255,255,255,0.35)" : "rgba(231,207,148,0.32)";
+  // Os dois balões são claros (branco pra quem recebe, dourado pra quem envia),
+  // então a onda é escura nos dois. `claro` fica pra quando houver balão escuro.
+  const cor = claro ? "rgba(255,255,255,0.92)" : "#4a1020";
+  const corFraca = claro ? "rgba(255,255,255,0.35)" : "rgba(74,16,32,0.26)";
 
   return (
     <div className="flex items-center gap-2.5 py-1 pr-1" style={{ minWidth: 210 }}>
@@ -81,7 +83,7 @@ export default function AudioBolha({ src, claro }: { src: string; claro?: boolea
         onClick={alternar}
         aria-label={tocando ? "Pausar áudio" : "Tocar áudio"}
         className="w-9 h-9 shrink-0 grid place-items-center rounded-full transition-transform active:scale-95"
-        style={{ background: cor, color: "#3d1219" }}
+        style={{ background: cor, color: claro ? "#3d1219" : "#fff7eb" }}
       >
         {tocando ? <Pause size={16} /> : <Play size={16} style={{ marginLeft: 1 }} />}
       </button>
@@ -101,7 +103,7 @@ export default function AudioBolha({ src, claro }: { src: string; claro?: boolea
             />
           ))}
         </div>
-        <div className="text-[11px] mt-0.5" style={{ color: claro ? "rgba(255,255,255,0.65)" : "var(--brand-cream2)" }}>
+        <div className="text-[11px] mt-0.5" style={{ color: claro ? "rgba(255,255,255,0.65)" : "rgba(74,16,32,0.6)" }}>
           {mmss(tocando || pos > 0 ? pos : dur)}
         </div>
       </div>
