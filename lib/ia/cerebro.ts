@@ -992,6 +992,7 @@ async function rodarConversa(
   clienteId?: string | null,
   montagemAtual?: MontagemAtual | null,
   pedidoAguardando = false,
+  pedidoAnterior?: string | null,
 ): Promise<RespostaIA> {
   const client = new OpenAI({
     apiKey: prov.apiKey,
@@ -1013,6 +1014,19 @@ async function rodarConversa(
   // system é o prefixo que a OpenAI guarda em cache, e mexer nele a cada turno
   // jogaria o cache fora (a conta triplica). No fim ele é lido do mesmo jeito.
   messages.push({ role: "system", content: descreverMontagem(montagemAtual) });
+
+  // O pedido que ESTE cliente ja fechou, pra ela nao confundir com o de agora.
+  if (pedidoAnterior) {
+    messages.push({
+      role: "system",
+      content:
+        "# PEDIDO ANTERIOR DESTE CLIENTE, JA FECHADO E ENTREGUE PRA EQUIPE\n" +
+        "Nao e o pedido de agora, e nao entra no de agora.\n\n" +
+        pedidoAnterior +
+        "\n\nUse isto SO se ele perguntar o que pediu antes, ou se pedir a mesma coisa de novo. " +
+        "Se ele quiser mexer nesse pedido, chame a equipe: a cozinha pode ja ter comecado.",
+    });
+  }
 
   // Acumula os tokens de TODAS as chamadas deste turno. Um round de tool-call
   // faz várias chamadas (uma por iteração do loop); somamos tudo e gravamos uma
@@ -1147,6 +1161,7 @@ export async function responder(
   clienteId?: string | null,
   montagemAtual?: MontagemAtual | null,
   pedidoAguardando = false,
+  pedidoAnterior?: string | null,
 ): Promise<RespostaIA> {
   const system = montarSystemComData(tenant);
   const lista = provedores(tenant);
@@ -1161,7 +1176,7 @@ export async function responder(
   for (const prov of lista) {
     for (let tentativa = 1; tentativa <= 2; tentativa++) {
       try {
-        return await rodarConversa(prov, system, historico, tenant, origem, clienteId, montagemAtual, pedidoAguardando);
+        return await rodarConversa(prov, system, historico, tenant, origem, clienteId, montagemAtual, pedidoAguardando, pedidoAnterior);
       } catch (e) {
         ultimoErro = e;
         const msg = (e as Error)?.message ?? String(e);

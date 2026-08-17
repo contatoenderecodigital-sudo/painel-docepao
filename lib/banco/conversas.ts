@@ -66,6 +66,25 @@ export async function carregarHistorico(
 // item velho reaparecer sozinho.
 const MARCA_FECHADO = /^\*Pedido recebido\*/m;
 
+// O resumo do último pedido fechado deste cliente, pra IA ter na mão quando ele
+// perguntar o que pediu ou quiser a mesma coisa. Perguntado "o pedido que eu
+// fechei era o quê?", ela respondia com o pedido que está sendo montado agora e
+// ainda chamava ele de fechado: o resumo estava lá no alto do histórico, longe
+// demais de onde ela decide o que responder.
+export async function resumoPedidoFechado(
+  negocioId: string,
+  clienteId: string,
+): Promise<string | null> {
+  const l = await queryUm<{ conteudo: string }>(
+    `select conteudo from mensagens
+      where negocio_id = $1 and cliente_id = $2 and papel = 'assistant'
+        and conteudo like '*Pedido recebido*%'
+      order by criado_em desc limit 1`,
+    [negocioId, clienteId],
+  );
+  return l?.conteudo ?? null;
+}
+
 function cortarNoPedidoFechado(msgs: Mensagem[]): Mensagem[] {
   let ultimo = -1;
   msgs.forEach((m, i) => {
