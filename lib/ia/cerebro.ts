@@ -824,40 +824,47 @@ function montarSystemComData(tenant: Tenant): string {
 // onde ela trocava bolo por docinho e perdia item), ela lê o que está guardado.
 // A equipe também mexe nisso pela tela, então o que vier aqui pode ter sido
 // corrigido na mão e vale mais que a lembrança dela.
-function descreverMontagem(m?: MontagemAtual | null): string | null {
-  if (!m) return null;
-  const itens = m.itens ?? [];
+function descreverMontagem(m?: MontagemAtual | null): string {
+  const itens = m?.itens ?? [];
   const rotulos: Record<string, string> = {
     cliente_nome: "Nome de quem retira",
     retirada_data: "Data da retirada",
     retirada_hora: "Hora da retirada",
     forma_pagamento: "Forma de pagamento",
-    observacoes: "Observação geral",
+    observacoes: "Observacao geral",
   };
   const dados = Object.entries(rotulos)
     .map(([k, r]) => {
-      const v = m.dados?.[k];
+      const v = m?.dados?.[k];
       return v && String(v).trim() !== "" ? `- ${r}: ${String(v).trim()}` : null;
     })
     .filter(Boolean) as string[];
-  if (itens.length === 0 && dados.length === 0) return null;
 
   const linhas = itens.map((i) => {
     const q = i.unidade === "kg" ? `${i.qtd} kg` : `${i.qtd} un`;
     return `- ${q} de ${i.produto} (categoria: ${i.categoria})${i.obs ? ` | ${i.obs}` : ""}`;
   });
 
+  const ordem =
+    "ANTES de escrever a resposta, chame anotar_item pra cada produto que o cliente decidiu agora e anotar_dados pro que ele informou agora " +
+    "(nome, data, hora, pagamento). Quantidade nova do mesmo produto e recheio escolhido depois entram com anotar_item de novo: corrigir nao duplica. " +
+    "O que voce nao anotar se perde, e o pedido registrado no fim sai DESTA lista, nao da sua lembranca da conversa.";
+
+  if (linhas.length === 0 && dados.length === 0) {
+    return (
+      "# PEDIDO EM MONTAGEM: NADA ANOTADO AINDA" + "\n" + ordem
+    );
+  }
+
   return (
-    "# O QUE JA ESTA ANOTADO NESTE PEDIDO\n" +
-    "Isto aqui esta guardado e a equipe ja pode ter corrigido na tela. Vale mais que a sua lembranca da conversa.\n\n" +
-    (linhas.length ? "Itens:\n" + linhas.join("\n") + "\n\n" : "Nenhum item anotado ainda.\n\n") +
-    (dados.length ? "Dados:\n" + dados.join("\n") + "\n\n" : "") +
-    "Nao pergunte de novo nada que ja esta aqui em cima: o cliente ja respondeu e vai achar que voce nao anotou. " +
-    "Falta so o que NAO aparece nesta lista. Quando anotar coisa nova, chame anotar_item ou anotar_dados; " +
-    "na hora de registrar, o pedido sai desta lista, entao ela precisa estar certa."
+    "# O QUE JA ESTA ANOTADO NESTE PEDIDO" + "\n" +
+    "Isto esta guardado e a equipe ja pode ter corrigido na tela. Vale mais que a sua lembranca da conversa." + "\n\n" +
+    (linhas.length ? "Itens:" + "\n" + linhas.join("\n") + "\n\n" : "Nenhum item anotado ainda." + "\n\n") +
+    (dados.length ? "Dados:" + "\n" + dados.join("\n") + "\n\n" : "") +
+    "Nao pergunte de novo nada que ja esta aqui em cima: o cliente ja respondeu e vai achar que voce nao anotou. Falta so o que NAO aparece nesta lista." + "\n\n" +
+    ordem
   );
 }
-
 // Cadeia de provedores de IA, todos falando a API da OpenAI (ferramentas iguais).
 // Tenta o 1º; se cair, vai pro próximo. Assim a queda de um provedor não deixa o
 // cliente no vácuo. Configurável por env: coloque as chaves que tiver de reserva.
@@ -966,8 +973,7 @@ async function rodarConversa(
   // O que já está anotado entra DEPOIS do histórico, nunca dentro do system: o
   // system é o prefixo que a OpenAI guarda em cache, e mexer nele a cada turno
   // jogaria o cache fora (a conta triplica). No fim ele é lido do mesmo jeito.
-  const lembrete = descreverMontagem(montagemAtual);
-  if (lembrete) messages.push({ role: "system", content: lembrete });
+  messages.push({ role: "system", content: descreverMontagem(montagemAtual) });
 
   // Acumula os tokens de TODAS as chamadas deste turno. Um round de tool-call
   // faz várias chamadas (uma por iteração do loop); somamos tudo e gravamos uma
