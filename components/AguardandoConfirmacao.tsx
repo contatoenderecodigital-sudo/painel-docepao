@@ -19,8 +19,18 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, MessageSquare, Check, Loader2, Image as ImgIcon, Clock } from "lucide-react";
 import type { Pedido } from "@/lib/tipos";
-import { brl } from "@/lib/tipos";
+import { brl, formatarTelefoneBR } from "@/lib/tipos";
 import { resolverPendencia } from "@/app/(painel)/acoes";
+
+// Mesma leitura da fila de aprovação: "sex 28/08" diz mais que "2026-08-28"
+// pra quem organiza a semana de produção.
+function formataData(iso: string | null) {
+  if (!iso) return null;
+  const [ano, mes, dia] = iso.split("-");
+  const dias = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+  const dt = new Date(Number(ano), Number(mes) - 1, Number(dia));
+  return `${dias[dt.getDay()]} ${dia}/${mes}`;
+}
 
 function fmtQtd(qtd: number, unidade?: string | null) {
   const u = unidade === "kg" ? "kg" : "un";
@@ -86,11 +96,14 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
       <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-cream font-bold text-[17px] truncate">{pedido.clienteNome}</div>
-          <div className="text-[12px] text-cream/55">{pedido.clienteTelefone}</div>
+          <div className="text-[12px] text-cream/55">{formatarTelefoneBR(pedido.clienteTelefone)}</div>
         </div>
         <div className="text-right shrink-0">
           <div className="text-[10px] uppercase tracking-[0.16em] text-cream/45">Retirada</div>
-          <div className="text-[13px] text-cream font-semibold">{pedido.retiradaData ?? "—"}</div>
+          <div className="text-[13px] text-cream font-semibold">
+            {formataData(pedido.retiradaData) ?? "—"}
+            {pedido.retiradaHora ? ` · ${pedido.retiradaHora}` : ""}
+          </div>
         </div>
       </div>
 
