@@ -491,6 +491,23 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // Mini bolha entra aqui: o cardapio diz "nos sabores carne, queijo, presunto
     // ou frango", e eu tinha classificado ela como sabor fixo por engano.
     const PEDE_RECHEIO = /^(pastel assado|esfirra|croissant|empadinha|quiche|mini pizza|mini bolha)/i;
+    // RECHEIO QUE O CLIENTE NÃO PEDIU.
+    //
+    // Ele disse "pastel assado de palmito" e ela registrou calabresa. Palmito
+    // não existe pra pastel (é de empadinha), e em vez de avisar ela trocou por
+    // uma opção válida em silêncio. O cliente ia receber outro sabor sem nunca
+    // ter sido corrigido.
+    const RECHEIOS = /(carne|frango|calabresa|bacon|br[óo]colis|palmito|milho|queijo|presunto|catupiry)/gi;
+    for (const l of c.linhas) {
+      if (!PEDE_RECHEIO.test(l.item)) continue;
+      const ditos = String(l.obs ?? "").match(RECHEIOS) ?? [];
+      const inventado = ditos.find((r) => !new RegExp(r.replace(/[óo]/i, "[óo]"), "i").test(falaDoCliente));
+      if (inventado) {
+        precisaConfirmacao = true;
+        pendencias.push(`o recheio "${inventado}" do ${l.item} não foi pedido pelo cliente, conferir`);
+      }
+    }
+
     const semRecheio = c.linhas.filter((l) => PEDE_RECHEIO.test(l.item) && !String(l.obs ?? "").trim());
     if (semRecheio.length > 0) {
       // Devolve SEM registrar: o recheio ainda dá pra perguntar, e perguntar é
