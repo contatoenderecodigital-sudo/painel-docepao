@@ -206,6 +206,17 @@ export type Mensagem = { role: "user" | "assistant"; content: string };
 
 // Executa uma ferramenta e devolve o texto do resultado (o que a IA "vê").
 // Usa o MOTOR do tenant (cardápio da padaria certa).
+// Lê a forma de pagamento na fala do cliente. Devolve undefined quando ele não
+// disse nada — e "não disse" é diferente de "disse dinheiro": a segunda é uma
+// escolha, a primeira é um buraco que a equipe precisa fechar.
+function detectarPagamento(fala: string): string | undefined {
+  const t = fala.toLowerCase();
+  if (/pix/.test(t)) return "pix";
+  if (/cart[ãa]o|cr[ée]dito|d[ée]bito|parcel/.test(t)) return "cartao";
+  if (/dinheiro|esp[ée]cie|vista/.test(t)) return "dinheiro";
+  return undefined;
+}
+
 function executarFerramenta(
   nome: string,
   input: Record<string, unknown>,
