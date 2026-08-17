@@ -99,10 +99,27 @@ async function verificarNumero(
       const j = (await r.json()) as { display_phone_number?: string; verified_name?: string };
       return { vivo: true, numero: j.display_phone_number ?? null, perfil: j.verified_name ?? null };
     }
-    const j = (await r.json().catch(() => ({}))) as { error?: { code?: number; type?: string } };
-    const code = j?.error?.code;
-    // 190 token invalido/expirado, 102 sessao, 10/200/104 permissao, 100 objeto invalido.
-    const morto = [190, 102, 10, 200, 104, 100].includes(Number(code)) || j?.error?.type === "OAuthException";
+    const j = (await r.json().catch(() => ({}))) as { error?: { code?: number; type?: string; message?: string } };
+    const code = Number(j?.error?.code);
+    // Só desconecta quando o TOKEN é o problema: 190 (inválido/expirado), 102
+    // (sessão) e OAuthException. Nada mais.
+    //
+    // O código 100 saiu desta lista, e ele era o perigoso: significa "objeto não
+    // existe ou sem permissão", que é o que a Meta devolve quando o phone_id
+    // está errado ou quando ela tem um soluço de permissão. Com ele aqui, uma
+    // falha passageira apagava a credencial boa do cliente e a padaria ficava
+    // desconectada sem ninguém entender por quê. Aconteceu de verdade: um teste
+    // meu com um phone_id velho derrubou a conexão real da Doce Pão.
+    //
+    // Desconectar por engano é muito pior que manter uma conexão duvidosa: no
+    // segundo caso o envio falha e aparece no log; no primeiro o cliente some
+    // do sistema e a equipe descobre pelo cliente reclamando.
+    const morto = [190, 102].includes(code) || j?.error?.type === "OAuthException";
+    if (!morto) {
+      console.error(
+        "[whatsapp] verificacao do numero falhou (mantendo a conexao): code=" + code + " " + (j?.error?.message ?? "").slice(0, 90),
+      );
+    }
     return { vivo: !morto };
   } catch {
     return { vivo: true }; // rede/timeout: nao derruba, mantem o que o banco diz
