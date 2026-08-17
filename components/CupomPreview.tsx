@@ -74,8 +74,13 @@ function htmlDoTicket(
 const PRINT_CSS = `
   * { box-sizing: border-box; }
   body { margin: 0; color: #000; background: #fff; font-family: "Courier New", monospace; }
-  .tk { width: 72mm; padding: 5mm 4mm; font-size: 12px; line-height: 1.4; page-break-after: always; }
-  .tk:last-child { page-break-after: auto; }
+  /* Os cupons descem um embaixo do outro e so quebram a folha quando nao cabem.
+     Antes cada cupom forcava folha nova: um pedido de festa saia em 7 paginas de
+     A4. Em bobina termica o resultado e o mesmo (o papel corre continuo), e no
+     A4 a dona corta na linha tracejada. */
+  .tk { width: 72mm; padding: 5mm 4mm; font-size: 12px; line-height: 1.4; break-inside: avoid; page-break-inside: avoid; }
+  .tk + .tk { border-top: 2px dashed #000; margin-top: 4mm; padding-top: 5mm; }
+  @media print { @page { margin: 8mm; } }
   .b { font-weight: bold; }
   .prod { font-weight: bold; text-transform: uppercase; font-size: 13px; }
   .center { text-align: center; }
