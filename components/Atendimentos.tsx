@@ -615,10 +615,6 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                   </div>
                 </ScrollArea>
 
-                {/* O pedido tomando forma, logo acima do campo de digitar: é
-                    onde a equipe olha antes de responder qualquer coisa. */}
-                <PedidoMontado clienteId={ativa.id} versao={mensagens.length} />
-
                 {/* Quem está respondendo, logo acima de onde se digita. É o lugar
                     certo pra isso: a decisão de assumir acontece na hora de
                     escrever, não no topo da tela. */}

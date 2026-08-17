@@ -13,7 +13,7 @@
 // ============================================================================
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, Plus, Trash2, ClipboardList, Check } from "lucide-react";
+import { ChevronDown, Plus, Trash2, Check } from "lucide-react";
 
 type Categoria =
   | "bolo_festa" | "bolo_caseiro" | "docinho" | "salgado_frito" | "salgado_assado"
@@ -131,36 +131,18 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
   const preenchidos = CAMPOS.filter((c) => (dados[c.chave] ?? "").toString().trim() !== "").length;
   const vazio = itens.length === 0 && preenchidos === 0;
 
-  // Nada anotado e ninguém abriu: não ocupa espaço do chat à toa.
-  if (vazio && !aberto) {
-    return (
-      <button
-        onClick={() => setAberto(true)}
-        className="w-full px-3 py-1.5 border-t border-white/10 flex items-center gap-2 text-[12px] text-cream/40 hover:text-cream/70 transition-colors shrink-0"
-        style={{ background: "rgba(0,0,0,0.10)" }}
-      >
-        <ClipboardList size={13} className="shrink-0" />
-        <span className="truncate">Nada anotado no pedido ainda. Toque pra montar na mão.</span>
-      </button>
-    );
-  }
-
   const resumo = itens.length
     ? itens.map((x) => `${x.qtd}${x.unidade === "kg" ? "kg" : ""} ${x.produto}`).join(", ")
     : "só os dados por enquanto";
 
   return (
-    <div className="border-t border-white/10 shrink-0" style={{ background: "rgba(231,207,148,0.07)" }}>
+    <div>
       <button
         onClick={() => setAberto((v) => !v)}
-        className="w-full px-3 py-2 flex items-center gap-2 text-left"
+        className="w-full flex items-center gap-2 text-left"
         aria-expanded={aberto}
       >
-        <ClipboardList size={14} className="shrink-0" style={{ color: "#e7cf94" }} />
-        <span className="text-[12px] font-semibold shrink-0" style={{ color: "#e7cf94" }}>
-          Pedido montado
-        </span>
-        <span className="text-[12px] text-cream/55 truncate flex-1 min-w-0">{resumo}</span>
+        <span className="t-label text-cream/45 flex-1 min-w-0">Pedido montado</span>
         {sujo && (
           <span className="text-[11px] shrink-0" style={{ color: "#e7cf94" }}>
             não salvo
@@ -173,30 +155,22 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
         />
       </button>
 
+      {/* Fechado, mostra o resumo numa linha: dá pra bater o olho e seguir. */}
+      {!aberto && (
+        <p className="text-[12px] text-cream/60 mt-2 leading-snug">
+          {vazio ? "Nada anotado ainda." : resumo}
+        </p>
+      )}
+
       {aberto && (
-        <div className="px-3 pb-3 max-h-[46vh] overflow-y-auto">
+        <div className="mt-2.5">
           <div className="flex flex-col gap-2">
             {itens.map((it, i) => (
               <div key={i} className="rounded-[12px] p-2.5 border border-white/8" style={{ background: "rgba(0,0,0,0.18)" }}>
+                {/* Coluna estreita: o produto ocupa a linha inteira e o resto
+                    vem embaixo. Lado a lado, sobrava um campo de produto de
+                    dois dedos de largura. */}
                 <div className="flex items-center gap-1.5">
-                  <input
-                    type="number"
-                    min={0}
-                    step={it.unidade === "kg" ? 0.5 : 1}
-                    value={it.qtd}
-                    onChange={(e) => mexerItem(i, { qtd: Number(e.target.value) })}
-                    className={campo + " w-[64px] shrink-0 text-center"}
-                    aria-label="Quantidade"
-                  />
-                  <select
-                    value={it.unidade}
-                    onChange={(e) => mexerItem(i, { unidade: e.target.value as "un" | "kg" })}
-                    className={campo + " w-[58px] shrink-0"}
-                    aria-label="Unidade"
-                  >
-                    <option value="un">un</option>
-                    <option value="kg">kg</option>
-                  </select>
                   <input
                     value={it.produto}
                     onChange={(e) => mexerItem(i, { produto: e.target.value })}
@@ -209,13 +183,31 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                       setItens((p) => p.filter((_, k) => k !== i));
                       setSujo(true);
                     }}
-                    className="w-9 h-9 shrink-0 grid place-items-center rounded-lg text-cream/45 hover:text-cream hover:bg-white/10 transition-colors"
+                    className="w-8 h-8 shrink-0 grid place-items-center rounded-lg text-cream/45 hover:text-cream hover:bg-white/10 transition-colors"
                     aria-label="Tirar item"
                   >
                     <Trash2 size={15} />
                   </button>
                 </div>
                 <div className="flex items-center gap-1.5 mt-1.5">
+                  <input
+                    type="number"
+                    min={0}
+                    step={it.unidade === "kg" ? 0.5 : 1}
+                    value={it.qtd}
+                    onChange={(e) => mexerItem(i, { qtd: Number(e.target.value) })}
+                    className={campo + " w-[58px] shrink-0 text-center"}
+                    aria-label="Quantidade"
+                  />
+                  <select
+                    value={it.unidade}
+                    onChange={(e) => mexerItem(i, { unidade: e.target.value as "un" | "kg" })}
+                    className={campo + " w-[54px] shrink-0"}
+                    aria-label="Unidade"
+                  >
+                    <option value="un">un</option>
+                    <option value="kg">kg</option>
+                  </select>
                   <select
                     value={it.categoria}
                     onChange={(e) => {
@@ -223,7 +215,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                       const porQuilo = CATEGORIAS.find((c) => c.id === cat)?.porQuilo;
                       mexerItem(i, { categoria: cat, unidade: porQuilo ? "kg" : it.unidade });
                     }}
-                    className={campo + " w-[124px] shrink-0"}
+                    className={campo + " flex-1"}
                     aria-label="Categoria"
                   >
                     {CATEGORIAS.map((c) => (
@@ -232,14 +224,14 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                       </option>
                     ))}
                   </select>
-                  <input
-                    value={it.obs ?? ""}
-                    onChange={(e) => mexerItem(i, { obs: e.target.value })}
-                    placeholder="recheio, sabor, tema..."
-                    className={campo + " flex-1"}
-                    aria-label="Observação do item"
-                  />
                 </div>
+                <input
+                  value={it.obs ?? ""}
+                  onChange={(e) => mexerItem(i, { obs: e.target.value })}
+                  placeholder="recheio, sabor, tema..."
+                  className={campo + " w-full mt-1.5"}
+                  aria-label="Observação do item"
+                />
               </div>
             ))}
 
@@ -254,7 +246,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
               <Plus size={14} /> Acrescentar item
             </button>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+            <div className="grid grid-cols-1 gap-2 mt-1">
               {CAMPOS.map((c) => (
                 <label key={c.chave} className="min-w-0">
                   <span className="block text-[11px] text-cream/45 mb-1">{c.rotulo}</span>

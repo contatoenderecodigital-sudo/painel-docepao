@@ -408,6 +408,7 @@ function executarFerramenta(
   motor: Motor,
   falaDoCliente = "",
   montagemAtual?: MontagemAtual | null,
+  pedidoAguardando = false,
 ): string {
   if (nome === "montar_orcamento") {
     if (input.modo === "itens") {
@@ -432,6 +433,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
   }
 
   if (nome === "cliente_aceitou_orcamento") {
+    // Esta ferramenta e SO pro aceite do valor que a equipe ajustou depois de
+    // ja existir pedido. Ela vinha sendo usada pro "pode fechar" do fim da
+    // conversa: o pedido nunca era registrado e a fila ficava vazia, com o
+    // cliente avisado de que estava tudo certo.
+    if (!pedidoAguardando) {
+      return (
+        "NAO existe pedido nenhum esperando o aceite deste cliente, entao nao era esta a ferramenta. " +
+        "Ele esta fechando o pedido agora: chame registrar_pedido com os dados que ja estao anotados."
+      );
+    }
     estado.aceitouOrcamento = true;
     return "Anotado: o cliente aceitou o valor. Responda com uma frase curta confirmando que voce ja passou pra equipe, e NAO chame registrar_pedido: o pedido ja esta montado e a equipe ja ajustou.";
   }
@@ -956,6 +967,7 @@ async function rodarConversa(
   origem: string,
   clienteId?: string | null,
   montagemAtual?: MontagemAtual | null,
+  pedidoAguardando = false,
 ): Promise<RespostaIA> {
   const client = new OpenAI({
     apiKey: prov.apiKey,
@@ -1058,7 +1070,7 @@ async function rodarConversa(
         .filter((m) => m.role === "user" && typeof m.content === "string")
         .map((m) => m.content as string)
         .join("  ");
-      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemAtual);
+      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemAtual, pedidoAguardando);
       messages.push({ role: "tool", tool_call_id: tc.id, content: saida });
     }
   }
@@ -1110,6 +1122,7 @@ export async function responder(
   origem = "whatsapp",
   clienteId?: string | null,
   montagemAtual?: MontagemAtual | null,
+  pedidoAguardando = false,
 ): Promise<RespostaIA> {
   const system = montarSystemComData(tenant);
   const lista = provedores(tenant);
@@ -1124,7 +1137,7 @@ export async function responder(
   for (const prov of lista) {
     for (let tentativa = 1; tentativa <= 2; tentativa++) {
       try {
-        return await rodarConversa(prov, system, historico, tenant, origem, clienteId, montagemAtual);
+        return await rodarConversa(prov, system, historico, tenant, origem, clienteId, montagemAtual, pedidoAguardando);
       } catch (e) {
         ultimoErro = e;
         const msg = (e as Error)?.message ?? String(e);

@@ -26,7 +26,7 @@ import {
   salvarFotoPendente,
 } from "@/lib/banco/conversas";
 import { definirHandoff, iaPausada, ultimaMsgClienteMs } from "@/lib/banco/atendimentos";
-import { registrarAceiteCliente } from "@/lib/banco/pedidos";
+import { registrarAceiteCliente, temPedidoAguardandoCliente } from "@/lib/banco/pedidos";
 import { anotarItem, removerItem, anotarDados, limparMontagem, lerMontagem } from "@/lib/banco/montagem";
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
@@ -239,12 +239,16 @@ async function processar(corpo: WebhookPayload) {
       // reconstrói tudo de cabeça a cada mensagem, e é aí que perde item, troca
       // bolo por docinho e pergunta de novo o que o cliente já respondeu.
       const montado = await lerMontagem(negocioId, clienteId).catch(() => null);
+      // Existe pedido deste cliente esperando ele aceitar o valor que a equipe
+      // ajustou? So nesse caso o "pode fechar" dele e aceite de orcamento; fora
+      // disso e o fechamento normal, e o pedido ainda precisa ser registrado.
+      const aguardando = await temPedidoAguardandoCliente(negocioId, clienteId).catch(() => false);
 
       let resp;
       try {
         // clienteId (o mesmo do acharOuCriarCliente/salvarMensagem) amarra o
         // custo de IA a ESTA conversa — pra o painel mostrar o custo por atendimento.
-        resp = await responder(historico, tenant, "whatsapp", clienteId, montado);
+        resp = await responder(historico, tenant, "whatsapp", clienteId, montado, aguardando);
       } catch (e) {
         console.error("[whatsapp] IA falhou (todos os provedores):", e);
         const desculpa = "Tive um probleminha aqui agora, ja ja te respondo, ta?";
