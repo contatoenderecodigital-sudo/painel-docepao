@@ -862,6 +862,11 @@ function PainelContato({ conversa, qtdMensagens, onToast }: { conversa: Conversa
               </div>
             ))}
           </div>
+          {/* O pedido tomando forma. Fica aqui, ao lado da conversa, pra equipe
+              conferir e corrigir sem tapar o que o cliente está escrevendo. */}
+          <div className="border-t border-white/10 pt-4 mt-4">
+            <PedidoMontado clienteId={conversa.id} versao={qtdMensagens} />
+          </div>
           <a
             href={"/clientes?telefone=" + encodeURIComponent(conversa.clienteTelefone)}
             className="w-full mt-5 py-2.5 rounded-[12px] bg-white/8 text-cream/85 text-[13px] font-medium hover:bg-white/14 transition-colors flex items-center justify-center gap-2"
