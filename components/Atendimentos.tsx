@@ -22,7 +22,7 @@ import AudioBolha from "@/components/AudioBolha";
 import {
   Search, Plus, Paperclip, SendHorizontal, ArrowLeft, Bot, X,
   MessageSquare, Info, FileText, Download, CheckCheck, AlertCircle,
-  Clock, ShieldAlert, Hand,
+  Clock, ShieldAlert, Hand, ShoppingBag,
 } from "lucide-react";
 
 const CORES = ["#5b8c7b", "#c58a3d", "#7a6cae", "#4a7ba6", "#a85b52", "#6f9b52", "#b0713e", "#8a5a86"];
@@ -207,6 +207,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [tplAberto, setTplAberto] = useState(false);
   const [assumindo, setAssumindo] = useState<string | null>(null);
+  const [aba, setAba] = useState<"todas" | "ia" | "humano" | "atencao">("todas");
   const [novaAberto, setNovaAberto] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [, setTick] = useState(0); // força recomputar a janela de 24h
@@ -288,22 +289,32 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
 
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
+    // A aba filtra por QUEM está respondendo — é a pergunta que a equipe faz ao
+    // abrir a tela ("o que precisa de mim?"), não "quem mandou mensagem".
+    const porAba = (c: Conversa) =>
+      aba === "todas" ? true
+      : aba === "humano" ? c.estado === "humano"
+      : aba === "atencao" ? c.estado === "precisa_humano"
+      : c.estado === "ia";
+    const conversas2 = conversas.filter(porAba);
+    const conversasOrig = conversas;
+    void conversasOrig;
     const base = q
-      ? conversas.filter(
+      ? conversas2.filter(
           (c) =>
             c.clienteNome.toLowerCase().includes(q) ||
             c.clienteTelefone.replace(/\D/g, "").includes(q.replace(/\D/g, "")) ||
             c.previa.toLowerCase().includes(q) ||
             c.mensagens.some((m) => m.texto.toLowerCase().includes(q)),
         )
-      : conversas;
+      : conversas2;
     // handoff ("precisa de você") primeiro; resto pela mais recente (já vem ordenado).
     return [...base].sort((a, b) => {
       const ha = a.estado === "precisa_humano" ? 1 : 0;
       const hb = b.estado === "precisa_humano" ? 1 : 0;
       return hb - ha;
     });
-  }, [busca, conversas]);
+  }, [busca, conversas, aba]);
 
   const ativa = conversas.find((c) => c.id === ativaId);
   const mensagens: Pend[] = useMemo(
@@ -422,7 +433,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
       <div className="hidden md:block text-[11px] uppercase tracking-[0.2em] text-dourado font-semibold mb-3 shrink-0">Atendimentos</div>
 
       <div className="flex-1 min-h-0">
-        <div className="h-full md:grid md:grid-cols-[minmax(300px,360px)_1fr] md:gap-4">
+        <div className="h-full md:grid md:grid-cols-[minmax(300px,360px)_1fr] xl:grid-cols-[minmax(300px,340px)_1fr_320px] md:gap-4">
           {/* ===================== LISTA ===================== */}
           <div className={"glass rounded-[20px] flex-col min-h-0 overflow-hidden h-full " + (vista === "chat" ? "hidden md:flex" : "flex")}>
             <div className="p-3 flex items-center gap-2">
@@ -438,6 +449,24 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
               <button onClick={() => setNovaAberto(true)} className="btn-cobre press w-11 h-11 md:w-9 md:h-9 grid place-items-center shrink-0" aria-label="Nova conversa" title="Nova conversa">
                 <Plus size={18} />
               </button>
+            </div>
+
+            {/* filtros por quem atende */}
+            <div className="px-3 pb-2 flex items-center gap-1.5 overflow-x-auto">
+              {([["todas", "Todas"], ["ia", "IA"], ["humano", "Humano"], ["atencao", "Precisa de você"]] as const).map(([id, rotulo]) => {
+                const on = aba === id;
+                const n = id === "todas" ? conversas.length : conversas.filter((c) => (id === "humano" ? c.estado === "humano" : id === "atencao" ? c.estado === "precisa_humano" : c.estado === "ia")).length;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setAba(id)}
+                    className={"shrink-0 h-7 px-3 rounded-full text-[12px] font-medium transition-colors " + (on ? "text-vinho-d" : "text-cream/70 hover:text-cream")}
+                    style={on ? { background: "linear-gradient(135deg,#96741a,#e7cf94)" } : { background: "rgba(255,255,255,0.07)" }}
+                  >
+                    {rotulo}{n > 0 && <span className={on ? "opacity-70" : "opacity-50"}> {n}</span>}
+                  </button>
+                );
+              })}
             </div>
 
             <ScrollArea className="flex-1 min-h-0">
@@ -505,8 +534,11 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                     <Avatar nome={ativa.clienteNome} tam={38} raio={11} />
                     <div className="min-w-0">
                       <div className="font-semibold text-cream text-[14.5px] truncate">{ativa.clienteNome}</div>
-                      <div className="text-[11px] text-cream/55 truncate flex items-center gap-1.5">
-                        <span className="truncate">{formatarTelefoneBR(ativa.clienteTelefone)}</span>
+                      <div className="text-[11px] truncate flex items-center gap-1.5" style={{ color: ativa.estado === "humano" ? "#e7cf94" : "#7fd1a4" }}>
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "currentColor" }} />
+                        <span className="truncate">{ativa.estado === "humano" ? "Você atendendo" : "IA atendendo"}</span>
+                        <span className="text-cream/45 shrink-0">·</span>
+                        <span className="truncate text-cream/55">{formatarTelefoneBR(ativa.clienteTelefone)}</span>
                         {ativa.custoCentavos != null && ativa.custoCentavos > 0 && (
                           <span className="text-cream/35 shrink-0" title="Custo estimado de IA nesta conversa">
                             · {brl(ativa.custoCentavos)}
@@ -521,22 +553,8 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                         <ShieldAlert size={13} /> Precisa de você
                       </span>
                     )}
-                    {/* Assumir/devolver: enquanto assumida, a IA não responde este
-                        cliente. É o botão que faltava pra dona entrar na conversa. */}
-                    <button
-                      onClick={() => alternarAssumir(ativa.id, ativa.estado !== "humano")}
-                      disabled={assumindo === ativa.id}
-                      title={ativa.estado === "humano" ? "A IA está parada nesta conversa. Devolver o atendimento pra ela." : "Você passa a responder e a IA para de falar com este cliente."}
-                      className="press toque inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12.5px] font-semibold disabled:opacity-60 transition-colors"
-                      style={
-                        ativa.estado === "humano"
-                          ? { background: "rgba(231,207,148,0.16)", color: "#e7cf94", border: "1px solid rgba(231,207,148,0.35)" }
-                          : { background: "rgba(255,255,255,0.08)", color: "rgba(255,247,235,0.85)", border: "1px solid rgba(255,255,255,0.14)" }
-                      }
-                    >
-                      {ativa.estado === "humano" ? <><Bot size={14} /> <span className="hidden sm:inline">Devolver pra IA</span></> : <><Hand size={14} /> <span className="hidden sm:inline">Assumir</span></>}
-                    </button>
-                    <button onClick={() => setDrawer(true)} className="w-11 h-11 shrink-0 grid place-items-center rounded-full text-cream/70 hover:text-cream hover:bg-white/10 active:bg-white/15 transition-colors" aria-label="Informações do contato">
+
+                    <button onClick={() => setDrawer(true)} className="xl:hidden w-11 h-11 shrink-0 grid place-items-center rounded-full text-cream/70 hover:text-cream hover:bg-white/10 active:bg-white/15 transition-colors" aria-label="Informações do contato">
                       <Info size={18} />
                     </button>
                   </div>
@@ -577,6 +595,26 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                   </div>
                 </ScrollArea>
 
+                {/* Quem está respondendo, logo acima de onde se digita. É o lugar
+                    certo pra isso: a decisão de assumir acontece na hora de
+                    escrever, não no topo da tela. */}
+                <div className="px-3 py-2 border-t border-white/10 shrink-0 flex items-center justify-between gap-2" style={{ background: "rgba(0,0,0,0.14)" }}>
+                  <span className="inline-flex items-center gap-2 text-[12.5px] min-w-0" style={{ color: ativa.estado === "humano" ? "#e7cf94" : "#7fd1a4" }}>
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "currentColor" }} />
+                    <span className="truncate">{ativa.estado === "humano" ? "Você está atendendo" : "A IA está respondendo"}</span>
+                  </span>
+                  <button
+                    onClick={() => alternarAssumir(ativa.id, ativa.estado !== "humano")}
+                    disabled={assumindo === ativa.id}
+                    className="press toque inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12.5px] font-semibold shrink-0 disabled:opacity-60"
+                    style={ativa.estado === "humano"
+                      ? { background: "rgba(255,255,255,0.09)", color: "rgba(255,247,235,0.88)", border: "1px solid rgba(255,255,255,0.16)" }
+                      : { background: "linear-gradient(135deg,#96741a,#e7cf94)", color: "#3d1219" }}
+                  >
+                    {ativa.estado === "humano" ? <><Bot size={14} /> Devolver pra IA</> : <><Hand size={14} /> Assumir conversa</>}
+                  </button>
+                </div>
+
                 {/* composer / aviso de janela */}
                 <div className="px-3 pt-2.5 pb-3 border-t border-white/10 shrink-0" style={{ background: "rgba(255,255,255,0.04)" }}>
                   {janelaAberta ? (
@@ -615,6 +653,21 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
               </>
             )}
           </div>
+
+          {/* ===================== CONTATO (3a coluna no PC) ===================== */}
+          {ativa && (
+            <div className="hidden xl:flex glass rounded-[20px] flex-col min-h-0 overflow-hidden h-full">
+              <div className="px-4 h-[58px] border-b border-white/10 flex items-center shrink-0">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-dourado font-semibold">Contato</span>
+              </div>
+              <ScrollArea className="flex-1 min-h-0">
+                <div className="flex flex-col items-center text-center pt-5">
+                  <Avatar nome={ativa.clienteNome} tam={64} raio={18} />
+                </div>
+                <PainelContato conversa={ativa} qtdMensagens={mensagens.length} onToast={mostrarToast} />
+              </ScrollArea>
+            </div>
+          )}
         </div>
       </div>
 
@@ -668,8 +721,25 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
   );
 }
 
-// ---------- Drawer de informações do contato ----------
+// ---------- Drawer de informações do contato (celular/tablet) ----------
+// No PC o mesmo conteúdo vira a terceira coluna fixa (PainelContato) — era assim
+// no desenho original e some informação demais quando fica escondido atrás de um
+// botão: etiqueta, nota, desde quando a conversa está aberta.
 function ContatoDrawer({ conversa, qtdMensagens, onFechar, onToast }: { conversa: Conversa; qtdMensagens: number; onFechar: () => void; onToast: (t: string) => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end xl:hidden" style={{ background: "rgba(0,0,0,0.5)" }} onClick={onFechar}>
+      <div className="w-full max-w-sm h-full overflow-auto" style={{ background: "rgba(73,16,32,0.96)", backdropFilter: "blur(24px)", borderLeft: "1px solid rgba(255,255,255,0.14)" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 h-[58px] border-b border-white/10">
+          <span className="text-[11px] uppercase tracking-[0.18em] text-dourado font-semibold">Contato</span>
+          <button onClick={onFechar} className="w-9 h-9 grid place-items-center rounded-full text-cream/60 hover:text-cream hover:bg-white/10" aria-label="Fechar"><X size={18} /></button>
+        </div>
+        <PainelContato conversa={conversa} qtdMensagens={qtdMensagens} onToast={onToast} />
+      </div>
+    </div>
+  );
+}
+
+function PainelContato({ conversa, qtdMensagens, onToast }: { conversa: Conversa; qtdMensagens: number; onToast: (t: string) => void }) {
   const [nota, setNota] = useState("");
   const [salvando, setSalvando] = useState(false);
   async function salvarNota() {
@@ -683,13 +753,10 @@ function ContatoDrawer({ conversa, qtdMensagens, onFechar, onToast }: { conversa
       setSalvando(false);
     }
   }
+  const ultima = conversa.mensagens[conversa.mensagens.length - 1];
+  const aguardando = ultima ? ultima.de !== "cliente" : false;
+  const assumida = conversa.estado === "humano";
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" style={{ background: "rgba(0,0,0,0.5)" }} onClick={onFechar}>
-      <div className="w-full max-w-sm h-full overflow-auto" style={{ background: "rgba(73,16,32,0.96)", backdropFilter: "blur(24px)", borderLeft: "1px solid rgba(255,255,255,0.14)" }} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 h-[58px] border-b border-white/10">
-          <span className="text-[11px] uppercase tracking-[0.18em] text-dourado font-semibold">Contato</span>
-          <button onClick={onFechar} className="w-9 h-9 grid place-items-center rounded-full text-cream/60 hover:text-cream hover:bg-white/10" aria-label="Fechar"><X size={18} /></button>
-        </div>
         <div className="p-5">
           <div className="flex flex-col items-center text-center pb-4">
             <Avatar nome={conversa.clienteNome} tam={64} raio={18} />
@@ -703,7 +770,29 @@ function ContatoDrawer({ conversa, qtdMensagens, onFechar, onToast }: { conversa
               <ShieldAlert size={14} /> A IA pediu a equipe nesta conversa.
             </div>
           )}
+          {/* Estado do atendimento: quem responde, desde quando, e de quem é a
+              vez. Sem isso a equipe abre a conversa sem saber se pode entrar. */}
           <div className="border-t border-white/10 pt-4">
+            <span className="t-label text-cream/45">Atendimento</span>
+            <div className="mt-2.5 space-y-2.5 text-[13px]">
+              <div className="flex items-center gap-2.5" style={{ color: assumida ? "#e7cf94" : "#7fd1a4" }}>
+                {assumida ? <Hand size={14} className="shrink-0" /> : <Bot size={14} className="shrink-0" />}
+                <span>{assumida ? "Você está atendendo" : "IA atendendo"}</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-cream/75">
+                <Clock size={14} className="shrink-0 text-cream/45" />
+                <span>Aberta desde {conversa.mensagens[0]?.hora ?? "-"}</span>
+              </div>
+              <div className="flex items-start gap-2.5 text-cream/75">
+                <CheckCheck size={14} className="shrink-0 mt-0.5 text-cream/45" />
+                <div className="min-w-0">
+                  <div>{aguardando ? "Aguardando cliente" : "Cliente aguardando resposta"}</div>
+                  <div className="text-[11px] text-cream/45 mt-0.5">último contato {ultima?.hora ?? "-"}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-white/10 pt-4 mt-4">
             <span className="t-label text-cream/45">Nota interna</span>
             <textarea
               value={nota}
@@ -716,16 +805,20 @@ function ContatoDrawer({ conversa, qtdMensagens, onFechar, onToast }: { conversa
             <div className="text-[11px] text-cream/40 mt-1 h-4">{salvando ? "Salvando..." : ""}</div>
           </div>
           <div className="border-t border-white/10 pt-4 mt-4 space-y-3">
-            {[["Canal", "WhatsApp"], ["Mensagens", String(qtdMensagens)]].map(([l, v]) => (
+            {[["Canal", "WhatsApp"], ["Mensagens", String(qtdMensagens)], ["Custo de IA", conversa.custoCentavos ? brl(conversa.custoCentavos) : "—"]].map(([l, v]) => (
               <div key={l} className="flex items-center justify-between gap-3">
                 <span className="text-[11px] text-cream/45">{l}</span>
                 <span className="text-[13px] text-cream font-medium">{v}</span>
               </div>
             ))}
           </div>
+          <a
+            href={"/clientes?telefone=" + encodeURIComponent(conversa.clienteTelefone)}
+            className="w-full mt-5 py-2.5 rounded-[12px] bg-white/8 text-cream/85 text-[13px] font-medium hover:bg-white/14 transition-colors flex items-center justify-center gap-2"
+          >
+            <ShoppingBag size={16} /> Ver pedidos do cliente
+          </a>
         </div>
-      </div>
-    </div>
   );
 }
 
