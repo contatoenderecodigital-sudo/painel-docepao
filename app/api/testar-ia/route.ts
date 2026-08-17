@@ -16,7 +16,7 @@ import { NextRequest } from "next/server";
 import { lerSessao } from "@/lib/auth";
 import { carregarTenant } from "@/lib/ia/tenant";
 import { responder, type Mensagem } from "@/lib/ia/cerebro";
-import { acharOuCriarCliente, registrarPedido, anexarFotoAoPedido } from "@/lib/banco/conversas";
+import { acharOuCriarCliente, registrarPedido, anexarFotoAoPedido, salvarFotoPendente } from "@/lib/banco/conversas";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -88,6 +88,18 @@ export async function POST(req: NextRequest) {
     console.error("[testar-ia] falha ao resolver cliente sintetico (segue sem):", e);
   }
 
+  // A foto vira "pendente" na hora, como na produção — e não só quando o pedido
+  // fecha na MESMA mensagem. Quase nunca fecha: o cliente manda a foto do topo
+  // no meio da conversa e só combina data e pagamento depois. Guardando aqui,
+  // registrarPedido liga a foto ao pedido igual ao webhook faz.
+  if (foto && clienteId) {
+    try {
+      await salvarFotoPendente(negocioId, clienteId, foto.dados, foto.mime);
+    } catch (e) {
+      console.error("[testar-ia] falha ao guardar foto de referência:", e);
+    }
+  }
+
   let resp;
   try {
     resp = await responder(historico, tenant, "whatsapp", clienteId);
@@ -106,10 +118,11 @@ export async function POST(req: NextRequest) {
       // Reusa o cliente sintético já resolvido acima; se não resolveu (falha
       // pontual antes de responder), acha-ou-cria de novo (idempotente).
       const idCliente = clienteId ?? (await acharOuCriarCliente(negocioId, TESTE_TELEFONE, TESTE_NOME));
+      // registrarPedido já liga as fotos pendentes deste cliente ao pedido; só
+      // resta cobrir o caso em que a foto veio na MESMA mensagem que fechou o
+      // pedido e o cliente sintético não pôde ser resolvido antes.
       const pedidoId = await registrarPedido(negocioId, idCliente, resp.pedidoRegistrado);
-      // Fecha o fluxo completo do /testar: se o dono anexou uma foto, ela vira a
-      // foto de referência DESTE pedido (aparece na aprovação e na produção).
-      if (foto && pedidoId) {
+      if (foto && pedidoId && !clienteId) {
         try {
           await anexarFotoAoPedido(negocioId, pedidoId, idCliente, foto.dados, foto.mime);
         } catch (e) {
