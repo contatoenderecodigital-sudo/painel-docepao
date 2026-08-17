@@ -402,11 +402,15 @@ async function rodarConversa(
   // Acumula os tokens de TODAS as chamadas deste turno. Um round de tool-call
   // faz várias chamadas (uma por iteração do loop); somamos tudo e gravamos uma
   // vez só, no fim. Fire-and-forget: nunca deixa a medição travar a resposta.
-  const uso: UsoTurno = { tokensIn: 0, tokensOut: 0 };
+  const uso: UsoTurno = { tokensIn: 0, tokensOut: 0, cacheRead: 0 };
   const somarUso = (u: OpenAI.Completions.CompletionUsage | undefined | null) => {
     if (!u) return;
     uso.tokensIn += u.prompt_tokens ?? 0;
     uso.tokensOut += u.completion_tokens ?? 0;
+    // A OpenAI faz cache de prompt sozinha (prefixo >1024 tokens) e devolve
+    // quanto reaproveitou. A gente nunca lia isso: a tela mostrava 0 de cache e
+    // o custo era calculado como se tudo fosse entrada nova, inflando a conta.
+    uso.cacheRead = (uso.cacheRead ?? 0) + (u.prompt_tokens_details?.cached_tokens ?? 0);
   };
   const gravarUso = () => {
     // modelo REAL usado = prov.modelo (o que de fato respondeu neste provedor).
