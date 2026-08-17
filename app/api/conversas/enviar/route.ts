@@ -44,7 +44,14 @@ export async function POST(req: NextRequest) {
     await enviarTexto(telefone, texto, { phoneId: creds.phoneId, token: creds.token });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    // Sem isto o motivo real morria aqui: o painel dizia "tente de novo" e o log
+    // do servidor não registrava nada. Token vencido não melhora tentando de novo.
+    console.error("[conversas/enviar] falha ao enviar:", msg);
     if (/credenciais/i.test(msg)) return Response.json({ ok: false, erro: "sem_conexao" }, { status: 400 });
+    // Token expirado/sem permissão no número (Graph 190, ou 100/33 no phone_id).
+    if (/code\D*190|error_subcode\D*33|missing permissions|does not exist/i.test(msg)) {
+      return Response.json({ ok: false, erro: "conexao_expirada", detalhe: msg }, { status: 400 });
+    }
     return Response.json({ ok: false, erro: "falha_envio", detalhe: msg }, { status: 502 });
   }
 

@@ -350,7 +350,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
       else if (!r.ok) {
         const j = await r.json().catch(() => ({}));
         marcarPend(convId, tmpId, { status: "erro" });
-        mostrarToast(j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : "Não consegui enviar. Tente de novo.");
+        mostrarToast(j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : j.erro === "conexao_expirada" ? "A conexão do WhatsApp expirou. Reconecte em Conectar WhatsApp." : "Não consegui enviar. Tente de novo.");
       } else {
         const j = await r.json();
         marcarPend(convId, tmpId, { status: "enviado", serverId: j.id });
@@ -383,7 +383,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
         marcarPend(convId, tmpId, { status: "erro" });
-        mostrarToast(j.erro === "janela_fechada" ? "A janela de 24h fechou." : j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : j.erro === "arquivo_grande" ? "Arquivo grande demais (máx 16MB)." : "Não consegui enviar o anexo.");
+        mostrarToast(j.erro === "janela_fechada" ? "A janela de 24h fechou." : j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : j.erro === "conexao_expirada" ? "A conexão do WhatsApp expirou. Reconecte em Conectar WhatsApp." : j.erro === "arquivo_grande" ? "Arquivo grande demais (máx 16MB)." : "Não consegui enviar o anexo.");
       } else {
         const j = await r.json();
         marcarPend(convId, tmpId, { status: "enviado", serverId: j.id });
@@ -401,7 +401,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
       const r = await fetch("/api/conversas/template", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) {
-        mostrarToast(j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : j.erro === "telefone_invalido" ? "Número inválido." : "Não consegui enviar o modelo.");
+        mostrarToast(j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : j.erro === "conexao_expirada" ? "A conexão do WhatsApp expirou. Reconecte em Conectar WhatsApp." : j.erro === "telefone_invalido" ? "Número inválido." : "Não consegui enviar o modelo.");
         return false;
       }
       await atualizar();
