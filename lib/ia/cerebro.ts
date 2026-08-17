@@ -256,6 +256,10 @@ function umaPerguntaSo(texto: string): string {
   return limpo
     .join("\n\n")
     .replace(/\s*(é|e|da|de|na)?\s*faixa\s+[abc]\b[,.]?/gi, "")
+    // "anotei X na observação do bolo" é o sistema falando, não a atendente.
+    // O cliente não sabe (nem quer saber) que existe um campo de observação.
+    .replace(/\s*n[ao]s?\s+observa[çc][õo]es?\s+d[oa]s?\s+\w+/gi, "")
+    .replace(/\s*n[ao]s?\s+observa[çc][õo]es?\b/gi, "")
     .replace(/[ \t]{2,}/g, " ")
     .trim();
 }
@@ -332,10 +336,14 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // Nome do pedido igual ao nome que está na observação do bolo = ela usou o
     // do aniversariante. Quem retira e paga é outra pessoa, e o pedido sai no
     // nome errado no balcão.
+    // Sem tirar o acento a comparação falha justamente nos nomes brasileiros:
+    // "Joao" (como a IA digita) nunca casava com "João" (como está na obs), e o
+    // pedido saía no nome da criança sem ninguém ser avisado.
+    const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
     const nomeInformado = input.cliente_nome ? String(input.cliente_nome).trim() : "";
     if (nomeInformado) {
-      const primeiro = nomeInformado.split(/\s+/)[0].toLowerCase();
-      const obsTodas = itens.map((i) => String(i.obs ?? "")).join(" ").toLowerCase();
+      const primeiro = semAcento(nomeInformado.split(/\s+/)[0]);
+      const obsTodas = semAcento(itens.map((i) => String(i.obs ?? "")).join(" "));
       if (primeiro.length > 2 && obsTodas.includes(primeiro)) {
         precisaConfirmacao = true;
         pendencias.push("confirmar em nome de quem fica o pedido (parece ser o do aniversariante)");
@@ -362,7 +370,13 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const avisosFmt = c.avisos?.length
       ? `\nATENCAO: ${c.avisos.join(" ")} Registre precisa_confirmacao=true e avise que a equipe confirma esse item.`
       : "";
-    return `Pedido salvo pra equipe. Envie o resumo no formato de FECHAMENTO DE PEDIDO copiando EXATAMENTE estas linhas de item e este total, sem recalcular, sem trocar a unidade e sem inventar um total diferente da soma:\n${itensFmt}\nTotal: ${brl(c.total)}${avisosFmt}\nMantenha o formato (asteriscos de negrito, sem linha em branco dentro do resumo). O total do resumo tem que ser exatamente ${brl(c.total)}.`;
+    // Sem forma de pagamento, o resumo NÃO pode inventar uma linha. Ela já
+    // escreveu "*Forma de pagamento:* pix" numa conversa em que ninguém falou
+    // de pagamento: o cliente lê como combinado, e a equipe cobra errado.
+    const pagamentoFmt = formaPagamento
+      ? `\nA forma de pagamento é "${formaPagamento}": use exatamente essa na linha do resumo.`
+      : `\nVocê NÃO sabe a forma de pagamento: OMITA a linha *Forma de pagamento:* do resumo (não escreva pix, nem dinheiro, nem "na retirada") e, logo depois do resumo, pergunte numa frase curta como ele prefere pagar.`;
+    return `Pedido salvo pra equipe. Envie o resumo no formato de FECHAMENTO DE PEDIDO copiando EXATAMENTE estas linhas de item e este total, sem recalcular, sem trocar a unidade e sem inventar um total diferente da soma:\n${itensFmt}\nTotal: ${brl(c.total)}${avisosFmt}${pagamentoFmt}\nMantenha o formato (asteriscos de negrito, sem linha em branco dentro do resumo). O total do resumo tem que ser exatamente ${brl(c.total)}.`;
   }
 
   return "Ferramenta desconhecida.";
