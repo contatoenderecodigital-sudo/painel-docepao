@@ -241,6 +241,49 @@ Passou: cardápios enviados e escolhidos em cima deles, 200 fritos divididos em
 topo sinalizado pra dona, e a correção da equipe pela tela (150 coxinhas no
 lugar das 100 que o cliente pediu) valendo na hora de fechar.
 
+## Alucinacoes que so aparecem na conversa longa (17/08/2026, madrugada)
+
+Conversa inteira de festa, do "boa noite" ao pedido fechado, uma mensagem por
+vez. O que apareceu, e que teste curto nao pega:
+
+**Recheio inventado.** Cliente pediu 100 esfirras e 100 empadinhas sem falar
+recheio nenhum, e ela anotou "esfirra de carne" e "empadinha de palmito".
+Correcao: sabor que e opcao do cardapio tem que ter aparecido na fala do
+cliente, senao a ferramenta recusa e manda perguntar.
+
+**Bolo inventado.** Anotou um "bolo brigadeiro 4 kg" tirado da SUGESTAO de
+tamanho da festa, com o cliente nem tendo visto o cardapio de bolos. No bolo o
+sabor esta no nome, entao a guarda de recheio nao pegava.
+
+**Segundo bolo do nada.** Um "bolo 4 leites" copiado do primeiro item da peca
+do cardapio, do lado do bolo que o cliente escolheu. Correcao: segundo bolo so
+depois de confirmar com o cliente (dois_bolos=true), porque festa grande
+realmente pede dois as vezes.
+
+**Nome de categoria como produto.** Mandou "salgado_frito" no lugar do nome do
+produto: nao casa com a tabela de preco nem e absorvido pelo generico.
+
+**Duas perguntas viraram uma so confusa.** "Me diz os recheios dos assados:
+pastel assado, esfirra, croissant..." — pediu recheio listando tipo, e dai saiu
+a invencao. A cobranca agora diz que falta o TIPO, traz a lista e avisa que o
+recheio vem depois.
+
+**Trufa sem sabor passando batido** porque a observacao tinha "forminha azul
+royal" e o teste so olhava se estava vazia.
+
+**Pergunta pendurada chegando sozinha.** "Se sim, quer que eu divida igual?" e
+"Qual voce prefere?" sem a pergunta que vinha antes.
+
+**Prometeu e nao fez, duas vezes.** Recebeu o pagamento e disse "ja passei pra
+equipe" sem registrar; e no "pode fechar" respondeu "deixa eu chamar alguem da
+equipe", so porque o topo de bolo nao tem preco. As duas viraram guarda de
+codigo: a ferramenta de anotar dados manda registrar quando nao falta mais
+nada, e a de chamar a equipe recusa com o pedido pronto.
+
+Licao que se repetiu a noite toda: **aviso que chega um turno depois nao vale**.
+A lista de pendencias e montada antes da resposta, entao tudo que precisa ser
+cobrado na hora tem que sair no RESULTADO DA FERRAMENTA, nao no lembrete.
+
 ---
 
 ## Ainda aberto
