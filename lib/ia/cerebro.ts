@@ -593,6 +593,33 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     }
     if (Object.keys(dados).length === 0) return "Nada pra anotar: não veio nenhum dado preenchido.";
     estado.montagem.push({ tipo: "dados", dados });
+
+    // FECHOU O ULTIMO DADO? ENTAO E AGORA.
+    //
+    // A ordem de registrar so aparece no lembrete do TURNO SEGUINTE, e foi assim
+    // que ela recebeu o nome e o pagamento, respondeu "ja passei pra equipe" e
+    // nao registrou nada: o cliente saiu achando que encomendou.
+    const juntos: Record<string, unknown> = { ...(montagemAtual?.dados ?? {}), ...dados };
+    const temTudo = ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento"].every(
+      (k) => juntos[k] && String(juntos[k]).trim() !== "",
+    );
+    const itensAnotados = montagemAtual?.itens ?? [];
+    const pendentes = pendenciasDeSabor(itensAnotados);
+    if (temTudo && itensAnotados.length > 0 && pendentes.length === 0) {
+      return (
+        `Anotei: ${Object.keys(dados).join(", ")}. AGORA NAO FALTA MAIS NADA NESTE PEDIDO. ` +
+        `Chame registrar_pedido nesta mesma resposta e mande a confirmacao com os itens e o total. ` +
+        `Dizer que passou pra equipe sem chamar a ferramenta deixa o cliente achando que encomendou sem existir pedido.`
+      );
+    }
+    if (temTudo && pendentes.length > 0) {
+      return (
+        `Anotei: ${Object.keys(dados).join(", ")}. Ainda NAO da pra fechar, falta isto:` +
+        "\n" +
+        pendentes.join("\n") +
+        "\nPergunte isso antes de falar em passar pra equipe."
+      );
+    }
     return `Anotei: ${Object.keys(dados).join(", ")}. O resto do pedido continua guardado.`;
   }
 
