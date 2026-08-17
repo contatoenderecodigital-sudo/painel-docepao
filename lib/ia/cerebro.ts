@@ -133,7 +133,7 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          cliente_nome: { type: "string" },
+          cliente_nome: { type: ["string", "null"], description: "Nome de QUEM ESTA PEDINDO (nao o do aniversariante). null se ainda nao souber." },
           itens: {
             type: "array",
             items: {
@@ -146,35 +146,51 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
                 },
                 qtd: { type: "number" },
                 obs: {
-                  type: "string",
+                  type: ["string", "null"],
                   description:
                     "Observação SÓ deste item, quando houver: o recheio do salgado assado ('carne', 'frango'), o sabor da trufa ('morango'), 'forminha rosa' no docinho, 'topo da Moana, nome Sofia, 5 anos' no bolo, 'tem foto de referencia'. Nunca misture observação de itens diferentes; cada uma no seu item.",
                 },
               },
-              required: ["item", "qtd"],
+              required: ["item", "qtd", "obs"],
+              additionalProperties: false,
             },
           },
           retirada_data: { type: "string", description: "Dia da retirada, ex: 'sábado 25/07'." },
           forma_pagamento: {
-            type: "string",
+            type: ["string", "null"],
             description:
               "Como o cliente disse que vai pagar: 'pix', 'cartao' ou 'dinheiro'. NUNCA invente nem assuma: se ele não falou, PERGUNTE antes de fechar.",
           },
           retirada_hora: { type: "string", description: "Hora, ex: '14:00'." },
-          observacoes: { type: "string" },
+          observacoes: { type: ["string", "null"] },
           precisa_confirmacao: {
             type: "boolean",
             description:
               "true quando o pedido está montado mas a EQUIPE precisa confirmar algo antes (pedido pra hoje/amanhã, valor de topo de bolo, item fora da tabela, bolo de vários andares). O pedido é registrado do mesmo jeito, só entra na fila com um aviso pra dona revisar.",
           },
           motivo_humano: {
-            type: "string",
+            type: ["string", "null"],
             description:
-              "Quando precisa_confirmacao=true, explique curto o que a equipe precisa confirmar. Ex: 'confirmar valor do topo de bolo', 'pedido pra amanhã, confirmar capacidade', 'item fora da tabela: bolo 3 andares'.",
+              "Quando precisa_confirmacao=true, explique curto o que a equipe precisa confirmar. Ex: 'confirmar valor do topo de bolo', 'pedido pra amanhã, confirmar capacidade', 'item fora da tabela: bolo 3 andares'. Use null quando não houver.",
           },
         },
-        required: ["itens", "retirada_data"],
+        // strict exige TODOS os campos em `required`; o que é opcional vira
+        // nulável. É o que fecha a porta do "esqueci de mandar o campo": ela
+        // escrevia "pix" no texto e deixava forma_pagamento vazia, e o pedido
+        // chegava no painel sem forma de pagamento nenhuma.
+        required: [
+          "itens",
+          "retirada_data",
+          "cliente_nome",
+          "forma_pagamento",
+          "retirada_hora",
+          "observacoes",
+          "precisa_confirmacao",
+          "motivo_humano",
+        ],
+        additionalProperties: false,
       },
+      strict: true,
     },
   },
 ];
