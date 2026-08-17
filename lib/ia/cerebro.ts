@@ -473,6 +473,19 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         `chame anotar_item de novo com ele na observação, em vez de perguntar de novo.`
       );
     }
+    // BOLO DE DOIS SABORES: os dois tem que estar no NOME.
+    //
+    // O cliente pediu brigadeiro com morango e ela anotou so "bolo brigadeiro",
+    // com o pao de lo e o tema na observacao. O motor cobra o sabor mais caro
+    // quando ve os dois, entao o bolo saiu a R$ 46,90 o quilo em vez de R$ 49,90
+    // e a padaria perdeu R$ 12 no bolo de 4 kg.
+    if ((categoria === "bolo_festa" || categoria === "bolo_caseiro") && !/ com /i.test(produto)) {
+      return (
+        `Anotei ${qtd} kg de ${produto}. Se o cliente escolheu MAIS DE UM SABOR pro bolo, o nome tem que trazer os dois ` +
+        `(ex: "bolo brigadeiro com morango"): bolo misto vale o preco do sabor mais caro, e com um sabor so no nome a ` +
+        `padaria cobra a menos. Se for um sabor so, esta certo assim e pode seguir.`
+      );
+    }
     if (semTipo(produto)) {
       return (
         `Anotei ${qtd} de ${produto}, mas isso é genérico demais pra cozinha produzir: falta o cliente dizer QUAIS, ` +
