@@ -176,7 +176,7 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
                 obs: {
                   type: ["string", "null"],
                   description:
-                    "Observação SÓ deste item, quando houver: o recheio do salgado assado ('carne', 'frango'), o sabor da trufa ('morango'), 'forminha rosa' no docinho, 'topo da Moana, nome Sofia, 5 anos' no bolo, 'tem foto de referencia'. Nunca misture observação de itens diferentes; cada uma no seu item.",
+                    "Observação SÓ deste item, com o que O CLIENTE disse, nunca com exemplo. Formato do que costuma entrar: recheio do assado, sabor da trufa, cor da forminha do docinho, e no bolo o pão de ló, o tema, o nome e a idade do aniversariante e se tem foto. NUNCA copie tema ou nome de exemplo nenhum: já saiu pedido com 'topo da Moana, nome Vinicius, tema Toy Story' misturando exemplo com dado real, e a cozinha não sabe qual peça fazer. Cada observação no seu item.",
                 },
               },
               required: ["item", "qtd", "obs", "categoria"],
