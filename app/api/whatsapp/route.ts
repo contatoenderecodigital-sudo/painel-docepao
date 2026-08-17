@@ -206,7 +206,14 @@ async function processar(corpo: WebhookPayload) {
       // aprovação. Fica em código e não em ferramenta da IA: é mudança de
       // estado do pedido, não pode depender de o modelo lembrar de chamar algo.
       try {
-        if (/^\s*(sim|isso|ok|okay|blz|beleza|pode ser|pode|fechado|fechou|t[áa] certo|ta certo|certo|confirmo|aceito|perfeito|combinado|pode passar|manda|bora)\b/i.test(texto)) {
+        // O joinha conta como sim. É a forma mais comum de concordar no
+        // WhatsApp e ficava de fora: o cliente mandou 👍, nada aconteceu, e ele
+        // não tinha como saber que precisava escrever a palavra.
+        const soEmojiDeSim = /^[\s\p{Emoji_Presentation}\u{1F44D}\u{1F44C}\u{2705}\u{1F919}\u{1F44F}]+$/u.test(texto);
+        if (
+          soEmojiDeSim ||
+          /^\s*(sim|isso|ok|okay|blz|beleza|pode ser|pode|fechado|fechou|t[áa] certo|ta certo|certo|confirmo|aceito|perfeito|combinado|pode passar|manda|bora|show|top|joia|isso ai|e isso)\b/i.test(texto)
+        ) {
           if (await registrarAceiteCliente(negocioId, clienteId)) {
             console.log("[whatsapp] cliente aceitou o orcamento; pedido liberado pra aprovacao");
           }

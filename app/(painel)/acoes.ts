@@ -214,6 +214,28 @@ export async function liberarParaAprovacao(pedidoId: string): Promise<{ ok: bool
         where id = $1 and negocio_id = $2`,
       [pedidoId, sessao.negocioId],
     );
+    // O cliente ficou com a pergunta "tá certo assim?" sem resposta. A Dora
+    // avisa que seguiu, senão ele fica esperando um retorno que já aconteceu
+    // por fora (ele confirmou por telefone, na loja, ou com um joinha que o
+    // sistema não entendeu).
+    try {
+      const { dadosAvisoPedido } = await import("@/lib/banco/pedidos");
+      const dados = await dadosAvisoPedido(pedidoId, sessao.negocioId);
+      const { carregarCredsWhatsapp } = await import("@/lib/banco/negocios");
+      const creds = await carregarCredsWhatsapp(sessao.negocioId);
+      if (dados && creds.phoneId && creds.token) {
+        const primeiro = dados.nome && dados.nome !== "Cliente" ? dados.nome.split(" ")[0] : "";
+        const texto =
+          (primeiro ? `Perfeito, ${primeiro}! ` : "Perfeito! ") +
+          "Seu pedido já está com a nossa equipe pra confirmação.\n\nAssim que confirmarem, eu te aviso por aqui.";
+        const { enviarTexto } = await import("@/lib/whatsapp/api");
+        await enviarTexto(dados.telefone, texto, { phoneId: creds.phoneId, token: creds.token });
+        const { salvarMensagem } = await import("@/lib/banco/conversas");
+        await salvarMensagem(sessao.negocioId, dados.clienteId, "assistant", texto, { autor: "ia" });
+      }
+    } catch (e) {
+      console.error("[liberarParaAprovacao] aviso ao cliente falhou (pedido ja liberado):", e);
+    }
   } catch (e) {
     console.error("[liberarParaAprovacao]", e);
     return { ok: false, erro: "Não consegui liberar o pedido." };
