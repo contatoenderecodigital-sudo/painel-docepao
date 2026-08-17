@@ -502,6 +502,13 @@ const FERRAMENTAS_BASICAS: OpenAI.Chat.Completions.ChatCompletionTool[] = FERRAM
 
 // Monta o system prompt com a DATA DE HOJE (fuso BR).
 function montarSystemComData(tenant: Tenant): string {
+  // A HORA importa tanto quanto a data: sem ela a IA chuta o período do dia e
+  // dá boa tarde às 9 da manhã, que é a primeira coisa que o cliente percebe.
+  const horaBR = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date());
   const hojeBR = new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo",
     weekday: "long",
@@ -516,7 +523,11 @@ function montarSystemComData(tenant: Tenant): string {
   }
   return (
     montarSystemPrompt(tenant.persona, tenant.motor.cardapioResumo(), tenant.avisoDoDia) +
-    `\n\n# DATA DE HOJE\nHoje é ${hojeBR} (fuso de Brasília). Use isso pra completar o ANO das datas de retirada: se o cliente disser só o dia e o mês (ex: 05/05) e essa data ainda não passou este ano, use o ano atual. Data sempre no formato DD/MM/AAAA.`
+    `\n\n# DATA E HORA DE AGORA\nHoje é ${hojeBR}, e agora são ${horaBR} (fuso de Brasília). ` +
+    `Cumprimente pela HORA: até 11h59 é bom dia, de 12h às 17h59 boa tarde, de 18h em diante boa noite. ` +
+    `Sem esta linha você não teria como saber a hora e chutaria o período, o que já fez você dar boa tarde às 9 da manhã. ` +
+    `A data serve pra completar o ANO das retiradas: se o cliente disser só dia e mês (ex: 05/05) e essa data ainda não passou este ano, use o ano atual. Data sempre em DD/MM/AAAA. ` +
+    `Nunca use a data de hoje como data de retirada por suposição.`
   );
 }
 
