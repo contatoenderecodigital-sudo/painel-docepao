@@ -83,10 +83,47 @@ export async function listarFilaAprovacao(negocioId: string): Promise<Pedido[]> 
        from pedidos p
        left join clientes c on c.id = p.cliente_id
       where p.negocio_id = $1 and p.status = 'confirmado'
+        and coalesce(p.precisa_confirmacao, false) = false
       order by p.criado_em asc`,
     [negocioId],
   );
   return linhas.map(mapear);
+}
+
+// Pedidos que a IA montou mas NÃO tinha como fechar sozinha: falta o valor do
+// topo de bolo, um item fora da tabela, confirmar capacidade pra hoje. Ficavam
+// misturados na fila de aprovação, onde aprovar mandava o pedido incompleto
+// pro cliente. Aqui eles têm tela própria, com o motivo na frente.
+export async function listarAguardandoConfirmacao(negocioId: string): Promise<Pedido[]> {
+  const linhas = await query<LinhaFila>(
+    `select p.id, p.status, p.retirada_data, p.retirada_hora, p.pessoas,
+            p.total_centavos, p.observacoes, p.forma_pagamento, p.criado_em,
+            p.precisa_confirmacao, p.motivo_humano,
+            exists(select 1 from pedido_fotos f where f.pedido_id = p.id) as tem_foto,
+            c.nome as cliente_nome, c.telefone as cliente_telefone,
+            coalesce(
+              (select json_agg(json_build_object(
+                 'produto', i.produto, 'categoria', i.categoria, 'qtd', i.qtd,
+                 'unit_centavos', i.unit_centavos, 'subtotal_centavos', i.subtotal_centavos, 'obs', i.obs, 'unidade', i.unidade))
+               from pedido_itens i where i.pedido_id = p.id),
+              '[]'::json) as itens
+       from pedidos p
+       left join clientes c on c.id = p.cliente_id
+      where p.negocio_id = $1 and p.status = 'confirmado'
+        and coalesce(p.precisa_confirmacao, false) = true
+      order by p.criado_em asc`,
+    [negocioId],
+  );
+  return linhas.map(mapear);
+}
+
+// Tira a pendência: o pedido deixa de precisar de humano e cai na fila normal.
+export async function limparPendencia(pedidoId: string, negocioId: string): Promise<void> {
+  await query(
+    `update pedidos set precisa_confirmacao = false, motivo_humano = null
+      where id = $1 and negocio_id = $2`,
+    [pedidoId, negocioId],
+  );
 }
 
 // Orçamentos PARADOS (status 'orcado') — a tela de recuperação.
@@ -170,6 +207,7 @@ export type AvisoPedido = {
   nome: string;
   retiradaFmt: string | null; // "DD/MM/AAAA" já formatada no banco
   retiradaHora: string | null;
+  totalCentavos: number; // total ATUAL, já com o item que a equipe lançou
 };
 export async function dadosAvisoPedido(
   pedidoId: string,
@@ -181,10 +219,11 @@ export async function dadosAvisoPedido(
     telefone: string | null;
     retirada_fmt: string | null;
     retirada_hora: string | null;
+    total_centavos: number | null;
   }>(
     `select p.cliente_id, c.nome, c.telefone,
             to_char(p.retirada_data, 'DD/MM/YYYY') as retirada_fmt,
-            p.retirada_hora
+            p.retirada_hora, p.total_centavos
        from pedidos p
        left join clientes c on c.id = p.cliente_id
       where p.id = $1 and p.negocio_id = $2`,
@@ -197,6 +236,7 @@ export async function dadosAvisoPedido(
     nome: r.nome || "",
     retiradaFmt: r.retirada_fmt,
     retiradaHora: r.retirada_hora,
+    totalCentavos: Number(r.total_centavos) || 0,
   };
 }
 

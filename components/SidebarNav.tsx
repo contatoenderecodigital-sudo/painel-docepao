@@ -14,6 +14,7 @@ type Item = { href: string; label: string; icon: string; tipos?: string[] };
 
 const ITENS: Item[] = [
   { href: "/", label: "Aprovação", icon: "bell", tipos: ["padaria"] },
+  { href: "/aguardando", label: "Aguardando confirmação", icon: "aguardando", tipos: ["padaria"] },
   { href: "/dia", label: "Pedidos do dia", icon: "order", tipos: ["padaria"] },
   { href: "/atendimentos", label: "Atendimentos", icon: "chat" },
   { href: "/testar", label: "Testar IA", icon: "bot" },
@@ -30,6 +31,14 @@ function Icone({ nome }: { nome: string }) {
     return (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M12.04 2c-5.46 0-9.9 4.44-9.9 9.9 0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.9-4.44 9.9-9.9S17.5 2 12.04 2Zm5.8 14.16c-.24.68-1.4 1.3-1.94 1.34-.5.05-.98.23-3.3-.68-2.79-1.1-4.56-3.96-4.7-4.15-.14-.19-1.12-1.49-1.12-2.84 0-1.35.7-2.01.96-2.29.24-.26.53-.32.7-.32.18 0 .35 0 .5.01.16.01.38-.06.6.46.23.53.77 1.86.84 2 .07.14.11.3.02.48-.09.19-.14.3-.28.47-.14.16-.29.36-.42.48-.14.14-.28.28-.12.55.16.28.72 1.18 1.54 1.91 1.06.94 1.95 1.24 2.23 1.38.28.14.44.12.6-.07.16-.19.69-.8.87-1.08.18-.28.36-.23.6-.14.24.09 1.55.73 1.82.86.28.14.46.21.53.32.07.12.07.68-.17 1.36Z" />
+      </svg>
+    );
+  }
+  if (nome === "aguardando") {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+        <path d="M12 9v4M12 17h.01" />
       </svg>
     );
   }

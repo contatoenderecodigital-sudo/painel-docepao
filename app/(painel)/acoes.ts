@@ -16,6 +16,7 @@
 
 import { bancoConfigurado } from "@/lib/banco/db";
 import { lerSessao } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 
 // Avisa o cliente no WhatsApp que a equipe aprovou ou recusou o pedido.
 // Tudo dentro de try/catch: um erro aqui nunca derruba a aprovação.
@@ -127,4 +128,74 @@ export async function adicionarItemPedido(
     console.error("[adicionarItemPedido]", e);
     return { ok: false, erro: "Não consegui salvar o item." };
   }
+}
+
+// ----------------------------------------------------------------------------
+//  RESOLVER PENDÊNCIA — a equipe descobriu o que faltava (quase sempre o valor
+//  do topo de bolo) e devolve o pedido pro fluxo normal.
+//
+//  Quem fala com o cliente continua sendo a Dora, não a dona: o cliente
+//  conversou a encomenda inteira com ela, e uma voz diferente aparecendo só pra
+//  cobrar o valor a mais soa a outra empresa. Por isso a mensagem sai no tom
+//  dela e entra no histórico como atendimento, não como recado solto.
+// ----------------------------------------------------------------------------
+export async function resolverPendencia(
+  pedidoId: string,
+  extra: { produto: string; qtd: number; valorUnitario: number } | null,
+): Promise<{ ok: boolean; erro?: string }> {
+  if (!bancoConfigurado) return { ok: true };
+  const sessao = await lerSessao();
+  if (!sessao) return { ok: false, erro: "sem sessao" };
+  const negocioId = sessao.negocioId;
+
+  // 1) lança o item que faltava (quando houver) — o total é recalculado pela soma
+  if (extra) {
+    const r = await adicionarItemPedido(pedidoId, extra);
+    if (!r.ok) return r;
+  }
+
+  // 2) tira a pendência: sai desta tela e entra na fila de aprovação
+  try {
+    const { limparPendencia } = await import("@/lib/banco/pedidos");
+    await limparPendencia(pedidoId, negocioId);
+  } catch (e) {
+    console.error("[resolverPendencia] falha ao limpar pendencia:", e);
+    return { ok: false, erro: "Não consegui liberar o pedido." };
+  }
+
+  // 3) avisa o cliente com o valor novo, na voz da Dora. Falhar aqui NÃO desfaz
+  //    o passo 2: o pedido já está correto na fila, e a equipe pode mandar na mão.
+  try {
+    const { dadosAvisoPedido } = await import("@/lib/banco/pedidos");
+    const dados = await dadosAvisoPedido(pedidoId, negocioId);
+    if (!dados) return { ok: true };
+
+    const { carregarCredsWhatsapp } = await import("@/lib/banco/negocios");
+    const creds = await carregarCredsWhatsapp(negocioId);
+    if (!creds.phoneId || !creds.token) return { ok: true };
+
+    const primeiro = dados.nome && dados.nome !== "Cliente" ? dados.nome.split(" ")[0] : "";
+    const ola = primeiro ? `Oi ${primeiro}, ` : "Oi, ";
+    const brl = (c: number) => "R$ " + (c / 100).toFixed(2).replace(".", ",");
+
+    const linhaItem = extra
+      ? `\n\nO ${extra.produto} ficou ${brl(Math.round(extra.valorUnitario * 100))}${extra.qtd > 1 ? ` cada (${extra.qtd} unidades)` : ""}.`
+      : "";
+    const texto =
+      `${ola}consegui o valor aqui com a equipe.${linhaItem}` +
+      `\n\nCom isso o seu pedido fica em ${brl(dados.totalCentavos ?? 0)}.` +
+      `\n\nTá certo assim pra eu passar pra confirmação?`;
+
+    const { enviarTexto } = await import("@/lib/whatsapp/api");
+    await enviarTexto(dados.telefone, texto, { phoneId: creds.phoneId, token: creds.token });
+
+    const { salvarMensagem } = await import("@/lib/banco/conversas");
+    await salvarMensagem(negocioId, dados.clienteId, "assistant", texto, { autor: "ia" });
+  } catch (e) {
+    console.error("[resolverPendencia] aviso ao cliente falhou (pedido ja liberado):", e);
+  }
+
+  revalidatePath("/");
+  revalidatePath("/aguardando");
+  return { ok: true };
 }

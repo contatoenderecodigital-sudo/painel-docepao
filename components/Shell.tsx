@@ -4,6 +4,7 @@
 // troca de aba: só o conteúdo troca. A navegação da sidebar é client (usePathname).
 
 import SidebarDrawer from "@/components/SidebarDrawer";
+import SinoNotificacao from "@/components/SinoNotificacao";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { MapPin } from "lucide-react";
@@ -121,6 +122,11 @@ export default async function Shell({
               <div className="min-w-0">
                 <div className="text-xs text-white/80 truncate">{sessao.nome}</div>
                 <div className="text-[10px] text-white/40">Endereço Digital</div>
+              </div>
+              {/* No PC não existe barra de cima: o sino mora no rodapé do menu,
+                  junto do que é "controle do painel" e não navegação. */}
+              <div className="hidden lg:block shrink-0">
+                <SinoNotificacao />
               </div>
               <form action={sair}>
                 <button

@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import SinoNotificacao from "@/components/SinoNotificacao";
 import { Menu, X } from "lucide-react";
 
 export default function SidebarDrawer({
@@ -63,7 +64,9 @@ export default function SidebarDrawer({
         >
           <Menu size={22} />
         </button>
-        <span className="font-title font-bold text-cream truncate">{titulo}</span>
+        <span className="font-title font-bold text-cream truncate flex-1">{titulo}</span>
+        {/* No celular o sino fica na barra de cima: é onde o polegar chega. */}
+        <SinoNotificacao />
       </header>
 
       {/* Véu atrás do menu aberto */}

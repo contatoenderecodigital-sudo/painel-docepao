@@ -20,6 +20,16 @@ export const carregarFilaAprovacao = cache(async (negocioId?: string): Promise<P
   return listarFilaAprovacao(negocioId);
 });
 
+// Pendentes de humano: a fila de aprovação passou a NÃO trazer esses (aprovar
+// um pedido sem o valor do topo mandava o pedido incompleto pro cliente).
+export const carregarAguardandoConfirmacao = cache(async (negocioId?: string): Promise<Pedido[]> => {
+  if (!bancoConfigurado || !negocioId) {
+    return PEDIDOS_MOCK.filter((p) => p.status === "confirmado" && p.precisaConfirmacao);
+  }
+  const { listarAguardandoConfirmacao } = await import("./banco/pedidos");
+  return listarAguardandoConfirmacao(negocioId);
+});
+
 export async function carregarParados(negocioId?: string): Promise<Pedido[]> {
   if (!bancoConfigurado || !negocioId) return ORCAMENTOS_PARADOS_MOCK;
   const { listarParados } = await import("./banco/pedidos");
