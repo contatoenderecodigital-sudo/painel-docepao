@@ -222,7 +222,17 @@ function executarFerramenta(
       Number(input.pessoas) || 0,
       (input.quer as { salgado?: boolean; doce?: boolean; bolo?: boolean }) || { salgado: true, doce: true },
     );
-    return formatarOrcamento(c, `Orçamento da festa de ${input.pessoas} pessoas`);
+    // Nesta etapa o cliente ainda não escolheu NADA. A ferramenta precisa citar
+    // um produto pra ter preço, mas anunciar "300 coxinhas e 150 brigadeiros"
+    // faz a pessoa achar que já ficou decidido. Fale por categoria.
+    return (
+      formatarOrcamento(c, `Orçamento da festa de ${input.pessoas} pessoas`) +
+      `
+Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "docinhos" ` +
+      `(ex: "300 salgados e 150 docinhos"), NUNCA o nome do produto que aparece nas linhas acima: ` +
+      `ele ainda não escolheu os tipos, e citar um faz parecer que já está decidido. ` +
+      `O valor e o total, esses sim, são os desta ferramenta.`
+    );
   }
 
   if (nome === "chamar_humano") {
