@@ -182,7 +182,7 @@ async function processar(corpo: WebhookPayload) {
       // aprovação. Fica em código e não em ferramenta da IA: é mudança de
       // estado do pedido, não pode depender de o modelo lembrar de chamar algo.
       try {
-        if (/^\s*(sim|isso|ok|okay|blz|beleza|pode ser|pode|fechado|fechou|t[áa] certo|ta certo|certo|confirmo|aceito|perfeito|combinado|pode passar|manda|bora)/i.test(texto)) {
+        if (/^\s*(sim|isso|ok|okay|blz|beleza|pode ser|pode|fechado|fechou|t[áa] certo|ta certo|certo|confirmo|aceito|perfeito|combinado|pode passar|manda|bora)\b/i.test(texto)) {
           if (await registrarAceiteCliente(negocioId, clienteId)) {
             console.log("[whatsapp] cliente aceitou o orcamento; pedido liberado pra aprovacao");
           }

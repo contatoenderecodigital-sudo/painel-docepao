@@ -211,9 +211,9 @@ export type Mensagem = { role: "user" | "assistant"; content: string };
 // escolha, a primeira é um buraco que a equipe precisa fechar.
 function detectarPagamento(fala: string): string | undefined {
   const t = fala.toLowerCase();
-  if (/pix/.test(t)) return "pix";
+  if (/\bpix\b/.test(t)) return "pix";
   if (/cart[ãa]o|cr[ée]dito|d[ée]bito|parcel/.test(t)) return "cartao";
-  if (/dinheiro|esp[ée]cie|vista/.test(t)) return "dinheiro";
+  if (/dinheiro|esp[ée]cie|\bvista\b/.test(t)) return "dinheiro";
   return undefined;
 }
 
@@ -223,18 +223,35 @@ function detectarPagamento(fala: string): string | undefined {
 // "Anotei a data. Vamos começar pelos salgados? Prefere fritos ou assados?".
 // A primeira pergunta é retórica e a segunda é a real, então guardamos a
 // ÚLTIMA e jogamos fora as anteriores. O texto que não pergunta fica intacto.
+// Cumprimento não conta como pergunta: "Oi, tudo bem?" é educação, e cortá-lo
+// deixaria a Dora entrando seca na conversa.
+const CORTESIA = /tudo bem|tudo certo|como vai|bom dia|boa tarde|boa noite/i;
+
+// Dentro de um bloco, a pergunta que vale é a PRIMEIRA: a segunda quase sempre
+// é um acréscimo ("quais docinhos você quer? Quer que eu mande o cardápio?").
+// Entre blocos é o contrário — o primeiro costuma ser retórico. Por isso as
+// duas passadas são diferentes.
+function primeiraPerguntaDoBloco(bloco: string): string {
+  if ((bloco.match(/\?/g) || []).length < 2) return bloco;
+  const corte = bloco.indexOf("?") + 1;
+  return bloco.slice(0, corte).trim();
+}
+
 function umaPerguntaSo(texto: string): string {
-  const blocos = texto.split(/\n\s*\n/);
-  // Cumprimento não conta como pergunta: "Oi, tudo bem?" é educação, e
-  // cortá-lo deixaria a Dora entrando seca na conversa.
-  const cortesia = /tudo bem|tudo certo|como vai|bom dia|boa tarde|boa noite/i;
+  const blocos = texto.split(/\n\s*\n/).map(primeiraPerguntaDoBloco);
   const indices = blocos
-    .map((b, i) => (b.includes("?") && !cortesia.test(b) ? i : -1))
+    .map((b, i) => (b.includes("?") && !CORTESIA.test(b) ? i : -1))
     .filter((i) => i >= 0);
-  if (indices.length < 2) return texto;
-  const manter = indices[indices.length - 1];
-  const limpo = blocos.filter((_, i) => !indices.includes(i) || i === manter);
-  return limpo.join("\n\n").trim();
+  const manter = indices.length >= 2 ? indices[indices.length - 1] : -1;
+  const limpo = manter < 0 ? blocos : blocos.filter((_, i) => !indices.includes(i) || i === manter);
+  // Jargão interno vazando pro cliente: ela já escreveu "o bolo brigadeiro é
+  // faixa B". Faixa é como a padaria organiza preço, não é assunto de quem
+  // está pedindo bolo.
+  return limpo
+    .join("\n\n")
+    .replace(/\s*(é|e|da|de|na)?\s*faixa\s+[abc]\b[,.]?/gi, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
 }
 
 function executarFerramenta(
@@ -292,13 +309,11 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     let precisaConfirmacao = Boolean(input.precisa_confirmacao);
     const pendencias: string[] = [];
 
-    // A IA preencheu a forma de pagamento sem o cliente ter falado nisso. Num
     // Ela erra dos DOIS lados: já preencheu "pix" numa conversa sem pagamento
     // nenhum, e já escreveu "pix" só no texto do resumo sem preencher o campo,
     // deixando o pedido sem forma nenhuma no painel. Por isso o valor é LIDO da
     // fala do cliente, não aceito da palavra dela.
     const formaDita = detectarPagamento(falaDoCliente);
-    console.log("[dbg-pagamento] texto=<" + falaDoCliente.slice(0, 90) + "> detectado=" + (formaDita ?? "nada"));
     let formaPagamento = input.forma_pagamento ? String(input.forma_pagamento) : undefined;
     if (formaDita) {
       formaPagamento = formaDita;
@@ -563,7 +578,7 @@ function honrarCardapioPrometido(texto: string, jaNaFila: CardapioId[]): Cardapi
     return jaNaFila;
   }
   const apelidos: [CardapioId, RegExp][] = [
-    ["docinhos", /docinho|doce(s)?|brigadeiro|trufa/],
+    ["docinhos", /docinho|doce(s)?|brigadeiro|trufa/],
     ["salgados", /salgado|coxinha|esfirra|frito|assado/],
     ["bolos-festa", /bolo de festa|bolos de festa|bolo recheado|festa/],
     ["bolos-caseiros", /bolo caseiro|bolos caseiros|caseiro/],
