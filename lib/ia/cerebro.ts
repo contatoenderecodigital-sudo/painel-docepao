@@ -15,6 +15,7 @@ import { CARDAPIOS, type CardapioId } from "@/lib/whatsapp/api";
 import { montarSystemPrompt, DOCE_PAO, type ConfigNegocio } from "./persona";
 import { motorPadrao, formatarOrcamento, brl, type Motor, type LinhaCotacao } from "./orcamento";
 import { registrarUsoIA, type UsoTurno } from "./uso";
+import catalogo from "./dados/catalogo.json";
 
 const MODELO = process.env.MODELO_IA || "gpt-4o-mini";
 
@@ -830,6 +831,52 @@ function montarSystemComData(tenant: Tenant): string {
   );
 }
 
+
+// SABOR EM ABERTO E BURACO NO PEDIDO, E QUEM SABE DISSO E O CODIGO.
+//
+// A ordem de fechar os recheios antes de mudar de categoria estava na persona,
+// e ela pulou pros docinhos com o pastel frito sem sabor, o risolis sem sabor e
+// os assados sem tipo. A cozinha faz o padrao e o cliente descobre na festa.
+// Aqui a pendencia e CALCULADA: cruzando o que esta anotado com o catalogo.
+const semTipo = (n: string) =>
+  ["salgado", "salgados", "salgado assado", "salgado frito", "docinho", "docinhos", "doce", "bolo"].includes(
+    n.trim().toLowerCase(),
+  );
+
+// produto -> opcoes de sabor que existem no cardapio dele.
+function mapaDeSabores(): Record<string, string[]> {
+  const m: Record<string, string[]> = {};
+  const guardar = (nome: string, ops?: string[]) => {
+    if (ops && ops.length) m[nome.trim().toLowerCase()] = ops;
+  };
+  type ItemCat = { nome: string; recheios?: string[]; sabores?: string[] };
+  for (const it of (catalogo.salgados.frito.itens ?? []) as ItemCat[]) guardar(it.nome, it.recheios);
+  for (const it of (catalogo.salgados.assado.itens ?? []) as ItemCat[]) guardar(it.nome, it.recheios);
+  for (const it of (catalogo.doces.itens ?? []) as ItemCat[]) guardar(it.nome, it.sabores);
+  for (const it of (catalogo.outros_produtos ?? []) as ItemCat[]) guardar(it.nome, it.sabores);
+  // Como o cliente chama: "pastel frito" e a mini bolha, que tem sabor.
+  if (m["mini bolha"]) m["pastel frito"] = m["mini bolha"];
+  return m;
+}
+const SABORES = mapaDeSabores();
+
+function pendenciasDeSabor(itens: MontagemAtual["itens"]): string[] {
+  const p: string[] = [];
+  for (const i of itens) {
+    const nome = String(i.produto || "").trim();
+    if (!nome) continue;
+    if (semTipo(nome)) {
+      p.push(`- ${i.qtd} de "${nome}": falta o cliente dizer QUAIS, um por um (o nome do salgado, do docinho ou do bolo).`);
+      continue;
+    }
+    const ops = SABORES[nome.toLowerCase()];
+    if (ops && !String(i.obs ?? "").trim()) {
+      p.push(`- ${nome}: falta o sabor. As opcoes sao ${ops.join(", ")}.`);
+    }
+  }
+  return p;
+}
+
 // O pedido anotado, em texto, pra IA ler no fim da conversa. É a memória dela:
 // em vez de reconstruir o pedido inteiro pelo histórico a cada mensagem (que é
 // onde ela trocava bolo por docinho e perdia item), ela lê o que está guardado.
@@ -867,6 +914,15 @@ function descreverMontagem(m?: MontagemAtual | null): string {
     );
   }
 
+  const pend = pendenciasDeSabor(itens);
+  const cobrar = pend.length
+    ? "\n\nFALTA FECHAR ISTO, E E AGORA:\n" +
+      pend.join("\n") +
+      "\n\nSua proxima mensagem tem que perguntar isso. NAO passe pros docinhos, pro bolo nem pro fechamento " +
+      "deixando sabor em aberto: a cozinha faz o padrao e o cliente so descobre na festa. Pode juntar tudo numa " +
+      "pergunta so."
+    : "";
+
   // TEM TUDO? ENTAO FECHA.
   //
   // Ela chegou a responder "ja vou passar pra equipe, pode ser?" com o pedido
@@ -878,6 +934,7 @@ function descreverMontagem(m?: MontagemAtual | null): string {
     return !!v && String(v).trim() !== "";
   };
   const completo =
+    pend.length === 0 &&
     linhas.length > 0 &&
     preciso("cliente_nome") &&
     preciso("retirada_data") &&
@@ -896,6 +953,7 @@ function descreverMontagem(m?: MontagemAtual | null): string {
     (dados.length ? "Dados:" + "\n" + dados.join("\n") + "\n\n" : "") +
     "Nao pergunte de novo nada que ja esta aqui em cima: o cliente ja respondeu e vai achar que voce nao anotou. Falta so o que NAO aparece nesta lista." + "\n\n" +
     ordem +
+    cobrar +
     fechar
   );
 }
