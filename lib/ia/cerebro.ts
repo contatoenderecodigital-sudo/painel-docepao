@@ -419,6 +419,9 @@ function umaPerguntaSo(texto: string): string {
     .trim();
 }
 
+// Texto normalizado pra comparar sabor dito com sabor anotado.
+const marca = (t?: string | null) => String(t ?? "").trim().toLowerCase();
+
 function executarFerramenta(
   nome: string,
   input: Record<string, unknown>,
@@ -470,7 +473,10 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // Sem isso a linha casava com o generico "salgado frito" e a producao
     // recebia "salgado frito de carne", que nao diz que peca fazer.
     const APELIDOS: Record<string, string> = { "pastel frito": "mini bolha", "pastel": "mini bolha" };
-    const cru = String(input.produto || "").trim();
+    // Ela chegou a mandar o nome da CATEGORIA no lugar do produto
+    // ("salgado_frito"), e isso nao e nome de nada: nao casa com a tabela de
+    // preco, nao e absorvido pelo generico e sobra fantasma no pedido.
+    const cru = String(input.produto || "").trim().replace(/_/g, " ");
     const produto = APELIDOS[cru.toLowerCase()] ?? cru;
     const categoria = String(input.categoria || "outro");
     const qtd = Number(input.qtd) || 0;
@@ -510,6 +516,40 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
           `Se o cliente TROCOU o sabor, chame anotar_item com o nome "${boloJaAnotado.produto}" corrigido pro sabor ` +
           `novo, que ai eu substituo. Se ele quer DOIS bolos mesmo (acontece em festa grande), CONFIRME com ele e ` +
           `chame de novo com dois_bolos=true. Nunca acrescente por conta propria um bolo que ele nao pediu.`
+        );
+      }
+    }
+
+    // RECHEIO QUE O CLIENTE NAO FALOU NAO EXISTE.
+    //
+    // Pedido de 100 esfirras e 100 empadinhas, sem recheio nenhum dito, e ela
+    // anotou "esfirra de carne" e "empadinha de palmito". A cozinha produz o que
+    // esta escrito, e o cliente descobre na festa. A prova e simples: se o sabor
+    // e uma opcao do cardapio, ele tem que aparecer na fala do cliente.
+    const opcoesDoProduto = SABORES[produto.toLowerCase()] ?? [];
+    if (opcoesDoProduto.length && marca(obsItem)) {
+      const escolhido = opcoesDoProduto.find((o) => marca(obsItem).includes(o.trim().toLowerCase()));
+      const cliente = falaDoCliente.toLowerCase();
+      if (escolhido && !cliente.includes(escolhido.trim().toLowerCase())) {
+        return (
+          `NAO anotei: o cliente nunca falou "${escolhido}" pra ${produto}. Escolher o recheio por ele faz a cozinha ` +
+          `produzir o sabor errado e ele so descobrir na festa. PERGUNTE agora qual ele quer, entre ${opcoesDoProduto.join(", ")}, ` +
+          `e anote o que ele responder.`
+        );
+      }
+    }
+
+    // SABOR DE BOLO TAMBEM PRECISA TER SIDO DITO.
+    //
+    // No bolo o sabor esta no NOME, entao a guarda de cima nao pega. Ela anotou
+    // um "bolo brigadeiro" de 4 kg tirado da SUGESTAO de tamanho da festa, com o
+    // cliente ainda nem tendo visto o cardapio de bolos.
+    if (categoria === "bolo_festa" || categoria === "bolo_caseiro") {
+      const sabor = produto.replace(/^bolo (caseiro )?/i, "").split(/ com /i)[0].trim();
+      if (sabor && sabor.length > 3 && !falaDoCliente.toLowerCase().includes(sabor.toLowerCase())) {
+        return (
+          `NAO anotei: o cliente nunca falou em bolo de ${sabor}. Bolo de festa e escolha dele, nunca sua nem da ` +
+          `sugestao de tamanho da festa. Mande o cardapio de bolos ou pergunte qual sabor ele quer, e anote o que ele responder.`
         );
       }
     }
@@ -951,6 +991,23 @@ function mapaDeSabores(): Record<string, string[]> {
 }
 const SABORES = mapaDeSabores();
 
+// Os tipos de cada familia, pra cobrar a escolha do TIPO com a lista na mao.
+const TIPOS_DA_FAMILIA: Record<string, string[]> = (() => {
+  type ItemCat = { nome: string };
+  const frito = ((catalogo.salgados.frito.itens ?? []) as ItemCat[]).map((i) => i.nome);
+  const assado = ((catalogo.salgados.assado.itens ?? []) as ItemCat[]).map((i) => i.nome);
+  const doce = ((catalogo.doces.itens ?? []) as ItemCat[]).map((i) => i.nome);
+  return {
+    salgado_frito: frito,
+    "salgado frito": frito,
+    salgado_assado: assado,
+    "salgado assado": assado,
+    docinho: doce,
+    doce,
+    salgado: [...frito, ...assado],
+  };
+})();
+
 // Nao basta a observacao estar preenchida: ela tem que trazer um sabor DA LISTA
 // daquele produto. A trufa passou batido com a observacao "forminha azul royal",
 // que fala da forminha e nao do sabor.
@@ -966,7 +1023,15 @@ function pendenciasDeSabor(itens: MontagemAtual["itens"]): string[] {
     const nome = String(i.produto || "").trim();
     if (!nome) continue;
     if (semTipo(nome)) {
-      p.push(`- ${i.qtd} de "${nome}": falta o cliente dizer QUAIS, um por um (o nome do salgado, do docinho ou do bolo).`);
+      // O que falta aqui e o TIPO, nao o recheio. Ela juntou as duas perguntas
+      // ("me diz os recheios dos assados: pastel assado, esfirra, croissant...")
+      // e na resposta seguinte inventou recheio pra tudo.
+      const tipos = TIPOS_DA_FAMILIA[i.categoria] ?? TIPOS_DA_FAMILIA[nome.toLowerCase()] ?? [];
+      p.push(
+        `- ${i.qtd} de "${nome}": falta o cliente escolher QUAIS TIPOS e quantos de cada. ` +
+          (tipos.length ? `Os tipos sao ${tipos.join(", ")}. ` : "") +
+          `Pergunte SO o tipo agora; o recheio de cada um vem depois que ele escolher.`,
+      );
       continue;
     }
     const ops = SABORES[nome.toLowerCase()];
