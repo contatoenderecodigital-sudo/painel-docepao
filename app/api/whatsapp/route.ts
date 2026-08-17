@@ -30,6 +30,16 @@ import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
 import crypto from "node:crypto";
 
+const pausa = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Quanto a Glorinha "demora pra digitar". Uma pessoa lê, pensa e escreve; a IA
+// responde em 700ms e isso sozinho denuncia que não é gente. Base de leitura +
+// ritmo de digitação, entre 1,5s e 7s.
+function tempoDeDigitar(texto: string): number {
+  const ms = 1500 + texto.length * 28;
+  return Math.min(7000, Math.max(1500, ms));
+}
+
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const APP_SECRET = process.env.WHATSAPP_APP_SECRET;
 
@@ -211,9 +221,14 @@ async function processar(corpo: WebhookPayload) {
         for (const c of resp.cardapiosParaEnviar ?? []) {
           try {
             await enviarImagemPorLink(telefone, urlDoCardapio(c), undefined, creds);
-            // recados da peça, um por mensagem, logo depois da imagem
+            // A imagem vai por LINK: a Meta ainda precisa baixar a URL antes de
+            // entregar, e um texto mandado na sequência passa na frente dela.
+            // Era por isso que o recado do bolo aparecia colado no cardápio de
+            // salgados. A pausa dá tempo da peça chegar antes da próxima.
+            await pausa(2200);
             for (const r of RECADOS_CARDAPIO[c] ?? []) {
               await enviarTexto(telefone, r, creds);
+              await pausa(900);
             }
           } catch (e) {
             console.error("[whatsapp] falha ao enviar cardapio", c, e);
@@ -225,6 +240,10 @@ async function processar(corpo: WebhookPayload) {
         // texto chega primeiro o cliente lê a frase olhando pra uma conversa
         // sem cardápio nenhum.
         await mandarCardapios();
+        // Tempo de "digitação": responder no mesmo segundo entrega que é robô.
+        // Proporcional ao tamanho da resposta, com teto — ninguém espera 20s
+        // por uma frase, e o webhook tem prazo pra terminar.
+        await pausa(tempoDeDigitar(textoResp));
         await enviarTexto(telefone, textoResp, creds);
       } catch (e) {
         console.error("[whatsapp] falha ao enviar resposta:", e);
