@@ -202,7 +202,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                   <select
                     value={it.unidade}
                     onChange={(e) => mexerItem(i, { unidade: e.target.value as "un" | "kg" })}
-                    className={campo + " w-[54px] shrink-0"}
+                    className={campo + " w-[68px] shrink-0 pr-1"}
                     aria-label="Unidade"
                   >
                     <option value="un">un</option>
