@@ -429,6 +429,27 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       pendencias.push("o cliente falou de bolo e nenhum bolo entrou no pedido, conferir");
     }
 
+    // SABOR DO BOLO QUE O CLIENTE NUNCA DISSE.
+    //
+    // Num teste real ela pulou a pergunta do sabor e registrou "bolo
+    // brigadeiro" — brigadeiro era o DOCINHO escolhido dois passos antes. O
+    // cliente ia receber um bolo que não pediu, e nem teve como perceber,
+    // porque a pergunta nunca foi feita.
+    //
+    // Aqui a prova é a fala dele: se o sabor do bolo não aparece em nada que o
+    // cliente escreveu, a equipe confere antes de produzir.
+    for (const l of c.linhas) {
+      if (!/^bolo/i.test(l.item)) continue;
+      const sabor = l.item.replace(/^bolo\s+/i, "").trim();
+      if (sabor.length < 3) continue;
+      const palavras = sabor.split(/\s+/).filter((p) => p.length > 3);
+      const falado = palavras.length === 0 || palavras.some((p) => new RegExp(p, "i").test(falaDoCliente));
+      if (!falado) {
+        precisaConfirmacao = true;
+        pendencias.push(`confirmar o sabor do bolo: "${sabor}" não foi dito pelo cliente`);
+      }
+    }
+
     const motivoHumano = input.motivo_humano ? String(input.motivo_humano) : undefined;
     estado.pedido = {
       itens,
