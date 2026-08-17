@@ -30,3 +30,24 @@ quando há topo; bolo entrando como bolo em kg e não como docinho de R$ 1,25;
 papel de arroz virando item próprio; forma de pagamento que o cliente falou
 gravada, e a que ele não falou recusada; nome do aniversariante sinalizado
 quando vai como nome do pedido; e um pedido só por conversa.
+
+## qa-painel.cjs
+
+O caminho da dona: foto de referencia chegando no pedido, bolo em kg com preco de
+bolo, papel de arroz cobrado, o botao mostrando o valor certo, o total subindo
+com o topo, o pedido esperando o cliente e so depois caindo na aprovacao.
+
+```
+node testes/qa-painel.cjs
+```
+
+## webhook-simulado.cjs
+
+Simula uma mensagem chegando pelo webhook, ASSINADA como a Meta assina. E o
+unico jeito de testar o caminho de producao inteiro (webhook, IA, gravacao da
+conversa, peca de cardapio virando mensagem) sem depender do WhatsApp. Usa
+numero ficticio por padrao, de proposito.
+
+```
+docker exec <container> node /tmp/wf.cjs 5511999990000 "me manda o cardapio de bolos" <phone_id>
+```

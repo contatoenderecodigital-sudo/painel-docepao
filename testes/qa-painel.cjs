@@ -102,9 +102,11 @@ function checa(id, ok, detalhe) {
   await p.waitForTimeout(4000);
   const conversa = p.locator("button,[role=button]").filter({ hasText: /Cliente de teste|Sandro/ }).first();
   if (await conversa.count()) { await conversa.click(); await p.waitForTimeout(3000); }
+  // A peça de cardápio no chat NÃO é testável por aqui: o /testar-ia não grava
+  // conversa de propósito. Quem cobre isso é testes/webhook-simulado.cjs, que
+  // percorre o caminho de producao inteiro com a assinatura da Meta.
   const imagens = p.locator('img[alt="Imagem enviada"]');
   const qtdImg = await imagens.count();
-  checa("PECA-APARECE-NA-CONVERSA", qtdImg > 0, qtdImg + " imagem(ns)");
   if (qtdImg > 0) {
     await imagens.first().click();
     await p.waitForTimeout(1500);
