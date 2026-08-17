@@ -116,6 +116,17 @@ export async function anotarDados(
   return m;
 }
 
+// A equipe editando a montagem inteira pela tela. Grava no mesmo lugar que a IA
+// lê, então a correção passa a valer pra conversa: se a dona arruma o sabor do
+// bolo, a IA já conversa com o sabor certo daí pra frente.
+export async function salvarMontagemInteira(
+  negocioId: string,
+  clienteId: string,
+  m: Montagem,
+): Promise<void> {
+  await gravar(negocioId, clienteId, { itens: m.itens ?? [], dados: m.dados ?? {} });
+}
+
 // Some quando o pedido vira pedido de verdade, ou quando a equipe zera pra
 // recomeçar. A conversa continua; só a montagem recomeça do zero.
 export async function limparMontagem(negocioId: string, clienteId: string): Promise<void> {

@@ -14,6 +14,7 @@
 // ============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import PedidoMontado from "./PedidoMontado";
 import type { Conversa, Mensagem, TipoMidia } from "@/lib/tipos";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatarTelefoneBR, linkWhatsapp, brl } from "@/lib/tipos";
@@ -613,6 +614,10 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                     <div ref={fim} />
                   </div>
                 </ScrollArea>
+
+                {/* O pedido tomando forma, logo acima do campo de digitar: é
+                    onde a equipe olha antes de responder qualquer coisa. */}
+                <PedidoMontado clienteId={ativa.id} versao={mensagens.length} />
 
                 {/* Quem está respondendo, logo acima de onde se digita. É o lugar
                     certo pra isso: a decisão de assumir acontece na hora de

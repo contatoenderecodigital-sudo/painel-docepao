@@ -27,6 +27,7 @@ import {
 } from "@/lib/banco/conversas";
 import { definirHandoff, iaPausada, ultimaMsgClienteMs } from "@/lib/banco/atendimentos";
 import { registrarAceiteCliente } from "@/lib/banco/pedidos";
+import { anotarItem, removerItem, anotarDados, limparMontagem, lerMontagem } from "@/lib/banco/montagem";
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
 import crypto from "node:crypto";
@@ -207,11 +208,16 @@ async function processar(corpo: WebhookPayload) {
 
       // A IA tenta os provedores em cadeia (OpenAI, Gemini, ...). Se TODOS caírem,
       // responder() lança: não deixa o cliente no vácuo, avisa que já já responde.
+      // O que já está anotado vai junto: é a memória do pedido. Sem isso ela
+      // reconstrói tudo de cabeça a cada mensagem, e é aí que perde item, troca
+      // bolo por docinho e pergunta de novo o que o cliente já respondeu.
+      const montado = await lerMontagem(negocioId, clienteId).catch(() => null);
+
       let resp;
       try {
         // clienteId (o mesmo do acharOuCriarCliente/salvarMensagem) amarra o
         // custo de IA a ESTA conversa — pra o painel mostrar o custo por atendimento.
-        resp = await responder(historico, tenant, "whatsapp", clienteId);
+        resp = await responder(historico, tenant, "whatsapp", clienteId, montado);
       } catch (e) {
         console.error("[whatsapp] IA falhou (todos os provedores):", e);
         const desculpa = "Tive um probleminha aqui agora, ja ja te respondo, ta?";
@@ -239,6 +245,30 @@ async function processar(corpo: WebhookPayload) {
 
       // Registra o pedido ANTES de confirmar pro cliente (durabilidade primeiro).
       // Se falhar, NÃO manda a confirmação de "pedido salvo" (evita pedido fantasma).
+      // Aplica no pedido em montagem o que a IA anotou neste turno. Cada
+      // chamada mexe numa linha ou num campo; o resto fica como estava. É isso
+      // que substitui a remontagem do pedido inteiro a cada mensagem.
+      for (const mud of resp.montagem ?? []) {
+        try {
+          if (mud.tipo === "item") {
+            const porQuilo = mud.categoria === "bolo_festa" || mud.categoria === "por_quilo";
+            await anotarItem(negocioId, clienteId, {
+              produto: mud.produto,
+              categoria: mud.categoria as never,
+              qtd: mud.qtd,
+              unidade: porQuilo ? "kg" : "un",
+              obs: mud.obs ?? null,
+            });
+          } else if (mud.tipo === "remover") {
+            await removerItem(negocioId, clienteId, mud.produto, mud.categoria as never);
+          } else if (mud.tipo === "dados") {
+            await anotarDados(negocioId, clienteId, mud.dados);
+          }
+        } catch (e) {
+          console.error("[whatsapp] falha ao anotar no pedido em montagem:", e);
+        }
+      }
+
       // Quem decide se o cliente aceitou é a IA, não uma lista de palavras.
       // Antes era um regex com "sim", "ok", "isso" e alguns emojis, e o cliente
       // mandou 👍 e nada aconteceu. Lista nunca cobre tudo: falta o "fechou
@@ -258,6 +288,8 @@ async function processar(corpo: WebhookPayload) {
       if (resp.pedidoRegistrado) {
         try {
           await registrarPedido(negocioId, clienteId, resp.pedidoRegistrado);
+          // A montagem cumpriu o papel: o pedido existe de verdade agora.
+          await limparMontagem(negocioId, clienteId).catch(() => {});
         } catch (e) {
           console.error("[whatsapp] falha ao registrar pedido:", e);
           try {

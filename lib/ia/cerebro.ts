@@ -137,6 +137,77 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "anotar_item",
+      description:
+        "Anota UM item no pedido que está sendo montado, assim que o cliente decidir. Chame a cada item, no momento em que ele fala, sem esperar o fim. Se o item já estiver anotado, esta chamada CORRIGE (quantidade, observação): não duplica. Você não precisa lembrar do resto do pedido, ele já está guardado.",
+      parameters: {
+        type: "object",
+        properties: {
+          produto: {
+            type: "string",
+            description:
+              "Nome do produto como está no cardápio: 'coxinha', 'pastel assado', 'brigadeiro', 'bolo brigadeiro', 'papel de arroz'.",
+          },
+          categoria: {
+            type: "string",
+            enum: ["bolo_festa", "bolo_caseiro", "docinho", "salgado_frito", "salgado_assado", "pizza", "por_quilo", "por_unidade", "cupcake", "papel_de_arroz", "outro"],
+            description:
+              "A família do produto. É ela que separa o que tem nome igual: brigadeiro DOCINHO custa por unidade, bolo brigadeiro é bolo_festa e custa por quilo. Sem isso o bolo vira docinho.",
+          },
+          qtd: { type: "number", description: "Quantidade. Em bolo_festa e por_quilo é o PESO em kg (ex 2 ou 1.5); no resto é o número de unidades." },
+          obs: {
+            type: ["string", "null"],
+            description:
+              "O que o cliente disse SOBRE ESTE item: recheio do assado, sabor da trufa, cor da forminha, e no bolo o pão de ló, tema, nome e idade do aniversariante. Use as palavras dele, nunca exemplo. Null se não houver.",
+          },
+        },
+        required: ["produto", "categoria", "qtd", "obs"],
+        additionalProperties: false,
+      },
+      strict: true,
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "remover_item",
+      description: "Tira um item do pedido em montagem, quando o cliente desistir dele.",
+      parameters: {
+        type: "object",
+        properties: {
+          produto: { type: "string" },
+          categoria: { type: "string", enum: ["bolo_festa", "bolo_caseiro", "docinho", "salgado_frito", "salgado_assado", "pizza", "por_quilo", "por_unidade", "cupcake", "papel_de_arroz", "outro"] },
+        },
+        required: ["produto", "categoria"],
+        additionalProperties: false,
+      },
+      strict: true,
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "anotar_dados",
+      description:
+        "Anota os dados do pedido conforme o cliente for dizendo: nome de quem pede, data e hora da retirada, forma de pagamento, observação geral. Mande só o que ele acabou de informar; o resto continua guardado. Nunca invente: só mande o que ele disse.",
+      parameters: {
+        type: "object",
+        properties: {
+          cliente_nome: { type: ["string", "null"], description: "Nome de QUEM ESTÁ PEDINDO, não do aniversariante." },
+          retirada_data: { type: ["string", "null"], description: "Como ele falou: '30/08', '1 do próximo mês', 'sábado que vem'." },
+          retirada_hora: { type: ["string", "null"] },
+          forma_pagamento: { type: ["string", "null"], description: "pix, cartao ou dinheiro." },
+          observacoes: { type: ["string", "null"] },
+        },
+        required: ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento", "observacoes"],
+        additionalProperties: false,
+      },
+      strict: true,
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "registrar_pedido",
       description:
         "Registra o pedido pra equipe aprovar. USE só depois que o cliente confirmou o orçamento E informou o dia/hora da retirada.",
@@ -223,12 +294,31 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   },
 ];
 
+// O que já está anotado no pedido desta conversa, lido do banco pelo webhook e
+// entregue ao cérebro. É a memória: sem isso, a IA teria que reconstruir o
+// pedido inteiro pela leitura do histórico a cada mensagem, que é exatamente o
+// que fazia o bolo virar docinho e a data virar hoje.
+export type MontagemAtual = {
+  itens: { produto: string; categoria: string; qtd: number; unidade: string; obs?: string | null }[];
+  dados: Record<string, string | null | undefined>;
+};
+
+// Uma alteração no pedido em montagem. O executor é síncrono e o banco é I/O,
+// então as mudanças são enfileiradas aqui e aplicadas pelo webhook depois do
+// turno — mesmo padrão do enviar_cardapio.
+export type MudancaMontagem =
+  | { tipo: "item"; produto: string; categoria: string; qtd: number; obs?: string | null }
+  | { tipo: "remover"; produto: string; categoria: string }
+  | { tipo: "dados"; dados: Record<string, string | null> };
+
 // Resultado de um turno da IA.
 export type RespostaIA = {
   texto: string; // o que mandar de volta pro cliente
   precisaHumano: boolean; // se true, entra na fila de "precisa de você" do painel
   // Peças de cardápio que o webhook deve mandar como imagem logo depois do texto.
   cardapiosParaEnviar: CardapioId[];
+  // Alterações a aplicar no pedido em montagem desta conversa.
+  montagem?: MudancaMontagem[];
   // O cliente concordou com o valor atualizado (quem decide isso e a IA, que
   // entende "joinha", "fechou" e o que mais ele inventar).
   aceitouOrcamento?: boolean;
@@ -314,9 +404,10 @@ function umaPerguntaSo(texto: string): string {
 function executarFerramenta(
   nome: string,
   input: Record<string, unknown>,
-  estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"]; cardapios: CardapioId[]; resumo?: string; aceitouOrcamento?: boolean },
+  estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"]; cardapios: CardapioId[]; resumo?: string; aceitouOrcamento?: boolean; montagem: MudancaMontagem[] },
   motor: Motor,
   falaDoCliente = "",
+  montagemAtual?: MontagemAtual | null,
 ): string {
   if (nome === "montar_orcamento") {
     if (input.modo === "itens") {
@@ -345,6 +436,35 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     return "Anotado: o cliente aceitou o valor. Responda com uma frase curta confirmando que voce ja passou pra equipe, e NAO chame registrar_pedido: o pedido ja esta montado e a equipe ja ajustou.";
   }
 
+  if (nome === "anotar_item") {
+    const produto = String(input.produto || "").trim();
+    const categoria = String(input.categoria || "outro");
+    const qtd = Number(input.qtd) || 0;
+    if (!produto || qtd <= 0) return "Não anotei: preciso do produto e de uma quantidade maior que zero.";
+    estado.montagem.push({ tipo: "item", produto, categoria, qtd, obs: input.obs ? String(input.obs) : null });
+    return `Anotei ${qtd} de ${produto} no pedido. Continue a conversa normalmente; o pedido fica guardado e você não precisa repetir os itens anteriores.`;
+  }
+
+  if (nome === "remover_item") {
+    estado.montagem.push({
+      tipo: "remover",
+      produto: String(input.produto || "").trim(),
+      categoria: String(input.categoria || "outro"),
+    });
+    return "Tirei do pedido. O resto continua guardado.";
+  }
+
+  if (nome === "anotar_dados") {
+    const dados: Record<string, string | null> = {};
+    for (const k of ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento", "observacoes"]) {
+      const v = input[k];
+      if (v !== undefined && v !== null && String(v).trim() !== "") dados[k] = String(v);
+    }
+    if (Object.keys(dados).length === 0) return "Nada pra anotar: não veio nenhum dado preenchido.";
+    estado.montagem.push({ tipo: "dados", dados });
+    return `Anotei: ${Object.keys(dados).join(", ")}. O resto do pedido continua guardado.`;
+  }
+
   if (nome === "chamar_humano") {
     estado.precisaHumano = true;
     return "OK, marquei pra equipe assumir esta conversa. Avise o cliente com carinho que já já respondem.";
@@ -366,7 +486,27 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
   }
 
   if (nome === "registrar_pedido") {
-    const brutos = (input.itens as { item: string; qtd: number; obs?: string; categoria?: string }[]) || [];
+    const daIA = (input.itens as { item: string; qtd: number; obs?: string; categoria?: string }[]) || [];
+
+    // A LISTA VEM DO PEDIDO EM MONTAGEM, não da memória da IA.
+    //
+    // Enquanto o cliente falava, cada item foi anotado com a categoria certa e a
+    // equipe pôde corrigir na tela. Reconstruir a lista de cabeça na hora de
+    // fechar era o que apagava item, trocava bolo por docinho e perdia o papel
+    // de arroz. Agora o que está anotado manda; a lista que ela mandou só
+    // acrescenta o que por acaso não foi anotado.
+    const anotados = (montagemAtual?.itens ?? []).map((i) => ({
+      item: i.produto,
+      qtd: Number(i.qtd) || 0,
+      obs: i.obs ?? undefined,
+      categoria: i.categoria || undefined,
+    }));
+    const chave = (x: { item?: string; categoria?: string }) =>
+      String(x.item || "").trim().toLowerCase() + "|" + String(x.categoria || "");
+    const vistos = new Set(anotados.map(chave));
+    const brutos = anotados.length
+      ? [...anotados, ...daIA.filter((i) => !vistos.has(chave(i)))]
+      : daIA;
     // A CATEGORIA desfaz a ambiguidade antes de qualquer busca de preço.
     // "brigadeiro" sozinho é ambíguo: existe como docinho de R$ 1,25 e como
     // sabor de bolo de R$ 46,90 o quilo. Duas vezes o bolo de 2 kg virou
@@ -396,6 +536,21 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         "e NÃO chame registrar_pedido de novo. Só chame com a lista completa quando houver mudança de verdade."
       );
     }
+
+    // O que já está anotado completa o que ela esqueceu de mandar. Sem isso ela
+    // perguntava outra vez a data, o nome e o pagamento que o cliente já tinha
+    // dado, e a pessoa achava que ninguém tinha anotado nada.
+    const anot = montagemAtual?.dados ?? {};
+    const preencher = (v: unknown, chaveAnot: string) => {
+      const s = v == null ? "" : String(v).trim();
+      if (s !== "") return s;
+      const g = anot[chaveAnot];
+      return g && String(g).trim() !== "" ? String(g).trim() : undefined;
+    };
+    input.cliente_nome = preencher(input.cliente_nome, "cliente_nome") ?? input.cliente_nome;
+    input.retirada_data = preencher(input.retirada_data, "retirada_data") ?? input.retirada_data;
+    input.retirada_hora = preencher(input.retirada_hora, "retirada_hora") ?? input.retirada_hora;
+    input.forma_pagamento = preencher(input.forma_pagamento, "forma_pagamento") ?? input.forma_pagamento;
 
     let precisaConfirmacao = Boolean(input.precisa_confirmacao);
     const pendencias: string[] = [];
@@ -664,6 +819,45 @@ function montarSystemComData(tenant: Tenant): string {
   );
 }
 
+// O pedido anotado, em texto, pra IA ler no fim da conversa. É a memória dela:
+// em vez de reconstruir o pedido inteiro pelo histórico a cada mensagem (que é
+// onde ela trocava bolo por docinho e perdia item), ela lê o que está guardado.
+// A equipe também mexe nisso pela tela, então o que vier aqui pode ter sido
+// corrigido na mão e vale mais que a lembrança dela.
+function descreverMontagem(m?: MontagemAtual | null): string | null {
+  if (!m) return null;
+  const itens = m.itens ?? [];
+  const rotulos: Record<string, string> = {
+    cliente_nome: "Nome de quem retira",
+    retirada_data: "Data da retirada",
+    retirada_hora: "Hora da retirada",
+    forma_pagamento: "Forma de pagamento",
+    observacoes: "Observação geral",
+  };
+  const dados = Object.entries(rotulos)
+    .map(([k, r]) => {
+      const v = m.dados?.[k];
+      return v && String(v).trim() !== "" ? `- ${r}: ${String(v).trim()}` : null;
+    })
+    .filter(Boolean) as string[];
+  if (itens.length === 0 && dados.length === 0) return null;
+
+  const linhas = itens.map((i) => {
+    const q = i.unidade === "kg" ? `${i.qtd} kg` : `${i.qtd} un`;
+    return `- ${q} de ${i.produto} (categoria: ${i.categoria})${i.obs ? ` | ${i.obs}` : ""}`;
+  });
+
+  return (
+    "# O QUE JA ESTA ANOTADO NESTE PEDIDO\n" +
+    "Isto aqui esta guardado e a equipe ja pode ter corrigido na tela. Vale mais que a sua lembranca da conversa.\n\n" +
+    (linhas.length ? "Itens:\n" + linhas.join("\n") + "\n\n" : "Nenhum item anotado ainda.\n\n") +
+    (dados.length ? "Dados:\n" + dados.join("\n") + "\n\n" : "") +
+    "Nao pergunte de novo nada que ja esta aqui em cima: o cliente ja respondeu e vai achar que voce nao anotou. " +
+    "Falta so o que NAO aparece nesta lista. Quando anotar coisa nova, chame anotar_item ou anotar_dados; " +
+    "na hora de registrar, o pedido sai desta lista, entao ela precisa estar certa."
+  );
+}
+
 // Cadeia de provedores de IA, todos falando a API da OpenAI (ferramentas iguais).
 // Tenta o 1º; se cair, vai pro próximo. Assim a queda de um provedor não deixa o
 // cliente no vácuo. Configurável por env: coloque as chaves que tiver de reserva.
@@ -751,6 +945,7 @@ async function rodarConversa(
   tenant: Tenant,
   origem: string,
   clienteId?: string | null,
+  montagemAtual?: MontagemAtual | null,
 ): Promise<RespostaIA> {
   const client = new OpenAI({
     apiKey: prov.apiKey,
@@ -762,11 +957,17 @@ async function rodarConversa(
     timeout: 30_000,
     maxRetries: 0, // a cadeia de provedores já é a nossa retentativa
   });
-  const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"], cardapios: [] as CardapioId[], resumo: undefined as string | undefined, aceitouOrcamento: false };
+  const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"], cardapios: [] as CardapioId[], resumo: undefined as string | undefined, aceitouOrcamento: false, montagem: [] as MudancaMontagem[] };
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: system },
     ...historico.map((m) => ({ role: m.role, content: m.content })),
   ];
+
+  // O que já está anotado entra DEPOIS do histórico, nunca dentro do system: o
+  // system é o prefixo que a OpenAI guarda em cache, e mexer nele a cada turno
+  // jogaria o cache fora (a conta triplica). No fim ele é lido do mesmo jeito.
+  const lembrete = descreverMontagem(montagemAtual);
+  if (lembrete) messages.push({ role: "system", content: lembrete });
 
   // Acumula os tokens de TODAS as chamadas deste turno. Um round de tool-call
   // faz várias chamadas (uma por iteração do loop); somamos tudo e gravamos uma
@@ -827,6 +1028,7 @@ async function rodarConversa(
         precisaHumano: estado.precisaHumano,
         pedidoRegistrado: estado.pedido,
         aceitouOrcamento: estado.aceitouOrcamento,
+        montagem: estado.montagem,
         cardapiosParaEnviar: honrarCardapioPrometido(textoFinal, estado.cardapios),
       };
     }
@@ -847,7 +1049,7 @@ async function rodarConversa(
         .filter((m) => m.role === "user" && typeof m.content === "string")
         .map((m) => m.content as string)
         .join("  ");
-      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente);
+      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemAtual);
       messages.push({ role: "tool", tool_call_id: tc.id, content: saida });
     }
   }
@@ -898,6 +1100,7 @@ export async function responder(
   tenant: Tenant = { persona: DOCE_PAO, motor: motorPadrao },
   origem = "whatsapp",
   clienteId?: string | null,
+  montagemAtual?: MontagemAtual | null,
 ): Promise<RespostaIA> {
   const system = montarSystemComData(tenant);
   const lista = provedores(tenant);
@@ -912,7 +1115,7 @@ export async function responder(
   for (const prov of lista) {
     for (let tentativa = 1; tentativa <= 2; tentativa++) {
       try {
-        return await rodarConversa(prov, system, historico, tenant, origem, clienteId);
+        return await rodarConversa(prov, system, historico, tenant, origem, clienteId, montagemAtual);
       } catch (e) {
         ultimoErro = e;
         const msg = (e as Error)?.message ?? String(e);
