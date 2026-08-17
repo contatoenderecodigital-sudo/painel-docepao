@@ -144,6 +144,23 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
                   description:
                     "Nome ESPECÍFICO do item na tabela, nunca genérico. Use 'pastel assado', 'esfirra', 'coxinha', 'brigadeiro', 'trufa', 'bolo brigadeiro', 'papel de arroz'. NUNCA 'salgado assado', 'salgado frito' ou 'docinho' quando já sabe o tipo. Bolo e itens por quilo: qtd é o PESO em kg (ex 2 ou 1.5). NUNCA registre 'topo de bolo' como item (valor variável, vai só na obs + precisa_confirmacao).",
                 },
+                categoria: {
+                  type: "string",
+                  enum: [
+                    "bolo_festa",
+                    "bolo_caseiro",
+                    "docinho",
+                    "salgado_frito",
+                    "salgado_assado",
+                    "pizza",
+                    "por_quilo",
+                    "por_unidade",
+                    "cupcake",
+                    "papel_de_arroz",
+                  ],
+                  description:
+                    "A FAMÍLIA do item, obrigatória. É ela que desfaz a ambiguidade: 'brigadeiro' com categoria bolo_festa é bolo por quilo; com categoria docinho é o docinho de unidade. bolo_festa e por_quilo têm qtd em KG; o resto em unidades.",
+                },
                 qtd: { type: "number" },
                 obs: {
                   type: ["string", "null"],
@@ -151,7 +168,7 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
                     "Observação SÓ deste item, quando houver: o recheio do salgado assado ('carne', 'frango'), o sabor da trufa ('morango'), 'forminha rosa' no docinho, 'topo da Moana, nome Sofia, 5 anos' no bolo, 'tem foto de referencia'. Nunca misture observação de itens diferentes; cada uma no seu item.",
                 },
               },
-              required: ["item", "qtd", "obs"],
+              required: ["item", "qtd", "obs", "categoria"],
               additionalProperties: false,
             },
           },
@@ -330,7 +347,22 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
   }
 
   if (nome === "registrar_pedido") {
-    const itens = (input.itens as { item: string; qtd: number; obs?: string }[]) || [];
+    const brutos = (input.itens as { item: string; qtd: number; obs?: string; categoria?: string }[]) || [];
+    // A CATEGORIA desfaz a ambiguidade antes de qualquer busca de preço.
+    // "brigadeiro" sozinho é ambíguo: existe como docinho de R$ 1,25 e como
+    // sabor de bolo de R$ 46,90 o quilo. Duas vezes o bolo de 2 kg virou
+    // R$ 2,50 e a festa foi pra cozinha sem bolo. Agora a IA é obrigada a
+    // dizer de que família é o item, e aqui o nome é normalizado com base nisso.
+    const itens = brutos.map((i) => {
+      const nomeItem = String(i.item || "").trim();
+      const cat = String(i.categoria || "");
+      const jaEhBolo = /^bolo\b/i.test(nomeItem);
+      if ((cat === "bolo_festa" || cat === "bolo_caseiro") && !jaEhBolo) {
+        return { ...i, item: "bolo " + nomeItem };
+      }
+      if (cat === "papel_de_arroz") return { ...i, item: "papel de arroz" };
+      return i;
+    });
     const c = motor.cotarPorItens(itens);
     let precisaConfirmacao = Boolean(input.precisa_confirmacao);
     const pendencias: string[] = [];
