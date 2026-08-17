@@ -464,6 +464,19 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       }
     }
 
+    // ASSADO SEM RECHEIO É PRODUÇÃO NO ESCURO.
+    //
+    // Pastel assado, esfirra, croissant, empadinha, quiche e mini pizza têm
+    // opção de recheio: sem essa informação a cozinha faz o sabor padrão e o
+    // cliente descobre na festa. A regra está no prompt e mesmo assim ela já
+    // fechou pedido sem perguntar, então a equipe confere antes de produzir.
+    const PEDE_RECHEIO = /^(pastel assado|esfirra|croissant|empadinha|quiche|mini pizza)/i;
+    const semRecheio = c.linhas.filter((l) => PEDE_RECHEIO.test(l.item) && !String(l.obs ?? "").trim());
+    if (semRecheio.length > 0) {
+      precisaConfirmacao = true;
+      pendencias.push(`confirmar o recheio de: ${semRecheio.map((l) => l.item).join(", ")}`);
+    }
+
     const motivoHumano = input.motivo_humano ? String(input.motivo_humano) : undefined;
     estado.pedido = {
       itens,
