@@ -815,6 +815,12 @@ function PainelContato({ conversa, qtdMensagens, onToast }: { conversa: Conversa
               <span className="text-[#25d366]"><WhatsAppIcon size={12} /></span> {formatarTelefoneBR(conversa.clienteTelefone)}
             </a>
           </div>
+          {/* O pedido tomando forma, no alto da coluna: fica ao lado da conversa
+              (dá pra conferir sem tapar o que o cliente está escrevendo) e é a
+              primeira coisa que a equipe precisa ver ao abrir o atendimento. */}
+          <div className="border-t border-white/10 pt-4 mb-4">
+            <PedidoMontado clienteId={conversa.id} versao={qtdMensagens} />
+          </div>
           {conversa.estado === "precisa_humano" && (
             <div className="flex items-center gap-2 text-[12px] rounded-[10px] px-3 py-2 mb-4" style={{ background: "rgba(231,207,148,0.12)", color: "#e7cf94" }}>
               <ShieldAlert size={14} /> A IA pediu a equipe nesta conversa.
@@ -861,11 +867,6 @@ function PainelContato({ conversa, qtdMensagens, onToast }: { conversa: Conversa
                 <span className="text-[13px] text-cream font-medium">{v}</span>
               </div>
             ))}
-          </div>
-          {/* O pedido tomando forma. Fica aqui, ao lado da conversa, pra equipe
-              conferir e corrigir sem tapar o que o cliente está escrevendo. */}
-          <div className="border-t border-white/10 pt-4 mt-4">
-            <PedidoMontado clienteId={conversa.id} versao={qtdMensagens} />
           </div>
           <a
             href={"/clientes?telefone=" + encodeURIComponent(conversa.clienteTelefone)}
