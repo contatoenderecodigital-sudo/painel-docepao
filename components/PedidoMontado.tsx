@@ -56,6 +56,10 @@ const CAMPOS: { chave: keyof Dados; rotulo: string; dica: string }[] = [
 
 // Sem largura no base: quem usa define. Com `w-full` aqui, o campo de
 // quantidade esticava por cima da linha inteira e o produto saía da tela.
+// A lista aberta do select e desenhada pelo sistema, nao pela pagina: sem cor
+// explicita ela sai branca no branco e a dona nao consegue ler a opcao.
+const OPCAO = { background: "#3d1219", color: "#fff7eb" } as const;
+
 const campo =
   "min-w-0 bg-white/8 rounded-lg px-2.5 py-2 text-[13px] text-cream placeholder:text-cream/35 focus:outline-none focus:ring-2 focus:ring-cobre/25 border border-white/8";
 
@@ -202,11 +206,11 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                   <select
                     value={it.unidade}
                     onChange={(e) => mexerItem(i, { unidade: e.target.value as "un" | "kg" })}
-                    className={campo + " w-[68px] shrink-0 pr-1"}
+                    className={campo + " w-[76px] shrink-0 pr-1"}
                     aria-label="Unidade"
                   >
-                    <option value="un">un</option>
-                    <option value="kg">kg</option>
+                    <option value="un" style={OPCAO}>un</option>
+                    <option value="kg" style={OPCAO}>kg</option>
                   </select>
                   <select
                     value={it.categoria}
@@ -219,7 +223,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                     aria-label="Categoria"
                   >
                     {CATEGORIAS.map((c) => (
-                      <option key={c.id} value={c.id}>
+                      <option key={c.id} value={c.id} style={OPCAO}>
                         {c.rotulo}
                       </option>
                     ))}
