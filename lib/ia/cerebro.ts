@@ -898,6 +898,20 @@ function descreverMontagem(m?: MontagemAtual | null): string {
     })
     .filter(Boolean) as string[];
 
+  // Quanto deu no total de cada familia. Ela ja anotou 400 salgados em cada
+  // uma das tres linhas de uma festa de 400 salgados no total, e nada mostrava
+  // que o pedido tinha virado 1200.
+  const somas: Record<string, number> = {};
+  for (const i of itens) {
+    const fam = String(i.categoria || "").startsWith("salgado")
+      ? "salgados"
+      : i.categoria === "docinho"
+        ? "docinhos"
+        : null;
+    if (fam) somas[fam] = (somas[fam] ?? 0) + (Number(i.qtd) || 0);
+  }
+  const totais = Object.entries(somas).map(([f, n]) => `${n} ${f}`);
+
   const linhas = itens.map((i) => {
     const q = i.unidade === "kg" ? `${i.qtd} kg` : `${i.qtd} un`;
     return `- ${q} de ${i.produto} (categoria: ${i.categoria})${i.obs ? ` | ${i.obs}` : ""}`;
@@ -917,10 +931,11 @@ function descreverMontagem(m?: MontagemAtual | null): string {
   const pend = pendenciasDeSabor(itens);
   const cobrar = pend.length
     ? "\n\nFALTA FECHAR ISTO, E E AGORA:\n" +
-      pend.join("\n") +
-      "\n\nSua proxima mensagem tem que perguntar isso. NAO passe pros docinhos, pro bolo nem pro fechamento " +
-      "deixando sabor em aberto: a cozinha faz o padrao e o cliente so descobre na festa. Pode juntar tudo numa " +
-      "pergunta so."
+      pend.join(String.fromCharCode(10)) +
+      "\n\nSe o cliente JA respondeu alguma dessas coisas na conversa, nao pergunte de novo: chame anotar_item agora " +
+      "com o que ele disse. Perguntar duas vezes a mesma coisa faz ele achar que ninguem anotou nada. Pergunte so o que " +
+      "sobrou, de uma vez so, e nao passe pros docinhos, pro bolo nem pro fechamento com sabor em aberto: a cozinha faz " +
+      "o padrao e o cliente so descobre na festa."
     : "";
 
   // TEM TUDO? ENTAO FECHA.
@@ -951,6 +966,7 @@ function descreverMontagem(m?: MontagemAtual | null): string {
     "Isto esta guardado e a equipe ja pode ter corrigido na tela. Vale mais que a sua lembranca da conversa." + "\n\n" +
     (linhas.length ? "Itens:" + "\n" + linhas.join("\n") + "\n\n" : "Nenhum item anotado ainda." + "\n\n") +
     (dados.length ? "Dados:" + "\n" + dados.join("\n") + "\n\n" : "") +
+    (totais.length ? "Somando o que esta anotado: " + totais.join(" e ") + ". Confira se bate com o tamanho da festa antes de seguir." + "\n\n" : "") +
     "Nao pergunte de novo nada que ja esta aqui em cima: o cliente ja respondeu e vai achar que voce nao anotou. Falta so o que NAO aparece nesta lista." + "\n\n" +
     ordem +
     cobrar +
