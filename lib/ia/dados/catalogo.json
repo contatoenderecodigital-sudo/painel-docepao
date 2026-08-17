@@ -20,7 +20,7 @@
         { "nome": "mini pão de queijo", "recheio": "queijo" },
         { "nome": "salsicha frita", "recheio": "salsicha" },
         { "nome": "chodó", "recheio": "calabresa" },
-        { "nome": "mini bolha" },
+        { "nome": "mini bolha", "recheios": ["carne","queijo","presunto","frango"] },
         { "nome": "risólis", "recheios": ["carne","frango"] }
       ]
     },
