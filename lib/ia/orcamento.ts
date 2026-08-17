@@ -68,7 +68,13 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
     const avisos: string[] = [];
     let total = 0;
     for (const { item, qtd, obs } of pedido) {
-      const chave = norm(item);
+      // "bolo de brigadeiro" precisa virar "bolo brigadeiro" antes de qualquer
+      // busca. Sem isso o "de" atrapalha o casamento e sobra só "brigadeiro",
+      // que existe como docinho de R$ 1,25: o bolo de 2 kg virava R$ 2,50.
+      const chave = norm(item)
+        .replace(/^bolo (de |do |da )/, "bolo ")
+        .replace(/^torta (de |do |da )/, "torta ")
+        .replace(/ recheado$| de festa$| de anivers[áa]rio$/, "");
       // Bolo disfarçado de docinho: tenta o mesmo sabor na família dos bolos.
       if (obs && MARCA_DE_BOLO.test(obs) && !chave.startsWith("bolo")) {
         const comoBolo =

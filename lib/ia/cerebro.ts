@@ -267,7 +267,7 @@ function umaPerguntaSo(texto: string): string {
 function executarFerramenta(
   nome: string,
   input: Record<string, unknown>,
-  estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"]; cardapios: CardapioId[] },
+  estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"]; cardapios: CardapioId[]; resumo?: string },
   motor: Motor,
   falaDoCliente = "",
 ): string {
@@ -364,6 +364,32 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         ? [motivoHumano, ...pendencias].filter(Boolean).join("; ") || undefined
         : undefined,
     };
+    // O RESUMO É MONTADO AQUI, não pela IA.
+    //
+    // Enquanto ela escrevia, cada erro dela virava um erro que o cliente lia
+    // como combinado: "*Forma de pagamento:* pix" numa conversa sem pagamento,
+    // o nome da criança no lugar do nome de quem paga, total que não batia com
+    // a soma. Nenhuma regra de prompt corrigiu isso de forma confiável, porque
+    // o resumo é o ponto onde a invenção custa dinheiro.
+    //
+    // Agora ela só conversa. O texto que fecha o pedido sai daqui, com os
+    // números da ferramenta e só com o que a gente de fato sabe.
+    const linhaPagamento = formaPagamento ? `*Forma de pagamento:* ${formaPagamento}\n` : "";
+    const nomeResumo = nomeInformado && !pendencias.some((p) => p.includes("nome")) ? `*Nome:* ${nomeInformado}\n` : "";
+    const temTopo = itens.some((i) => /topo/i.test(String(i.obs ?? "")));
+    estado.resumo =
+      `*Pedido recebido*\n` +
+      nomeResumo +
+      linhaPagamento +
+      `*Data:* ${String(input.retirada_data || "")}\n` +
+      (input.observacoes ? `*Obs:* ${String(input.observacoes)}\n` : "") +
+      c.linhas.map((l) => `${l.item}: ${fmtQtd(l.qtd, l.unidade)} x ${brl(l.unit)} = ${brl(l.subtotal)}`).join("\n") +
+      `\n*Total: ${brl(c.total)}*` +
+      (temTopo ? `\nA equipe vai te informar o valor do topo.` : "") +
+      `\nJá passei pra nossa equipe. Assim que confirmarem, eu te aviso por aqui.` +
+      (formaPagamento ? "" : `\n\nSó me diz uma coisa: vai ser pix, cartão ou dinheiro na retirada?`) +
+      (nomeResumo ? "" : `\n\nE o pedido fica no nome de quem?`);
+
     const itensFmt = c.linhas
       .map((l) => `${l.item}: ${fmtQtd(l.qtd, l.unidade)} x ${brl(l.unit)} = ${brl(l.subtotal)}`)
       .join("\n");
@@ -502,7 +528,7 @@ async function rodarConversa(
     timeout: 15_000, // não fica pendurado; se travar, cai pro próximo provedor
     maxRetries: 0, // a cadeia de provedores já é a nossa retentativa
   });
-  const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"], cardapios: [] as CardapioId[] };
+  const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"], cardapios: [] as CardapioId[], resumo: undefined as string | undefined };
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: system },
     ...historico.map((m) => ({ role: m.role, content: m.content })),
@@ -542,7 +568,9 @@ async function rodarConversa(
 
     if (!msg.tool_calls || msg.tool_calls.length === 0) {
       gravarUso();
-      const textoFinal = umaPerguntaSo((msg.content || "").trim());
+      // Fechou pedido: o texto que vai pro cliente e o resumo montado em
+      // codigo, nao o que ela escreveu. Ela ja tentou reescrever o total.
+      const textoFinal = estado.resumo ?? umaPerguntaSo((msg.content || "").trim());
       return {
         texto: textoFinal,
         precisaHumano: estado.precisaHumano,
