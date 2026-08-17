@@ -131,13 +131,29 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
         <div className={bolhaBase} style={{ ...bolhaStyle, padding: m.tipo === "imagem" && src ? 4 : undefined }}>
           {/* IMAGEM */}
           {m.tipo === "imagem" && src && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={src}
-              alt="Imagem enviada"
-              onClick={() => onImagem(src)}
-              className="rounded-[11px] max-h-64 w-auto object-cover cursor-zoom-in block"
-            />
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
+                alt="Imagem enviada"
+                onClick={() => onImagem(src)}
+                className="rounded-[11px] max-h-64 w-auto object-cover cursor-zoom-in block"
+              />
+              {/* A hora fica SOBRE a foto, com um véu escuro pra ler em imagem
+                  clara. Antes era uma linha embaixo puxada pra cima, que comia
+                  o rodapé da imagem. */}
+              {!legenda && (
+                <span
+                  className="absolute bottom-1.5 right-1.5 text-[10px] text-white/90 px-1.5 py-0.5 rounded-full inline-flex items-center gap-1"
+                  style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}
+                >
+                  {m.hora}
+                  {!isCliente && m.de === "equipe" && m.status === "enviando" && <Clock size={10} />}
+                  {!isCliente && m.de === "equipe" && m.status === "enviado" && <CheckCheck size={11} />}
+                  {!isCliente && m.de === "equipe" && m.status === "erro" && <AlertCircle size={11} />}
+                </span>
+              )}
+            </div>
           )}
           {/* ÁUDIO */}
           {m.tipo === "audio" && src && (
@@ -182,8 +198,8 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
             </div>
           )}
           {/* rodapé de hora quando a mídia não tem legenda */}
-          {isMidia && !legenda && (
-            <div className="flex items-center justify-end pr-2 pb-1 -mt-0.5">
+          {isMidia && !legenda && m.tipo !== "imagem" && (
+            <div className="flex items-center justify-end pr-2 pb-1">
               <HoraSelo />
             </div>
           )}
