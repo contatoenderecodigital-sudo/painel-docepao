@@ -86,9 +86,13 @@ const CENARIOS = [
       { diz: "tema Toy Story, Vinicius, 4 anos" },
       { diz: "caixa com tampa" },
       { diz: "so isso, pode fechar" },
+      // Armadilha: o nome que ele dá é o do aniversariante, não o de quem paga.
+      // Ela pode aceitar (e aí o pedido tem que ir sinalizado) ou insistir — as
+      // duas saídas são boas, e a segunda é melhor ainda.
       { diz: "Vinicius" },
+      { diz: "pode deixar no nome do Sandro entao" },
       {
-        diz: "e so",
+        diz: "e so isso",
         fim: true,
         checa: [
           {
@@ -120,18 +124,21 @@ const CENARIOS = [
             },
           },
           {
-            id: "NOME-DO-ANIVERSARIANTE-SINALIZADO",
+            id: "NOME-NAO-E-O-DO-ANIVERSARIANTE",
             porque: "o pedido saiu no nome da criança de 4 anos, que não paga nem retira",
             ok: (r, h, extra) => {
               const p = extra.pedido;
               if (!p) return "pendente";
-              return !!p.precisa_confirmacao;
+              // ou o nome é de quem paga, ou o pedido foi sinalizado pra equipe
+              return !/vinicius/i.test(p.cliente_nome || "") || !!p.precisa_confirmacao;
             },
           },
           {
             id: "UM-PEDIDO-SO",
             porque: "uma conversa já gerou três pedidos na fila",
-            ok: (r, h, extra) => extra.totalPedidos === 1,
+            // 0 = ela se recusou a fechar por falta de dado, o que é bom e não
+            // é o bug que esta checagem persegue (que é fechar VÁRIAS vezes).
+            ok: (r, h, extra) => extra.totalPedidos <= 1,
           },
         ],
       },
