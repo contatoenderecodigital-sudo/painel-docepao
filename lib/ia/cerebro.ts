@@ -723,13 +723,30 @@ async function rodarConversa(
   };
 
   for (let i = 0; i < 6; i++) {
-    const resp = await client.chat.completions.create({
-      model: prov.modelo,
-      max_tokens: 350, // resposta de WhatsApp é curta; corta desperdício de token
-      temperature: 0.4, // menos "criatividade" = segue mais as regras (usar a ferramenta)
-      messages,
-      tools: tenant.sistemaCustom ? FERRAMENTAS_BASICAS : FERRAMENTAS,
-    });
+    // Modelos de raciocínio (gpt-5, o1, o3) recusam max_tokens e temperature:
+    // eles usam max_completion_tokens e não aceitam ajuste de criatividade.
+    // Mandar os parâmetros antigos dá 400 e o atendimento cai inteiro, então a
+    // chamada se adapta ao modelo em vez de assumir um formato só.
+    const ehRaciocinio = /^(gpt-5|o1|o3|o4)/i.test(prov.modelo);
+    const resp = await client.chat.completions.create(
+      ehRaciocinio
+        ? {
+            model: prov.modelo,
+            // teto alto de propósito: boa parte é gasta pensando, e com pouco
+            // espaço o modelo devolve a resposta vazia (já aconteceu numa
+            // consulta: 4000 tokens todos no raciocínio e nada de texto).
+            max_completion_tokens: 4000,
+            messages,
+            tools: tenant.sistemaCustom ? FERRAMENTAS_BASICAS : FERRAMENTAS,
+          }
+        : {
+            model: prov.modelo,
+            max_tokens: 350, // resposta de WhatsApp é curta; corta desperdício de token
+            temperature: 0.4, // menos "criatividade" = segue mais as regras (usar a ferramenta)
+            messages,
+            tools: tenant.sistemaCustom ? FERRAMENTAS_BASICAS : FERRAMENTAS,
+          },
+    );
     somarUso(resp.usage);
 
     const msg = resp.choices[0]?.message;
