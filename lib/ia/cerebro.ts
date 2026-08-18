@@ -2139,9 +2139,14 @@ async function rodarConversa(
       }
       // Lista de produtos digitada vira peca do cardapio: a imagem tem tudo e o
       // preco, e ninguem escolhe festa lendo nove nomes num paragrafo.
-      const semLista = listaViraCardapio(textoFinal, estado.cardapios);
+      // Peca que ja foi pro cliente ha pouco nao volta: repetir cardapio no meio
+      // da escolha faz parecer que a padaria perdeu o fio da conversa.
+      const mandadasAgora = pecasJaMandadas(historico);
+      const semLista = listaViraCardapio(textoFinal, estado.cardapios, mandadasAgora);
       // O que o CLIENTE pediu vale por ultimo: se ele pediu a peca, ela vai.
-      const pecasFinais = cardapioPedidoPeloCliente(String(falaDoCliente2), semLista.cardapios);
+      const pecasFinais = cardapioPedidoPeloCliente(String(falaDoCliente2), semLista.cardapios).filter(
+        (x) => semLista.cardapios.includes(x) || !mandadasAgora.includes(x) || /card[áa]pio|me manda|quais|que tipos/i.test(String(falaDoCliente2)),
+      );
       return {
         texto: semLista.texto,
         precisaHumano: estado.precisaHumano,
@@ -2196,6 +2201,21 @@ async function rodarConversa(
 }
 
 
+// Quais pecas ja foram mandadas nas ultimas mensagens (a peca vai como imagem
+// com legenda "Cardapio de X", e isso fica no historico).
+function pecasJaMandadas(historico: Mensagem[]): CardapioId[] {
+  const ultimas = historico.slice(-8).map((m) => String(m.content ?? "").toLowerCase());
+  const achadas: CardapioId[] = [];
+  for (const t of ultimas) {
+    if (!t.includes("cardápio de") && !t.includes("cardapio de")) continue;
+    if (/salgad/.test(t)) achadas.push("salgados");
+    if (/docinho|doce/.test(t)) achadas.push("docinhos");
+    if (/bolo.*festa|festa.*bolo/.test(t)) achadas.push("bolos-festa");
+    if (/bolo caseiro/.test(t)) achadas.push("bolos-caseiros");
+  }
+  return achadas;
+}
+
 // O jeito que o cliente pede cada peca do cardapio.
 const PEDIDO_DE_CARDAPIO: [CardapioId, RegExp][] = [
   ["salgados", /salgad|frito|assado|coxinha|esfirra|empadinha|ris[óo]lis/i],
@@ -2234,17 +2254,23 @@ const NOMES_DA_FAMILIA: [CardapioId, string[]][] = [
 ];
 
 // Enumerou a familia inteira em texto? Manda a peca e corta a lista da frase.
+// Frase que confirma o que o cliente acabou de escolher nao e lista de
+// cardapio, mesmo citando varios produtos.
+const CONFIRMANDO = /anotei|anotado|anotamos|fechando|fechamos|somando|no seu pedido|ficou assim/i;
+
 function listaViraCardapio(
   texto: string,
   jaNaFila: CardapioId[],
+  jaMandadas: CardapioId[] = [],
 ): { texto: string; cardapios: CardapioId[] } {
   const frases = texto.split(new RegExp('(?<=[.!?])', 'g'));
   let fila = [...jaNaFila];
   let mudou = false;
   const saida = frases.map((frase) => {
     const t = frase.toLowerCase();
+    if (CONFIRMANDO.test(t)) return frase;
     for (const [peca, nomes] of NOMES_DA_FAMILIA) {
-      if (fila.includes(peca)) continue;
+      if (fila.includes(peca) || jaMandadas.includes(peca)) continue;
       const achados = nomes.filter((n) => n.length > 3 && t.includes(n));
       // Quatro ou mais nomes na MESMA frase e lista de cardapio, nao conversa.
       if (achados.length >= 4) {
