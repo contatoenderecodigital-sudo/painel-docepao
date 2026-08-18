@@ -722,6 +722,14 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const mandouDividir = /divid|igual|sortido|metade|meio a meio|meio-a-meio|voce que sabe|voce escolhe|do seu jeito|como voce achar|o que voce sugerir/i.test(
       falaDoCliente,
     );
+    // Nomes separados por tipo: e assim que da pra saber quantos tipos ele
+    // citou dentro da metade frita e dentro da assada.
+    const NOMES_FRITO = ((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]).map((i) =>
+      String(i.nome).toLowerCase(),
+    );
+    const NOMES_ASSADO = ((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[]).map((i) =>
+      String(i.nome).toLowerCase(),
+    );
     // Os nomes de salgado do cardapio, pra saber quantos tipos o cliente citou
     // numa mesma frase.
     const SALGADOS_CONHECIDOS = [
@@ -782,6 +790,28 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         const jaTem = mesmaFamilia
           .filter((x) => String(x.produto ?? "").trim().toLowerCase() !== produto.trim().toLowerCase())
           .reduce((t, x) => t + (Number(x.qtd) || 0), 0);
+        // Ele citou mais de um tipo pra essa metade e nao deu o numero de cada:
+        // a divisao e feita aqui, senao o primeiro tipo leva tudo.
+        const listaDoTipo = categoria === "salgado_frito" ? NOMES_FRITO : categoria === "salgado_assado" ? NOMES_ASSADO : [];
+        // Os numeros que ELE escreveu: se a quantidade veio dele, respeita.
+        const numerosDaFala = new Set<number>(
+          (String(falaDoCliente).match(/[0-9]+(?:[.,][0-9]+)?/g) ?? []).map((x) => Number(x.replace(",", "."))),
+        );
+        if (listaDoTipo.length && !numerosDaFala.has(qtd)) {
+          const semAcento2 = (t: string) =>
+            String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const falaLimpa = semAcento2(falaDoCliente);
+          const citados = listaDoTipo.filter((n) => {
+            const x = semAcento2(n);
+            return falaLimpa.includes(x) || falaLimpa.includes(x.slice(0, Math.max(4, x.length - 2)));
+          }).length;
+          const cabe = Math.floor(pedidoTotal / Math.max(1, citados));
+          if (citados > 1 && qtd > cabe) {
+            return (
+              "NAO anotei: o cliente citou " + citados + " tipos pra essa parte e nao disse quanto de cada. Cabem " + pedidoTotal + " no total, entao sao " + cabe + " de cada um. Anote " + cabe + " de " + produto + " e " + cabe + " dos outros que ele citou."
+            );
+          }
+        }
         if (jaTem + qtd > pedidoTotal) {
           const resta = Math.max(0, pedidoTotal - jaTem);
           // Quantos tipos dessa metade o cliente citou nesta fala: e por eles
