@@ -726,7 +726,18 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     ];
     const itensJa = montagemAtual?.itens ?? [];
     const tem = (pref: string) => itensJa.some((i) => String(i.categoria || "").startsWith(pref));
-    const etapa = !tem("salgado") ? "salgados" : !tem("docinho") ? "docinhos" : !tem("bolo") ? "bolos-festa" : null;
+    // Parte dispensada nao e etapa: o cliente disse que nao quer salgado, pediu o
+    // cardapio de docinhos e recebeu o de salgados "porque e a etapa certa".
+    const dispensado = String(montagemAtual?.dados?.nao_quer ?? "");
+    const fora = (o: string) => new RegExp(o, "i").test(dispensado);
+    const etapa =
+      !tem("salgado") && !fora("salgado")
+        ? "salgados"
+        : !tem("docinho") && !fora("docinho|doce")
+          ? "docinhos"
+          : !tem("bolo") && !fora("bolo")
+            ? "bolos-festa"
+            : null;
 
     const naOrdem = [...pedidos].sort((a, b) => {
       const ia = ORDEM.indexOf(a) < 0 ? 99 : ORDEM.indexOf(a);
