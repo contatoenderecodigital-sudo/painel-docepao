@@ -693,7 +693,9 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       cinquenta: 50, sessenta: 60, setenta: 70, oitenta: 80, noventa: 90, cem: 100, cento: 100,
       duzentos: 200, trezentos: 300, quatrocentos: 400, quinhentos: 500, duzia: 12, meia: 6,
     };
-    const mandouDividir = /divid|igual|sortido|voce que sabe|voce escolhe|do seu jeito|como voce achar|o que voce sugerir/i.test(
+    // "metade frito metade assado" e "meio a meio" tambem sao ordem de dividir:
+    // o cliente deu o total e mandou repartir.
+    const mandouDividir = /divid|igual|sortido|metade|meio a meio|meio-a-meio|voce que sabe|voce escolhe|do seu jeito|como voce achar|o que voce sugerir/i.test(
       falaDoCliente,
     );
     // Os nomes de salgado do cardapio, pra saber quantos tipos o cliente citou
@@ -709,10 +711,17 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // indicacao da festa). Fora isso e producao que ninguem pediu.
     const familiaEscolhida = categoria === "docinho" || String(categoria).startsWith("salgado");
     if (familiaEscolhida) {
-      const dito = (falaDoCliente + " " + (ultimaFalaDela || "")).toLowerCase();
-      const nome = produto.trim().toLowerCase();
+      // Sem acento e sem plural: o cliente escreve "risoles", "esfirras",
+      // "coxinhas", e o cardapio guarda "risólis", "esfirra", "coxinha".
+      const semAcento = (t: string) =>
+        String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const dito = semAcento(falaDoCliente + " " + (ultimaFalaDela || ""));
+      const nome = semAcento(produto).trim();
+      const raiz = (t: string) => t.replace(/(es|s)$/, "");
       const primeiraPalavra = nome.split(/\s+/)[0];
-      const citado = dito.includes(nome) || (primeiraPalavra.length > 3 && dito.includes(primeiraPalavra));
+      const pedacos = [nome, raiz(nome), primeiraPalavra, raiz(primeiraPalavra)].filter((x) => x.length > 3);
+      // Compara pelo comeco da palavra: risoles x risolis, croquete x croquetes.
+      const citado = pedacos.some((x) => dito.includes(x) || dito.includes(x.slice(0, Math.max(4, x.length - 2))));
       const jaEstava = (montagemAtual?.itens ?? []).some(
         (x) => String(x.produto ?? "").trim().toLowerCase() === nome,
       );
