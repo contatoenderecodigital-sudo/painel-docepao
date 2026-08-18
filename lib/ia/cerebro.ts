@@ -608,7 +608,13 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       // ("100 mini bolha de carne... pode ser assim?") tem o sabor na fala dela,
       // e sem isso o "pode ser" do cliente nao anotava nada.
       const cliente = (falaDoCliente + " " + (ultimaFalaDela || "")).toLowerCase();
-      if (escolhido && !cliente.includes(escolhido.trim().toLowerCase())) {
+      // Ja esta no pedido com esse mesmo recheio: e a mesma linha sendo
+      // reescrita, e o recheio ja passou por aqui quando entrou.
+      const jaTemEsseRecheio = itensAgora().some((x) => {
+        const mesmoProduto = String(x.produto ?? "").trim().toLowerCase() === produto.trim().toLowerCase();
+        return mesmoProduto && escolhido ? String(x.obs ?? "").toLowerCase().includes(escolhido.trim().toLowerCase()) : false;
+      });
+      if (escolhido && !jaTemEsseRecheio && !cliente.includes(escolhido.trim().toLowerCase())) {
         return (
           `NAO anotei: o cliente nunca falou "${escolhido}" pra ${produto}. Escolher o recheio por ele faz a cozinha ` +
           `produzir o sabor errado e ele so descobrir na festa. PERGUNTE agora qual ele quer, entre ${opcoesDoProduto.join(", ")}, ` +
