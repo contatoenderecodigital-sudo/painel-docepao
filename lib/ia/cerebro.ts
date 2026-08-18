@@ -1881,6 +1881,8 @@ async function rodarConversa(
   // Deixar isso pro modelo custou uma festa inteira: ele anotou os salgados da
   // proposta e perguntou de novo pelos docinhos que o cliente tinha acabado de
   // aceitar na mesma frase. Quem escreveu a proposta anota a proposta.
+  // A montagem que vale PARA ESTE TURNO (a do banco mais o que o aceite anotou).
+  let montagemDoTurno = montagemAtual;
   const propostaGuardada = String(montagemAtual?.dados?.proposta ?? "");
   const ultimaFalaDoCliente = [...historico].reverse().find((h) => h.role === "user")?.content ?? "";
   const aceitou = /^(pode ser assim|pode ser|isso mesmo|isso|ta bom|tá bom|ta otimo|tá ótimo|perfeito|fechado|fechou|beleza|blz|ok|sim|pode|quero assim|manda assim)[ ]*[.!,]*$/i.test(
@@ -1894,6 +1896,21 @@ async function rodarConversa(
       for (const it of itensPropostos) {
         estado.montagem.push({ tipo: "item", produto: it.produto, categoria: it.categoria, qtd: it.qtd, obs: it.obs ?? null });
       }
+      // O que acabou de ser anotado vale JA neste turno: sem isso a maquina de
+      // etapas continua achando que falta escolher, e ela pergunta de novo.
+      montagemDoTurno = {
+        ...(montagemAtual ?? { itens: [], dados: {} }),
+        itens: [
+          ...(montagemAtual?.itens ?? []),
+          ...itensPropostos.map((it) => ({
+            produto: it.produto,
+            categoria: it.categoria,
+            qtd: it.qtd,
+            unidade: it.categoria === "bolo_festa" ? "kg" : "un",
+            obs: it.obs ?? null,
+          })),
+        ],
+      } as MontagemAtual;
       estado.montagem.push({ tipo: "dados", dados: { proposta: null } });
       messages.push({
         role: "system",
@@ -1907,7 +1924,7 @@ async function rodarConversa(
     }
   }
 
-  messages.push({ role: "system", content: descreverMontagem(montagemAtual, pedidoAguardando, ehFesta, pediuBolo, falouSalgado, falouDocinho) });
+  messages.push({ role: "system", content: descreverMontagem(montagemDoTurno, pedidoAguardando, ehFesta, pediuBolo, falouSalgado, falouDocinho) });
 
   // FERRAMENTA QUE NAO CABE AGORA NEM E OFERECIDA.
   //
@@ -1915,7 +1932,7 @@ async function rodarConversa(
   // quatro, e no fim desistiu e chamou a equipe. Fechar so existe quando da pra
   // fechar; aceite de orcamento so existe quando ha pedido esperando o cliente.
   const podeFechar =
-    (montagemAtual?.itens?.length ?? 0) > 0 && pendenciasDeSabor(montagemAtual?.itens ?? [], ehFesta, pediuBolo, String(montagemAtual?.dados?.nao_quer ?? "")).length === 0;
+    (montagemDoTurno?.itens?.length ?? 0) > 0 && pendenciasDeSabor(montagemDoTurno?.itens ?? [], ehFesta, pediuBolo, String(montagemDoTurno?.dados?.nao_quer ?? "")).length === 0;
   const ferramentas = (tenant.sistemaCustom ? FERRAMENTAS_BASICAS : FERRAMENTAS).filter((f) => {
     const nome = "function" in f ? f.function.name : "";
     if (nome === "cliente_aceitou_orcamento") return pedidoAguardando;
@@ -2125,7 +2142,7 @@ async function rodarConversa(
         .filter((m) => m.role === "user" && typeof m.content === "string")
         .map((m) => m.content as string)
         .join("  ");
-      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemAtual, pedidoAguardando, ultimaFala, ultimaFalaDela);
+      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemDoTurno, pedidoAguardando, ultimaFala, ultimaFalaDela);
       // Sem isto, quando ela faz besteira so da pra adivinhar o que ela chamou.
       // 90 caracteres cortavam justamente a lista do que falta, que e o motivo da
       // recusa. Sem ela o log so diz que recusou, nao por que.
