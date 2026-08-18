@@ -114,7 +114,7 @@ function cortarNoPedidoFechado(msgs: Mensagem[]): Mensagem[] {
 // recebida entra com tipo/mime/dados (base64) pra aparecer no chat.
 export type ExtraMensagem = {
   autor?: "cliente" | "ia" | "equipe";
-  tipo?: "texto" | "imagem" | "audio" | "documento";
+  tipo?: "texto" | "imagem" | "audio" | "documento" | "video";
   mime?: string | null;
   dados?: string | null; // base64, sem prefixo data:
   url?: string | null; // imagem ja publicada (cardapio): guarda o link, nao o base64
@@ -122,6 +122,40 @@ export type ExtraMensagem = {
   wamid?: string | null;
   lida?: boolean;
 };
+// O que aconteceu com a mensagem depois de enviada: entregue, lida ou falhou.
+// Sem isso a equipe nao tem como saber que o resumo do pedido nao chegou.
+export async function marcarStatusMensagem(
+  wamid: string,
+  status: "delivered" | "read" | "failed",
+  erro?: string | null,
+): Promise<void> {
+  if (status === "delivered") {
+    await query("update mensagens set entregue_em = coalesce(entregue_em, now()) where wamid = $1", [wamid]);
+    return;
+  }
+  if (status === "read") {
+    await query(
+      "update mensagens set lida_em = coalesce(lida_em, now()), entregue_em = coalesce(entregue_em, now()) where wamid = $1",
+      [wamid],
+    );
+    return;
+  }
+  await query("update mensagens set falha = $2 where wamid = $1", [wamid, erro ?? "falha no envio"]);
+}
+
+// De qual anuncio o cliente veio. So grava na primeira vez: a Meta manda o
+// referral na mensagem que abriu a conversa, e depois nunca mais.
+export async function guardarOrigemAnuncio(
+  negocioId: string,
+  clienteId: string,
+  origem: Record<string, unknown>,
+): Promise<void> {
+  await query(
+    "update clientes set origem_anuncio = coalesce(origem_anuncio, $3::jsonb) where negocio_id = $1 and id = $2",
+    [negocioId, clienteId, JSON.stringify(origem)],
+  );
+}
+
 // A mensagem que o cliente marcou pra responder, pelo id do WhatsApp.
 export async function mensagemPorWamid(
   negocioId: string,

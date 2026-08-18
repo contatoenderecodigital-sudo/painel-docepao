@@ -31,6 +31,29 @@ function normalizarBR(numero: string): string {
 }
 
 // Manda um texto de volta pro cliente (pelo numero do tenant, ou o do env).
+// Confirma a leitura e liga o 'digitando...' pro cliente. As duas coisas na
+// mesma chamada, como a Meta entrega. O 'digitando' cai sozinho quando a
+// resposta sai ou depois de 25s, entao nao precisa desligar.
+export async function marcarLidaEDigitando(
+  wamid: string,
+  creds?: CredsEnvio,
+): Promise<void> {
+  const { token, phoneId } = resolverCreds(creds);
+  const r = await fetch(`${BASE}/${phoneId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      status: "read",
+      message_id: wamid,
+      typing_indicator: { type: "text" },
+    }),
+  });
+  if (!r.ok) {
+    console.error("[whatsapp] falha ao marcar lida/digitando:", r.status, await r.text());
+  }
+}
+
 export async function enviarTexto(para: string, texto: string, creds?: CredsEnvio): Promise<string | null> {
   const { token, phoneId } = resolverCreds(creds);
   const destino = normalizarBR(para);

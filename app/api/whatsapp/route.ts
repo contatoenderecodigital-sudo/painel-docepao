@@ -15,7 +15,7 @@
 import { NextRequest, after } from "next/server";
 import { responder, pecaDaEtapa, ehFestaNaFala, unidadeDoProduto } from "@/lib/ia/cerebro";
 import { carregarTenant } from "@/lib/ia/tenant";
-import { enviarTexto, enviarImagemPorLink, urlDoCardapio, RECADOS_CARDAPIO, baixarMidia, type CredsEnvio } from "@/lib/whatsapp/api";
+import { enviarTexto, enviarImagemPorLink, urlDoCardapio, RECADOS_CARDAPIO, baixarMidia, marcarLidaEDigitando, type CredsEnvio } from "@/lib/whatsapp/api";
 import { transcrever } from "@/lib/whatsapp/transcrever";
 import {
   acharOuCriarCliente,
@@ -26,6 +26,8 @@ import {
   salvarFotoPendente,
   resumoPedidoFechado,
   mensagemPorWamid,
+  marcarStatusMensagem,
+  guardarOrigemAnuncio,
 } from "@/lib/banco/conversas";
 import { definirHandoff, iaPausada, ultimaMsgClienteMs } from "@/lib/banco/atendimentos";
 import { registrarAceiteCliente, temPedidoAguardandoCliente, pedidoEmAberto } from "@/lib/banco/pedidos";
@@ -124,7 +126,23 @@ async function processar(corpo: WebhookPayload) {
     for (const ch of entry.changes ?? []) {
       const valor = ch.value;
       const msg = valor?.messages?.[0];
-      if (!msg) continue; // status/entrega, ignora
+      // STATUS DE ENVIO: entregue, lida ou falhou. Antes isso era descartado,
+      // e falha de entrega (janela de 24h fechada, numero errado) passava batido.
+      if (!msg) {
+        for (const st of valor?.statuses ?? []) {
+          const id = st.id;
+          const situacao = st.status;
+          if (!id || !situacao) continue;
+          if (situacao === "failed") {
+            const erro = st.errors?.[0]?.title || st.errors?.[0]?.message || "falha no envio";
+            console.error("[whatsapp] mensagem falhou:", id, erro);
+            await marcarStatusMensagem(id, "failed", erro).catch(() => {});
+          } else if (situacao === "delivered" || situacao === "read") {
+            await marcarStatusMensagem(id, situacao).catch(() => {});
+          }
+        }
+        continue;
+      }
 
       // Idempotência: se o Meta reenviou a MESMA mensagem, ignora (não responde 2x).
       if (msg.id && !(await marcarWebhookNovo(msg.id))) continue;
@@ -157,6 +175,19 @@ async function processar(corpo: WebhookPayload) {
       // Monta a entrada do cliente: texto puro, áudio transcrito, imagem/documento
       // (baixados e guardados em base64 pra aparecerem no chat do painel, que
       // agora SUBSTITUI o WhatsApp da dona).
+      // ANUNCIO DE ORIGEM: a Meta so conta na mensagem que abriu a conversa.
+      // Perdeu essa, nunca mais se sabe que o pedido veio de anuncio pago.
+      if (msg.referral) {
+        guardarOrigemAnuncio(negocioId, clienteId, {
+          titulo: msg.referral.headline ?? null,
+          corpo: msg.referral.body ?? null,
+          url: msg.referral.source_url ?? null,
+          tipo: msg.referral.source_type ?? null,
+          anuncio_id: msg.referral.source_id ?? null,
+          clique: msg.referral.ctwa_clid ?? null,
+        }).catch((e) => console.error("[whatsapp] falha ao guardar origem do anuncio:", e));
+      }
+
       const entrada = await montarEntrada(msg, creds, negocioId, clienteId);
 
       if (!entrada.texto) {
@@ -193,6 +224,18 @@ async function processar(corpo: WebhookPayload) {
       } catch (e) {
         console.error("[whatsapp] falha ao salvar mensagem do cliente:", e);
       }
+
+      // Tique azul e 'digitando...' na hora: do lado dele, silencio de 7
+      // segundos com tique cinza parece atendimento que nao viu a mensagem.
+      if (msg.id && credsTenant.iaAtiva) {
+        marcarLidaEDigitando(msg.id, creds).catch((e) =>
+          console.error("[whatsapp] falha ao confirmar leitura:", e),
+        );
+      }
+
+      // Reacao (joinha, coracao) entra no historico e para por aqui: ninguem
+      // responde um emoji com um texto.
+      if (entrada.semResposta) continue;
 
       // IA desligada no painel: guarda a mensagem pra equipe ver, mas não
       // responde automático (a equipe assume pelo Atendimentos).
@@ -495,8 +538,10 @@ async function processar(corpo: WebhookPayload) {
 // Entrada do cliente já normalizada pro painel: o texto que a IA lê + a mídia
 // (base64) que o chat mostra. Uma imagem também vira "foto de referência" do
 // pedido (mantém o fluxo antigo), além de virar mensagem com mídia na conversa.
-type MidiaEntrada = { tipo: "imagem" | "audio" | "documento"; mime: string; dados: string; nome?: string | null };
-type Entrada = { texto: string | null; rotulo?: string; midia?: MidiaEntrada };
+type MidiaEntrada = { tipo: "imagem" | "audio" | "documento" | "video"; mime: string; dados: string; nome?: string | null };
+// semResposta: entra no historico e no painel, mas nao puxa resposta da IA
+// (reacao, por exemplo: ninguem responde um joinha com um texto).
+type Entrada = { texto: string | null; rotulo?: string; midia?: MidiaEntrada; semResposta?: boolean };
 
 async function montarEntrada(
   msg: WhatsAppMessage,
@@ -558,7 +603,78 @@ async function montarEntrada(
     return { texto, rotulo: nome, midia: dados ? { tipo: "documento", mime, dados, nome } : undefined };
   }
 
-  return { texto: "[cliente mandou uma mídia que não é texto, áudio, imagem nem documento]" };
+  // Video: guarda igual imagem. Em festa vem video do tema do bolo.
+  if (msg.type === "video" && msg.video?.id) {
+    const legenda = msg.video.caption?.trim();
+    const mime = msg.video.mime_type || "video/mp4";
+    let dados: string | undefined;
+    try {
+      const bin = await baixarMidia(msg.video.id, creds);
+      dados = Buffer.from(bin).toString("base64");
+    } catch (e) {
+      console.error("[whatsapp] falha ao baixar video:", e);
+    }
+    const texto = "[o cliente enviou um vídeo]" + (legenda ? "\n" + legenda : "");
+    return { texto, rotulo: legenda || "Vídeo", midia: dados ? { tipo: "video", mime, dados } : undefined };
+  }
+
+  // Figurinha nao muda o pedido, mas some do painel se a gente ignorar.
+  if (msg.type === "sticker") {
+    return { texto: "[o cliente mandou uma figurinha]", rotulo: "Figurinha" };
+  }
+
+  // Localizacao: normalmente e alguem perguntando onde retirar, ou mandando
+  // o endereco de entrega. Os dois casos precisam chegar legiveis.
+  if (msg.type === "location" && msg.location) {
+    const l = msg.location;
+    const onde = [l.name, l.address].filter(Boolean).join(" - ");
+    const coord = l.latitude != null && l.longitude != null ? l.latitude + ", " + l.longitude : "";
+    return {
+      texto: "[o cliente enviou uma localização" + (onde ? ": " + onde : "") + (coord ? " (" + coord + ")" : "") + "]",
+      rotulo: "Localização",
+    };
+  }
+
+  // Contato: quase sempre e quem vai retirar o pedido no lugar dele.
+  if (msg.type === "contacts" && msg.contacts?.length) {
+    const c = msg.contacts[0];
+    const nome = c.name?.formatted_name || "sem nome";
+    const fone = c.phones?.[0]?.phone || "";
+    return {
+      texto: "[o cliente enviou um contato: " + nome + (fone ? " " + fone : "") + "]",
+      rotulo: nome,
+    };
+  }
+
+  // Botao ou lista: o titulo escolhido vale como se ele tivesse digitado.
+  if (msg.type === "interactive" && msg.interactive) {
+    const escolhido =
+      msg.interactive.button_reply?.title ||
+      msg.interactive.list_reply?.title ||
+      "";
+    const detalhe = msg.interactive.list_reply?.description;
+    if (escolhido) return { texto: escolhido + (detalhe ? " (" + detalhe + ")" : "") };
+  }
+  if (msg.type === "button" && msg.button?.text) return { texto: msg.button.text };
+
+  // Reacao nao e pergunta: entra no historico e nao puxa resposta.
+  if (msg.type === "reaction") {
+    return {
+      texto: "[o cliente reagiu com " + (msg.reaction?.emoji || "uma reação") + "]",
+      rotulo: "Reação",
+      semResposta: true,
+    };
+  }
+
+  // Tipo que a Meta marca como nao suportado (enquete, contato ao vivo).
+  if (msg.type === "unsupported" || msg.errors?.length) {
+    return {
+      texto: "[o cliente mandou algo que o WhatsApp não entrega por aqui; peça pra ele escrever ou mandar áudio]",
+      rotulo: "Não suportado",
+    };
+  }
+
+  return { texto: "[o cliente mandou uma mensagem do tipo " + msg.type + ", que ainda não sei ler]" };
 }
 
 // Multi-tenant: mapeia o phone_number_id (do Meta) pro negócio. É uma CONSULTA
@@ -610,6 +726,28 @@ type WhatsAppMessage = {
   audio?: { id: string; mime_type?: string };
   image?: { id: string; mime_type?: string; caption?: string };
   document?: { id: string; mime_type?: string; filename?: string; caption?: string };
+  video?: { id: string; mime_type?: string; caption?: string };
+  sticker?: { id: string; mime_type?: string; animated?: boolean };
+  location?: { latitude?: number; longitude?: number; name?: string; address?: string };
+  contacts?: { name?: { formatted_name?: string }; phones?: { phone?: string; wa_id?: string }[] }[];
+  // Resposta de botao ou de lista que a gente mandou.
+  interactive?: {
+    type?: string;
+    button_reply?: { id?: string; title?: string };
+    list_reply?: { id?: string; title?: string; description?: string };
+  };
+  button?: { text?: string; payload?: string };
+  reaction?: { message_id?: string; emoji?: string };
+  // Anuncio Click-to-WhatsApp: diz de onde o cliente veio.
+  referral?: {
+    source_url?: string;
+    source_type?: string;
+    source_id?: string;
+    headline?: string;
+    body?: string;
+    ctwa_clid?: string;
+  };
+  errors?: { code?: number; title?: string; message?: string }[];
 };
 type WebhookPayload = {
   entry?: {
@@ -618,6 +756,12 @@ type WebhookPayload = {
         metadata?: { phone_number_id?: string };
         contacts?: { profile?: { name?: string } }[];
         messages?: WhatsAppMessage[];
+        // Confirmacoes de envio das mensagens que a gente mandou.
+        statuses?: {
+          id?: string;
+          status?: string;
+          errors?: { title?: string; message?: string }[];
+        }[];
       };
     }[];
   }[];

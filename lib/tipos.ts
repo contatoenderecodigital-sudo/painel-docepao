@@ -61,7 +61,7 @@ export type Pedido = {
   clienteViuEm?: string | null; // ISO da visualizacao (read receipt), se houver
 };
 
-export type TipoMidia = "texto" | "imagem" | "audio" | "documento";
+export type TipoMidia = "texto" | "imagem" | "audio" | "documento" | "video";
 
 export type Mensagem = {
   de: "cliente" | "ia" | "equipe";
