@@ -640,8 +640,11 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     );
     const numerosDitos = new Set<number>();
     for (const n of falaDoCliente.match(/[0-9]+/g) ?? []) numerosDitos.add(Number(n));
+    // Palavra INTEIRA, nao pedaco: "umas 30" contem "um" e liberava qualquer
+    // quantidade 1 que ela inventasse.
+    const palavrasDitas = new Set((falaDoCliente.toLowerCase().match(/[0-9a-zà-úçãõâêôáéíóú]+/g) ?? []));
     for (const [palavra, valor] of Object.entries(POR_EXTENSO)) {
-      if (new RegExp(palavra, "i").test(falaDoCliente)) numerosDitos.add(valor);
+      if (palavrasDitas.has(palavra)) numerosDitos.add(valor);
     }
     if (!mandouDividir && !numerosDitos.has(qtd)) {
       return (
