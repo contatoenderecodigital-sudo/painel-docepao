@@ -2506,7 +2506,21 @@ async function rodarConversa(
     ["docinho", /querer docinho|quer docinho|docinho tambem|docinho também/],
     ["bolo", /querer bolo|quer bolo|bolo tambem|bolo também/],
   ];
+  // O que o CLIENTE ja falou sobre cada familia. Se ele citou, ele nao
+  // recusou: pedir o cardapio de salgado e o oposto de dispensar salgado.
+  const falaDeleToda = historico
+    .filter((h) => h.role === "user" && typeof h.content === "string")
+    .map((h) => String(h.content).toLowerCase())
+    .join("  ");
+  const CITOU: [string, RegExp][] = [
+    ["salgado", /salgad|frito|assado|coxinha|esfirra|empadinha|ris[óo]lis|risolis|croquete|bolinha|almofadinha|quiche|croissant/],
+    ["docinho", /docinho|doce|brigadeiro|beijinho|trufa|caju|camafeu|olho de sogra|ouri[çc]o/],
+    ["bolo", /bolo/],
+  ];
+  const clienteCitou = (fam: string) =>
+    CITOU.some(([f, re]) => f === fam && re.test(falaDeleToda));
   for (const [fam, re] of CANSOU) {
+    if (clienteCitou(fam)) continue;
     if (ofertas(re) >= 2 && !jaDispensado.includes(fam) && !recusasAgora.includes(fam)) recusasAgora.push(fam);
   }
 
@@ -3087,6 +3101,33 @@ async function rodarConversa(
           textoFinal = textoFinal.replace(/[^.!?\n]*(s[óo] por unidade|somente por unidade|por unidade mesmo)[^.!?\n]*[.!?]?/gi, "").trim();
           textoFinal =
             "O " + porQuilo[0] + " a gente vende por quilo." + (textoFinal ? "\n\n" + textoFinal : "");
+        }
+      }
+
+      // FRASE DE RECUSA SO SAI SE O CLIENTE RECUSOU COM AS PALAVRAS DELE.
+      const anunciaRecusa =
+        /anotei que (voc[êe] )?n[ãa]o (quer|vai querer)|anotado que (voc[êe] )?n[ãa]o quer|sem salgado|sem docinho/i.test(
+          textoFinal,
+        );
+      if (anunciaRecusa) {
+        const falaDele = historico
+          .filter((h) => h.role === "user" && typeof h.content === "string")
+          .map((h) => String(h.content).toLowerCase())
+          .join("  ");
+        const recusouMesmo =
+          /(sem|n[ãa]o quero|nem|n[ãa]o vou querer|dispensa|deixa pra la|deixa pra lá)[^.]{0,30}(salgad|docinho|doce|bolo)/i.test(
+            falaDele,
+          );
+        if (!recusouMesmo) {
+          console.warn("[ia] ela anunciou recusa que o cliente nao fez; frase cortada");
+          const semFrase = textoFinal
+            .replace(
+              /[^.!?\n]*(anotei que (voc[êe] )?n[ãa]o (quer|vai querer)|anotado que (voc[êe] )?n[ãa]o quer)[^.!?\n]*[.!?]/gi,
+              "",
+            )
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+          if (semFrase) textoFinal = semFrase;
         }
       }
 
