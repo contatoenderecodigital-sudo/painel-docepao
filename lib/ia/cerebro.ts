@@ -2202,7 +2202,7 @@ function cadeiaGlobal(): Provedor[] {
       modelo: MODELO,
     });
   }
-  if (process.env.GEMINI_API_KEY) {
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_ATIVO === "1") {
     lista.push({
       nome: "gemini",
       apiKey: process.env.GEMINI_API_KEY,
@@ -2857,6 +2857,36 @@ async function rodarConversa(
                 ? " Tem um detalhe que a equipe está conferindo e eu te trago a resposta aqui."
                 : "") +
             " Assim que confirmarem, eu te aviso por aqui.";
+        }
+      }
+
+      // SABOR DE PIZZA: O ASSUNTO DA CONVERSA MANDA, NAO A PALAVRA SOLTA.
+      const ultimasFalas = historico
+        .slice(-4)
+        .map((h) => (typeof h.content === "string" ? h.content : ""))
+        .join(" ");
+      const assuntoPizza = /pizza/i.test(ultimasFalas);
+      const querSaborDePizza =
+        assuntoPizza &&
+        /(sabor|sabores)/i.test(String(falaDoCliente2 ?? "")) &&
+        !/coxinha|esfirra|empadinha|ris[óo]lis|croquete|docinho|brigadeiro/i.test(String(falaDoCliente2 ?? ""));
+      if (querSaborDePizza) {
+        const doces = /doce|sobremesa/i.test(String(falaDoCliente2 ?? ""));
+        const lista = (
+          doces
+            ? ((catalogo.pizza?.sabores_doces ?? []) as string[])
+            : ((catalogo.pizza?.sabores_salgados ?? []) as string[])
+        ).slice(0, 12);
+        if (lista.length) {
+          // A peca de salgados de festa nao tem nada a ver com isso.
+          estado.cardapios = estado.cardapios.filter((x) => x !== "salgados");
+          const jaCitou = lista.some((sab) => textoFinal.toLowerCase().includes(String(sab).toLowerCase()));
+          if (!jaCitou) {
+            console.warn("[ia] sabor de pizza respondido pelo codigo");
+            textoFinal =
+              "Os sabores " + (doces ? "doces" : "salgados") + " da pizza sao: " + lista.join(", ") + "." +
+              "\n\n" + textoFinal;
+          }
         }
       }
 
