@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================================
-//  ATENDIMENTOS — o WhatsApp Web da Doce Pão.
+//  ATENDIMENTOS: o WhatsApp Web da Doce Pão.
 //  O número da padaria sai do celular pra Cloud API da Meta: a dona perde o
 //  WhatsApp normal, então ESTA tela substitui o WhatsApp dela. Funciona no PC
 //  (lista + chat lado a lado) e no celular (lista ocupa a tela; ao abrir uma
@@ -71,6 +71,12 @@ function rotuloDia(data?: string): string {
 function renderPreview(corpo: string, params: string[]): string {
   return corpo.replace(/\{\{(\d+)\}\}/g, (_, n) => params[Number(n) - 1] || `{{${n}}}`);
 }
+// A dona digita "renata" no celular e o cliente esta gravado como "Renatá":
+// sem tirar acento e caixa a busca nao acha ninguem e ela acha que a conversa
+// sumiu da lista.
+function semAcento(t: string) {
+  return String(t ?? "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
 
 function Avatar({ nome, tam = 44, raio = 12 }: { nome: string; tam?: number; raio?: number }) {
   return (
@@ -98,7 +104,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
   // midiaUrl = peça já publicada (cardápio); midiaId = arquivo que o
   // cliente mandou e está no banco em base64.
   const src = m.blobUrl || m.midiaUrl || (m.midiaId ? `/api/midia/${m.midiaId}` : null);
-  // Balão claro pra quem recebe e degradê dourado pra quem envia — o desenho
+  // Balão claro pra quem recebe e degradê dourado pra quem envia. Era o desenho
   // original do painel. Tentei trocar isso pela paleta chapada do WhatsApp e
   // ficou pior: o degradê é o que dá o acabamento da marca, e achatar cor é
   // erro que já tinha sido apontado antes.
@@ -256,7 +262,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
   }, []);
 
   // Assumir a conversa (a IA para de responder este cliente) ou devolver.
-  // O estado muda na hora na tela — quem clica precisa ver que pegou, sem
+  // O estado muda na hora na tela: quem clica precisa ver que pegou, sem
   // esperar o próximo polling pra ter certeza de que a IA calou.
   const alternarAssumir = useCallback(async (clienteId: string, assumir: boolean) => {
     setAssumindo(clienteId);
@@ -322,8 +328,13 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
   }, [atualizar]);
 
   const filtradas = useMemo(() => {
-    const q = busca.trim().toLowerCase();
-    // A aba filtra por QUEM está respondendo — é a pergunta que a equipe faz ao
+    const q = semAcento(busca);
+    // Só compara telefone quando o que foi digitado TEM número. Digitando
+    // "Renata" os dígitos da busca davam string vazia, e telefone.includes("")
+    // é sempre verdadeiro: a lista continuava com as cinco conversas e parecia
+    // que a busca estava morta.
+    const qDigitos = busca.replace(/\D/g, "");
+    // A aba filtra por QUEM está respondendo: é a pergunta que a equipe faz ao
     // abrir a tela ("o que precisa de mim?"), não "quem mandou mensagem".
     const porAba = (c: Conversa) =>
       aba === "todas" ? true
@@ -331,15 +342,13 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
       : aba === "atencao" ? c.estado === "precisa_humano"
       : c.estado === "ia";
     const conversas2 = conversas.filter(porAba);
-    const conversasOrig = conversas;
-    void conversasOrig;
     const base = q
       ? conversas2.filter(
           (c) =>
-            c.clienteNome.toLowerCase().includes(q) ||
-            c.clienteTelefone.replace(/\D/g, "").includes(q.replace(/\D/g, "")) ||
-            c.previa.toLowerCase().includes(q) ||
-            c.mensagens.some((m) => m.texto.toLowerCase().includes(q)),
+            semAcento(c.clienteNome).includes(q) ||
+            (qDigitos !== "" && c.clienteTelefone.replace(/\D/g, "").includes(qDigitos)) ||
+            semAcento(c.previa).includes(q) ||
+            c.mensagens.some((m) => semAcento(m.texto).includes(q)),
         )
       : conversas2;
     // handoff ("precisa de você") primeiro; resto pela mais recente (já vem ordenado).
@@ -460,7 +469,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
   }
 
   // A altura vem do <main>, não de 100dvh. Somando 100dvh com a barra superior
-  // do celular, a página inteira passava a rolar e o cabeçalho subia junto — a
+  // do celular, a página inteira passava a rolar e o cabeçalho subia junto, e a
   // rolagem tem que ficar SÓ dentro das mensagens.
   return (
     <div className="h-full min-h-0 flex flex-col px-3 md:px-6 py-3 md:py-6 overflow-hidden">
@@ -786,7 +795,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
 }
 
 // ---------- Drawer de informações do contato (celular/tablet) ----------
-// No PC o mesmo conteúdo vira a terceira coluna fixa (PainelContato) — era assim
+// No PC o mesmo conteúdo vira a terceira coluna fixa (PainelContato). Era assim
 // no desenho original e some informação demais quando fica escondido atrás de um
 // botão: etiqueta, nota, desde quando a conversa está aberta.
 function ContatoDrawer({ conversa, qtdMensagens, onFechar, onToast }: { conversa: Conversa; qtdMensagens: number; onFechar: () => void; onToast: (t: string) => void }) {
@@ -882,7 +891,7 @@ function PainelContato({ conversa, qtdMensagens, onToast }: { conversa: Conversa
             <div className="text-[11px] text-cream/40 mt-1 h-4">{salvando ? "Salvando..." : ""}</div>
           </div>
           <div className="border-t border-white/10 pt-4 mt-4 space-y-3">
-            {[["Canal", "WhatsApp"], ["Mensagens", String(qtdMensagens)], ["Custo de IA", conversa.custoCentavos ? brl(conversa.custoCentavos) : "—"]].map(([l, v]) => (
+            {[["Canal", "WhatsApp"], ["Mensagens", String(qtdMensagens)], ["Custo de IA", conversa.custoCentavos ? brl(conversa.custoCentavos) : "-"]].map(([l, v]) => (
               <div key={l} className="flex items-center justify-between gap-3">
                 <span className="text-[11px] text-cream/45">{l}</span>
                 <span className="text-[13px] text-cream font-medium">{v}</span>

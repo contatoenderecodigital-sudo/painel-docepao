@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================================
-//  PEDIDO MONTADO — o pedido tomando forma no meio da conversa.
+//  PEDIDO MONTADO: o pedido tomando forma no meio da conversa.
 //
 //  A IA anota aqui o que o cliente vai decidindo, item por item. Serve pra duas
 //  coisas ao mesmo tempo: é a memória dela (não precisa remontar o pedido a
@@ -13,8 +13,13 @@
 // ============================================================================
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, Plus, Minus, Trash2, Check, Square, CheckSquare } from "lucide-react";
+import { ChevronDown, Plus, Minus, Trash2, Check, Square, CheckSquare, Pencil } from "lucide-react";
 import { brl } from "@/lib/tipos";
+
+// Quantidade do jeito que a padaria escreve: 1,5 kg, nunca 1.5kg. A fila de
+// aprovacao ja mostrava com virgula e aqui saia com ponto, entao o mesmo pedido
+// parecia dois na hora de conferir.
+const qtdBR = (n: number) => String(Number(n) || 0).replace(".", ",");
 
 // O pedido ja fechado deste cliente, esperando a aprovacao.
 type Registrado = {
@@ -299,8 +304,22 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
   const vazio = itens.length === 0 && preenchidos === 0;
 
   const resumo = itens.length
-    ? itens.map((x) => `${x.qtd}${x.unidade === "kg" ? "kg" : ""} ${x.produto}`).join(", ")
+    ? itens.map((x) => `${qtdBR(x.qtd)}${x.unidade === "kg" ? " kg" : ""} ${x.produto}`).join(", ")
     : "só os dados por enquanto";
+
+  // Quando retira e quanto deu: é o que a equipe procura de relance, e antes só
+  // aparecia depois de abrir o painel. Recolhido mostrava só os itens, então
+  // pra saber a hora da retirada tinha que expandir conversa por conversa.
+  const quandoETotal = registrado
+    ? [
+        [registrado.retiradaData, registrado.retiradaHora ? `às ${registrado.retiradaHora}` : ""]
+          .filter(Boolean)
+          .join(" "),
+        `total ${brl(registrado.totalCentavos)}`,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
 
   return (
     <div>
@@ -322,11 +341,22 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
         />
       </button>
 
-      {/* Fechado, mostra o resumo numa linha: dá pra bater o olho e seguir. */}
+      {/* Recolhido, o que a equipe precisa bater o olho e seguir: quando retira,
+          quanto deu e o que vai sair. */}
       {!aberto && (
-        <p className="text-[12px] text-cream/60 mt-2 leading-snug">
-          {registrado ? "Fechado: " + resumo : vazio ? "Nada anotado ainda." : resumo}
-        </p>
+        <div className="mt-2 leading-snug">
+          {registrado && (
+            <p className="text-[12px] font-medium" style={{ color: "#e7cf94" }}>
+              Fechado{quandoETotal ? " " + quandoETotal : ""}
+            </p>
+          )}
+          <p className="text-[12px] text-cream/60">
+            {registrado ? resumo : vazio ? "Nada anotado ainda." : resumo}
+          </p>
+          {registrado && !travado && (
+            <p className="text-[11px] text-cream/45 mt-0.5">Dá pra corrigir até imprimir.</p>
+          )}
+        </div>
       )}
 
       {/* Fechado e ainda em curso: a cozinha so fica sabendo quando o ticket
@@ -335,15 +365,27 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
         <div className="mt-2.5 rounded-lg border border-cream/12 px-2.5 py-2">
           <p className="t-label text-cream/45">
             {travado ? "Pedido na cozinha" : "Pedido fechado"}{registrado.retiradaData ? ` pra ${registrado.retiradaData}` : ""}
-            {registrado.retiradaHora ? ` as ${registrado.retiradaHora}` : ""}
+            {registrado.retiradaHora ? ` às ${registrado.retiradaHora}` : ""}
           </p>
           <p className="text-[12px] mt-1 font-medium" style={{ color: "#e7cf94" }}>
             Total {brl(registrado.totalCentavos)}
           </p>
+          {/* "Fechado" faz a equipe achar que nao pode mais mexer e ela sai
+              ligando pra cozinha pra corrigir. Nada aqui fica desabilitado, so
+              que isso precisa estar escrito na tela pra ela ter coragem de
+              editar. */}
+          {!travado && (
+            <span
+              className="inline-flex items-center gap-1.5 mt-1.5 px-2 h-6 rounded-full text-[11px] font-medium"
+              style={{ background: "rgba(231,207,148,0.16)", color: "#e7cf94", border: "1px solid rgba(231,207,148,0.35)" }}
+            >
+              <Pencil size={11} /> Dá pra corrigir até imprimir
+            </span>
+          )}
           <p className="text-[11px] text-cream/45 mt-1 leading-snug">
             {travado
               ? "Já foi aprovado e impresso pra cozinha. Aqui fica só pra consulta, com tudo que foi combinado."
-              : "O que voce mudar aqui vale no pedido. Ele sai da tela quando a aprovacao imprimir o ticket."}
+              : "O que você mudar aqui vale no pedido. Ele sai da tela quando a aprovação imprimir o ticket."}
           </p>
         </div>
       )}
@@ -352,7 +394,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
         <ul className="mt-2 flex flex-col gap-1">
           {itens.map((x, i) => (
             <li key={i} className="text-[12px] text-cream/75 leading-snug">
-              {x.qtd} {x.unidade === "kg" ? "kg" : "un"} de {x.produto}
+              {qtdBR(x.qtd)} {x.unidade === "kg" ? "kg" : "un"} de {x.produto}
               {x.obs ? <span className="text-cream/45"> ({x.obs})</span> : null}
             </li>
           ))}
@@ -801,6 +843,15 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
               ))}
             </div>
 
+            {/* O painel é comprido: quem desce até o botão já perdeu de vista o
+                aviso lá de cima e fica na dúvida se corrigir pedido fechado
+                adianta alguma coisa. */}
+            {registrado && !travado && (
+              <p className="text-[11px] leading-snug flex items-start gap-1.5" style={{ color: "#e7cf94" }}>
+                <Pencil size={11} className="shrink-0 mt-0.5" />
+                <span>Pedido fechado, mas ainda editável: a correção vale até a aprovação imprimir o ticket.</span>
+              </p>
+            )}
             <div className="flex items-center gap-2 mt-1">
               <button
                 onClick={salvar}
