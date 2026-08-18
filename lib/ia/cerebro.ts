@@ -2215,6 +2215,36 @@ async function rodarConversa(
     });
   }
 
+  // NAO TEM FOTO DO TEMA: FICA ESCRITO NO BOLO.
+  //
+  // A etapa da arte cobra a foto ate a observacao registrar a resposta. Sem
+  // isso ela pergunta a foto de novo a cada mensagem e o pedido nao fecha.
+  const semFoto =
+    /nao tenho foto|não tenho foto|sem foto|nao tem foto|não tem foto|nao vou mandar foto|não vou mandar foto/i.test(
+      String(ultimaFalaDoCliente),
+    );
+  if (semFoto) {
+    const boloF = (montagemDoTurno?.itens ?? []).find((x) => String(x.categoria ?? "").startsWith("bolo"));
+    if (boloF && !/foto/i.test(String(boloF.obs ?? ""))) {
+      const obsF = [String(boloF.obs ?? "").trim(), "sem foto"].filter(Boolean).join(", ");
+      estado.montagem.push({
+        tipo: "item",
+        produto: boloF.produto,
+        categoria: boloF.categoria,
+        qtd: boloF.qtd,
+        obs: obsF,
+      });
+      montagemDoTurno = {
+        ...(montagemDoTurno ?? { itens: [], dados: {} }),
+        itens: (montagemDoTurno?.itens ?? []).map((x) => (x === boloF ? { ...x, obs: obsF } : x)),
+      } as MontagemAtual;
+      messages.push({
+        role: "system",
+        content: "O cliente disse que NAO TEM foto do tema, e EU JA ANOTEI isso no bolo. Nao pergunte a foto de novo: siga e feche o pedido."
+      });
+    }
+  }
+
   // RECUSOU TOPO E PAPEL DE ARROZ: FICA ESCRITO NO BOLO.
   //
   // A etapa cobra ate a observacao do bolo registrar a recusa. Deixar isso pro
