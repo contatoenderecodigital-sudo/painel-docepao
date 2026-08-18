@@ -354,7 +354,20 @@ async function processar(corpo: WebhookPayload) {
           "bolos-festa": /bolo/i.test(falaToda),
         };
         if (ehFestaNaFala(falaToda) && !resp.pedidoRegistrado && !aguardando) {
-          const peca = pecaDaEtapa(montado?.itens ?? [], String(montado?.dados?.nao_quer ?? ""));
+          // A recusa vale JA neste turno: o que estava gravado, o que a IA
+          // acabou de anotar e o que o cliente escreveu agora.
+          const anotadoAgora = (resp.montagem ?? [])
+            .map((m) => (m.tipo === "dados" ? String(m.dados?.nao_quer ?? "") : ""))
+            .join(" ");
+          const recusaNaFala = [
+            /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}salgad/i.test(String(texto || "")) ? "salgado" : "",
+            /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}(docinho|doce)/i.test(String(texto || "")) ? "docinho" : "",
+            /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}bolo/i.test(String(texto || "")) ? "bolo" : "",
+          ].filter(Boolean).join(", ");
+          const naoQuerAgora = [String(montado?.dados?.nao_quer ?? ""), anotadoAgora, recusaNaFala]
+            .filter(Boolean)
+            .join(", ");
+          const peca = pecaDaEtapa(montado?.itens ?? [], naoQuerAgora);
           if (peca && citou[peca] && !(resp.cardapiosParaEnviar ?? []).includes(peca)) {
             resp.cardapiosParaEnviar = [...(resp.cardapiosParaEnviar ?? []), peca];
           }
