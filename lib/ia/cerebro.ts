@@ -696,6 +696,51 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const mandouDividir = /divid|igual|sortido|voce que sabe|voce escolhe|do seu jeito|como voce achar|o que voce sugerir/i.test(
       falaDoCliente,
     );
+    // PRODUTO QUE NINGUEM CITOU NAO ENTRA.
+    //
+    // Vale o que o cliente escreveu e o que ELA propos e ele aceitou (a
+    // indicacao da festa). Fora isso e producao que ninguem pediu.
+    const familiaEscolhida = categoria === "docinho" || String(categoria).startsWith("salgado");
+    if (familiaEscolhida) {
+      const dito = (falaDoCliente + " " + (ultimaFalaDela || "")).toLowerCase();
+      const nome = produto.trim().toLowerCase();
+      const primeiraPalavra = nome.split(/\s+/)[0];
+      const citado = dito.includes(nome) || (primeiraPalavra.length > 3 && dito.includes(primeiraPalavra));
+      const jaEstava = (montagemAtual?.itens ?? []).some(
+        (x) => String(x.produto ?? "").trim().toLowerCase() === nome,
+      );
+      if (!citado && !jaEstava) {
+        return (
+          "NAO anotei: ninguem falou em " + produto + " nesta conversa. Salgado ou docinho que aparece do nada vira producao que o cliente nao pediu e nao vai pagar. Anote so o que ele escolheu, e se faltar escolher, pergunte."
+        );
+      }
+    }
+
+    // A SOMA DA FAMILIA NAO PASSA DO TOTAL QUE ELE DISSE.
+    //
+    // "600 salgados, metade frito metade assado" com quatro tipos anotados a
+    // 300 cada vira 1200. O cliente le o total no fim e desiste, ou a padaria
+    // produz o dobro.
+    if (familiaEscolhida) {
+      const alvo = categoria === "docinho" ? /([0-9]+) *(docinho|doce)/i : /([0-9]+) *salgado/i;
+      const pedidoTotal = Number((String(falaDoCliente).match(alvo) ?? [])[1] ?? 0);
+      if (pedidoTotal > 0) {
+        const mesmaFamilia = (montagemAtual?.itens ?? []).filter((x) =>
+          categoria === "docinho"
+            ? x.categoria === "docinho"
+            : String(x.categoria ?? "").startsWith("salgado"),
+        );
+        const jaTem = mesmaFamilia
+          .filter((x) => String(x.produto ?? "").trim().toLowerCase() !== produto.trim().toLowerCase())
+          .reduce((t, x) => t + (Number(x.qtd) || 0), 0);
+        if (jaTem + qtd > pedidoTotal) {
+          return (
+            "NAO anotei: o cliente pediu " + pedidoTotal + " no total dessa familia e o pedido ja tem " + jaTem + ". Somando " + qtd + " de " + produto + " passa do que ele pediu. Divida o total entre os tipos que ELE escolheu e anote com as contas fechando, ou pergunte quantos de cada ele quer."
+          );
+        }
+      }
+    }
+
     // Quantidade com virgula tambem conta: bolo e vendido em kg e "2,5 kg" e
     // o jeito normal de pedir. Lendo so inteiro, 2,5 virava 2 e 5 e a trava
     // recusava a quantidade que o proprio cliente acabou de falar.
