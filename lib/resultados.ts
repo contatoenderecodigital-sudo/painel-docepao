@@ -229,7 +229,15 @@ export async function carregarResultados(
   const { bancoConfigurado } = await import("./banco/db");
   // Sem banco (demo/vídeo): dados de exemplo realistas.
   if (!bancoConfigurado || !negocioId) return gerarDemo(periodo, de, ate);
-  // Com banco real: a agregação por período ainda não foi implementada, então
-  // volta VAZIO honesto. O cliente NUNCA vê número inventado.
-  return vazio(periodo, de, ate);
+  // Com banco real: agrega de verdade. Se a consulta falhar (banco fora do ar,
+  // por exemplo), volta o vazio honesto em vez de derrubar a tela inteira.
+  try {
+    const { agregar } = await import("./banco/resultados");
+    const dados = await agregar(negocioId, periodo, de, ate);
+    const periodoLabel = periodo === "custom" && de && ate ? `de ${brlData(de)} a ${brlData(ate)}` : LABEL[periodo];
+    return { periodo, periodoLabel, comparativoLabel: COMPARA[periodo], ...dados };
+  } catch (e) {
+    console.error("[resultados] falha ao agregar:", e);
+    return vazio(periodo, de, ate);
+  }
 }
