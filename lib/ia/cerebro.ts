@@ -461,7 +461,10 @@ function executarFerramenta(
 Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "docinhos" ` +
       `(ex: "300 salgados e 150 docinhos"), NUNCA o nome do produto que aparece nas linhas acima: ` +
       `ele ainda não escolheu os tipos, e citar um faz parecer que já está decidido. ` +
-      `O valor e o total, esses sim, são os desta ferramenta.`
+      `O valor e o total, esses sim, são os desta ferramenta. ` +
+      `E o numero de salgados e o TOTAL da festa, nao por tipo: se ele quiser fritos e assados, esse total se DIVIDE ` +
+      `entre os dois ("300 no total, metade frito e metade assado"). Falar "300 fritos e 300 assados" dobra a festa e ` +
+      `dobra a conta do cliente.`
     );
   }
 
