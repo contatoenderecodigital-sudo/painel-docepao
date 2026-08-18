@@ -111,6 +111,34 @@ type OpcaoCardapio = { nome: string; categoria: Categoria; unidade: Unidade; sab
 // e so pro que a equipe lancou na mao e nao existe no cardapio.
 const semAcento = (t: string) =>
   String(t || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+// O nome gravado no item quase nunca bate letra a letra com o do cardapio: a IA
+// grava "risolis" sem acento, e "cuca recheada de banana" com o sabor colado no
+// nome. Casando so pelo texto exato, esses itens ficavam sem os chips de sabor
+// e a equipe voltava a digitar o recheio na mao.
+// Vale primeiro o nome igual (sem acento), depois o nome do cardapio que
+// COMECA o gravado. Entre varios, ganha o mais longo: senao "cuca recheada de
+// banana" casaria com "cuca", que nao tem sabor nenhum, em vez de "cuca
+// recheada".
+function doCardapio(cardapio: OpcaoCardapio[], produto: string): OpcaoCardapio | undefined {
+  const n = semAcento(produto);
+  if (!n) return undefined;
+  const exato = cardapio.find((c) => semAcento(c.nome) === n);
+  if (exato) return exato;
+  let melhor: OpcaoCardapio | undefined;
+  let melhorTam = 0;
+  for (const c of cardapio) {
+    const alvo = semAcento(c.nome);
+    // O nome do cardapio tem que terminar palavra dentro do gravado, senao
+    // "pao de x" casaria com "pao de xis".
+    if (!alvo || !n.startsWith(alvo) || /[a-z0-9]/.test(n.charAt(alvo.length))) continue;
+    if (alvo.length > melhorTam) {
+      melhor = c;
+      melhorTam = alvo.length;
+    }
+  }
+  return melhor;
+}
 const DO_MOTOR: Record<string, Categoria> = {
   doce: "docinho",
   salgado: "salgado_frito",
@@ -441,10 +469,11 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                       uma opção só é decoração que atrapalha. */}
                   {(() => {
                     // A unidade do produto vem do cardapio; so quem nao esta la
-                    // (item lancado na mao) ainda pode escolher.
-                    const base = String(it.produto || "").split(/\s+com\s+/i)[0].trim().toLowerCase();
-                    const doCardapio = cardapio.find((c) => c.nome.toLowerCase() === base);
-                    return unidadesDe(it.categoria).length > 1 && !doCardapio;
+                    // (item lancado na mao) ainda pode escolher. Cortar no
+                    // " com " achava "torta fria" no lugar de "torta fria com
+                    // palmito"; o casamento tolerante ja resolve os dois.
+                    const achado = doCardapio(cardapio, it.produto);
+                    return unidadesDe(it.categoria).length > 1 && !achado;
                   })() ? (
                     <select
                       value={it.unidade}
@@ -660,7 +689,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                     esquece o sabor e erra o nome, e sabor faltando é a cozinha
                     fazendo o padrão e o cliente descobrindo na festa. */}
                 {(() => {
-                  const ops = cardapio.find((c) => c.nome.toLowerCase() === it.produto.trim().toLowerCase())?.sabores ?? [];
+                  const ops = doCardapio(cardapio, it.produto)?.sabores ?? [];
                   if (!ops.length) return null;
                   const atual = (it.obs ?? "").toLowerCase();
                   return (
@@ -718,9 +747,14 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                             key={cor}
                             onClick={() => {
                               const obs = (it.obs ?? "").trim();
+                              // As barras invertidas tinham sumido daqui ("\s"
+                              // dentro de aspas vira a letra s), entao desmarcar
+                              // a cor tirava so o nome dela e deixava um
+                              // ", forminha" solto na observacao do docinho.
                               const semCor = obs
-                                .replace(new RegExp("\s*,?\s*(forminha\s+)?" + cor, "ig"), "")
-                                .replace(/^, */, "")
+                                .replace(new RegExp("\\s*,?\\s*(forminha\\s+)?" + cor, "ig"), "")
+                                .replace(/^\s*,\s*/, "")
+                                .replace(/\s*,\s*$/, "")
                                 .trim();
                               mexerItem(i, { obs: marcado ? semCor : semCor ? semCor + ", forminha " + cor : "forminha " + cor });
                             }}
