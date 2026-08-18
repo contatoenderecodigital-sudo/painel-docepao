@@ -646,7 +646,10 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     for (const [palavra, valor] of Object.entries(POR_EXTENSO)) {
       if (palavrasDitas.has(palavra)) numerosDitos.add(valor);
     }
-    if (!mandouDividir && !numerosDitos.has(qtd)) {
+    // Papel de arroz e topo de bolo sao um por bolo: ninguem diz "quero 1 topo",
+    // diz "quero topo". Cobrar o numero deles trava a conversa a toa.
+    const unicoPorNatureza = /papel de arroz|topo de bolo|topo/i.test(produto) || categoria === "papel_de_arroz";
+    if (!unicoPorNatureza && !mandouDividir && !numerosDitos.has(qtd)) {
       return (
         `NAO anotei: o cliente nunca falou em ${qtd} de ${produto}. Quantidade e escolha dele, nao sua. ` +
         `Pergunte QUANTOS de cada ele quer. Se ele mandar voce dividir o total, ai sim pode dividir e anotar.`
