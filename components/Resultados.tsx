@@ -159,7 +159,15 @@ export default function Resultados({
         <Kpi
           destaque
           icon={<Clock size={17} />}
-          valor={semDados ? "—" : <NumberTicker value={K.horasEconomizadas.valor} suffix="h" />}
+          valor={
+            semDados ? (
+              "—"
+            ) : K.horasEconomizadas.valor < 60 ? (
+              <NumberTicker value={K.horasEconomizadas.valor} suffix=" min" />
+            ) : (
+              <NumberTicker value={Math.round(K.horasEconomizadas.valor / 60)} suffix="h" />
+            )
+          }
           rotulo="horas de volta pra equipe"
           variacao={K.horasEconomizadas.variacaoPct}
           comparativo={dados.comparativoLabel}
@@ -502,7 +510,7 @@ function imprimirRelatorio(d: Dados, nome: string) {
     ${kpi("Recuperado", brl(d.kpis.recuperadoCentavos.valor))}
     ${kpi("Atendimentos", String(d.kpis.atendimentos.valor))}
     ${kpi("Pedidos", String(d.kpis.pedidos.valor))}
-    ${kpi("Horas economizadas", d.kpis.horasEconomizadas.valor + "h")}
+    ${kpi("Tempo de volta pra equipe", d.kpis.horasEconomizadas.valor < 60 ? d.kpis.horasEconomizadas.valor + " min" : Math.round(d.kpis.horasEconomizadas.valor / 60) + "h")}
     ${kpi("Fora do horário", String(d.kpis.foraHorario.valor))}
   </div>
   ${insights ? `<h2>Destaques</h2><ul>${insights}</ul>` : ""}

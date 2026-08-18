@@ -147,10 +147,12 @@ export async function agregar(
   ]);
 
   const n = (s: string | number | null) => Number(s ?? 0) || 0;
-  const horas = (respostas: number) => Math.round((respostas * MIN_POR_RESPOSTA) / 60);
+  // Guarda em MINUTOS: no comeco da padaria o total nao fecha uma hora, e
+  // arredondar pra hora mostrava "0h" pra quem teve trabalho de verdade.
+  const minutos = (respostas: number) => Math.round(respostas * MIN_POR_RESPOSTA);
 
   const kpis = {
-    horasEconomizadas: kpi(horas(n(atual.respostas)), horas(n(anterior.respostas))),
+    horasEconomizadas: kpi(minutos(n(atual.respostas)), minutos(n(anterior.respostas))),
     recuperadoCentavos: kpi(n(atual.recuperado), n(anterior.recuperado)),
     faturadoCentavos: kpi(n(atual.faturado), n(anterior.faturado)),
     atendimentos: kpi(n(atual.atendimentos), n(anterior.atendimentos)),
