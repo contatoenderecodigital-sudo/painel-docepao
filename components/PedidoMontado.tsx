@@ -18,6 +18,7 @@ import { brl } from "@/lib/tipos";
 
 // O pedido ja fechado deste cliente, esperando a aprovacao.
 type Registrado = {
+  id: string;
   totalCentavos: number;
   retiradaData: string | null;
   retiradaHora: string | null;
@@ -118,9 +119,23 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       const r = await fetch(`/api/montagem?cliente=${encodeURIComponent(clienteId)}`, { cache: "no-store" });
       if (!r.ok) return;
       const j = await r.json();
-      setItens(Array.isArray(j.itens) ? j.itens : []);
+      const reg: Registrado | null = j.registrado ?? null;
+      const daMontagem: Item[] = Array.isArray(j.itens) ? j.itens : [];
+      setRegistrado(reg);
+      // Sem montagem e com pedido fechado, quem preenche o editor e o pedido:
+      // a equipe mexe nos mesmos seletores, so que gravando no pedido.
+      setItens(
+        daMontagem.length === 0 && reg
+          ? reg.itens.map((x) => ({
+              produto: x.produto,
+              categoria: (CATEGORIAS.some((c) => c.id === x.categoria) ? x.categoria : "outro") as Categoria,
+              qtd: Number(x.qtd) || 0,
+              unidade: x.unidade === "kg" ? "kg" : "un",
+              obs: x.obs,
+            }))
+          : daMontagem,
+      );
       setDados(j.dados ?? {});
-      setRegistrado(j.registrado ?? null);
       // A foto de referencia do tema, pra dona conferir o bolo olhando pra ela.
       fetch(`/api/montagem/foto?cliente=${encodeURIComponent(clienteId)}`)
         .then((x) => x.json())
@@ -176,9 +191,14 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       const r = await fetch("/api/montagem", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clienteId, itens: limpos, dados }),
+        body: JSON.stringify({ clienteId, pedidoId: registrado?.id, itens: limpos, dados }),
       });
       if (!r.ok) throw new Error("falhou");
+      // O total muda quando a equipe mexe: a tela mostra o novo, nao o antigo.
+      const j = await r.json().catch(() => ({}) as { totalCentavos?: number });
+      if (registrado && typeof j.totalCentavos === "number") {
+        setRegistrado({ ...registrado, totalCentavos: j.totalCentavos });
+      }
       setItens(limpos);
       setSujo(false);
       setSalvo(true);
@@ -220,40 +240,28 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       {/* Fechado, mostra o resumo numa linha: dá pra bater o olho e seguir. */}
       {!aberto && (
         <p className="text-[12px] text-cream/60 mt-2 leading-snug">
-          {registrado && vazio
-            ? "Pedido fechado, esperando aprovacao: " + registrado.itens.map((x) => `${x.qtd} ${x.produto}`).join(", ")
-            : vazio
-              ? "Nada anotado ainda."
-              : resumo}
+          {registrado ? "Fechado: " + resumo : vazio ? "Nada anotado ainda." : resumo}
         </p>
       )}
 
-      {/* Fechado e na mao da equipe: aqui e so pra ver, mudanca passa pela
-          tela de Aprovacao, que e onde o pedido de verdade e alterado. */}
-      {aberto && registrado && vazio && (
-        <div className="mt-2.5 rounded-lg border border-cream/12 p-2.5">
-          <p className="t-label text-cream/45 mb-2">
+      {/* Fechado e ainda em curso: a cozinha so fica sabendo quando o ticket
+          imprime, entao ate la a equipe arruma o pedido aqui mesmo. */}
+      {aberto && registrado && (
+        <div className="mt-2.5 rounded-lg border border-cream/12 px-2.5 py-2">
+          <p className="t-label text-cream/45">
             Pedido fechado{registrado.retiradaData ? ` pra ${registrado.retiradaData}` : ""}
             {registrado.retiradaHora ? ` as ${registrado.retiradaHora}` : ""}
           </p>
-          <ul className="flex flex-col gap-1">
-            {registrado.itens.map((x, i) => (
-              <li key={i} className="text-[12px] text-cream/75 leading-snug">
-                {x.qtd} {x.unidade === "kg" ? "kg" : "un"} de {x.produto}
-                {x.obs ? <span className="text-cream/45"> ({x.obs})</span> : null}
-              </li>
-            ))}
-          </ul>
-          <p className="text-[12px] mt-2 font-medium" style={{ color: "#e7cf94" }}>
+          <p className="text-[12px] mt-1 font-medium" style={{ color: "#e7cf94" }}>
             Total {brl(registrado.totalCentavos)}
           </p>
-          <p className="text-[11px] text-cream/45 mt-2 leading-snug">
-            Sai daqui quando a aprovacao imprimir o ticket. Pra mudar alguma coisa, use a tela de Aprovacao.
+          <p className="text-[11px] text-cream/45 mt-1 leading-snug">
+            O que voce mudar aqui vale no pedido. Ele sai da tela quando a aprovacao imprimir o ticket.
           </p>
         </div>
       )}
 
-      {aberto && !(registrado && vazio) && (
+      {aberto && (
         <div className="mt-2.5">
           <datalist id="cardapio-produtos">
             {cardapio.map((c) => (

@@ -336,6 +336,7 @@ export type PedidoEmAberto = {
   totalCentavos: number;
   motivoHumano: string | null;
   impresso: boolean;
+  itens: { produto: string; qtd: number; unidade: string; obs: string | null }[];
 };
 
 export async function pedidoEmAberto(
@@ -367,6 +368,11 @@ export async function pedidoEmAberto(
     [negocioId, clienteId],
   );
   if (!l) return null;
+  const itens = await query<{ produto: string; qtd: string; unidade: string; obs: string | null }>(
+    `select produto, qtd, coalesce(unidade, 'un') as unidade, obs
+       from pedido_itens where pedido_id = $1 order by id`,
+    [l.id],
+  );
   return {
     id: l.id,
     status: l.status,
@@ -376,6 +382,12 @@ export async function pedidoEmAberto(
     totalCentavos: Number(l.total_centavos) || 0,
     motivoHumano: l.motivo_humano,
     impresso: Boolean(l.impresso_em),
+    itens: itens.map((i) => ({
+      produto: i.produto,
+      qtd: Number(i.qtd) || 0,
+      unidade: i.unidade,
+      obs: i.obs,
+    })),
   };
 }
 
@@ -405,7 +417,7 @@ export async function pedidoRegistradoDoCliente(
     `select id, status::text as status, coalesce(total_centavos, 0) as total_centavos,
             to_char(retirada_data, 'DD/MM/YYYY') as retirada_data, retirada_hora
        from pedidos
-      where negocio_id = $1 and cliente_id = $2 and status = 'confirmado'
+      where negocio_id = $1 and cliente_id = $2 and status in ('confirmado', 'aprovado') and impresso_em is null
       order by criado_em desc
       limit 1`,
     [negocioId, clienteId],
@@ -436,4 +448,48 @@ export async function pedidoRegistradoDoCliente(
       obs: i.obs,
     })),
   };
+}
+
+// A EQUIPE EDITANDO O PEDIDO JA FECHADO, DIRETO NO ATENDIMENTO.
+//
+// Ate o ticket sair o pedido ainda esta em curso: a cozinha so fica sabendo dele
+// quando imprime, entao aprovar sem imprimir nao fecha nada. Enquanto nao
+// imprimiu, a equipe muda item, quantidade e observacao pela lateral da conversa
+// e o pedido inteiro e reescrito com os precos recalculados.
+export async function salvarItensDoPedido(
+  negocioId: string,
+  pedidoId: string,
+  itens: {
+    produto: string;
+    categoria: string;
+    qtd: number;
+    unidade: string;
+    obs: string | null;
+    unitCentavos: number;
+    subtotalCentavos: number;
+  }[],
+): Promise<number> {
+  if (itens.length === 0) throw new Error("pedido sem item: nao gravo por cima do que existe");
+  let total = 0;
+  await transacao(async (q) => {
+    const dono = await q<{ id: string; impresso_em: string | null }>(
+      "select id, impresso_em from pedidos where id = $1 and negocio_id = $2",
+      [pedidoId, negocioId],
+    );
+    const p = dono[0];
+    if (!p) throw new Error("pedido nao encontrado neste negocio");
+    if (p.impresso_em) throw new Error("pedido ja impresso: a cozinha ja recebeu, nao da pra mexer");
+    await q("delete from pedido_itens where pedido_id = $1", [pedidoId]);
+    for (const i of itens) {
+      await q(
+        `insert into pedido_itens (pedido_id, produto, categoria, qtd, unit_centavos, subtotal_centavos, obs, unidade)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [pedidoId, i.produto, i.categoria, i.qtd, i.unitCentavos, i.subtotalCentavos, i.obs, i.unidade],
+      );
+      total += i.subtotalCentavos;
+    }
+    // Marca que a EQUIPE mexeu: dai pra frente a IA nao reescreve este pedido.
+    await q("update pedidos set total_centavos = $2, equipe_ajustou = true where id = $1", [pedidoId, total]);
+  });
+  return total;
 }

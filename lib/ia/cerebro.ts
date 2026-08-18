@@ -1533,6 +1533,7 @@ export type PedidoEmAbertoIA = {
   totalCentavos: number;
   motivoHumano: string | null;
   impresso: boolean;
+  itens: { produto: string; qtd: number; unidade: string; obs: string | null }[];
 };
 
 // O que ela precisa saber sobre esse pedido antes de responder qualquer coisa.
@@ -1556,6 +1557,14 @@ function blocoPedidoEmAberto(p: PedidoEmAbertoIA): string {
       `VOCE FICOU DE VOLTAR PRA ELE COM ISSO: ${p.motivoHumano}. Se ele cobrar, diga que ja esta com a equipe e ` +
         "que voce avisa aqui assim que tiver a resposta. NAO invente esse valor nem esse prazo.",
     );
+  }
+  // As linhas do pedido, como estao AGORA no banco. Se a equipe corrigiu pela
+  // tela, e isto que vale, nao o que voce lembra de ter combinado na conversa.
+  if (p.itens.length > 0) {
+    linhas.push("", "O QUE TEM NESSE PEDIDO (vale mais que a sua lembranca da conversa):");
+    for (const i of p.itens) {
+      linhas.push(`- ${i.qtd} ${i.unidade === "kg" ? "kg" : "un"} de ${i.produto}${i.obs ? ` (${i.obs})` : ""}`);
+    }
   }
   linhas.push(
     "",

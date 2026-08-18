@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const sessao = await lerSessao();
   if (!sessao) return new Response("nao autorizado", { status: 401 });
-  let corpo: { clienteId?: string; itens?: unknown[]; dados?: Record<string, string | null> };
+  let corpo: { clienteId?: string; pedidoId?: string; itens?: unknown[]; dados?: Record<string, string | null> };
   try {
     corpo = await req.json();
   } catch {
@@ -42,6 +42,32 @@ export async function POST(req: NextRequest) {
   }
   if (!corpo.clienteId) return Response.json({ erro: "sem_cliente" }, { status: 400 });
   try {
+    // Pedido ja fechado: a edicao vai pro pedido, nao pra montagem. Enquanto o
+    // ticket nao imprime a cozinha nao sabe de nada, entao ainda da pra mudar.
+    if (corpo.pedidoId) {
+      const { carregarTenant } = await import("@/lib/ia/tenant");
+      const { salvarItensDoPedido } = await import("@/lib/banco/pedidos");
+      const tenant = await carregarTenant(sessao.negocioId);
+      const brutos = (corpo.itens ?? []) as {
+        produto: string; categoria: string; qtd: number; unidade: string; obs?: string | null;
+      }[];
+      const cot = tenant.motor.cotarPorItens(
+        brutos.map((i) => ({ item: i.produto, qtd: Number(i.qtd) || 0, obs: i.obs ?? undefined })),
+      );
+      // A linha cotada manda no preco; o que a equipe escolheu na tela manda no
+      // resto (categoria, unidade e observacao sao decisao dela, nao do motor).
+      const precificados = cot.linhas.map((l, k) => ({
+        produto: l.item,
+        categoria: brutos[k]?.categoria || l.categoria,
+        qtd: l.qtd,
+        unidade: brutos[k]?.unidade || l.unidade || "un",
+        obs: brutos[k]?.obs ?? l.obs ?? null,
+        unitCentavos: Math.round(l.unit * 100),
+        subtotalCentavos: Math.round(l.subtotal * 100),
+      }));
+      const total = await salvarItensDoPedido(sessao.negocioId, corpo.pedidoId, precificados);
+      return Response.json({ ok: true, totalCentavos: total });
+    }
     const { salvarMontagemInteira } = await import("@/lib/banco/montagem");
     await salvarMontagemInteira(sessao.negocioId, corpo.clienteId, {
       itens: (corpo.itens ?? []) as never,
