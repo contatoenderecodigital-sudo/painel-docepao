@@ -1123,6 +1123,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       });
       if (!conhecido) {
         console.warn("[ia] sabor fora do cardapio em " + produto + ": " + obsItem + "; item entra sem sabor");
+        // Fica guardado no pedido: o historico da conversa continua com a
+        // banana escrita, e sem isto ela volta a propor banana a cada turno.
+        const jaRecusados = String(montagemAtual?.dados?.sabor_recusado ?? "");
+        const novoRecusado = produto + " de " + String(obsItem).trim();
+        if (!jaRecusados.toLowerCase().includes(novoRecusado.toLowerCase())) {
+          estado.montagem.push({
+            tipo: "dados",
+            dados: { sabor_recusado: [jaRecusados, novoRecusado].filter(Boolean).join("; ") },
+          });
+        }
         // Recusar o item inteiro fazia a encomenda sumir. O item entra sem o
         // sabor invalido e cobra a escolha ate o fim.
         avisoSabor =
@@ -2361,6 +2371,15 @@ function descreverMontagem(
     return `- ${q} de ${i.produto} (categoria: ${i.categoria})${i.obs ? ` | ${i.obs}` : ""}`;
   });
 
+  // Sabor que a padaria nao faz e o cliente ja pediu: avisado uma vez, nunca
+  // mais proposto. Sem esta linha ela relia a conversa e voltava a escrever
+  // "3 cucas de banana" depois de ja ter dito que nao faz.
+  const recusados = String(m?.dados?.sabor_recusado ?? "").trim();
+  const linhaRecusados = recusados
+    ? "\n\nSABOR JA RECUSADO NESTA CONVERSA (a padaria nao faz, o cliente ja foi avisado): " + recusados +
+      ". NAO escreva esse sabor de novo, NAO anote e NAO confirme pedido com ele. Trate como se ele ainda nao tivesse escolhido."
+    : "";
+
   const ordem =
     "NAO pergunte sabor nem recheio de item que ja aparece com sabor na lista acima: ele ja escolheu, e perguntar de " +
     "novo faz o cliente repetir o que acabou de dizer. " +
@@ -2373,7 +2392,7 @@ function descreverMontagem(
 
   if (linhas.length === 0 && dados.length === 0) {
     return (
-      "# PEDIDO EM MONTAGEM: NADA ANOTADO AINDA" + "\n" + ordem
+      "# PEDIDO EM MONTAGEM: NADA ANOTADO AINDA" + "\n" + ordem + linhaRecusados
     );
   }
 
@@ -2433,6 +2452,7 @@ function descreverMontagem(
     (totais.length ? "Somando o que esta anotado: " + totais.join(" e ") + ". Confira se bate com o tamanho da festa. Quando o cliente fala um total (ex: 200 fritos) e escolhe varios tipos, esse total e pra DIVIDIR entre os tipos, nunca pra repetir em cada um: repetir triplicou o pedido de um cliente." + "\n\n" : "") +
     "Nao pergunte de novo nada que ja esta aqui em cima: o cliente ja respondeu e vai achar que voce nao anotou. Falta so o que NAO aparece nesta lista." + "\n\n" +
     ordem +
+    linhaRecusados +
     cobrar +
     fechar
   );
