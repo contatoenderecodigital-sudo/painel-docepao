@@ -342,9 +342,17 @@ async function processar(corpo: WebhookPayload) {
           .filter((m) => m.role === "user" && typeof m.content === "string")
           .map((m) => m.content as string)
           .join("  ");
+        // So manda a peca da familia que o CLIENTE ja citou. Sem isso ela
+        // despejava o cardapio de salgados em quem so perguntou "voces fazem
+        // festa?", antes de qualquer conversa.
+        const citou: Record<string, boolean> = {
+          salgados: /salgad|frito|assado|coxinha|esfirra|empadinha|risolis|ris[óo]lis/i.test(falaToda),
+          docinhos: /docinho|doce|brigadeiro|beijinho|trufa/i.test(falaToda),
+          "bolos-festa": /bolo/i.test(falaToda),
+        };
         if (ehFestaNaFala(falaToda) && !resp.pedidoRegistrado && !aguardando) {
           const peca = pecaDaEtapa(montado?.itens ?? [], String(montado?.dados?.nao_quer ?? ""));
-          if (peca && !(resp.cardapiosParaEnviar ?? []).includes(peca)) {
+          if (peca && citou[peca] && !(resp.cardapiosParaEnviar ?? []).includes(peca)) {
             resp.cardapiosParaEnviar = [...(resp.cardapiosParaEnviar ?? []), peca];
           }
         }
