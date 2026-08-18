@@ -38,6 +38,18 @@ import crypto from "node:crypto";
 
 const pausa = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Quanto tempo a gente segura antes de responder, esperando o cliente terminar
+// de falar. Mora aqui em cima porque o aviso de áudio não transcrito espera o
+// mesmo tanto: os dois caminhos correm o mesmo risco de falar por cima dele.
+// 12s: é o tempo de terminar a segunda frase ou gravar um áudio curto. Com 7s
+// ela cortava a pessoa no meio do raciocínio.
+const ESPERA_MS = 12000;
+
+// Começo do texto que a reação vira no histórico (montarEntrada monta ele).
+// Serve pra reconhecer a reação de volta na hora de decidir se o cliente
+// realmente falou de novo.
+const MARCA_REACAO = "[o cliente reagiu com";
+
 // Recado do próprio Meta chegando pelo webhook (aviso de configuração da conta,
 // sempre em inglês e sempre sobre a conta, nunca sobre padaria). Cliente da
 // Doce Pão escreve em português e fala de comida; o corte é por essas frases,
@@ -58,10 +70,40 @@ function recadoDoMeta(msg: WhatsAppMessage): boolean {
 
 // Quanto a Glorinha "demora pra digitar". Uma pessoa lê, pensa e escreve; a IA
 // responde em 700ms e isso sozinho denuncia que não é gente. Base de leitura +
-// ritmo de digitação, entre 1,5s e 7s.
+// ritmo de digitação, entre 1,5s e 4s.
+//
+// O teto era 7s e não cabe mais no turno: a espera de 12s entrou depois dele, e
+// o turno inteiro roda dentro do maxDuration de 60s (12s de espera + até 30s de
+// IA + cardápio + envio). Com 7s aqui, o turno pesado passava de 60s e o Vercel
+// matava a função DEPOIS da IA ter rodado e cobrado, sem o cliente receber nada.
 function tempoDeDigitar(texto: string): number {
   const ms = 1500 + texto.length * 28;
-  return Math.min(7000, Math.max(1500, ms));
+  return Math.min(4000, Math.max(1500, ms));
+}
+
+// O cliente falou de novo depois deste marco?
+//
+// REAÇÃO NÃO CONTA. Ela entra no histórico como mensagem do cliente e, sozinha,
+// bastava pra a resposta pronta ser descartada: o cliente perguntava o preço e
+// mandava um joinha na mensagem anterior enquanto esperava. A execução da
+// pergunta desistia por causa do joinha, a execução do joinha não responde nada
+// por natureza, e a pergunta ficava sem resposta nenhuma.
+async function clienteFalouDepois(
+  negocioId: string,
+  clienteId: string,
+  marcoMs: number | null,
+): Promise<boolean> {
+  if (!marcoMs) return false;
+  const l = await queryUm<{ x: number }>(
+    `select 1 as x from mensagens
+      where negocio_id = $1 and cliente_id = $2
+        and coalesce(autor, case when papel = 'user' then 'cliente' else 'ia' end) = 'cliente'
+        and extract(epoch from criado_em) * 1000 > $3
+        and conteudo not like $4
+      limit 1`,
+    [negocioId, clienteId, marcoMs, MARCA_REACAO + "%"],
+  );
+  return !!l;
 }
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
@@ -203,10 +245,29 @@ async function processar(corpo: WebhookPayload) {
           }
         }
         if (msg.type === "audio" && credsTenant.iaAtiva) {
-          try {
-            await enviarTexto(telefone, "Nao consegui ouvir seu audio, pode escrever pra mim?", creds);
-          } catch (e) {
-            console.error("[whatsapp] falha no fallback de audio:", e);
+          // ESTE AVISO TAMBÉM ESPERA O CLIENTE.
+          //
+          // Quem manda áudio que não transcreveu quase sempre escreve logo em
+          // seguida o que quis dizer. Disparando na hora, o "não consegui ouvir"
+          // chegava por cima da frase que ele já tinha mandado, e ele lia como
+          // se ninguém estivesse acompanhando. Espera o mesmo tanto do resto do
+          // fluxo e só avisa se ele ficou calado.
+          if (msg.id) {
+            marcarLidaEDigitando(msg.id, creds).catch((e) =>
+              console.error("[whatsapp] falha ao confirmar leitura do audio:", e),
+            );
+          }
+          const antesDoAviso = await ultimaMsgClienteMs(negocioId, clienteId).catch(() => null);
+          await pausa(ESPERA_MS);
+          const jaEscreveu = await clienteFalouDepois(negocioId, clienteId, antesDoAviso).catch(() => false);
+          if (jaEscreveu) {
+            console.log("[whatsapp] audio nao transcrito, mas o cliente ja escreveu depois; nao aviso");
+          } else {
+            try {
+              await enviarTexto(telefone, "Nao consegui ouvir seu audio, pode escrever pra mim?", creds);
+            } catch (e) {
+              console.error("[whatsapp] falha no fallback de audio:", e);
+            }
           }
         }
         continue;
@@ -225,17 +286,21 @@ async function processar(corpo: WebhookPayload) {
         console.error("[whatsapp] falha ao salvar mensagem do cliente:", e);
       }
 
-      // Tique azul e 'digitando...' na hora: do lado dele, silencio de 7
+      // Reacao (joinha, coracao) entra no historico e para por aqui: ninguem
+      // responde um emoji com um texto.
+      //
+      // Sai ANTES do 'digitando...': ligar o indicador aqui prometia uma
+      // resposta que nunca vem, e o cliente ficava 25 segundos vendo a Glorinha
+      // "digitar" um retorno pro joinha dele.
+      if (entrada.semResposta) continue;
+
+      // Tique azul e 'digitando...' na hora: do lado dele, silencio de 12
       // segundos com tique cinza parece atendimento que nao viu a mensagem.
       if (msg.id && credsTenant.iaAtiva) {
         marcarLidaEDigitando(msg.id, creds).catch((e) =>
           console.error("[whatsapp] falha ao confirmar leitura:", e),
         );
       }
-
-      // Reacao (joinha, coracao) entra no historico e para por aqui: ninguem
-      // responde um emoji com um texto.
-      if (entrada.semResposta) continue;
 
       // IA desligada no painel: guarda a mensagem pra equipe ver, mas não
       // responde automático (a equipe assume pelo Atendimentos).
@@ -252,17 +317,16 @@ async function processar(corpo: WebhookPayload) {
       // mensagem dele. Se chegou outra no meio, esta desiste: a próxima chamada
       // responde com o histórico completo, uma vez só. A mensagem já foi salva
       // acima, então o painel mostra tudo mesmo quando a resposta é pulada.
-      // 12s: e o tempo de terminar a segunda frase ou gravar um audio curto.
-      // Com 7s ela cortava a pessoa no meio do raciocinio.
       let marcoDoTurno: number | null = null;
-      const ESPERA_MS = 12000;
       try {
         const antes = await ultimaMsgClienteMs(negocioId, clienteId);
         await pausa(ESPERA_MS);
         const depois = await ultimaMsgClienteMs(negocioId, clienteId);
         // Guarda o marco: qualquer mensagem depois desta hora e assunto novo.
+        // O marco leva em conta ate a reacao, pra ela nao ser confundida com
+        // fala nova na segunda conferida la embaixo.
         marcoDoTurno = depois ?? antes ?? null;
-        if (antes && depois && depois > antes) {
+        if (await clienteFalouDepois(negocioId, clienteId, antes)) {
           console.log("[whatsapp] cliente ainda estava escrevendo; deixo a proxima mensagem responder");
           continue;
         }
@@ -316,6 +380,20 @@ async function processar(corpo: WebhookPayload) {
       // imprime, toda mensagem dele chega em cima DESTE pedido, nao no vazio.
       const emAberto = await pedidoEmAberto(negocioId, clienteId).catch(() => null);
 
+      // RENOVA O 'DIGITANDO...' ANTES DE PENSAR.
+      //
+      // A Meta apaga o indicador sozinha em ~25s, e a espera de 12s ja comeu
+      // metade disso antes da IA comecar. Com a IA levando os 30s dela, o
+      // indicador morria e o cliente ficava olhando pra uma conversa parada,
+      // que e exatamente a hora em que ele manda "oi?" e atropela a resposta.
+      // Uma renovacao so: a Meta zera os 25s a cada chamada e isso cobre o que
+      // falta do turno. Mesma funcao do inicio, sem endpoint novo.
+      if (msg.id) {
+        marcarLidaEDigitando(msg.id, creds).catch((e) =>
+          console.error("[whatsapp] falha ao renovar o 'digitando':", e),
+        );
+      }
+
       let resp;
       try {
         // clienteId (o mesmo do acharOuCriarCliente/salvarMensagem) amarra o
@@ -323,19 +401,31 @@ async function processar(corpo: WebhookPayload) {
         resp = await responder(historico, tenant, "whatsapp", clienteId, montado, aguardando, pedidoAnterior, emAberto);
       } catch (e) {
         console.error("[whatsapp] IA falhou (todos os provedores):", e);
-        const desculpa = "Tive um probleminha aqui agora, ja ja te respondo, ta?";
-        try {
-          await enviarTexto(telefone, desculpa, creds);
-        } catch {
-          // se nem isso enviar, a equipe ve a conversa parada no painel
-        }
-        // A desculpa TAMBÉM entra no histórico. Sem isso a dona abre a conversa,
-        // vê o cliente esperando e não entende por que a Dora parou: a mensagem
-        // existe no WhatsApp dele e não existe no painel dela.
-        try {
-          await salvarMensagem(negocioId, clienteId, "assistant", desculpa, { autor: "ia" });
-        } catch (e2) {
-          console.error("[whatsapp] falha ao salvar a desculpa no historico:", e2);
+        // A DESCULPA TAMBEM PODE CHEGAR POR CIMA DELE.
+        //
+        // A IA leva ate 30s pra desistir, e nesse tempo o cliente completa o
+        // raciocinio. Quem falou de novo ja vai ser atendido pela proxima
+        // execucao; mandar "tive um probleminha" agora so interrompe ele.
+        // O handoff continua valendo: a IA caiu de verdade e a conversa precisa
+        // de gente, tendo saido desculpa ou nao.
+        const falouDeNovo = await clienteFalouDepois(negocioId, clienteId, marcoDoTurno).catch(() => false);
+        if (falouDeNovo) {
+          console.log("[whatsapp] a IA caiu, mas o cliente ja falou de novo; a proxima execucao responde");
+        } else {
+          const desculpa = "Tive um probleminha aqui agora, ja ja te respondo, ta?";
+          try {
+            await enviarTexto(telefone, desculpa, creds);
+          } catch {
+            // se nem isso enviar, a equipe ve a conversa parada no painel
+          }
+          // A desculpa TAMBÉM entra no histórico. Sem isso a dona abre a conversa,
+          // vê o cliente esperando e não entende por que a Dora parou: a mensagem
+          // existe no WhatsApp dele e não existe no painel dela.
+          try {
+            await salvarMensagem(negocioId, clienteId, "assistant", desculpa, { autor: "ia" });
+          } catch (e2) {
+            console.error("[whatsapp] falha ao salvar a desculpa no historico:", e2);
+          }
         }
         // A conversa precisa de gente: a IA caiu e o cliente ficou esperando.
         try {
@@ -395,6 +485,14 @@ async function processar(corpo: WebhookPayload) {
           await limparMontagem(negocioId, clienteId).catch(() => {});
         } catch (e) {
           console.error("[whatsapp] falha ao registrar pedido:", e);
+          // Este aviso sai depois da IA ter pensado, entao ele corre o mesmo
+          // risco da resposta normal: se o cliente falou nesse meio tempo, ele
+          // chega por cima. A proxima execucao trata a conversa inteira.
+          const falouDeNovo = await clienteFalouDepois(negocioId, clienteId, marcoDoTurno).catch(() => false);
+          if (falouDeNovo) {
+            console.log("[whatsapp] pedido nao gravou, mas o cliente ja falou de novo; deixo a proxima responder");
+            continue;
+          }
           try {
             await enviarTexto(telefone, "Recebi seu pedido, so vou confirmar com a equipe e ja te aviso, ta?", creds);
           } catch {
@@ -510,8 +608,7 @@ async function processar(corpo: WebhookPayload) {
       // raciocinio ("...e sem cebola"), e a resposta pronta ja nasceu velha.
       // Descartar aqui custa uma volta; responder por cima custa a conversa.
       try {
-        const agoraUltima = await ultimaMsgClienteMs(negocioId, clienteId);
-        if (agoraUltima && marcoDoTurno && agoraUltima > marcoDoTurno) {
+        if (await clienteFalouDepois(negocioId, clienteId, marcoDoTurno)) {
           console.log("[whatsapp] chegou mensagem nova enquanto eu pensava; deixo a proxima responder");
           continue;
         }
