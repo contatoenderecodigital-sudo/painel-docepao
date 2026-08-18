@@ -2700,9 +2700,17 @@ function pedidosQueNaoExistem(fala: string): string[] {
     "crianca", "criancas", "adulto", "adultos", "gente", "reais", "real", "hora", "horas",
     "minuto", "minutos", "dia", "dias", "semana", "semanas", "mes", "meses", "ano",
     "caixa", "caixas", "litro", "litros", "gramas", "grama", "mesa", "mesas", "por cento",
+    "manha", "tarde", "noite", "meio dia", "meio-dia", "hoje", "amanha", "sabado", "domingo",
+    "segunda", "terca", "quarta", "quinta", "sexta", "semana", "feriado", "convidado", "convidados",
   ];
   const achados: string[] = [];
-  const texto = semAcento(fala);
+  // Data e hora saem antes: "dia 30/08 de manha" nao e pedido de "manha", e
+  // "as 16h" nao e pedido de "h". Foi assim que ela inventou que a padaria
+  // nao faz bolo de manha.
+  const texto = semAcento(fala)
+    .replace(/[0-9]{1,2}[/.-][0-9]{1,2}(?:[/.-][0-9]{2,4})?/g, " ")
+    .replace(/[0-9]{1,2} ?(h|hs|horas?)\b/g, " ")
+    .replace(/\b(de|da|pela|pra|para) ?(manha|tarde|noite|manhazinha)\b/g, " ");
   const re = /([0-9]+) *(?:de |da |do )?([a-z][a-z ]{2,22})/g;
   let m = re.exec(texto);
   while (m) {
