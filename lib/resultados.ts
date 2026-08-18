@@ -1,11 +1,12 @@
 // ============================================================================
-//  RESULTADOS (tela de desempenho) — métricas por período, com comparativo vs.
+//  RESULTADOS (tela de desempenho): métricas por período, com comparativo vs.
 //  período anterior, séries pros gráficos, top produtos/clientes e insights.
 //
 //  Em DEMO (sem banco), gera dados de exemplo plausíveis que RESPONDEM ao
-//  período escolhido (bom pra venda/vídeo). Com banco real, ainda não há
-//  agregação histórica, então volta VAZIO honesto (temDados=false) e a tela
-//  mostra "ainda coletando dados". Assim a padaria nunca vê número inventado.
+//  período escolhido (bom pra venda/vídeo). Com banco real, quem agrega é
+//  banco/resultados.ts. Se o banco cair no meio, volta o VAZIO honesto
+//  (temDados=false) em vez de derrubar a tela: a padaria nunca vê número
+//  inventado nem tela quebrada.
 // ============================================================================
 
 export type Periodo = "hoje" | "semana" | "mes" | "ano" | "custom";
@@ -28,6 +29,11 @@ export type Resultados = {
     foraHorario: Kpi;
     pedidos: Kpi;
   };
+  // Pedidos que ENTRARAM mas a equipe ainda não aprovou (a fila de aprovação).
+  // Vem separado de propósito: a dona precisava enxergar os 4 pedidos parados na
+  // fila (a tela mostrava PEDIDOS = 0 com eles lá dentro), mas esse dinheiro ainda
+  // pode ser recusado, então não pode entrar no faturado.
+  aguardando: { pedidos: number; centavos: number; recuperadoCentavos: number };
   porDiaSemana: { dia: string; pedidos: number }[];
   faturamentoSerie: PontoSerie[]; // centavos ao longo do tempo
   produtosTop: ProdutoVenda[];
@@ -177,6 +183,10 @@ function gerarDemo(periodo: Periodo, de?: string, ate?: string): Resultados {
     comparativoLabel: COMPARA[periodo],
     temDados: true,
     kpis,
+    // Na demo a padaria aparece com tudo aprovado. Já basta o dinheiro de
+    // exemplo que este arquivo cria; fila parada inventada seria mais um número
+    // falso pra alguem confundir com o real.
+    aguardando: { pedidos: 0, centavos: 0, recuperadoCentavos: 0 },
     porDiaSemana,
     faturamentoSerie,
     produtosTop,
@@ -211,6 +221,7 @@ function vazio(periodo: Periodo, de?: string, ate?: string): Resultados {
       foraHorario: zero,
       pedidos: zero,
     },
+    aguardando: { pedidos: 0, centavos: 0, recuperadoCentavos: 0 },
     porDiaSemana: [],
     faturamentoSerie: [],
     produtosTop: [],

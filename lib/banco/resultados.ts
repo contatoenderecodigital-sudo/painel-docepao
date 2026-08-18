@@ -17,7 +17,13 @@
 //  - HORAS DE VOLTA: cada resposta da IA e uma mensagem que alguem teria que ler
 //    e escrever. Conta 1,5 min por resposta, conservador pra quem atende no
 //    balcao e pega o celular no meio.
-//  - PEDIDOS: quantos pedidos aprovados no periodo.
+//  - PEDIDOS: quantos pedidos ENTRARAM no periodo, aprovados ou nao. A dona
+//    reclamou (com razao) de ver PEDIDOS = 0 com 4 pedidos parados na fila de
+//    aprovacao. O card mostra o total que entrou e quebra embaixo quantos ja
+//    foram aprovados e quantos ainda esperam a equipe.
+//  - AGUARDANDO: os que estao na fila de aprovacao, com o valor deles. Fica
+//    FORA do faturado e do recuperado: enquanto ninguem aprova, esse dinheiro
+//    pode nao acontecer, e faturamento inflado ia sumir do relatorio depois.
 //
 //  Fuso: tudo em America/Sao_Paulo. Sem isso "hoje" comeca as 21h do dia
 //  anterior e a dona ve o movimento da noite no dia errado.
@@ -88,6 +94,16 @@ const DATA_VENDA = "coalesce(p.aprovado_em, p.confirmado_em, p.criado_em) at tim
 const VENDIDO = "p.status in ('aprovado', 'impresso')";
 const MSG_LOCAL = "m.criado_em at time zone '" + TZ + "'";
 
+// Pedido que ENTROU e espera a equipe. E exatamente o mesmo filtro de
+// listarFilaAprovacao (pedidos.ts): status 'confirmado' sem pendencia com o
+// cliente nem com a IA. Tem que ser o mesmo, senao o numero desta tela briga
+// com o contador da fila na barra lateral e ninguem sabe em qual acreditar.
+const NA_FILA =
+  "p.status = 'confirmado' and coalesce(p.precisa_confirmacao, false) = false" +
+  " and coalesce(p.aguardando_cliente, false) = false";
+// Ainda nao existe aprovado_em nesses: a data que vale e quando o cliente fechou.
+const DATA_ENTRADA = "coalesce(p.confirmado_em, p.criado_em) at time zone '" + TZ + "'";
+
 type LinhaKpi = {
   faturado: string;
   recuperado: string;
@@ -95,6 +111,9 @@ type LinhaKpi = {
   atendimentos: string;
   fora: string;
   respostas: string;
+  aguardandoValor: string;
+  aguardandoQtd: string;
+  aguardandoRecuperado: string;
 };
 
 async function kpisDoIntervalo(negocioId: string, ini: string, fim: string): Promise<LinhaKpi> {
@@ -118,10 +137,31 @@ async function kpisDoIntervalo(negocioId: string, ini: string, fim: string): Pro
             and (extract(hour from ${MSG_LOCAL}) < 8 or extract(hour from ${MSG_LOCAL}) >= 18)) as fora,
        (select count(*) from mensagens m
           where m.negocio_id = $1 and m.papel = 'assistant'
-            and ${MSG_LOCAL} >= $2 and ${MSG_LOCAL} < $3) as respostas`,
+            and ${MSG_LOCAL} >= $2 and ${MSG_LOCAL} < $3) as respostas,
+       (select coalesce(sum(p.total_centavos), 0) from pedidos p
+          where p.negocio_id = $1 and ${NA_FILA}
+            and ${DATA_ENTRADA} >= $2 and ${DATA_ENTRADA} < $3) as "aguardandoValor",
+       (select count(*) from pedidos p
+          where p.negocio_id = $1 and ${NA_FILA}
+            and ${DATA_ENTRADA} >= $2 and ${DATA_ENTRADA} < $3) as "aguardandoQtd",
+       (select coalesce(sum(p.total_centavos), 0) from pedidos p
+          where p.negocio_id = $1 and ${NA_FILA} and coalesce(p.cobrancas, 0) > 0
+            and ${DATA_ENTRADA} >= $2 and ${DATA_ENTRADA} < $3) as "aguardandoRecuperado"`,
     [negocioId, ini, fim],
   );
-  return l ?? { faturado: "0", recuperado: "0", pedidos: "0", atendimentos: "0", fora: "0", respostas: "0" };
+  return (
+    l ?? {
+      faturado: "0",
+      recuperado: "0",
+      pedidos: "0",
+      atendimentos: "0",
+      fora: "0",
+      respostas: "0",
+      aguardandoValor: "0",
+      aguardandoQtd: "0",
+      aguardandoRecuperado: "0",
+    }
+  );
 }
 
 // Comparativo so existe quando havia com o que comparar: periodo anterior zerado
@@ -151,20 +191,41 @@ export async function agregar(
   // arredondar pra hora mostrava "0h" pra quem teve trabalho de verdade.
   const minutos = (respostas: number) => Math.round(respostas * MIN_POR_RESPOSTA);
 
+  // Dinheiro e contagem seguem regras DIFERENTES de proposito:
+  // faturado/recuperado so contam o que a equipe aprovou (dinheiro que virou
+  // producao); PEDIDOS conta tudo que entrou, aprovado ou na fila, porque a
+  // pergunta da dona e "quanto pedido chegou", e responder 0 com 4 esperando
+  // aprovacao na fila estava simplesmente errado pra ela.
+  const aguardando = {
+    pedidos: n(atual.aguardandoQtd),
+    centavos: n(atual.aguardandoValor),
+    recuperadoCentavos: n(atual.aguardandoRecuperado),
+  };
+  const pedidosEntraram = n(atual.pedidos) + aguardando.pedidos;
+  const pedidosEntraramAntes = n(anterior.pedidos) + n(anterior.aguardandoQtd);
+
   const kpis = {
     horasEconomizadas: kpi(minutos(n(atual.respostas)), minutos(n(anterior.respostas))),
     recuperadoCentavos: kpi(n(atual.recuperado), n(anterior.recuperado)),
     faturadoCentavos: kpi(n(atual.faturado), n(anterior.faturado)),
     atendimentos: kpi(n(atual.atendimentos), n(anterior.atendimentos)),
     foraHorario: kpi(n(atual.fora), n(anterior.fora)),
-    pedidos: kpi(n(atual.pedidos), n(anterior.pedidos)),
+    pedidos: kpi(pedidosEntraram, pedidosEntraramAntes),
   };
 
-  // Pedidos por dia da semana, na janela pedida.
+  // Pedidos por dia da semana. Conta a mesma coisa que o card PEDIDOS (entrou,
+  // aprovado ou na fila): com a regra antiga o grafico ficava zerado enquanto
+  // havia pedido esperando aprovacao, e grafico so com eixo parece painel
+  // quebrado.
   const dias = await query<{ dia: string; qtd: string }>(
-    `select to_char(${DATA_VENDA}, 'ID') as dia, count(*) as qtd
-       from pedidos p
-      where p.negocio_id = $1 and ${VENDIDO} and ${DATA_VENDA} >= $2 and ${DATA_VENDA} < $3
+    `select to_char(d.quando, 'ID') as dia, count(*) as qtd
+       from (
+         select ${DATA_VENDA} as quando from pedidos p
+          where p.negocio_id = $1 and ${VENDIDO} and ${DATA_VENDA} >= $2 and ${DATA_VENDA} < $3
+         union all
+         select ${DATA_ENTRADA} as quando from pedidos p
+          where p.negocio_id = $1 and ${NA_FILA} and ${DATA_ENTRADA} >= $2 and ${DATA_ENTRADA} < $3
+       ) d
       group by 1`,
     [negocioId, j.ini, j.fim],
   );
@@ -237,6 +298,7 @@ export async function agregar(
   }));
 
   const temDados = kpis.pedidos.valor > 0 || kpis.atendimentos.valor > 0;
+  const plural = (q: number, um: string, muitos: string) => (q === 1 ? um : muitos);
 
   const money = (c: number) =>
     "R$ " + (c / 100).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d)(?=,))/g, ".");
@@ -247,6 +309,12 @@ export async function agregar(
       ? Math.round((kpis.foraHorario.valor / kpis.atendimentos.valor) * 100)
       : 0;
   const insights = [
+    // Primeiro da lista de proposito: e dinheiro parado que depende so de
+    // alguem clicar em aprovar. Ficava invisivel na tela.
+    aguardando.pedidos > 0 &&
+      `${aguardando.pedidos} ${plural(aguardando.pedidos, "pedido está", "pedidos estão")} esperando aprovação ` +
+        `e ${plural(aguardando.pedidos, "soma", "somam")} ${money(aguardando.centavos)}. ` +
+        `Esse valor só entra no faturado depois que a equipe aprovar.`,
     produtosTop[0] &&
       `Seu produto campeão é o ${produtosTop[0].produto} (${money(produtosTop[0].centavos)} em vendas).`,
     diaForte && diaForte.pedidos > 0 && `${diaForte.dia} é o seu dia mais forte.`,
@@ -259,6 +327,7 @@ export async function agregar(
   return {
     temDados,
     kpis,
+    aguardando,
     porDiaSemana,
     faturamentoSerie,
     produtosTop,
@@ -266,6 +335,6 @@ export async function agregar(
     topClientes,
     insights: insights.length
       ? insights
-      : ["Ainda sem movimento neste período. Os números aparecem conforme os pedidos são aprovados."],
+      : ["Ainda sem movimento neste período. Os números aparecem conforme os pedidos entram pelo WhatsApp."],
   };
 }

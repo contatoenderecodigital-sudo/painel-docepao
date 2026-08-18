@@ -77,6 +77,14 @@ export default function Resultados({
 
   const K = dados.kpis;
   const semDados = !dados.temDados;
+  const espera = dados.aguardando;
+  // PEDIDOS traz aprovados + fila. Quantos ja foram aprovados sai por subtracao,
+  // pra tela nunca mostrar uma soma que nao fecha com o card.
+  const pedidosAprovados = Math.max(0, K.pedidos.valor - espera.pedidos);
+  // Grafico de dia da semana sempre vem com os 7 dias, entao length nunca era 0
+  // e o painel desenhava sete barras de altura zero: eixo sozinho, cara de
+  // quebrado. Vazio de verdade e quando nao houve pedido nenhum.
+  const pedidosNaSemana = dados.porDiaSemana.reduce((soma, d) => soma + d.pedidos, 0);
 
   return (
     <div className="px-4 py-5 md:px-8 md:py-7">
@@ -90,7 +98,7 @@ export default function Resultados({
             <h1 className="font-title text-3xl font-bold text-cream">
               O que a {nome || "padaria"} fez {dados.periodoLabel}
             </h1>
-            <AjudaInfo titulo="Resultados" texto="Os números do negócio no período que você escolher lá em cima: faturamento, atendimentos, produtos mais vendidos e clientes que mais compram. Serve pra tomar decisão." />
+            <AjudaInfo titulo="Resultados" texto="Os números do negócio no período que você escolher lá em cima. Contagem de pedidos inclui os que ainda esperam aprovação; valor em dinheiro só conta pedido já aprovado, porque o que está na fila ainda pode ser recusado." />
           </div>
           <p className="text-sm text-cream/65 mt-1 max-w-2xl">
             Não é achismo. É o resultado em número: tempo de volta, pedidos atendidos, dinheiro que
@@ -181,6 +189,11 @@ export default function Resultados({
           rotulo="em orçamentos recuperados"
           variacao={K.recuperadoCentavos.variacaoPct}
           comparativo={dados.comparativoLabel}
+          detalhe={
+            espera.recuperadoCentavos > 0
+              ? brl(espera.recuperadoCentavos) + " vieram de cobrança e esperam aprovação"
+              : null
+          }
         />
         <Kpi
           destaque
@@ -191,6 +204,11 @@ export default function Resultados({
           rotulo="faturados pelo WhatsApp"
           variacao={K.faturadoCentavos.variacaoPct}
           comparativo={dados.comparativoLabel}
+          detalhe={
+            espera.centavos > 0
+              ? "mais " + brl(espera.centavos) + " esperando aprovação, fora deste total"
+              : "só pedidos que a equipe já aprovou"
+          }
         />
       </div>
 
@@ -213,15 +231,23 @@ export default function Resultados({
         <Kpi
           icon={<ShoppingBag size={16} />}
           valor={semDados ? "—" : <NumberTicker value={K.pedidos.valor} />}
-          rotulo="pedidos"
+          rotulo="pedidos que entraram"
           variacao={K.pedidos.variacaoPct}
           comparativo={dados.comparativoLabel}
+          detalhe={
+            espera.pedidos > 0
+              ? pedidosAprovados + " aprovados · " + espera.pedidos + " esperando aprovação"
+              : null
+          }
         />
       </div>
 
-      {/* gráficos: faturamento + dia da semana */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
-        <Painel titulo="Faturamento ao longo do tempo" sub="Tendência de crescimento" className="lg:col-span-2">
+      {/* gráficos: faturamento + dia da semana.
+          Lado a lado só a partir de 1280px: em 1100px o painel do dia da semana
+          ficava com ~200px de largura e o eixo comia rótulo (o "Sáb" sumia e
+          sobrava um vazio antes do "Dom"). */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mt-6">
+        <Painel titulo="Faturamento ao longo do tempo" sub="Tendência de crescimento" className="xl:col-span-2">
           {dados.faturamentoSerie.length === 0 ? (
             <Vazio label={dados.periodoLabel} />
           ) : (
@@ -243,14 +269,25 @@ export default function Resultados({
           )}
         </Painel>
 
-        <Painel titulo="Pedidos por dia da semana" sub="Onde está o pico">
-          {dados.porDiaSemana.length === 0 ? (
+        <Painel titulo="Pedidos por dia da semana" sub="Onde está o pico (conta também os que esperam aprovação)">
+          {pedidosNaSemana === 0 ? (
             <Vazio label={dados.periodoLabel} />
           ) : (
             <ResponsiveContainer width="100%" height={230}>
               <BarChart data={dados.porDiaSemana} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.07)" />
-                <XAxis dataKey="dia" tick={{ fill: "rgba(245,235,220,0.55)", fontSize: 12 }} tickLine={false} axisLine={false} />
+                {/* interval=0 obriga os sete dias a aparecer. No automático o
+                    recharts descartava o "Sáb" quando a largura apertava, e a
+                    semana ficava com um buraco no meio sem explicação. */}
+                <XAxis
+                  dataKey="dia"
+                  interval={0}
+                  minTickGap={0}
+                  tickMargin={6}
+                  tick={{ fill: "rgba(245,235,220,0.55)", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
                 <YAxis hide />
                 <Tooltip cursor={{ fill: "rgba(255,255,255,0.05)" }} content={<TipCount unidade="pedidos" />} />
                 <Bar dataKey="pedidos" radius={[6, 6, 0, 0]}>
@@ -378,6 +415,7 @@ function Kpi({
   rotulo,
   variacao,
   comparativo,
+  detalhe = null,
   destaque = false,
 }: {
   icon: React.ReactNode;
@@ -385,6 +423,10 @@ function Kpi({
   rotulo: string;
   variacao: number | null;
   comparativo: string;
+  // Linha curta embaixo do número dizendo de que estágio ele veio. Existe
+  // porque "PEDIDOS 4" e "FATURADO R$ 0,00" na mesma tela parecia defeito: um
+  // conta o que entrou, o outro só o que a equipe aprovou.
+  detalhe?: React.ReactNode;
   destaque?: boolean;
 }) {
   return (
@@ -404,6 +446,7 @@ function Kpi({
       <div className="mt-2.5">
         <Variacao pct={variacao} comparativo={comparativo} />
       </div>
+      {detalhe && <div className="mt-1.5 text-[11px] leading-snug text-cream/45">{detalhe}</div>}
     </div>
   );
 }
@@ -501,18 +544,26 @@ function imprimirRelatorio(d: Dados, nome: string) {
     .r{text-align:right}
     ul{font-size:13px;padding-left:18px}
     li{margin:4px 0}
+    .aviso{border-left:3px solid #bbb;padding:6px 10px;font-size:12px;color:#444;margin-bottom:16px}
     .foot{margin-top:28px;font-size:11px;color:#999}
   </style></head><body>
   <h1>Relatório ${nome || "Padaria"}</h1>
   <div class="sub">Período: ${d.periodoLabel}</div>
   <div class="grid">
-    ${kpi("Faturado (WhatsApp)", brl(d.kpis.faturadoCentavos.valor))}
+    ${kpi("Faturado (aprovados)", brl(d.kpis.faturadoCentavos.valor))}
     ${kpi("Recuperado", brl(d.kpis.recuperadoCentavos.valor))}
     ${kpi("Atendimentos", String(d.kpis.atendimentos.valor))}
-    ${kpi("Pedidos", String(d.kpis.pedidos.valor))}
+    ${kpi("Pedidos que entraram", String(d.kpis.pedidos.valor))}
     ${kpi("Tempo de volta pra equipe", d.kpis.horasEconomizadas.valor < 60 ? d.kpis.horasEconomizadas.valor + " min" : Math.round(d.kpis.horasEconomizadas.valor / 60) + "h")}
     ${kpi("Fora do horário", String(d.kpis.foraHorario.valor))}
   </div>
+  ${
+    // O relatório vai impresso pra reunião e circula sem quem explique: a fila
+    // parada precisa aparecer nele, senão o faturado do papel parece o total.
+    d.aguardando.pedidos > 0
+      ? `<div class="aviso">${d.aguardando.pedidos} ${d.aguardando.pedidos === 1 ? "pedido está" : "pedidos estão"} esperando aprovação, somando ${brl(d.aguardando.centavos)}. Não entram no faturado acima.</div>`
+      : ""
+  }
   ${insights ? `<h2>Destaques</h2><ul>${insights}</ul>` : ""}
   ${linhaProd ? `<h2>Produtos mais vendidos</h2><table>${linhaProd}</table>` : ""}
   ${linhaCli ? `<h2>Top clientes</h2><table>${linhaCli}</table>` : ""}
