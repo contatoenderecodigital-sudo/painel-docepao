@@ -972,14 +972,59 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // isso que o painel mostrava justamente o que a guarda dizia ter barrado.
     // A observacao nova COMPLETA a que ja existe quando nao briga com ela: a
     // trufa tinha a forminha e recebeu o sabor, e virava uma segunda trufa.
+    // SABOR FORA DA LISTA DO CARDAPIO: ANOTA E AVISA, NUNCA ACEITA CALADO.
+    const listaFechada = ((catalogo.outros_produtos ?? []) as { nome: string; sabores?: string[] }[]).find(
+      (i) =>
+        Array.isArray(i.sabores) &&
+        i.sabores.length > 0 &&
+        String(i.nome).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") ===
+          produto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+    );
+    if (listaFechada && obsItem && String(obsItem).trim()) {
+      const dito = String(obsItem).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const conhecido = (listaFechada.sabores ?? []).some((sab) => {
+        const x = String(sab).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return dito.includes(x) || x.includes(dito);
+      });
+      if (!conhecido) {
+        return (
+          "NAO anotei: a padaria nao faz " + produto + " de " + String(obsItem).trim() + ". Os sabores sao: " +
+          (listaFechada.sabores ?? []).join(", ") + ". Diga isso ao cliente e pergunte qual ele quer; " +
+          "aceitar um sabor que a cozinha nao faz entrega outra coisa no dia."
+        );
+      }
+    }
+
+    // PIZZA: O NOME E O TAMANHO, O SABOR E OBSERVACAO.
+    //
+    // "pizza inteira calabresa" nao existe na tabela e sai por R$ 0. Aqui o
+    // nome volta pra 'pizza inteira' ou 'pizza meia' e o sabor desce pra obs,
+    // onde a cozinha le e o preco fecha.
+    let produtoPizza = produto;
+    let obsPizza = obsItem;
+    if (categoria === "pizza" || /^pizza/i.test(produto)) {
+      const meia = /meia|metade/i.test(produto) || /meia|metade/i.test(String(falaDoCliente));
+      const base = meia ? "pizza meia" : "pizza inteira";
+      const sabor = produto
+        .replace(/^pizza/i, "")
+        .replace(/inteira|meia|de forma|forma|redonda/gi, "")
+        .replace(/^\s*(de|com)\s+/i, "")
+        .trim();
+      if (sabor) {
+        const jaNaObs = String(obsItem ?? "").toLowerCase().includes(sabor.toLowerCase());
+        obsPizza = jaNaObs ? obsItem : [String(obsItem ?? "").trim(), sabor].filter(Boolean).join(", ");
+      }
+      produtoPizza = base;
+    }
+
     // Sabor diferente do mesmo produto continua sendo linha nova.
     const jaTem = (montagemAtual?.itens ?? []).find(
-      (x) => x.categoria === categoria && x.produto.trim().toLowerCase() === produto.trim().toLowerCase(),
+      (x) => x.categoria === categoria && x.produto.trim().toLowerCase() === produtoPizza.trim().toLowerCase(),
     );
-    let obsFinal = obsItem;
-    if (jaTem && obsItem) {
+    let obsFinal = obsPizza;
+    if (jaTem && obsPizza) {
       const antiga = String(jaTem.obs ?? "").trim();
-      const nova = obsItem.trim();
+      const nova = String(obsPizza).trim();
       const ops = SABORES[produto.toLowerCase()] ?? [];
       const saborDe = (t: string) => ops.find((o) => t.toLowerCase().includes(o.trim().toLowerCase())) ?? "";
       const brigam = !!saborDe(antiga) && !!saborDe(nova) && saborDe(antiga) !== saborDe(nova);
@@ -1000,7 +1045,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         }
       }
     }
-    estado.montagem.push({ tipo: "item", produto, categoria, qtd, obs: obsFinal });
+    estado.montagem.push({ tipo: "item", produto: produtoPizza, categoria, qtd, obs: obsFinal });
 
     // Topo ou papel de arroz sem foto do tema: peca uma vez, sem insistir. A
     // peca e fabricada em cima do tema, e com a foto a producao acerta melhor.
@@ -2087,8 +2132,15 @@ function descreverMontagem(
   const pend = atual ? atual.pendencias : [];
   const faltaDepois = Math.max(0, etapas.length - 1);
   const cobrar = pend.length
-    ? `\n\nETAPA DE AGORA: ${atual?.titulo}. Fale SO desta etapa nesta mensagem.\n` +
+    ? `\n\nETAPA DE AGORA: ${atual?.titulo}. Fora a resposta a pergunta dele, fale SO desta etapa nesta mensagem.\n` +
+      "SE A ULTIMA MENSAGEM DO CLIENTE FOR UMA PERGUNTA, RESPONDA ELA PRIMEIRO, com a informacao concreta " +
+      "(preco, peso, sabor, como se vende), e so depois siga a etapa. Ja aconteceu de ele perguntar o preco do " +
+      "cento e receber de volta a mesma pergunta da etapa tres vezes seguidas.\n" +
       pend.join(String.fromCharCode(10)) +
+      String.fromCharCode(10, 10) +
+      "ANOTAR O QUE ELE ACABOU DE INFORMAR VALE SEMPRE, mesmo que nao seja desta etapa: data, hora, nome e " +
+      "pagamento entram com anotar_dados na hora em que ele fala. Ele disse a data e a hora e voce repetiu a " +
+      "mesma pergunta duas vezes, como se ninguem tivesse escrito nada." +
       "\n\nSe o cliente JA respondeu alguma dessas coisas na conversa, nao pergunte de novo: chame anotar_item agora " +
       "com o que ele disse. Perguntar duas vezes a mesma coisa faz ele achar que ninguem anotou nada. Pergunte so o que " +
       "sobrou desta etapa, de uma vez so." +
@@ -2834,6 +2886,51 @@ async function rodarConversa(
         }
       }
 
+      // PRECO DE PRODUTO DA TABELA E RESPOSTA, NAO PROMESSA DE CONFERIR.
+      const perguntouPreco =
+        /(quanto (custa|fica|sai|ta|e)|qual o pre[çc]o|pre[çc]o d)/i.test(String(falaDoCliente2 ?? ""));
+      if (perguntouPreco && textoFinal && !/R\$\s?[0-9]/.test(textoFinal)) {
+        const t = String(falaDoCliente2 ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const tabela = ((catalogo.outros_produtos ?? []) as { nome: string; preco: number; unidade?: string }[])
+          .map((i) => ({ nome: String(i.nome), preco: Number(i.preco), unidade: String(i.unidade ?? "un") }))
+          .filter((i) => t.includes(i.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")))
+          .sort((a, b) => b.nome.length - a.nome.length);
+        const achado = tabela[0];
+        if (achado && achado.preco > 0) {
+          console.warn("[ia] ela nao respondeu o preco de " + achado.nome + "; preco escrito pelo codigo");
+          textoFinal =
+            "A " + achado.nome + " sai " + brl(achado.preco) +
+            (achado.unidade === "kg" ? " o quilo." : " cada.") +
+            "\n\n" + textoFinal;
+        }
+      }
+
+      // COMO SE VENDE: A RESPOSTA VEM DO CARDAPIO, NAO DA CONVERSA.
+      const perguntouComoVende =
+        /(por quilo|por unidade|vendid|inteir|como (que )?vende|quanto (custa )?o quilo)/i.test(
+          String(falaDoCliente2 ?? ""),
+        ) &&
+        /[?]/.test(String(falaDoCliente2 ?? ""));
+      if (perguntouComoVende && textoFinal) {
+        const t = String(falaDoCliente2 ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const doCatalogo = ((catalogo.outros_produtos ?? []) as { nome: string; unidade?: string }[])
+          .filter((i) => i.unidade)
+          .map((i) => ({ nome: String(i.nome), unidade: String(i.unidade) }))
+          .filter((i) => t.includes(i.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")))
+          .sort((a, b) => b.nome.length - a.nome.length);
+        const alvo = doCatalogo[0];
+        // Ela ja respondeu? Entao nao repete.
+        const jaDisse = alvo
+          ? new RegExp(alvo.unidade === "kg" ? "por quilo|o quilo|por kg" : "por unidade|cada unidade", "i").test(textoFinal)
+          : true;
+        if (alvo && !jaDisse) {
+          console.warn("[ia] ela ignorou como se vende " + alvo.nome + "; resposta escrita pelo codigo");
+          textoFinal =
+            "A gente vende " + alvo.nome + " por " + (alvo.unidade === "kg" ? "quilo" : "unidade") + "." +
+            "\n\n" + textoFinal;
+        }
+      }
+
       // NEGAR O QUILO DE UM PRODUTO DE QUILO NAO SAI.
       //
       // Ela escreveu "nao vende cachorro-quente por quilo, so por unidade" pra
@@ -2875,9 +2972,26 @@ async function rodarConversa(
       const nomeouAFamilia = QUER_VER.test(String(falaDoCliente2 ?? ""))
         ? PEDIDO_DE_CARDAPIO.filter(([, rx]) => rx.test(String(falaDoCliente2 ?? ""))).map(([id]) => id)
         : [];
-      const pecasFinais = nomeouAFamilia.length
+      // O texto manda na imagem: "te mandei o cardapio de docinhos" com a foto
+      // de salgados junto ja saiu pro cliente.
+      const anunciadoNoTexto: CardapioId[] = [
+        [/card[áa]pio de salgad|cardapio de salgad/i, "salgados"] as const,
+        [/card[áa]pio de docinho|cardapio de docinho/i, "docinhos"] as const,
+        [/card[áa]pio de bolos? de festa|cardapio de bolos? de festa/i, "bolos-festa"] as const,
+        [/card[áa]pio de bolos? caseiro|cardapio de bolos? caseiro/i, "bolos-caseiros"] as const,
+        [/card[áa]pio de cuca|cardapio de cuca/i, "cucas-paes"] as const,
+        [/card[áa]pio de torta|cardapio de torta|card[áa]pio de empad/i, "tortas-empadao"] as const,
+        [/card[áa]pio de pizza|cardapio de pizza/i, "pizza"] as const,
+        [/card[áa]pio de cupcake|cardapio de cupcake/i, "cupcakes-franciscano"] as const,
+      ]
+        .filter(([rx]) => rx.test(textoFinal))
+        .map(([, id]) => id as CardapioId);
+      const escolhidas = nomeouAFamilia.length
         ? pedidasPeloCliente.filter((x) => nomeouAFamilia.includes(x))
         : pedidasPeloCliente;
+      const pecasFinais = anunciadoNoTexto.length
+        ? Array.from(new Set([...escolhidas.filter((x) => anunciadoNoTexto.includes(x)), ...anunciadoNoTexto]))
+        : escolhidas;
       return {
         texto: semLista.texto,
         precisaHumano: estado.precisaHumano,
