@@ -23,7 +23,10 @@ export function NumberTicker({
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const motionValue = useMotionValue(0);
-  const spring = useSpring(motionValue, { damping: 60, stiffness: 100 });
+  // Rapido de proposito: o numero e informacao, nao espetaculo. Com damping 60 e
+  // stiffness 100 a contagem levava varios segundos pra assentar, e quem abre a
+  // tela fica esperando o valor parar de mexer pra poder ler.
+  const spring = useSpring(motionValue, { damping: 26, stiffness: 320 });
   const inView = useInView(ref, { once: true, margin: "0px" });
 
   useEffect(() => {
@@ -46,7 +49,7 @@ export function NumberTicker({
           maximumFractionDigits: decimals,
         }).format(value) +
         suffix;
-    }, delay * 1000 + 1500);
+    }, delay * 1000 + 600);
     return () => clearTimeout(t);
   }, [value, decimals, prefix, suffix, delay]);
 
