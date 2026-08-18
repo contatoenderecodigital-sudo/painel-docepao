@@ -72,6 +72,13 @@ const mesmaLinha = (a: ItemMontagem, b: { produto: string; categoria: CategoriaI
 
 const marca = (o?: string | null) => (o ?? "").trim().toLowerCase();
 
+// Observacao que a IA escreve so pra nao deixar o campo vazio.
+const ENFEITE = /^(sem\s+(sabor|recheio)|a\s+definir|nao\s+informad|n[ãa]o\s+especificad|indefinid|a\s+combinar)/i;
+
+// As cores de forminha do cardapio, pra saber se um docinho ja tem a dele.
+const COR_FORMINHA =
+  /(amarel\w*|azul(?:\s+(?:bebê|bebe|royal))?|branc\w*|dourad\w*|laranja\w*|lil[áa]s|marrom|pink|prata|pret\w*|ros[ae]\w*|roxo\w*|verde(?:\s+(?:bandeira|tiffany))?|vermelh\w*)(?:\s+neon|\s+claro)?/i;
+
 // O bolo da festa é UM só: o cliente vai refinando a observação (o pão de ló, o
 // tema, o nome, a foto) e cada refinamento é a mesma linha. Tratar a observação
 // como identidade aqui criava dois bolos de 2 kg no mesmo pedido, e a conta
@@ -107,8 +114,12 @@ export async function anotarItem(
   // depois como "morango, forminha azul royal". Uma observação que CONTÉM a
   // outra é a mesma linha ficando mais completa, não um item novo.
   if (i < 0 && mesmoNome.length === 1) {
-    const antiga = marca(mesmoNome[0].obs);
-    const nova = marca(item.obs);
+    // "sem sabor especificado" e observacao de enfeite: vale como vazia, senao
+    // o sabor que chega depois vira uma SEGUNDA linha do mesmo produto e o
+    // pedido fica com duas trufas, uma delas sem sabor pra sempre.
+    const limpar = (t: string) => (ENFEITE.test(t) ? "" : t);
+    const antiga = limpar(marca(mesmoNome[0].obs));
+    const nova = limpar(marca(item.obs));
     const refinamento = !antiga || !nova || nova.includes(antiga) || antiga.includes(nova);
     if (refinamento) i = m.itens.indexOf(mesmoNome[0]);
   }
@@ -147,6 +158,26 @@ export async function anotarItem(
       }
     }
   }
+  // A COR DA FORMINHA E DO LOTE, NAO DE UM DOCINHO SO.
+  //
+  // O cliente disse "azul royal pra todos" e ela anotou so no brigadeiro e no
+  // beijinho: a trufa ficava sem cor, a pendencia nunca fechava e ela perguntava
+  // a cor de novo a cada mensagem. Cor dita num docinho preenche os que ainda
+  // estao sem; quem ja tem a sua nao e tocado, pra quem quer uma cor por sabor
+  // continuar podendo.
+  if (item.categoria === "docinho") {
+    const achou = String(item.obs ?? "").match(COR_FORMINHA);
+    if (achou) {
+      const cor = achou[0].trim();
+      for (const x of m.itens) {
+        if (x.categoria !== "docinho") continue;
+        if (COR_FORMINHA.test(String(x.obs ?? ""))) continue;
+        const base = (x.obs ?? "").trim();
+        x.obs = base ? base + ", forminha " + cor : "forminha " + cor;
+      }
+    }
+  }
+
   await gravar(negocioId, clienteId, m);
   return m;
 }
