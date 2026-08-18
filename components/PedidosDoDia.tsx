@@ -14,6 +14,8 @@ import {
   agregarPorDepto,
   deptoInfo,
   deptosDoPedido,
+  qtdDoTicket,
+  unidadeDoItem,
 } from "@/lib/departamentos";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import { DeptIcone } from "@/components/DeptIcone";
@@ -31,6 +33,13 @@ function addDias(base: string, n: number) {
   const [a, m, d] = base.split("-").map(Number);
   const dt = new Date(a, m - 1, d + n);
   return iso(dt);
+}
+// "27/09" pro card do pedido. O dia ja esta no topo da tela, mas o card e o que
+// a equipe le e printa, e sem o dia ele so vale enquanto ninguem trocar o filtro.
+function fmtCurto(base: string | null) {
+  if (!base) return "";
+  const [, m, d] = base.split("-");
+  return `${d}/${m}`;
 }
 function fmtLongo(base: string) {
   const [a, m, d] = base.split("-").map(Number);
@@ -128,8 +137,10 @@ export default function PedidosDoDia({
   const kpis = useMemo(() => {
     // Peso nao e peca: um bolo de 3 kg e UM bolo pra cozinha, nao tres itens.
     // Somando o peso, a tela dizia "3 itens a produzir" pra um unico bolo.
+    // Quem diz se e peso e o unidadeDoItem, porque a coluna `unidade` do banco
+    // vem nula em linha antiga e o bolo de 3 kg voltava a contar como 3.
     const totalItens = doDia.reduce(
-      (s, p) => s + p.itens.reduce((x, i) => x + (i.unidade === "kg" ? 1 : i.qtd), 0),
+      (s, p) => s + p.itens.reduce((x, i) => x + (unidadeDoItem(i) === "kg" ? 1 : i.qtd), 0),
       0,
     );
     const fat = doDia.reduce((s, p) => s + p.totalCentavos, 0);
@@ -157,7 +168,7 @@ export default function PedidosDoDia({
       <div className="text-[11px] uppercase tracking-[0.2em] text-dourado font-semibold">Pedidos do dia</div>
       <div className="flex items-center gap-2 mt-1">
         <h1 className="font-title text-3xl font-bold text-cream">Produção da cozinha</h1>
-        <AjudaInfo titulo="Pedidos do dia" texto="A produção do dia separada por estação (padaria, salgados, confeitaria, bolos). Cada equipe vê só o que precisa fazer e marca o que já ficou pronto." />
+        <AjudaInfo titulo="Pedidos do dia" texto="A produção do dia separada por estação (salgados, docinhos, bolo festa). Cada equipe vê só o que precisa fazer, e o ticket do caixa fica com o total." />
       </div>
       <p className="text-sm text-cream/60 mt-1 mb-6 max-w-2xl">
         Cada equipe vê só o que precisa produzir. A soma de todos os pedidos do dia, separada por estação.
@@ -246,7 +257,7 @@ export default function PedidosDoDia({
                       itens.map((it) => (
                         <div key={it.produto} className="flex items-center gap-2">
                           <b className="text-[14px] text-cream tabular-nums" style={{ color: d.cor }}>
-                            {it.unidade === "kg" ? `${String(it.qtd).replace(".", ",")} kg` : it.qtd}
+                            {qtdDoTicket({ produto: it.produto, qtd: it.qtd, unidade: it.unidade })}
                           </b>
                           <span className="text-[14px] text-cream">{it.produto}</span>
                           {/* A hora manda na bancada: e ela que diz o que sai do
@@ -280,9 +291,17 @@ export default function PedidosDoDia({
                     onClick={() => setDetalhe(p)}
                     className="glass rounded-[18px] px-5 py-4 flex items-center gap-5 cursor-pointer hover:bg-white/[0.03] transition-colors"
                   >
+                    {/* O dono cobrou a retirada em toda tela e em todo papel.
+                        "-" no lugar da hora nao diz se falta perguntar ou se o
+                        cliente nao marcou: escrito "a definir", quem esta no
+                        balcao sabe que tem que acertar. */}
                     <div className="w-16 shrink-0 text-center">
-                      <div className="font-title text-2xl font-bold text-cream leading-none">{p.retiradaHora ?? "-"}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-cream/45 mt-1">retirada</div>
+                      <div className="font-title text-2xl font-bold text-cream leading-none">
+                        {p.retiradaHora ?? <span className="text-[13px] text-cream/60">a definir</span>}
+                      </div>
+                      <div className="text-[10px] uppercase tracking-wider text-cream/45 mt-1">
+                        retirada {fmtCurto(p.retiradaData)}
+                      </div>
                     </div>
                     <div className="w-px self-stretch bg-white/10" />
                     <div className="flex-1 min-w-0">
@@ -302,7 +321,7 @@ export default function PedidosDoDia({
                           <li key={ix}>
                             <div className="text-sm text-cream/85">
                               <span className="font-semibold text-cream tabular-nums">
-                                {i.unidade === "kg" ? `${String(i.qtd).replace(".", ",")} kg` : `${i.qtd}x`}
+                                {qtdDoTicket(i)}
                               </span>{" "}
                               {i.produto}
                             </div>

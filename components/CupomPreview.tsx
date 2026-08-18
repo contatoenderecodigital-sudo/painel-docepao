@@ -7,19 +7,48 @@
 
 import type { Pedido } from "@/lib/tipos";
 import { brl, formatarTelefoneBR } from "@/lib/tipos";
-import { deptoDe, deptoInfo, type DeptoId } from "@/lib/departamentos";
+import { deptoDe, qtdDoTicket, DEPARTAMENTOS, type DeptoId } from "@/lib/departamentos";
 import { DeptIcone } from "@/components/DeptIcone";
 import { X, Printer } from "lucide-react";
 
 function fmtData(iso: string | null) {
-  if (!iso) return "a confirmar";
+  if (!iso) return "dia a confirmar";
   const [a, m, d] = iso.split("-");
   return `${d}/${m}/${a}`;
 }
 
-// "200x" pros itens por unidade, "1,5 kg" pros por quilo.
+// DIA E HORA EM TODOS OS TICKETS, SEMPRE.
+//
+// A hora so aparecia quando existia, entao um pedido sem hora imprimia
+// "RETIRADA: 27/09/2026" e ninguem na bancada sabia se faltava a hora ou se
+// ninguem tinha perguntado. A linha agora carrega os dois campos, e o que
+// falta aparece escrito que falta.
+function linhaRetirada(pedido: Pedido) {
+  const hora = String(pedido.retiradaHora ?? "").trim();
+  return `${fmtData(pedido.retiradaData)} - ${hora || "hora a confirmar"}`;
+}
+
+// "200 un" pros itens contados, "1,5 kg" pros pesados. Quem decide e o
+// lib/departamentos, o mesmo que separa as estacoes, pra tela e papel nunca
+// discordarem.
 function qtdLabel(it: Pedido["itens"][number]) {
-  return it.unidade === "kg" ? `${String(it.qtd).replace(".", ",")} kg` : `${it.qtd}x`;
+  return qtdDoTicket(it);
+}
+
+// O TICKET DO CAIXA NAO PODE COBRAR QUEM JA PAGOU.
+//
+// O rodape dizia "Pagamento na RETIRADA" em todo pedido, inclusive nos que o
+// cliente fechou no pix e que estao no banco com forma_pagamento = 'pago'.
+// Quem entrega le o papel, nao o painel. Agora a linha e a do banco.
+const PAGAMENTO: Record<string, string> = {
+  pix: "Pagamento: PIX",
+  dinheiro: "Pagamento: dinheiro",
+  cartao: "Pagamento: cartão",
+  pago: "JÁ PAGO",
+};
+function linhaPagamento(pedido: Pedido) {
+  const f = pedido.formaPagamento ? PAGAMENTO[pedido.formaPagamento] : null;
+  return f ?? "Pagamento na RETIRADA";
 }
 
 type Badge = { nome: string; cor: string; id: DeptoId | "caixa" };
@@ -51,7 +80,7 @@ function htmlDoTicket(
     )
     .join("");
   const rodape = t.master
-    ? `<div><b>TOTAL: ${brl(pedido.totalCentavos)}</b></div><div>Pagamento na RETIRADA</div>`
+    ? `<div><b>TOTAL: ${brl(pedido.totalCentavos)}</b></div><div>${pr(linhaPagamento(pedido))}</div>`
     : `<div class="center">Producao ${pr(t.badge.nome)}</div>`;
   const obs = pedido.observacoes ? `<div class="ln"></div><div><b>OBS:</b> ${pr(pedido.observacoes)}</div>` : "";
   return `<div class="tk">
@@ -60,7 +89,7 @@ function htmlDoTicket(
     <div class="ln"></div>
     <div><b>CLIENTE:</b> ${pr(pedido.clienteNome)}</div>
     <div>Fone: ${formatarTelefoneBR(pedido.clienteTelefone)}</div>
-    <div><b>RETIRADA:</b> ${fmtData(pedido.retiradaData)}${pedido.retiradaHora ? " - " + pedido.retiradaHora : ""}</div>
+    <div><b>RETIRADA:</b> ${pr(linhaRetirada(pedido))}</div>
     ${pedido.pessoas ? `<div>Festa: ${pedido.pessoas} pessoas</div>` : ""}
     <div>Pedido #${pr(pedido.id.slice(0, 8))}</div>
     <div class="ln"></div>
@@ -148,10 +177,7 @@ function Ticket({
         <div className="border-t border-dashed border-black/30 my-1.5" />
         <div className="font-bold">CLIENTE: {pedido.clienteNome}</div>
         <div>Fone: {formatarTelefoneBR(pedido.clienteTelefone)}</div>
-        <div className="font-bold text-[12.5px]">
-          RETIRADA: {fmtData(pedido.retiradaData)}
-          {pedido.retiradaHora ? ` - ${pedido.retiradaHora}` : ""}
-        </div>
+        <div className="font-bold text-[12.5px]">RETIRADA: {linhaRetirada(pedido)}</div>
         {pedido.pessoas ? <div>Festa: {pedido.pessoas} pessoas</div> : null}
         <div>Pedido #{pedido.id.slice(0, 8)}</div>
         <div className="border-t border-dashed border-black/30 my-1.5" />
@@ -170,7 +196,7 @@ function Ticket({
         {master ? (
           <>
             <div className="font-bold text-[13.5px]">TOTAL: {brl(pedido.totalCentavos)}</div>
-            <div>Pagamento na RETIRADA</div>
+            <div>{linhaPagamento(pedido)}</div>
           </>
         ) : (
           <div className="text-center">Produção {badge.nome}</div>
@@ -203,11 +229,15 @@ export default function CupomPreview({
     (porDepto[d] ||= []).push(it);
   }
 
+  // A ordem dos tickets segue a das estacoes, nao a ordem em que o cliente
+  // falou os itens: quem separa o papel na cozinha pega sempre na mesma
+  // sequencia, e o do CAIXA e o ultimo porque e o que fica no balcao.
   type TicketData = { key: string; badge: Badge; itens: Pedido["itens"]; master?: boolean };
-  const tickets: TicketData[] = (Object.keys(porDepto) as DeptoId[]).map((id) => {
-    const info = deptoInfo(id);
-    return { key: id, badge: { nome: info.nome, cor: info.cor, id }, itens: porDepto[id] };
-  });
+  const tickets: TicketData[] = DEPARTAMENTOS.filter((d) => porDepto[d.id]?.length).map((d) => ({
+    key: d.id,
+    badge: { nome: d.nome, cor: d.cor, id: d.id },
+    itens: porDepto[d.id],
+  }));
   tickets.push({
     key: "caixa",
     badge: { nome: "Caixa", cor: "#6e1f30", id: "caixa" },

@@ -3403,6 +3403,30 @@ async function rodarConversa(
         }
       }
 
+      // DIA DA SEMANA CHUTADO NAO SAI.
+      const DIAS_DA_SEMANA = /\b(domingo|segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado)(-feira)?\b/gi;
+      if (DIAS_DA_SEMANA.test(textoFinal)) {
+        // So mexe quando ha uma data no texto: 'a gente abre sabado' e verdade,
+        // 'sabado 20/09' pode ser mentira.
+        const comData = /\b(domingo|segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado)(-feira)?\b[ ,]*(\d{1,2})[\/](\d{1,2})/gi;
+        textoFinal = textoFinal.replace(comData, (todo, _dia, _f, d, m) => {
+          const dia = Number(d);
+          const mes = Number(m);
+          if (!Number.isFinite(dia) || !Number.isFinite(mes)) return todo;
+          // O ano vem do proprio texto quando existir; senao, o ano de hoje.
+          const anoNoTexto = textoFinal.match(new RegExp(d + "\\/" + m + "\\/(\\d{4})"));
+          const ano = anoNoTexto ? Number(anoNoTexto[1]) : new Date().getFullYear();
+          const data = new Date(ano, mes - 1, dia);
+          if (Number.isNaN(data.getTime())) return todo;
+          const nomes = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+          const certo = nomes[data.getDay()];
+          const escrito = String(todo).trim().toLowerCase();
+          if (escrito.startsWith(certo.normalize("NFD").replace(/[\u0300-\u036f]/g, "").slice(0, 3))) return todo;
+          console.warn("[ia] dia da semana errado em \"" + todo + "\"; corrigido pra " + certo);
+          return todo.replace(/^[a-zà-ú-]+/i, certo);
+        });
+      }
+
       // Lista de produtos digitada vira peca do cardapio: a imagem tem tudo e o
       // preco, e ninguem escolhe festa lendo nove nomes num paragrafo.
       // Peca que ja foi pro cliente ha pouco nao volta: repetir cardapio no meio
