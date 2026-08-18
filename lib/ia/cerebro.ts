@@ -1523,6 +1523,54 @@ export function pecaDaEtapa(
   return null;
 }
 
+// O pedido do cliente que ainda esta vivo. Nao e o que esta sendo montado: e o
+// que ja foi registrado e segue andando (com a equipe, aprovado ou impresso).
+export type PedidoEmAbertoIA = {
+  status: string;
+  aguardandoCliente: boolean;
+  retiradaData: string | null;
+  retiradaHora: string | null;
+  totalCentavos: number;
+  motivoHumano: string | null;
+  impresso: boolean;
+};
+
+// O que ela precisa saber sobre esse pedido antes de responder qualquer coisa.
+function blocoPedidoEmAberto(p: PedidoEmAbertoIA): string {
+  const quando = [
+    p.retiradaData ? `pra ${p.retiradaData}` : null,
+    p.retiradaHora ? `as ${p.retiradaHora}` : null,
+  ].filter(Boolean).join(" ");
+  const valor = p.totalCentavos > 0 ? `, total ${brl(p.totalCentavos / 100)}` : "";
+  const confirmado = p.impresso || p.status === "aprovado";
+  const linhas = [
+    `# ESTE CLIENTE JA TEM UM PEDIDO ${quando}${valor}`,
+    confirmado
+      ? "A equipe ja confirmou esse pedido."
+      : "O pedido esta na mao da equipe, esperando a confirmacao dela. Voce ja avisou que avisaria quando confirmassem.",
+  ];
+  // Pendencia aberta e divida SUA com ele: some do estado, e ela responde como
+  // se nunca tivesse prometido nada.
+  if (p.motivoHumano) {
+    linhas.push(
+      `VOCE FICOU DE VOLTAR PRA ELE COM ISSO: ${p.motivoHumano}. Se ele cobrar, diga que ja esta com a equipe e ` +
+        "que voce avisa aqui assim que tiver a resposta. NAO invente esse valor nem esse prazo.",
+    );
+  }
+  linhas.push(
+    "",
+    "COMO RESPONDER ENQUANTO ESSE PEDIDO EXISTIR:",
+    "- Mensagem curta ou solta (ok, obrigado, blz, um oi): reconheca e feche o assunto em cima DESSE pedido. " +
+      "NUNCA pergunte se ele quer comecar um pedido: ele acabou de fazer um.",
+    "- Mensagem generica ou que da pra entender de dois jeitos: pergunte se e sobre esse pedido ou se e outra coisa, " +
+      "antes de comecar qualquer pedido novo.",
+    "- Pergunta sobre o pedido (valor, data, o que tem nele): responda em cima deste pedido, com os dados daqui.",
+    "- Ele quer MUDAR, ACRESCENTAR ou CANCELAR algo nele: chame a equipe (falar_com_humano). Voce nao mexe em pedido registrado.",
+    "- So comece um pedido novo se ele pedir claramente outra coisa, pra outra data.",
+  );
+  return linhas.join(String.fromCharCode(10));
+}
+
 // O pedido anotado, em texto, pra IA ler no fim da conversa. É a memória dela:
 // em vez de reconstruir o pedido inteiro pelo histórico a cada mensagem (que é
 // onde ela trocava bolo por docinho e perdia item), ela lê o que está guardado.
@@ -1747,6 +1795,7 @@ async function rodarConversa(
   montagemAtual?: MontagemAtual | null,
   pedidoAguardando = false,
   pedidoAnterior?: string | null,
+  pedidoAberto?: PedidoEmAbertoIA | null,
 ): Promise<RespostaIA> {
   const client = new OpenAI({
     apiKey: prov.apiKey,
@@ -1781,6 +1830,11 @@ async function rodarConversa(
   // cobranca; quem nunca falou precisa da pergunta antes.
   const falouSalgado = /salgad|frito|assado|coxinha|esfirra|empadinha|risolis|ris[óo]lis/.test(falaToda);
   const falouDocinho = /docinho|doce|brigadeiro|beijinho|trufa/.test(falaToda);
+  // O pedido que ja existe vem primeiro: e o contexto de tudo que ela vai
+  // responder, inclusive do silencio dele.
+  if (pedidoAberto && !pedidoAguardando) {
+    messages.push({ role: "system", content: blocoPedidoEmAberto(pedidoAberto) });
+  }
   messages.push({ role: "system", content: descreverMontagem(montagemAtual, pedidoAguardando, ehFesta, pediuBolo, falouSalgado, falouDocinho) });
 
   // FERRAMENTA QUE NAO CABE AGORA NEM E OFERECIDA.
@@ -2034,6 +2088,7 @@ export async function responder(
   montagemAtual?: MontagemAtual | null,
   pedidoAguardando = false,
   pedidoAnterior?: string | null,
+  pedidoAberto?: PedidoEmAbertoIA | null,
 ): Promise<RespostaIA> {
   const system = montarSystemComData(tenant);
   const lista = provedores(tenant);
@@ -2048,7 +2103,7 @@ export async function responder(
   for (const prov of lista) {
     for (let tentativa = 1; tentativa <= 2; tentativa++) {
       try {
-        return await rodarConversa(prov, system, historico, tenant, origem, clienteId, montagemAtual, pedidoAguardando, pedidoAnterior);
+        return await rodarConversa(prov, system, historico, tenant, origem, clienteId, montagemAtual, pedidoAguardando, pedidoAnterior, pedidoAberto);
       } catch (e) {
         ultimoErro = e;
         const msg = (e as Error)?.message ?? String(e);

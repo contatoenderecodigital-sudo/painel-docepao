@@ -320,3 +320,61 @@ export async function adicionarItem(
     );
   });
 }
+
+// O PEDIDO NAO SOME DA CONVERSA QUANDO O CLIENTE ACEITA.
+//
+// Assim que o aceite entrava, todo o estado virava zero: a IA recebia um "ok" do
+// cliente e respondia "quer comecar um pedido ou so tirar uma duvida?", com o
+// pedido dele parado na mao da equipe e uma pendencia de valor em aberto. Pedido
+// so vira historia depois que o ticket imprime e a data de retirada passa.
+export type PedidoEmAberto = {
+  id: string;
+  status: string;
+  aguardandoCliente: boolean;
+  retiradaData: string | null;
+  retiradaHora: string | null;
+  totalCentavos: number;
+  motivoHumano: string | null;
+  impresso: boolean;
+};
+
+export async function pedidoEmAberto(
+  negocioId: string,
+  clienteId: string,
+): Promise<PedidoEmAberto | null> {
+  const l = await queryUm<{
+    id: string;
+    status: string;
+    aguardando_cliente: boolean;
+    retirada_data: string | null;
+    retirada_hora: string | null;
+    total_centavos: number;
+    motivo_humano: string | null;
+    impresso_em: string | null;
+  }>(
+    `select id, status::text as status,
+            coalesce(aguardando_cliente, false) as aguardando_cliente,
+            to_char(retirada_data, 'DD/MM/YYYY') as retirada_data,
+            retirada_hora,
+            coalesce(total_centavos, 0) as total_centavos,
+            motivo_humano, impresso_em
+       from pedidos
+      where negocio_id = $1 and cliente_id = $2
+        and status in ('confirmado', 'aprovado', 'impresso')
+        and (retirada_data is null or retirada_data >= current_date)
+      order by criado_em desc
+      limit 1`,
+    [negocioId, clienteId],
+  );
+  if (!l) return null;
+  return {
+    id: l.id,
+    status: l.status,
+    aguardandoCliente: Boolean(l.aguardando_cliente),
+    retiradaData: l.retirada_data,
+    retiradaHora: l.retirada_hora,
+    totalCentavos: Number(l.total_centavos) || 0,
+    motivoHumano: l.motivo_humano,
+    impresso: Boolean(l.impresso_em),
+  };
+}

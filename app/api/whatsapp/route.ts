@@ -27,7 +27,7 @@ import {
   resumoPedidoFechado,
 } from "@/lib/banco/conversas";
 import { definirHandoff, iaPausada, ultimaMsgClienteMs } from "@/lib/banco/atendimentos";
-import { registrarAceiteCliente, temPedidoAguardandoCliente } from "@/lib/banco/pedidos";
+import { registrarAceiteCliente, temPedidoAguardandoCliente, pedidoEmAberto } from "@/lib/banco/pedidos";
 import { anotarItem, removerItem, anotarDados, limparMontagem, lerMontagem } from "@/lib/banco/montagem";
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
@@ -244,12 +244,15 @@ async function processar(corpo: WebhookPayload) {
       // bolo por docinho e pergunta de novo o que o cliente já respondeu.
       const montado = await lerMontagem(negocioId, clienteId).catch(() => null);
       const pedidoAnterior = await resumoPedidoFechado(negocioId, clienteId).catch(() => null);
+      // O pedido que ele ja fez e que ainda esta andando. Enquanto o ticket nao
+      // imprime, toda mensagem dele chega em cima DESTE pedido, nao no vazio.
+      const emAberto = await pedidoEmAberto(negocioId, clienteId).catch(() => null);
 
       let resp;
       try {
         // clienteId (o mesmo do acharOuCriarCliente/salvarMensagem) amarra o
         // custo de IA a ESTA conversa — pra o painel mostrar o custo por atendimento.
-        resp = await responder(historico, tenant, "whatsapp", clienteId, montado, aguardando, pedidoAnterior);
+        resp = await responder(historico, tenant, "whatsapp", clienteId, montado, aguardando, pedidoAnterior, emAberto);
       } catch (e) {
         console.error("[whatsapp] IA falhou (todos os provedores):", e);
         const desculpa = "Tive um probleminha aqui agora, ja ja te respondo, ta?";
