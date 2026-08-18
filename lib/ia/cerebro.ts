@@ -2156,6 +2156,17 @@ async function rodarConversa(
     }
   }
 
+  // Pediu com quantidade uma coisa que a casa nao faz: ela precisa dizer isso
+  // e seguir com o resto, em vez de repetir o cardapio e travar a conversa.
+  const naoExistem = pedidosQueNaoExistem(String(ultimaFalaDoCliente));
+  if (naoExistem.length > 0) {
+    messages.push({
+      role: "system",
+      content:
+        "O cliente pediu isto e a padaria NAO FAZ: " + naoExistem.join(", ") + ". Diga numa frase que esse item a gente nao tem, ofereca os parecidos que existem no cardapio e ANOTE normalmente o resto do que ele pediu. Nao repita o cardapio inteiro nem ignore o pedido dele."
+    });
+  }
+
   messages.push({ role: "system", content: descreverMontagem(montagemDoTurno, pedidoAguardando, ehFesta, pediuBolo, falouSalgado, falouDocinho) });
 
   // FERRAMENTA QUE NAO CABE AGORA NEM E OFERECIDA.
@@ -2403,6 +2414,44 @@ async function rodarConversa(
   };
 }
 
+
+// O que o cliente pediu COM QUANTIDADE e nao existe no cardapio.
+//
+// So olha "150 casadinho", "2 tortas de brigadeiro": numero colado num nome.
+// E onde o erro custa caro, porque e a hora em que ele acha que fechou.
+function pedidosQueNaoExistem(fala: string): string[] {
+  const semAcento = (t: string) =>
+    String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const conhecidos: string[] = [
+    ...((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]).map((i) => semAcento(i.nome)),
+    ...((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[]).map((i) => semAcento(i.nome)),
+    ...((catalogo.doces?.itens ?? []) as { nome: string }[]).map((i) => semAcento(i.nome)),
+    ...((catalogo.bolos_caseiros?.itens ?? []) as { nome: string }[]).map((i) => semAcento(i.nome)),
+    ...((catalogo.outros_produtos ?? []) as { nome: string }[]).map((i) => semAcento(i.nome)),
+    ...(catalogo.bolos_recheados?.faixas ?? []).flatMap((f: { sabores?: string[] }) =>
+      (f.sabores ?? []).map((x) => semAcento(x)),
+    ),
+    "salgado", "salgados", "docinho", "docinhos", "doce", "doces", "bolo", "bolos", "kg", "pessoas", "convidados",
+    "anos", "unidades", "cento", "centos", "pedaco", "pedacos", "fatia", "fatias",
+    // Palavras que aparecem coladas em numero e nao sao produto nenhum.
+    "crianca", "criancas", "adulto", "adultos", "gente", "reais", "real", "hora", "horas",
+    "minuto", "minutos", "dia", "dias", "semana", "semanas", "mes", "meses", "ano",
+    "caixa", "caixas", "litro", "litros", "gramas", "grama", "mesa", "mesas", "por cento",
+  ];
+  const achados: string[] = [];
+  const texto = semAcento(fala);
+  const re = /([0-9]+) *(?:de |da |do )?([a-z][a-z ]{2,22})/g;
+  let m = re.exec(texto);
+  while (m) {
+    const nome = m[2].trim().replace(/ (de|da|do|com|e|pra|para|no|na)$/,"").trim();
+    const conhecido = conhecidos.some(
+      (c) => c.length > 2 && (nome.includes(c) || c.includes(nome) || nome.startsWith(c.slice(0, 5))),
+    );
+    if (!conhecido && nome.length > 3 && !achados.includes(nome)) achados.push(nome);
+    m = re.exec(texto);
+  }
+  return achados;
+}
 
 // Quais pecas ja foram mandadas nas ultimas mensagens (a peca vai como imagem
 // com legenda "Cardapio de X", e isso fica no historico).
