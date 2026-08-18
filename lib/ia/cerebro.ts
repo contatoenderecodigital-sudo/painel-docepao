@@ -641,7 +641,23 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // O ITEM ENTRA AQUI, depois de passar por todas as recusas acima.
     // Recusa que enfileira o item antes de verificar nao recusa nada: era por
     // isso que o painel mostrava justamente o que a guarda dizia ter barrado.
-    estado.montagem.push({ tipo: "item", produto, categoria, qtd, obs: obsItem });
+    // A observacao nova COMPLETA a que ja existe quando nao briga com ela: a
+    // trufa tinha a forminha e recebeu o sabor, e virava uma segunda trufa.
+    // Sabor diferente do mesmo produto continua sendo linha nova.
+    const jaTem = (montagemAtual?.itens ?? []).find(
+      (x) => x.categoria === categoria && x.produto.trim().toLowerCase() === produto.trim().toLowerCase(),
+    );
+    let obsFinal = obsItem;
+    if (jaTem && obsItem) {
+      const antiga = String(jaTem.obs ?? "").trim();
+      const nova = obsItem.trim();
+      const ops = SABORES[produto.toLowerCase()] ?? [];
+      const saborDe = (t: string) => ops.find((o) => t.toLowerCase().includes(o.trim().toLowerCase())) ?? "";
+      const brigam = !!saborDe(antiga) && !!saborDe(nova) && saborDe(antiga) !== saborDe(nova);
+      const contida = antiga.toLowerCase().includes(nova.toLowerCase()) || nova.toLowerCase().includes(antiga.toLowerCase());
+      if (antiga && !brigam && !contida) obsFinal = antiga + ", " + nova;
+    }
+    estado.montagem.push({ tipo: "item", produto, categoria, qtd, obs: obsFinal });
 
     // O aviso de sabor faltando vem AQUI, no mesmo turno. A lista de pendências
     // do fim do prompt é montada antes da resposta, então ela só enxergaria a
