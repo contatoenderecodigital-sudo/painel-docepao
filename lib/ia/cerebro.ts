@@ -1275,6 +1275,15 @@ ATENCAO: recusar o registro NAO quer dizer recomecar a coletar. Tudo que o clien
     }
 
     const motivoHumano = input.motivo_humano ? String(input.motivo_humano) : undefined;
+    // Pendencia sem motivo escrito nao para o pedido: a tela de espera ficaria
+    // com um card sem dizer o que falta, e ninguem consegue resolver isso. Quem
+    // detecta pendencia de verdade sao as travas daqui, e todas escrevem o
+    // motivo; marcacao vazia da IA segue pra fila normal, que a dona revisa
+    // pedido por pedido do mesmo jeito.
+    if (precisaConfirmacao && pendencias.length === 0 && !motivoHumano) {
+      console.warn("[ia] precisa_confirmacao marcado sem motivo; seguindo pra aprovacao normal");
+      precisaConfirmacao = false;
+    }
     estado.pedido = {
       itens,
       linhas: c.linhas,
