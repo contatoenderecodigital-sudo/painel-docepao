@@ -1171,6 +1171,22 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
   }
 
   if (nome === "registrar_pedido") {
+    // DIA E HORA DA RETIRADA SAO OBRIGATORIOS NO FECHAMENTO.
+    //
+    // E o que a producao le primeiro na comanda. Pedido sem isso vira papel
+    // solto na bancada e alguem tendo que ligar pro cliente pra perguntar.
+    const dataRetirada =
+      String(input.retirada_data ?? "").trim() || String(montagemAtual?.dados?.retirada_data ?? "").trim();
+    const horaRetirada =
+      String(input.retirada_hora ?? "").trim() || String(montagemAtual?.dados?.retirada_hora ?? "").trim();
+    if (!dataRetirada || !horaRetirada) {
+      const falta = [!dataRetirada ? "o DIA da retirada" : "", !horaRetirada ? "a HORA da retirada" : ""]
+        .filter(Boolean)
+        .join(" e ");
+      return (
+        "NAO registrei: falta " + falta + ". A cozinha produz pela data e pela hora que estao na comanda, entao pedido sem isso nao pode fechar. Pergunte agora, numa frase, e registre depois que ele responder."
+      );
+    }
     const daIA = (input.itens as { item: string; qtd: number; obs?: string; categoria?: string }[]) || [];
 
     // A LISTA VEM DO PEDIDO EM MONTAGEM, não da memória da IA.
