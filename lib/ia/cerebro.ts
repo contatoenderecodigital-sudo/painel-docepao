@@ -1758,8 +1758,11 @@ async function rodarConversa(
       // sendo dela, pra conversa nao ficar robotica. So o que ela escreveu
       // sobre quantidade e que nao vale.
       if (estado.sugestao && !estado.resumo) {
-        const frases = textoFinal.split(new RegExp("(?<=[?])", "g"));
-        const pergunta = frases.reverse().find((f) => f.includes("?"))?.trim() ?? "";
+        // So a ULTIMA FRASE com pergunta: pegando um pedaco maior, o texto dela
+        // repetia a base que o codigo ja tinha escrito, e o cliente lia a mesma
+        // coisa duas vezes.
+        const frases = textoFinal.split(new RegExp("(?<=[.!?])", "g")).map((f) => f.trim()).filter(Boolean);
+        const pergunta = [...frases].reverse().find((f) => f.includes("?")) ?? "";
         textoFinal = pergunta
           ? estado.sugestao + String.fromCharCode(10) + String.fromCharCode(10) + pergunta
           : estado.sugestao;
