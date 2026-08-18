@@ -1250,9 +1250,11 @@ function etapasDaFesta(
     pendencias: [
       ...(festa && !dispensou("salgado") && salgados.length === 0
         ? [
-            "- o cliente ainda nao escolheu NENHUM salgado. Se ele ainda NAO viu o cardapio de salgados, mande a peca primeiro (enviar_cardapio) e pergunte em cima dela: " +
-              "quem nunca comprou aqui nao sabe o que existe. Depois pergunte quais ele quer e quantos de cada, antes de falar de docinho ou de bolo. Se ele disser que NAO quer salgado, chame anotar_dados com " +
-              "nao_quer=\"salgado\" e siga, que eu paro de cobrar.",
+            "- o cliente ainda nao escolheu NENHUM salgado. MANDE a peca do cardapio de salgados (enviar_cardapio) e " +
+              "pergunte em cima dela: ninguem decora cardapio, nem quem ja comprou dez vezes. Se a peca ja foi mandada " +
+              "nesta conversa, o sistema nao repete, entao pode pedir de novo sem medo. Depois pergunte quais ele quer e " +
+              "quantos de cada, antes de falar de docinho ou de bolo. Se ele disser que NAO quer salgado, chame " +
+              "anotar_dados com nao_quer=\"salgado\" e siga, que eu paro de cobrar.",
           ]
         : []),
       ...(salgados.map(faltaNoItem).filter(Boolean) as string[]),
@@ -1264,7 +1266,7 @@ function etapasDaFesta(
     titulo: "DOCINHOS",
     pendencias: [
       ...(festa && !dispensou("docinho|doce") && docinhos.length === 0
-        ? ["- o cliente ainda nao escolheu NENHUM docinho. Se ele ainda nao viu o cardapio de docinhos, mande a peca antes de perguntar. Depois pergunte quais sabores e quantos de cada."]
+        ? ["- o cliente ainda nao escolheu NENHUM docinho. MANDE a peca do cardapio de docinhos e pergunte em cima dela; ninguem decora cardapio. Depois pergunte quais sabores e quantos de cada."]
         : []),
       ...(docinhos.map(faltaNoItem).filter(Boolean) as string[]),
       ...(docinhos.length && doceSemForminha.length
