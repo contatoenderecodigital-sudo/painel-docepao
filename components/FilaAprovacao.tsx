@@ -275,6 +275,7 @@ export default function FilaAprovacao({
   const [fila, setFila] = useState(inicial);
   const [saindo, setSaindo] = useState<Record<string, boolean>>({});
   const [ultimo, setUltimo] = useState<{ nome: string; acao: "aprovado" | "recusado" } | null>(null);
+  const [falha, setFalha] = useState<string | null>(null);
   const [cupom, setCupom] = useState<Pedido | null>(null);
   // ids resolvidos localmente: nao deixa reaparecer se o poll rodar antes do banco atualizar.
   const resolvidosRef = useRef<Set<string>>(new Set());
@@ -294,14 +295,38 @@ export default function FilaAprovacao({
     return () => clearInterval(t);
   }, []);
 
-  function resolver(id: string, acao: "aprovado" | "recusado") {
+  async function resolver(id: string, acao: "aprovado" | "recusado") {
     const p = fila.find((x) => x.id === id);
     resolvidosRef.current.add(id);
     setSaindo((s) => ({ ...s, [id]: true }));
     setUltimo(p ? { nome: p.clienteNome, acao } : null);
-    // grava no banco por trás (se as ações vierem plugadas)
+    setFalha(null);
     const acaoServidor = acao === "aprovado" ? aprovar : recusar;
-    acaoServidor?.(id).catch((e) => console.error("falha ao gravar:", e));
+    // Espera a resposta: sem isso a tela anuncia impressao que nunca aconteceu.
+    if (acaoServidor) {
+      let deu = false;
+      try {
+        const r = await acaoServidor(id);
+        deu = r?.ok !== false;
+      } catch (e) {
+        console.error("falha ao gravar:", e);
+      }
+      if (!deu) {
+        resolvidosRef.current.delete(id);
+        setUltimo(null);
+        setSaindo((sd) => {
+          const n = { ...sd };
+          delete n[id];
+          return n;
+        });
+        setFila((f) => (f.some((x) => x.id === id) || !p ? f : [p, ...f]));
+        setFalha(
+          (p ? `O pedido de ${p.clienteNome} nao foi ${acao}. ` : "Nao deu pra gravar. ") +
+            "Atualize a pagina (F5) e tente de novo: nada foi para a cozinha.",
+        );
+        return;
+      }
+    }
     setTimeout(() => {
       setFila((f) => f.filter((x) => x.id !== id));
       setSaindo((s) => {
@@ -333,6 +358,12 @@ export default function FilaAprovacao({
       <p className="text-sm text-cream/70 mb-6 max-w-xl">
         Chegaram pelo WhatsApp. Aprovou, sai impresso na cozinha na hora. Nenhum entra sem você.
       </p>
+
+      {falha && (
+        <div className="rounded-xl px-4 py-3 mb-4 text-sm" style={{ background: "rgba(200,60,60,0.16)", border: "1px solid rgba(240,140,140,0.35)", color: "#f3bcbc" }}>
+          {falha}
+        </div>
+      )}
 
       {/* aviso do último resolvido */}
       {ultimo ? (
