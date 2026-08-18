@@ -1478,7 +1478,7 @@ function etapasDaFesta(
   if (bolo && /topo|papel de arroz/i.test(obsBolo) && !/sem topo/i.test(obsBolo)) {
     const falta: string[] = [];
     if (!/nome/i.test(obsBolo)) falta.push("o NOME do aniversariante");
-    if (!/[0-9]{1,2} ?anos?/i.test(obsBolo)) falta.push("a IDADE");
+    if (!/[0-9]{1,2} ?anos?/i.test(obsBolo) && !/idade *[0-9]{1,2}/i.test(obsBolo)) falta.push("a IDADE");
     if (!/tema/i.test(obsBolo)) falta.push("o TEMA da festa");
     if (!/foto/i.test(obsBolo)) falta.push("se ele tem FOTO de referencia do tema (se nao tiver, anote 'sem foto')");
     etapas.push({
