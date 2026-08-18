@@ -2300,7 +2300,44 @@ async function rodarConversa(
     for (const item of paraTirar) {
       estado.montagem.push({ tipo: "remover", produto: item.produto, categoria: item.categoria });
     }
+    // Ele disse o que entra NO LUGAR? Entao entra com a mesma quantidade.
+    const entrouNoLugar: { produto: string; categoria: string; qtd: number; obs: string | null }[] = [];
     if (paraTirar.length > 0) {
+      const nomesCatalogo: { nome: string; categoria: string }[] = [
+        ...((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]).map((i) => ({
+          nome: String(i.nome),
+          categoria: "salgado_frito",
+        })),
+        ...((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[]).map((i) => ({
+          nome: String(i.nome),
+          categoria: "salgado_assado",
+        })),
+        ...((catalogo.doces?.itens ?? []) as { nome: string }[]).map((i) => ({
+          nome: String(i.nome),
+          categoria: "docinho",
+        })),
+      ];
+      const depoisDoPoe = falaLimpaTira.split(/\b(poe|põe|poem|coloca|bota|quero|no lugar|troca por|substitui por)\b/i).slice(-1)[0] || "";
+      for (const saiu of paraTirar) {
+        const novo = nomesCatalogo.find((c) => {
+          const n = semAcentoTira(c.nome);
+          if (n === semAcentoTira(String(saiu.produto ?? ""))) return false;
+          const raiz = n.split(" ")[0];
+          return raiz.length > 3 && depoisDoPoe.includes(raiz.slice(0, Math.max(4, raiz.length - 2)));
+        });
+        if (!novo) continue;
+        // Recheio dito junto: "risoles de carne".
+        const recheio = (depoisDoPoe.match(new RegExp(semAcentoTira(novo.nome).split(" ")[0] + "[a-z ]{0,10} de ([a-z]+)")) ?? [])[1];
+        entrouNoLugar.push({
+          produto: novo.nome,
+          categoria: novo.categoria,
+          qtd: Number(saiu.qtd) || 0,
+          obs: recheio ?? null,
+        });
+      }
+      for (const nv of entrouNoLugar) {
+        estado.montagem.push({ tipo: "item", produto: nv.produto, categoria: nv.categoria, qtd: nv.qtd, obs: nv.obs });
+      }
       montagemDoTurno = {
         ...(montagemDoTurno ?? { itens: [], dados: {} }),
         itens: (montagemDoTurno?.itens ?? []).filter((x) => !paraTirar.includes(x)),
@@ -2310,7 +2347,13 @@ async function rodarConversa(
         content:
         "O cliente mandou TIRAR isto do pedido e EU JA TIREI: " +
           paraTirar.map((x) => x.produto).join(", ") +
-          ". Confirme numa frase curta que saiu e anote o que ele quer no lugar, se ele disse. Nao pergunte de novo o que ele acabou de cancelar."
+          ". " +
+          (entrouNoLugar.length
+            ? "E JA COLOQUEI no lugar, com a mesma quantidade: " +
+              entrouNoLugar.map((x) => x.qtd + " " + x.produto + (x.obs ? " (" + x.obs + ")" : "")).join(", ") +
+              ". Confirme numa frase curta e siga."
+            : "Confirme numa frase curta que saiu e anote o que ele quer no lugar, se ele disse.") +
+          " Nao pergunte de novo o que ele acabou de cancelar."
       });
     }
   }
