@@ -472,7 +472,7 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
             </div>
 
             {/* filtros por quem atende */}
-            <div className="px-3 pb-2 flex items-center gap-1.5 overflow-x-auto">
+            <div className="px-3 pb-2 flex items-center gap-1.5 flex-wrap">
               {([["todas", "Todas"], ["ia", "IA"], ["humano", "Humano"], ["atencao", "Precisa de você"]] as const).map(([id, rotulo]) => {
                 const on = aba === id;
                 const n = id === "todas" ? conversas.length : conversas.filter((c) => (id === "humano" ? c.estado === "humano" : id === "atencao" ? c.estado === "precisa_humano" : c.estado === "ia")).length;

@@ -674,11 +674,14 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const mandouDividir = /divid|igual|sortido|voce que sabe|voce escolhe|do seu jeito|como voce achar|o que voce sugerir/i.test(
       falaDoCliente,
     );
+    // Quantidade com virgula tambem conta: bolo e vendido em kg e "2,5 kg" e
+    // o jeito normal de pedir. Lendo so inteiro, 2,5 virava 2 e 5 e a trava
+    // recusava a quantidade que o proprio cliente acabou de falar.
     const numerosDitos = new Set<number>();
-    for (const n of falaDoCliente.match(/[0-9]+/g) ?? []) numerosDitos.add(Number(n));
+    for (const n of falaDoCliente.match(/[0-9]+(?:[.,][0-9]+)?/g) ?? []) numerosDitos.add(((x) => Number(String(x).replace(",", ".")))(n));
     // Numero que ela propos e o cliente respondeu em cima: vale. Sem isso, o
     // cliente que aceita a sugestao ("pode ser assim") travava o pedido.
-    for (const n of (ultimaFalaDela || "").match(/[0-9]+/g) ?? []) numerosDitos.add(Number(n));
+    for (const n of (ultimaFalaDela || "").match(/[0-9]+(?:[.,][0-9]+)?/g) ?? []) numerosDitos.add(((x) => Number(String(x).replace(",", ".")))(n));
     // Palavra INTEIRA, nao pedaco: "umas 30" contem "um" e liberava qualquer
     // quantidade 1 que ela inventasse.
     const palavrasDitas = new Set((falaDoCliente.toLowerCase().match(/[0-9a-zà-úçãõâêôáéíóú]+/g) ?? []));
