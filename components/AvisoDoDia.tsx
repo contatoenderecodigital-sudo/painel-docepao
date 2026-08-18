@@ -51,7 +51,10 @@ export default function AvisoDoDia({
   async function limpar() {
     setLimpando(true);
     try {
-      await fetch("/api/aviso", { method: "DELETE" });
+      const r = await fetch("/api/aviso", { method: "DELETE" });
+      // Sem conferir, a tela dizia que o aviso saiu e a IA continuava contando
+      // pro cliente que hoje nao tem entrega.
+      if (!r.ok) return;
       setTexto("");
       setAtualizadoEm(null);
       setAtivoHoje(false);

@@ -15,11 +15,14 @@ export default function ToggleIA({ ativa: inicial }: { ativa: boolean }) {
     setIa(nova);
     setSalvando(true);
     try {
-      await fetch("/api/whatsapp/ia", {
+      const r = await fetch("/api/whatsapp/ia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ativa: nova }),
       });
+      // Resposta de erro nao lanca excecao: sem conferir, a chave mostrava
+      // "IA desligada" com a IA respondendo cliente do outro lado.
+      if (!r.ok) setIa(!nova);
     } catch {
       setIa(!nova);
     } finally {
