@@ -518,6 +518,30 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     return "Anotado: o cliente aceitou o valor. Responda com uma frase curta confirmando que voce ja passou pra equipe, e NAO chame registrar_pedido: o pedido ja esta montado e a equipe ja ajustou.";
   }
 
+  // O pedido como esta AGORA: o que veio do banco mais o que ja foi anotado
+  // neste turno (ela chama a ferramenta varias vezes na mesma resposta).
+  const itensAgora = (): MontagemAtual["itens"] => {
+    const base = [...(montagemAtual?.itens ?? [])];
+    for (const mud of estado.montagem) {
+      if (mud.tipo !== "item") continue;
+      const i = base.findIndex(
+        (x) =>
+          String(x.produto ?? "").trim().toLowerCase() === String(mud.produto ?? "").trim().toLowerCase() &&
+          x.categoria === mud.categoria,
+      );
+      const novo = {
+        produto: mud.produto,
+        categoria: mud.categoria,
+        qtd: mud.qtd,
+        unidade: (mud.categoria === "bolo_festa" ? "kg" : "un") as "kg" | "un",
+        obs: mud.obs ?? null,
+      };
+      if (i >= 0) base[i] = { ...base[i], ...novo };
+      else base.push(novo);
+    }
+    return base;
+  };
+
   if (nome === "anotar_item") {
     // Como o cliente chama x como a cozinha le: "pastel frito" e a mini bolha.
     // Sem isso a linha casava com o generico "salgado frito" e a producao
@@ -544,7 +568,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // brigadeiro com morango que o cliente escolheu: o 4 leites e o primeiro da
     // peca do cardapio, e ela copiou de la. Dois bolos anotados viram dois bolos
     // cobrados e dois bolos assados.
-    const boloJaAnotado = (montagemAtual?.itens ?? []).find(
+    const boloJaAnotado = itensAgora().find(
       (x) => x.categoria === "bolo_festa" || x.categoria === "bolo_caseiro",
     );
     // Nome que cresce e o MESMO bolo ficando completo ("bolo bombom" virando
@@ -722,7 +746,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       const pedacos = [nome, raiz(nome), primeiraPalavra, raiz(primeiraPalavra)].filter((x) => x.length > 3);
       // Compara pelo comeco da palavra: risoles x risolis, croquete x croquetes.
       const citado = pedacos.some((x) => dito.includes(x) || dito.includes(x.slice(0, Math.max(4, x.length - 2))));
-      const jaEstava = (montagemAtual?.itens ?? []).some(
+      const jaEstava = itensAgora().some(
         (x) => String(x.produto ?? "").trim().toLowerCase() === nome,
       );
       if (!citado && !jaEstava) {
@@ -748,7 +772,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       const soDoTipo = meioAMeio && String(categoria).startsWith("salgado");
       if (soDoTipo) pedidoTotal = Math.round(pedidoTotal / 2);
       if (pedidoTotal > 0) {
-        const mesmaFamilia = (montagemAtual?.itens ?? []).filter((x) =>
+        const mesmaFamilia = itensAgora().filter((x) =>
           categoria === "docinho"
             ? x.categoria === "docinho"
             : soDoTipo
