@@ -445,6 +445,19 @@ function executarFerramenta(
   ultimaFalaDela = "",
 ): string {
   if (nome === "montar_orcamento") {
+    if (input.modo !== "itens") {
+      // Numero de pessoas tem que ter saido da conversa, nao da cabeca dela.
+      const pedidas = Number(input.pessoas) || 0;
+      const ditos = new Set<number>();
+      for (const n of (falaDoCliente || "").match(/[0-9]+/g) ?? []) ditos.add(Number(n));
+      for (const n of (ultimaFalaDela || "").match(/[0-9]+/g) ?? []) ditos.add(Number(n));
+      if (pedidas > 0 && ditos.size > 0 && !ditos.has(pedidas)) {
+        return (
+          "NAO orcei: o cliente nunca falou em " + pedidas + " pessoas. Convidado que ele nao citou vira o dobro de " +
+          "salgado e um total que assusta. Use o numero que ELE deu, ou pergunte quantas pessoas vao, e chame de novo."
+        );
+      }
+    }
     if (input.modo === "itens") {
       const c = motor.cotarPorItens((input.itens as { item: string; qtd: number }[]) || []);
       return formatarOrcamento(c);
@@ -2127,13 +2140,15 @@ async function rodarConversa(
       // Lista de produtos digitada vira peca do cardapio: a imagem tem tudo e o
       // preco, e ninguem escolhe festa lendo nove nomes num paragrafo.
       const semLista = listaViraCardapio(textoFinal, estado.cardapios);
+      // O que o CLIENTE pediu vale por ultimo: se ele pediu a peca, ela vai.
+      const pecasFinais = cardapioPedidoPeloCliente(String(falaDoCliente2), semLista.cardapios);
       return {
         texto: semLista.texto,
         precisaHumano: estado.precisaHumano,
         pedidoRegistrado: estado.pedido,
         aceitouOrcamento: estado.aceitouOrcamento,
         montagem: estado.montagem,
-        cardapiosParaEnviar: honrarCardapioPrometido(semLista.texto, semLista.cardapios),
+        cardapiosParaEnviar: honrarCardapioPrometido(semLista.texto, pecasFinais),
       };
     }
 
@@ -2180,6 +2195,35 @@ async function rodarConversa(
   };
 }
 
+
+// O jeito que o cliente pede cada peca do cardapio.
+const PEDIDO_DE_CARDAPIO: [CardapioId, RegExp][] = [
+  ["salgados", /salgad|frito|assado|coxinha|esfirra|empadinha|ris[óo]lis/i],
+  ["docinhos", /docinho|doce|brigadeiro|beijinho|trufa/i],
+  ["bolos-festa", /bolo de festa|bolos de festa|bolo recheado|bolo de anivers/i],
+  ["bolos-caseiros", /bolo caseiro|bolos caseiros/i],
+  ["cucas-paes", /cuca|p[ãa]o doce|p[ãa]es/i],
+  ["tortas-empadao", /torta|empad[ãa]o/i],
+  ["pizza", /pizza/i],
+  ["cupcakes-franciscano", /cupcake|franciscano/i],
+];
+// Pergunta que so se responde com a peca: 'quais salgados tem', 'me manda o
+// cardapio de doce', 'que sabores de bolo voces fazem'.
+const QUER_VER = /quais|que tipos|quais tipos|que sabores|quais sabores|qual sabor|tem o que|o que tem|me manda|manda o card|card[áa]pio|lista de|op[çc][õo]es/i;
+
+function cardapioPedidoPeloCliente(fala: string, jaNaFila: CardapioId[]): CardapioId[] {
+  const t = String(fala || "");
+  if (!QUER_VER.test(t)) return jaNaFila;
+  const fila = [...jaNaFila];
+  for (const [peca, marcador] of PEDIDO_DE_CARDAPIO) {
+    if (fila.includes(peca)) continue;
+    if (marcador.test(t)) fila.push(peca);
+  }
+  // Pediu o cardapio sem dizer de que: manda o de salgados, que e o que mais
+  // sai em festa, e a conversa segue.
+  if (fila.length === jaNaFila.length && /card[áa]pio/i.test(t)) fila.push("salgados");
+  return fila;
+}
 
 // Os nomes que o cardapio de cada familia ja mostra em imagem.
 const NOMES_DA_FAMILIA: [CardapioId, string[]][] = [

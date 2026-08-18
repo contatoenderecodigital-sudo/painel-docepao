@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const sessao = await lerSessao();
   if (!sessao) return new Response("nao autorizado", { status: 401 });
-  if (!bancoConfigurado) return Response.json({ fila: 0, aguardando: 0 });
+  if (!bancoConfigurado) return Response.json({ fila: 0, aguardando: 0, ajuda: 0 });
 
   try {
     const { queryUm } = await import("@/lib/banco/db");
@@ -17,6 +17,13 @@ export async function GET() {
          count(*) filter (where coalesce(precisa_confirmacao, false) = false) as fila,
          count(*) filter (where coalesce(precisa_confirmacao, false) = true) as aguardando
        from pedidos where negocio_id = $1 and status = 'confirmado'`,
+      [sessao.negocioId],
+    );
+    // Conversa que a IA passou pra equipe: sem isto o pedido de ajuda so
+    // aparecia pra quem estivesse com a aba de atendimentos aberta.
+    const a = await queryUm<{ ajuda: string }>(
+      `select count(*) as ajuda from clientes
+        where negocio_id = $1 and coalesce(handoff, false) = true`,
       [sessao.negocioId],
     );
     // Além do número, QUEM está esperando. "2 pedidos" não diz nada; "Sandro,
@@ -43,6 +50,7 @@ export async function GET() {
     return Response.json({
       fila: Number(l?.fila) || 0,
       aguardando: Number(l?.aguardando) || 0,
+      ajuda: Number(a?.ajuda) || 0,
       itens: itens.map((i) => ({
         id: i.id,
         nome: i.nome || "Cliente",
@@ -53,6 +61,6 @@ export async function GET() {
     });
   } catch (e) {
     console.error("[fila/contagem]", e);
-    return Response.json({ fila: 0, aguardando: 0, itens: [] });
+    return Response.json({ fila: 0, aguardando: 0, ajuda: 0, itens: [] });
   }
 }

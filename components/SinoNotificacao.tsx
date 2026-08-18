@@ -28,7 +28,7 @@ const CHAVE = "docepao:som-notificacao";
 const INTERVALO_MS = 7000;
 
 type Item = { id: string; nome: string; total: number; onde: "fila" | "aguardando"; motivo: string | null };
-type Contagem = { fila: number; aguardando: number; itens?: Item[] };
+type Contagem = { fila: number; aguardando: number; ajuda: number; itens?: Item[] };
 
 export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) {
   const router = useRouter();
@@ -101,14 +101,14 @@ export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) 
         // Mudou pra qualquer lado (entrou pedido novo ou um saiu de Aguardando
         // pra Aprovacao): a pagina que esta na frente dela se atualiza sozinha,
         // e com ela o numero da lateral. Sem isso so um F5 mostrava a verdade.
-        if (nova.fila !== antes.fila || nova.aguardando !== antes.aguardando) {
+        if (nova.fila !== antes.fila || nova.aguardando !== antes.aguardando || nova.ajuda !== antes.ajuda) {
           router.refresh();
         }
-        const cresceu = nova.fila > antes.fila || nova.aguardando > antes.aguardando;
+        const cresceu = nova.fila > antes.fila || nova.aguardando > antes.aguardando || nova.ajuda > antes.ajuda;
         if (cresceu) {
           if (som) tocar();
           if (typeof document !== "undefined") {
-            document.title = `(${nova.fila + nova.aguardando}) ${nome}`;
+            document.title = `(${nova.fila + nova.aguardando + nova.ajuda}) ${nome}`;
           }
         }
       } catch {
@@ -145,7 +145,7 @@ export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) 
     }
   }
 
-  const total = (contagem?.fila ?? 0) + (contagem?.aguardando ?? 0);
+  const total = (contagem?.fila ?? 0) + (contagem?.aguardando ?? 0) + (contagem?.ajuda ?? 0);
 
   return (
     <div className="relative">
@@ -206,6 +206,17 @@ export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) 
                     <AlertTriangle size={15} className="text-dourado shrink-0" />
                     <span className="text-[13px] text-cream flex-1">
                       {contagem?.aguardando} esperando valor ou cliente
+                    </span>
+                    <ChevronRight size={15} className="text-cream/40" />
+                  </Link>
+                )}
+                {/* A IA passou a conversa pra equipe: e o unico aviso que a dona
+                    tem de que tem cliente esperando resposta de gente. */}
+                {(contagem?.ajuda ?? 0) > 0 && (
+                  <Link href="/atendimentos" onClick={() => setAberto(false)} className="flex items-center gap-2.5 px-3.5 py-3 border-t border-white/10 hover:bg-white/[0.07] transition-colors">
+                    <AlertTriangle size={15} className="text-dourado shrink-0" />
+                    <span className="text-[13px] text-cream flex-1">
+                      {contagem?.ajuda} conversa{(contagem?.ajuda ?? 0) > 1 ? "s" : ""} esperando você responder
                     </span>
                     <ChevronRight size={15} className="text-cream/40" />
                   </Link>
