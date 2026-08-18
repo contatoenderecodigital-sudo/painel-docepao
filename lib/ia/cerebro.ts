@@ -785,8 +785,14 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       }
     }
 
-    const enviar = alvo.slice(0, 2);
-    const sobrou = alvo.slice(2);
+    // UMA PECA POR VEZ QUANDO A FESTA TEM ETAPA.
+    //
+    // Ela mandou salgados e docinhos na mesma mensagem: o cliente abre duas
+    // imagens, escolhe as duas coisas juntas e a ordem morre ali. Fora de festa
+    // (sem etapa) ainda cabem duas, porque ai nao existe sequencia.
+    const limite = etapa ? 1 : 2;
+    const enviar = alvo.slice(0, limite);
+    const sobrou = alvo.slice(limite);
 
     for (const c of enviar) if (!estado.cardapios.includes(c)) estado.cardapios.push(c);
     if (sobrou.length) {
