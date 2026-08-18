@@ -252,11 +252,16 @@ async function processar(corpo: WebhookPayload) {
       // mensagem dele. Se chegou outra no meio, esta desiste: a próxima chamada
       // responde com o histórico completo, uma vez só. A mensagem já foi salva
       // acima, então o painel mostra tudo mesmo quando a resposta é pulada.
-      const ESPERA_MS = 7000;
+      // 12s: e o tempo de terminar a segunda frase ou gravar um audio curto.
+      // Com 7s ela cortava a pessoa no meio do raciocinio.
+      let marcoDoTurno: number | null = null;
+      const ESPERA_MS = 12000;
       try {
         const antes = await ultimaMsgClienteMs(negocioId, clienteId);
         await pausa(ESPERA_MS);
         const depois = await ultimaMsgClienteMs(negocioId, clienteId);
+        // Guarda o marco: qualquer mensagem depois desta hora e assunto novo.
+        marcoDoTurno = depois ?? antes ?? null;
         if (antes && depois && depois > antes) {
           console.log("[whatsapp] cliente ainda estava escrevendo; deixo a proxima mensagem responder");
           continue;
@@ -499,6 +504,21 @@ async function processar(corpo: WebhookPayload) {
           }
         }
       };
+      // CHEGOU MENSAGEM NOVA ENQUANTO ELA PENSAVA? ENTAO ESTA RESPOSTA NAO SAI.
+      //
+      // Montar a resposta leva segundos. Nesse meio tempo o cliente completa o
+      // raciocinio ("...e sem cebola"), e a resposta pronta ja nasceu velha.
+      // Descartar aqui custa uma volta; responder por cima custa a conversa.
+      try {
+        const agoraUltima = await ultimaMsgClienteMs(negocioId, clienteId);
+        if (agoraUltima && marcoDoTurno && agoraUltima > marcoDoTurno) {
+          console.log("[whatsapp] chegou mensagem nova enquanto eu pensava; deixo a proxima responder");
+          continue;
+        }
+      } catch (e) {
+        console.error("[whatsapp] falha ao conferir mensagem nova (segue enviando):", e);
+      }
+
       // O id que o Meta devolve identifica esta resposta quando o cliente a marcar.
       let wamidResposta: string | null = null;
       try {

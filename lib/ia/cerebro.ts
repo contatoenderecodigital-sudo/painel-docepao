@@ -1000,7 +1000,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     //
     // "cuca" com observacao "banana" fechou pedido depois de "cuca recheada de
     // banana" ter sido recusada. Produto sem lista nao vira atalho.
-    if (obsItem && String(obsItem).trim() && saboresDoCardapio(produto).length === 0) {
+    if (obsItem && String(obsItem).trim() && opcoesDeSabor(produto).length === 0) {
       const semAc0 = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       const base = semAc0(produto);
       const irmaos = ((catalogo.outros_produtos ?? []) as { nome: string; sabores?: string[] }[]).filter(
@@ -1028,7 +1028,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     }
 
     // SABOR QUE O CLIENTE NAO ESCREVEU NAO E ESCOLHA DELE.
-    const opsFechadas = saboresDoCardapio(produto);
+    const opsFechadas = opcoesDeSabor(produto);
     if (opsFechadas.length && obsItem && String(obsItem).trim()) {
       const semAc = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       const naObs = opsFechadas.filter((o) => semAc(obsItem).includes(semAc(o)));
@@ -1385,7 +1385,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // "3 cucas recheadas" com a lista de sete sabores na observacao ja foi pra
     // cozinha. Sem escolha nao ha o que assar.
     const semSabor = (montagemAtual?.itens ?? []).filter((i) => {
-      const ops = saboresDoCardapio(String(i.produto));
+      const ops = opcoesDeSabor(String(i.produto));
       if (!ops.length) return false;
       if (obsEhAListaInteira(String(i.produto), i.obs)) return true;
       const t = String(i.obs ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -1393,7 +1393,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     });
     if (semSabor.length) {
       const i = semSabor[0];
-      const ops = saboresDoCardapio(String(i.produto));
+      const ops = opcoesDeSabor(String(i.produto));
       return (
         "NAO registrei: falta o sabor d" + (String(i.produto).endsWith("a") ? "a" : "o") + " " + i.produto +
         ". As opcoes sao: " + ops.join(", ") + ". Pergunte qual ele quer e registre depois que ele responder; " +
@@ -1888,6 +1888,10 @@ function etapasDaFesta(
   naoQuer = "",
   falouSalgado = false,
   falouDocinho = false,
+  // O que o cliente ja escreveu na conversa. A idade e o tema costumam ser
+  // ditos na primeira frase ("aniversario da minha filha, 8 anos") e nao
+  // chegam na observacao do bolo.
+  falaDoCliente = "",
 ): Etapa[] {
   // O cliente pode dispensar uma parte inteira da festa, e ai ela para de
   // cobrar aquilo em vez de perguntar a mesma coisa pra sempre.
@@ -1996,8 +2000,18 @@ function etapasDaFesta(
   if (bolo && (citadoDeVerdade(obsBolo, "topo") || citadoDeVerdade(obsBolo, "papel de arroz"))) {
     const falta: string[] = [];
     if (!/nome/i.test(obsBolo)) falta.push("o NOME do aniversariante");
-    if (!/[0-9]{1,2} ?anos?/i.test(obsBolo) && !/idade *[0-9]{1,2}/i.test(obsBolo)) falta.push("a IDADE");
-    if (!/tema/i.test(obsBolo)) falta.push("o TEMA da festa");
+    // A idade pode ter sido dita na conversa, nao na observacao.
+    const temIdade =
+      /[0-9]{1,2} ?anos?/i.test(obsBolo) ||
+      /idade *[0-9]{1,2}/i.test(obsBolo) ||
+      /[0-9]{1,2} ?anos?/i.test(falaDoCliente);
+    if (!temIdade) falta.push("a IDADE");
+    // "topo de unicornio" E o tema. Exigir a palavra "tema" fazia ela pedir
+    // pra sempre uma coisa que o cliente ja tinha dito.
+    const temTema =
+      /tema/i.test(obsBolo) ||
+      /(topo|papel de arroz)[^,;.]{0,20}\bde\s+(?!bolo|arroz)[a-zà-úA-ZÀ-Ú][a-zà-ú-]{2,}/i.test(obsBolo);
+    if (!temTema) falta.push("o TEMA da festa");
     if (!/foto/i.test(obsBolo)) falta.push("se ele tem FOTO de referencia do tema (se nao tiver, anote 'sem foto')");
     etapas.push({
       titulo: "DADOS DA PECA DO BOLO",
@@ -2039,6 +2053,16 @@ export function horaLimpa(bruta: unknown): string {
   return String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0");
 }
 
+// TODAS as opcoes de sabor de um produto, venha de onde vier: o mapa do
+// cardapio (salgado, docinho, trufa, mini bolha) ou a lista fechada dos
+// outros produtos (cuca, torta, empadao).
+export function opcoesDeSabor(nome: string): string[] {
+  const chave = String(nome || "").trim().toLowerCase();
+  const doMapa = SABORES[chave] ?? [];
+  if (doMapa.length) return doMapa;
+  return saboresDoCardapio(nome);
+}
+
 // A lista fechada de sabores de um produto do cardapio, se existir.
 export function saboresDoCardapio(nome: string): string[] {
   const limpo = String(nome || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -2051,7 +2075,7 @@ export function saboresDoCardapio(nome: string): string[] {
 // A observacao e a ESCOLHA dele, nao a lista que voce ofereceu. Quando ela
 // traz tres ou mais opcoes do mesmo produto, e a pergunta copiada.
 export function obsEhAListaInteira(produto: string, obs?: string | null): boolean {
-  const ops = saboresDoCardapio(produto);
+  const ops = opcoesDeSabor(produto);
   if (ops.length < 3) return false;
   const t = String(obs ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   if (!t) return false;
@@ -2169,6 +2193,9 @@ function descreverMontagem(
   pediuBolo = false,
   falouSalgado = false,
   falouDocinho = false,
+  // A conversa inteira do cliente: idade e tema costumam estar la, nao na
+  // observacao do bolo.
+  falaDoCliente = "",
 ): string {
   // PEDIDO JA REGISTRADO ESPERANDO O ACEITE NAO SE MONTA DE NOVO.
   //
@@ -2238,7 +2265,7 @@ function descreverMontagem(
 
   // Uma etapa por vez: a lista inteira de uma vez fazia ela perguntar salgado,
   // docinho e bolo na mesma mensagem, e o cliente respondia so um.
-  const etapas = etapasDaFesta(itens, festa, pediuBolo, String(m?.dados?.nao_quer ?? ""), falouSalgado, falouDocinho);
+  const etapas = etapasDaFesta(itens, festa, pediuBolo, String(m?.dados?.nao_quer ?? ""), falouSalgado, falouDocinho, falaDoCliente);
   const atual = etapas[0];
   const pend = atual ? atual.pendencias : [];
   const faltaDepois = Math.max(0, etapas.length - 1);
@@ -2741,7 +2768,7 @@ async function rodarConversa(
     }
   }
 
-  messages.push({ role: "system", content: descreverMontagem(montagemDoTurno, pedidoAguardando, ehFesta, pediuBolo, falouSalgado, falouDocinho) });
+  messages.push({ role: "system", content: descreverMontagem(montagemDoTurno, pedidoAguardando, ehFesta, pediuBolo, falouSalgado, falouDocinho, falaToda) });
 
   // FERRAMENTA QUE NAO CABE AGORA NEM E OFERECIDA.
   //
