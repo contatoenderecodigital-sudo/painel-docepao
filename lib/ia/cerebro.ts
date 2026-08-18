@@ -996,6 +996,22 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       obsItem = null;
     }
 
+    // SABOR QUE O CLIENTE NAO ESCREVEU NAO E ESCOLHA DELE.
+    const opsFechadas = saboresDoCardapio(produto);
+    if (opsFechadas.length && obsItem && String(obsItem).trim()) {
+      const semAc = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const naObs = opsFechadas.filter((o) => semAc(obsItem).includes(semAc(o)));
+      const doCliente = naObs.filter((o) => semAc(falaDoCliente).includes(semAc(o)));
+      if (naObs.length && !doCliente.length) {
+        console.warn("[ia] sabor inventado pra " + produto + ": " + naObs.join(", "));
+        return (
+          "NAO anotei: o cliente nunca falou em " + naObs.join(" nem em ") + ". Escolher o sabor por ele faz a " +
+          "cozinha produzir o que ninguem pediu. Pergunte qual ele quer, citando as opcoes (" +
+          opsFechadas.join(", ") + "), e anote depois que ele responder."
+        );
+      }
+    }
+
     // SABOR FORA DA LISTA DO CARDAPIO: ANOTA E AVISA, NUNCA ACEITA CALADO.
     const listaFechada = ((catalogo.outros_produtos ?? []) as { nome: string; sabores?: string[] }[]).find(
       (i) =>
@@ -3009,7 +3025,16 @@ async function rodarConversa(
           textoFinal =
             "A " + achado.nome + " sai " + brl(achado.preco) +
             (achado.unidade === "kg" ? " o quilo." : " cada.") +
-            "\n\n" + textoFinal;
+            // A frase dela que promete confirmar o preco sai: o valor ja esta
+            // dito, e duvidar dele na linha seguinte desfaz a resposta.
+            "\n\n" +
+            textoFinal
+              .replace(
+                /[^.!?\n]*(n[ãa]o sei o pre[çc]o|vou confirmar (o )?(pre[çc]o|valor)|confirmo (o )?(pre[çc]o|valor) com a equipe|preciso confirmar (o )?(pre[çc]o|valor))[^.!?\n]*[.!?]/gi,
+                "",
+              )
+              .replace(/\n{3,}/g, "\n\n")
+              .trim();
         }
       }
 
