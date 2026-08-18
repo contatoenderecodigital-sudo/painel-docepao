@@ -1148,7 +1148,21 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // Peca de etapa futura vira a peca da etapa de agora: cardapio de docinho no
     // meio dos salgados faz o cliente escolher docinho antes de fechar salgado.
     const SEQUENCIA = ["salgados", "docinhos", "bolos-festa"];
-    const posEtapa = etapa ? SEQUENCIA.indexOf(etapa) : -1;
+    // O cliente PEDIU essa familia agora? Entao nao existe redirecionamento:
+    // trocar a peca que ele pediu por outra e responder outra pergunta.
+    const ULTIMA_FALA = String(falaDoCliente || "").split("  ").pop() || "";
+    const pediuNaFala: Record<string, RegExp> = {
+      salgados: /salgad|frito|assado|coxinha|esfirra|empadinha|ris[óo]lis/i,
+      docinhos: /docinho|doce|brigadeiro|beijinho|trufa/i,
+      "bolos-festa": /bolo/i,
+      "bolos-caseiros": /bolo caseiro/i,
+      "cucas-paes": /cuca|p[ãa]o/i,
+      "tortas-empadao": /torta|empad[ãa]o/i,
+      pizza: /pizza/i,
+      "cupcakes-franciscano": /cupcake|franciscano/i,
+    };
+    const clientePediu = naOrdem.some((c) => pediuNaFala[c]?.test(ULTIMA_FALA));
+    const posEtapa = clientePediu ? -1 : etapa ? SEQUENCIA.indexOf(etapa) : -1;
     let redirecionou = "";
     let alvo = naOrdem;
     if (posEtapa >= 0) {
