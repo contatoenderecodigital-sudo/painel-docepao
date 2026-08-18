@@ -509,41 +509,6 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                       )}
                     </div>
                   );
-                {/* A COR DA FORMINHA, PRONTA PRA CLICAR.
-                    Cor faltando trava o pedido e cor digitada errada nao casa
-                    com o que a cozinha usa. Clicar numa cor aqui vale pra este
-                    docinho; a IA aplica a mesma pros outros que estao sem. */}
-                {it.categoria === "docinho" && (() => {
-                  const atual = (it.obs ?? "").toLowerCase();
-                  return (
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {CORES_FORMINHA.map((cor) => {
-                        const marcado = atual.includes(cor.toLowerCase());
-                        return (
-                          <button
-                            key={cor}
-                            onClick={() => {
-                              const obs = (it.obs ?? "").trim();
-                              const semCor = obs
-                                .replace(new RegExp("\s*,?\s*(forminha\s+)?" + cor, "ig"), "")
-                                .replace(/^, */, "")
-                                .trim();
-                              mexerItem(i, { obs: marcado ? semCor : semCor ? semCor + ", forminha " + cor : "forminha " + cor });
-                            }}
-                            className="px-2 h-6 rounded-full text-[11px] transition-colors"
-                            style={
-                              marcado
-                                ? { background: "rgba(231,207,148,0.22)", color: "#e7cf94", border: "1px solid rgba(231,207,148,0.45)" }
-                                : { background: "rgba(255,255,255,0.06)", color: "rgba(255,247,235,0.6)", border: "1px solid rgba(255,255,255,0.10)" }
-                            }
-                          >
-                            {cor}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
                 })()}
                 {/* Os sabores DESTE produto, prontos pra clicar. Digitar na mão
                     esquece o sabor e erra o nome, e sabor faltando é a cozinha
@@ -576,6 +541,41 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                             }
                           >
                             {sab}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+                {/* A COR DA FORMINHA, PRONTA PRA CLICAR.
+                    Cor faltando trava o pedido e cor digitada errada nao casa
+                    com o que a cozinha usa. Clicar numa cor aqui vale pra este
+                    docinho; a IA aplica a mesma pros outros que estao sem. */}
+                {it.categoria === "docinho" && (() => {
+                  const atual = (it.obs ?? "").toLowerCase();
+                  return (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {CORES_FORMINHA.map((cor) => {
+                        const marcado = atual.includes(cor.toLowerCase());
+                        return (
+                          <button
+                            key={cor}
+                            onClick={() => {
+                              const obs = (it.obs ?? "").trim();
+                              const semCor = obs
+                                .replace(new RegExp("\s*,?\s*(forminha\s+)?" + cor, "ig"), "")
+                                .replace(/^, */, "")
+                                .trim();
+                              mexerItem(i, { obs: marcado ? semCor : semCor ? semCor + ", forminha " + cor : "forminha " + cor });
+                            }}
+                            className="px-2 h-6 rounded-full text-[11px] transition-colors"
+                            style={
+                              marcado
+                                ? { background: "rgba(231,207,148,0.22)", color: "#e7cf94", border: "1px solid rgba(231,207,148,0.45)" }
+                                : { background: "rgba(255,255,255,0.06)", color: "rgba(255,247,235,0.6)", border: "1px solid rgba(255,255,255,0.10)" }
+                            }
+                          >
+                            {cor}
                           </button>
                         );
                       })}
