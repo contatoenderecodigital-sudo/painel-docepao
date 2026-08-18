@@ -1832,6 +1832,45 @@ async function rodarConversa(
       // codigo, nao o que ela escreveu. Ela ja tentou reescrever o total.
       let textoFinal = estado.resumo ?? umaPerguntaSo((msg.content || "").trim());
 
+      const falaDoCliente2 = [...historico].reverse().find((h) => h.role === "user")?.content ?? "";
+      const ultimaDelaAgora = [...historico].reverse().find((h) => h.role === "assistant")?.content ?? "";
+      // PEDIU INDICACAO, RECEBE INDICACAO.
+      //
+      // Com o pedido ainda vazio e o cliente dizendo que nao entende, ela
+      // devolvia a pergunta. Aqui a festa sugerida sai pronta, em cima da base
+      // que ela mesma acabou de passar, e ele so precisa dizer se pode ser.
+      const pediuIndicacao =
+        /nao entendo|não entendo|nao sei|não sei|me indica|indica pra mim|o que voce|o que você|o que voces|o que vocês|voce que sabe|você que sabe|escolhe por mim|pode escolher/i.test(
+          String(falaDoCliente2),
+        );
+      const nadaAnotado = (montagemAtual?.itens?.length ?? 0) === 0;
+      if (pediuIndicacao && nadaAnotado && !estado.pedido) {
+        const base = String(estado.sugestao || ultimaDelaAgora || "");
+        const salg = Number((base.match(/([0-9]+) *salgados/i) ?? [])[1] ?? 0);
+        const doc = Number((base.match(/([0-9]+) *docinhos/i) ?? [])[1] ?? 0);
+        const kg = Number(String((base.match(/([0-9]+(?:[.,][0-9]+)?) *kg/i) ?? [])[1] ?? "").replace(",", "."));
+        if (salg > 0 || doc > 0 || kg > 0) {
+          const linhas: string[] = [];
+          if (salg > 0) {
+            const a = Math.round(salg / 3);
+            const b = Math.round(salg / 3);
+            const c2 = salg - a - b;
+            linhas.push(a + " coxinha, " + b + " mini bolha de carne e " + c2 + " esfirra de calabresa");
+          }
+          if (doc > 0) {
+            const a = Math.round(doc / 2);
+            linhas.push(a + " brigadeiro e " + (doc - a) + " beijinho");
+          }
+          if (kg > 0) linhas.push(String(kg).replace(".", ",") + " kg de bolo de brigadeiro");
+          textoFinal =
+            "Entao deixa eu te indicar o que a gente mais faz em festa de crianca:" +
+            String.fromCharCode(10) + String.fromCharCode(10) +
+            linhas.map((l) => "- " + l).join(String.fromCharCode(10)) +
+            String.fromCharCode(10) + String.fromCharCode(10) +
+            "Pode ser assim, ou voce quer trocar alguma coisa?";
+        }
+      }
+
       // Sugestao de festa: os numeros vem do codigo e a pergunta continua
       // sendo dela, pra conversa nao ficar robotica. So o que ela escreveu
       // sobre quantidade e que nao vale.
