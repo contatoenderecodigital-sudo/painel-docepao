@@ -512,3 +512,25 @@ export async function salvarItensDoPedido(
   });
   return total;
 }
+
+// QUANTO A COBRANCA AUTOMATICA TROUXE DE VOLTA, NO MES.
+//
+// O card da tela de Recuperar vinha zerado com banco real (a agregacao nunca
+// tinha sido escrita) e cheio com dados de exemplo sem banco. Aqui e o numero
+// da padaria: pedidos que fecharam DEPOIS de pelo menos uma cobranca. Sem a
+// cobranca, esse dinheiro tinha grande chance de nao existir.
+export async function recuperadoNoMes(
+  negocioId: string,
+): Promise<{ recuperadoCentavos: number; recuperadosQtd: number }> {
+  const l = await queryUm<{ total: string; qtd: string }>(
+    `select coalesce(sum(total_centavos), 0) as total, count(*) as qtd
+       from pedidos
+      where negocio_id = $1
+        and status in ('aprovado', 'impresso')
+        and coalesce(cobrancas, 0) > 0
+        and coalesce(aprovado_em, confirmado_em, criado_em)
+            >= date_trunc('month', now() at time zone 'America/Sao_Paulo')`,
+    [negocioId],
+  );
+  return { recuperadoCentavos: Number(l?.total) || 0, recuperadosQtd: Number(l?.qtd) || 0 };
+}

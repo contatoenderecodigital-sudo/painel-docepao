@@ -37,8 +37,8 @@ export async function carregarParados(negocioId?: string): Promise<Pedido[]> {
 }
 
 // Resultado da recuperação (o card "recuperados este mês" que prova o valor).
-// Em demo, vem das métricas mock. Com banco real, ainda não há rastreio de
-// recuperação, então volta honesto (temDados=false -> a UI mostra travessão).
+// Em demo, vem das métricas mock. Com banco real, soma os pedidos que fecharam
+// depois de pelo menos uma cobrança automática (a prova de que a cobrança paga).
 export type StatsRecuperacao = {
   recuperadoCentavos: number;
   recuperadosQtd: number;
@@ -52,7 +52,15 @@ export async function carregarStatsRecuperacao(negocioId?: string): Promise<Stat
       temDados: true,
     };
   }
-  return { recuperadoCentavos: 0, recuperadosQtd: 0, temDados: false };
+  try {
+    const { recuperadoNoMes } = await import("./banco/pedidos");
+    const r = await recuperadoNoMes(negocioId);
+    // temDados diz se ha o que mostrar: zero de verdade continua sendo zero.
+    return { ...r, temDados: r.recuperadosQtd > 0 };
+  } catch (e) {
+    console.error("[recuperacao] falha ao somar:", e);
+    return { recuperadoCentavos: 0, recuperadosQtd: 0, temDados: false };
+  }
 }
 
 // Pedidos aprovados (a producao do dia). Sem banco, cai no mock.
