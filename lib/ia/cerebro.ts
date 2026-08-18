@@ -436,7 +436,7 @@ const marca = (t?: string | null) => String(t ?? "").trim().toLowerCase();
 function executarFerramenta(
   nome: string,
   input: Record<string, unknown>,
-  estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"]; cardapios: CardapioId[]; resumo?: string; aceitouOrcamento?: boolean; montagem: MudancaMontagem[] },
+  estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"]; cardapios: CardapioId[]; resumo?: string; sugestao?: string; aceitouOrcamento?: boolean; montagem: MudancaMontagem[] },
   motor: Motor,
   falaDoCliente = "",
   montagemAtual?: MontagemAtual | null,
@@ -452,6 +452,27 @@ function executarFerramenta(
       Number(input.pessoas) || 0,
       (input.quer as { salgado?: boolean; doce?: boolean; bolo?: boolean }) || { salgado: true, doce: true },
     );
+
+    // A FRASE DA SUGESTAO E ESCRITA AQUI, nao por ela. Os numeros sao os do
+    // motor, na ordem da festa, e o total e o mesmo do orcamento.
+    const pessoas = Number(input.pessoas) || 0;
+    const somaDe = (pref: string) =>
+      c.linhas.filter((l) => l.categoria.toLowerCase().startsWith(pref)).reduce((t, l) => t + l.qtd, 0);
+    const salg = somaDe("salgado");
+    const doce = somaDe("doce");
+    const bolo = c.linhas.filter((l) => l.categoria.toLowerCase().startsWith("bolo")).reduce((t, l) => t + l.qtd, 0);
+    const partes: string[] = [];
+    if (salg > 0) partes.push(salg + " salgados no total");
+    if (doce > 0) partes.push(doce + " docinhos");
+    if (bolo > 0) partes.push(String(bolo).replace(".", ",") + " kg de bolo");
+    if (partes.length && pessoas > 0) {
+      const lista =
+        partes.length > 1 ? partes.slice(0, -1).join(", ") + " e " + partes[partes.length - 1] : partes[0];
+      estado.sugestao =
+        "Pra " + pessoas + " pessoas, uma base boa e " + lista + "." +
+        String.fromCharCode(10) + String.fromCharCode(10) +
+        "Da " + brl(c.total) + " no total, e da pra ajustar o que voce quiser.";
+    }
     // Nesta etapa o cliente ainda não escolheu NADA. A ferramenta precisa citar
     // um produto pra ter preço, mas anunciar "300 coxinhas e 150 brigadeiros"
     // faz a pessoa achar que já ficou decidido. Fale por categoria.
@@ -502,21 +523,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const ENFEITE = /^(sem +(sabor|recheio)|a +definir|nao +informad|n[ãa]o +especificad|indefinid|a +combinar)/i;
     const obsBruta = input.obs ? String(input.obs).trim() : "";
     const obsItem = obsBruta && !ENFEITE.test(obsBruta) ? obsBruta : null;
-    estado.montagem.push({ tipo: "item", produto, categoria, qtd, obs: obsItem });
 
-    // O aviso de sabor faltando vem AQUI, no mesmo turno. A lista de pendências
-    // do fim do prompt é montada antes da resposta, então ela só enxergaria a
-    // falta na mensagem seguinte: foi assim que ela anotou 50 trufas e foi
-    // perguntar a cor da forminha sem perguntar o sabor da trufa.
-    const opcoes = SABORES[produto.toLowerCase()];
-    if (opcoes && faltaSabor(obsItem, opcoes)) {
-      return (
-        `Anotei ${qtd} de ${produto}, mas FALTA O SABOR. Pergunte AGORA citando as opcoes na propria mensagem, ` +
-        `assim: "Qual o sabor d${produto.endsWith("a") ? "a" : "o"} ${produto}: ${opcoes.join(", ")}?". ` +
-        `Perguntar "qual voce prefere?" sem dizer as opcoes deixa o cliente sem saber o que responder. ` +
-        `Se ele ja disse o sabor na conversa, chame anotar_item de novo com ele na observacao em vez de perguntar.`
-      );
-    }
     // DOIS BOLOS NA MESMA FESTA SO SE O CLIENTE PEDIR DOIS.
     //
     // Ela anotou um "bolo 4 leites" que ninguem pediu, do lado do bolo de
@@ -631,9 +638,27 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         `"sortido" por conta propria, porque quase ninguem quer a mesma quantidade de tudo. Anote so depois que ele escolher.`
       );
     }
+    // O ITEM ENTRA AQUI, depois de passar por todas as recusas acima.
+    // Recusa que enfileira o item antes de verificar nao recusa nada: era por
+    // isso que o painel mostrava justamente o que a guarda dizia ter barrado.
+    estado.montagem.push({ tipo: "item", produto, categoria, qtd, obs: obsItem });
+
+    // O aviso de sabor faltando vem AQUI, no mesmo turno. A lista de pendências
+    // do fim do prompt é montada antes da resposta, então ela só enxergaria a
+    // falta na mensagem seguinte: foi assim que ela anotou 50 trufas e foi
+    // perguntar a cor da forminha sem perguntar o sabor da trufa.
+
+    const opcoes = SABORES[produto.toLowerCase()];
+    if (opcoes && faltaSabor(obsItem, opcoes)) {
+      return (
+        `Anotei ${qtd} de ${produto}, mas FALTA O SABOR. Pergunte AGORA citando as opcoes na propria mensagem, ` +
+        `assim: "Qual o sabor d${produto.endsWith("a") ? "a" : "o"} ${produto}: ${opcoes.join(", ")}?". ` +
+        `Perguntar "qual voce prefere?" sem dizer as opcoes deixa o cliente sem saber o que responder. ` +
+        `Se ele ja disse o sabor na conversa, chame anotar_item de novo com ele na observacao em vez de perguntar.`
+      );
+    }
     return `Anotei ${qtd} de ${produto} no pedido. Continue a conversa normalmente; o pedido fica guardado e você não precisa repetir os itens anteriores.`;
   }
-
   if (nome === "remover_item") {
     estado.montagem.push({
       tipo: "remover",
@@ -1572,7 +1597,7 @@ async function rodarConversa(
     timeout: 30_000,
     maxRetries: 0, // a cadeia de provedores já é a nossa retentativa
   });
-  const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"], cardapios: [] as CardapioId[], resumo: undefined as string | undefined, aceitouOrcamento: false, montagem: [] as MudancaMontagem[] };
+  const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"], cardapios: [] as CardapioId[], resumo: undefined as string | undefined, sugestao: undefined as string | undefined, aceitouOrcamento: false, montagem: [] as MudancaMontagem[] };
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: system },
     ...historico.map((m) => ({ role: m.role, content: m.content })),
@@ -1680,6 +1705,17 @@ async function rodarConversa(
       // Fechou pedido: o texto que vai pro cliente e o resumo montado em
       // codigo, nao o que ela escreveu. Ela ja tentou reescrever o total.
       let textoFinal = estado.resumo ?? umaPerguntaSo((msg.content || "").trim());
+
+      // Sugestao de festa: os numeros vem do codigo e a pergunta continua
+      // sendo dela, pra conversa nao ficar robotica. So o que ela escreveu
+      // sobre quantidade e que nao vale.
+      if (estado.sugestao && !estado.resumo) {
+        const frases = textoFinal.split(new RegExp("(?<=[?])", "g"));
+        const pergunta = frases.reverse().find((f) => f.includes("?"))?.trim() ?? "";
+        textoFinal = pergunta
+          ? estado.sugestao + String.fromCharCode(10) + String.fromCharCode(10) + pergunta
+          : estado.sugestao;
+      }
 
       // ELA TRAVA REPETINDO A PROPRIA FRASE.
       //
