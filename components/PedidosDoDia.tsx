@@ -249,6 +249,14 @@ export default function PedidosDoDia({
                             {it.unidade === "kg" ? `${String(it.qtd).replace(".", ",")} kg` : it.qtd}
                           </b>
                           <span className="text-[14px] text-cream">{it.produto}</span>
+                          {/* A hora manda na bancada: e ela que diz o que sai do
+                              forno primeiro. Sem isso a estacao ve o que produzir
+                              e nao ve pra quando. */}
+                          {it.horas && it.horas.length > 0 && (
+                            <span className="ml-auto text-[12px] font-semibold shrink-0" style={{ color: "#e7cf94" }}>
+                              {it.horas.join(", ")}
+                            </span>
+                          )}
                         </div>
                       ))
                     )}

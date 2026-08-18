@@ -306,7 +306,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       {aberto && registrado && (
         <div className="mt-2.5 rounded-lg border border-cream/12 px-2.5 py-2">
           <p className="t-label text-cream/45">
-            Pedido fechado{registrado.retiradaData ? ` pra ${registrado.retiradaData}` : ""}
+            {travado ? "Pedido na cozinha" : "Pedido fechado"}{registrado.retiradaData ? ` pra ${registrado.retiradaData}` : ""}
             {registrado.retiradaHora ? ` as ${registrado.retiradaHora}` : ""}
           </p>
           <p className="text-[12px] mt-1 font-medium" style={{ color: "#e7cf94" }}>
@@ -314,7 +314,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
           </p>
           <p className="text-[11px] text-cream/45 mt-1 leading-snug">
             {travado
-              ? "Ja foi aprovado e impresso pra cozinha. Aqui e so pra consultar."
+              ? "Já foi aprovado e impresso pra cozinha. Aqui fica só pra consulta, com tudo que foi combinado."
               : "O que voce mudar aqui vale no pedido. Ele sai da tela quando a aprovacao imprimir o ticket."}
           </p>
         </div>

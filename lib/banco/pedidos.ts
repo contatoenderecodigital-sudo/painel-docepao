@@ -432,7 +432,8 @@ export async function pedidoRegistradoDoCliente(
        from pedidos p
        left join clientes c on c.id = p.cliente_id
       where p.negocio_id = $1 and p.cliente_id = $2
-        and p.status in ('confirmado', 'aprovado') and p.impresso_em is null
+        and p.status in ('confirmado', 'aprovado', 'impresso')
+        and (p.retirada_data is null or p.retirada_data >= current_date)
       order by p.criado_em desc
       limit 1`,
     [negocioId, clienteId],
