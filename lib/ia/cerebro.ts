@@ -704,6 +704,22 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       }
     }
 
+    // TEMA DE TOPO NAO E SABOR: quem pediu topo de unicornio nao pediu bolo de
+    // unicornio, e dizer que a casa nao faz esse bolo trava a conversa.
+    const temaDeTopo = String(falaDoCliente).match(/(?:topo|papel de arroz|tema)\s+(?:de\s+|do\s+|da\s+)?([\wáàâãéêíóôõúç -]{3,30})/i);
+    const soTema =
+      !!temaDeTopo &&
+      produto.toLowerCase().includes(String(temaDeTopo[1]).trim().toLowerCase().split(" ")[0]) &&
+      !/topo|papel de arroz/i.test(String(obsItem ?? ""));
+    if (soTema) {
+      console.warn("[ia] tema do topo veio como sabor de bolo: " + produto);
+      return (
+        "NAO anotei: \"" + String(temaDeTopo[1]).trim() + "\" e o TEMA do topo, nao o sabor do bolo. Anote o topo na " +
+        "observacao do bolo (ex: obs \"topo de " + String(temaDeTopo[1]).trim() + "\") e pergunte, separado, qual SABOR de " +
+        "bolo ele quer. Dizer que a padaria nao faz bolo desse tema derruba a venda por engano."
+      );
+    }
+
     // SABOR DE BOLO DE FESTA TEM QUE EXISTIR NO CARDAPIO.
     //
     // Aceitar um sabor que a casa nao faz nao para na conversa: na hora de
