@@ -4,7 +4,7 @@
 //  API /api/fila, que usa estas funções. Isolamento por negocio_id.
 // ============================================================================
 
-import { query } from "./db";
+import { query, queryUm } from "./db";
 
 export type JobImpressao = {
   filaId: string;
@@ -179,4 +179,32 @@ export async function marcarImpresso(
       [filaId, negocioId, (erro ?? "").slice(0, 300), MAX_TENTATIVAS],
     );
   }
+}
+
+// SINAL DE VIDA DA PONTE.
+//
+// A ponte roda na maquina da padaria e morre sem avisar: o icone continua na
+// barra de tarefas com o processo morto por tras, e o pedido aprovado nao sai na
+// cozinha com todo mundo achando que saiu. A propria consulta da fila e o sinal:
+// se a ponte esta viva, ela pergunta por trabalho a cada poucos segundos.
+export async function marcarPonteViva(negocioId: string): Promise<void> {
+  if (!negocioId) return;
+  await query(
+    `insert into ponte_status (negocio_id, visto_em) values ($1, now())
+       on conflict (negocio_id) do update set visto_em = now()`,
+    [negocioId],
+  );
+}
+
+export async function statusDaPonte(
+  negocioId: string,
+): Promise<{ online: boolean; segundosDesde: number | null }> {
+  const l = await queryUm<{ seg: string | null }>(
+    `select extract(epoch from (now() - visto_em)) as seg from ponte_status where negocio_id = $1`,
+    [negocioId],
+  );
+  if (!l || l.seg === null) return { online: false, segundosDesde: null };
+  const seg = Math.round(Number(l.seg) || 0);
+  // A ponte pergunta a cada 4s; 60s de silencio ja e problema, nao demora.
+  return { online: seg <= 60, segundosDesde: seg };
 }

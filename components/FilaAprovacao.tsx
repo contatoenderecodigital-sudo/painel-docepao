@@ -11,6 +11,7 @@ import type { Pedido, FormaPagamento, HistoricoCliente } from "@/lib/tipos";
 import { brl, formatarTelefoneBR, linkWhatsapp, mesAno } from "@/lib/tipos";
 import { Repeat, UserPlus, Wallet, CalendarDays, AlertTriangle, CreditCard, Banknote, Zap, CheckCircle2, Clock, Image as ImageIcon } from "lucide-react";
 import CupomPreview from "./CupomPreview";
+import StatusImpressora from "./StatusImpressora";
 import AjudaInfo from "./AjudaInfo";
 
 // Icone verde do WhatsApp (marca; lucide nao tem logo de marca).
@@ -358,6 +359,12 @@ export default function FilaAprovacao({
       <p className="text-sm text-cream/70 mb-6 max-w-xl">
         Chegaram pelo WhatsApp. Aprovou, sai impresso na cozinha na hora. Nenhum entra sem você.
       </p>
+
+      {/* Aprovar so vale se a cozinha receber o papel: o estado da impressora
+          fica na frente dela, nao escondido em Configuracoes. */}
+      <div className="mb-5">
+        <StatusImpressora />
+      </div>
 
       {falha && (
         <div className="rounded-xl px-4 py-3 mb-4 text-sm" style={{ background: "rgba(200,60,60,0.16)", border: "1px solid rgba(240,140,140,0.35)", color: "#f3bcbc" }}>

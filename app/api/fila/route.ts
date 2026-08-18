@@ -8,7 +8,7 @@
 // ============================================================================
 
 import { NextRequest } from "next/server";
-import { jobsPendentes, marcarImpresso } from "@/lib/banco/fila";
+import { jobsPendentes, marcarImpresso, marcarPonteViva } from "@/lib/banco/fila";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,9 @@ function autorizado(req: NextRequest): boolean {
 
 export async function GET(req: NextRequest) {
   if (!autorizado(req)) return new Response("unauthorized", { status: 401 });
+  // A pergunta da ponte E o sinal de vida dela: carimba antes de responder.
+  // Falha aqui nao pode atrapalhar a impressao, entao segue mesmo se der erro.
+  marcarPonteViva(NEGOCIO).catch((e) => console.error("[fila] sinal de vida:", e));
   const jobs = await jobsPendentes(NEGOCIO);
   return Response.json({ jobs });
 }
