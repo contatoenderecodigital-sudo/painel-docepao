@@ -579,10 +579,17 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         `padaria cobra a menos. Se for um sabor so, esta certo assim e pode seguir.`
       );
     }
+    // GENERICO NAO ENTRA NO PEDIDO.
+    //
+    // Ela anotava "250 salgados fritos" e seguia a conversa, e aquilo ficava no
+    // pedido como se fosse item. Salgado nao se produz: coxinha se produz. O
+    // cliente TEM que escolher os tipos, e e pra isso que a festa tem etapas.
     if (semTipo(produto)) {
+      const tipos = TIPOS_DA_FAMILIA[categoria] ?? TIPOS_DA_FAMILIA[produto.toLowerCase()] ?? [];
       return (
-        `Anotei ${qtd} de ${produto}, mas isso é genérico demais pra cozinha produzir: falta o cliente dizer QUAIS, ` +
-        `um por um, com a quantidade de cada. Pergunte agora.`
+        `NAO anotei "${produto}": isso e categoria, nao produto, e a cozinha nao produz categoria. ` +
+        (tipos.length ? `Pergunte QUAIS ele quer, entre ${tipos.join(", ")}, e quantos de cada. ` : `Pergunte QUAIS ele quer e quantos de cada. `) +
+        `Pode usar o total que ele falou (${qtd}) pra dividir entre os tipos que ele escolher. Anote so depois que ele escolher.`
       );
     }
     return `Anotei ${qtd} de ${produto} no pedido. Continue a conversa normalmente; o pedido fica guardado e você não precisa repetir os itens anteriores.`;

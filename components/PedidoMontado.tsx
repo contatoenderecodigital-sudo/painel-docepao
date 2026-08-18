@@ -13,7 +13,7 @@
 // ============================================================================
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, Plus, Minus, Trash2, Check } from "lucide-react";
+import { ChevronDown, Plus, Minus, Trash2, Check, Square, CheckSquare } from "lucide-react";
 
 type Categoria =
   | "bolo_festa" | "bolo_caseiro" | "docinho" | "salgado_frito" | "salgado_assado"
@@ -88,6 +88,7 @@ type OpcaoCardapio = { nome: string; categoria: Categoria; unidade: Unidade; sab
 export default function PedidoMontado({ clienteId, versao }: { clienteId: string; versao: number }) {
   const [aberto, setAberto] = useState(false);
   const [cardapio, setCardapio] = useState<OpcaoCardapio[]>([]);
+  const [foto, setFoto] = useState<string | null>(null);
   const [itens, setItens] = useState<Item[]>([]);
   const [dados, setDados] = useState<Dados>({});
   const [sujo, setSujo] = useState(false);
@@ -101,6 +102,11 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       const j = await r.json();
       setItens(Array.isArray(j.itens) ? j.itens : []);
       setDados(j.dados ?? {});
+      // A foto de referencia do tema, pra dona conferir o bolo olhando pra ela.
+      fetch(`/api/montagem/foto?cliente=${encodeURIComponent(clienteId)}`)
+        .then((x) => x.json())
+        .then((y) => setFoto(y.foto ?? null))
+        .catch(() => {});
     } catch {
       /* silencioso: o painel é auxiliar, não pode quebrar o chat */
     }
@@ -324,6 +330,130 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                   className={campo + " w-full mt-1.5"}
                   aria-label="Observação do item"
                 />
+                {/* BOLO DE FESTA: A CHECAGEM QUE FECHA AS LACUNAS.
+                    Topo e papel de arroz viram caixa de marcar, e marcar
+                    qualquer um dos dois abre tema, nome e idade, que é o que a
+                    peça precisa pra ser fabricada. Tudo isso vive na observação
+                    do item, que é o que a IA lê e o que vai pra cozinha. */}
+                {(it.categoria === "bolo_festa" || it.categoria === "bolo_caseiro") && (() => {
+                  const obs = it.obs ?? "";
+                  const temTopo = /topo/i.test(obs) && !/sem topo/i.test(obs);
+                  const temPapel = /papel de arroz/i.test(obs) && !/sem papel/i.test(obs);
+                  const precisaArte = temTopo || temPapel;
+
+                  const trocarTermo = (texto: string, termo: string, ligar: boolean) => {
+                    const semEle = texto
+                      .replace(new RegExp("\\s*,?\\s*sem " + termo, "ig"), "")
+                      .replace(new RegExp("\\s*,?\\s*" + termo, "ig"), "")
+                      .replace(/^,\s*/, "")
+                      .trim();
+                    if (!ligar) return semEle;
+                    return semEle ? semEle + ", " + termo : termo;
+                  };
+
+                  // "tema X", "nome Y" e "8 anos" saem e entram na observação
+                  // sem bagunçar o resto do texto que a IA escreveu.
+                  const pegar = (re: RegExp) => (obs.match(re)?.[1] ?? "").trim();
+                  const tema = pegar(/tema\s+([^,;]+)/i);
+                  const nomeAniv = pegar(/nome\s+([^,;]+)/i);
+                  const idade = pegar(/(\d{1,2})\s*anos?/i);
+
+                  const trocarCampo = (texto: string, re: RegExp, novo: string, molde: (v: string) => string) => {
+                    const limpo = texto.replace(re, "").replace(/\s*,\s*,/g, ",").replace(/^,\s*/, "").replace(/,\s*$/, "").trim();
+                    if (!novo.trim()) return limpo;
+                    return limpo ? limpo + ", " + molde(novo.trim()) : molde(novo.trim());
+                  };
+
+                  const Caixa = ({ ligado, rotulo, aoTrocar }: { ligado: boolean; rotulo: string; aoTrocar: (v: boolean) => void }) => (
+                    <button
+                      onClick={() => aoTrocar(!ligado)}
+                      className="flex items-center gap-1.5 px-2 h-7 rounded-lg text-[12px] transition-colors"
+                      style={
+                        ligado
+                          ? { background: "rgba(231,207,148,0.20)", color: "#e7cf94", border: "1px solid rgba(231,207,148,0.45)" }
+                          : { background: "rgba(255,255,255,0.05)", color: "rgba(255,247,235,0.55)", border: "1px solid rgba(255,255,255,0.10)" }
+                      }
+                    >
+                      {ligado ? <CheckSquare size={13} /> : <Square size={13} />} {rotulo}
+                    </button>
+                  );
+
+                  return (
+                    <div className="mt-2 pt-2 border-t border-white/8">
+                      <div className="flex flex-wrap gap-1.5">
+                        <Caixa
+                          ligado={temTopo}
+                          rotulo="topo de bolo"
+                          aoTrocar={(v) => mexerItem(i, { obs: trocarTermo(obs, "topo de bolo", v) })}
+                        />
+                        <Caixa
+                          ligado={temPapel}
+                          rotulo="papel de arroz"
+                          aoTrocar={(v) => mexerItem(i, { obs: trocarTermo(obs, "papel de arroz", v) })}
+                        />
+                      </div>
+
+                      {precisaArte && (
+                        <div className="mt-2 flex flex-col gap-2">
+                          <label className="min-w-0">
+                            <span className="block text-[11px] text-cream/45 mb-1">Tema do bolo</span>
+                            <input
+                              value={tema}
+                              onChange={(e) =>
+                                mexerItem(i, { obs: trocarCampo(obs, /tema\s+[^,;]+/i, e.target.value, (v) => "tema " + v) })
+                              }
+                              placeholder="ex: homem aranha"
+                              className={campo + " w-full"}
+                            />
+                          </label>
+                          <div className="flex gap-2">
+                            <label className="flex-1 min-w-0">
+                              <span className="block text-[11px] text-cream/45 mb-1">Nome do aniversariante</span>
+                              <input
+                                value={nomeAniv}
+                                onChange={(e) =>
+                                  mexerItem(i, { obs: trocarCampo(obs, /nome\s+[^,;]+/i, e.target.value, (v) => "nome " + v) })
+                                }
+                                placeholder="ex: Theo"
+                                className={campo + " w-full"}
+                              />
+                            </label>
+                            <label className="w-[92px] shrink-0">
+                              <span className="block text-[11px] text-cream/45 mb-1">Idade</span>
+                              <input
+                                type="number"
+                                min={0}
+                                value={idade}
+                                onChange={(e) =>
+                                  mexerItem(i, { obs: trocarCampo(obs, /\d{1,2}\s*anos?/i, e.target.value, (v) => v + " anos") })
+                                }
+                                placeholder="8"
+                                className={campo + " w-full text-center"}
+                              />
+                            </label>
+                          </div>
+
+                          <div>
+                            <span className="block text-[11px] text-cream/45 mb-1">Foto de referência do tema</span>
+                            {foto ? (
+                              <a href={foto} target="_blank" rel="noopener noreferrer">
+                                <img
+                                  src={foto}
+                                  alt="Foto de referência enviada pelo cliente"
+                                  className="w-full max-h-40 object-cover rounded-[10px] border border-white/10"
+                                />
+                              </a>
+                            ) : (
+                              <p className="text-[12px] text-cream/45 rounded-[10px] border border-dashed border-white/12 px-2.5 py-3 text-center">
+                                O cliente ainda não mandou foto.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
                 {/* Os sabores DESTE produto, prontos pra clicar. Digitar na mão
                     esquece o sabor e erra o nome, e sabor faltando é a cozinha
                     fazendo o padrão e o cliente descobrindo na festa. */}
