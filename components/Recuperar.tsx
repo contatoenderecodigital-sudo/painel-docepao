@@ -102,16 +102,26 @@ export default function Recuperar({
   const [personalizando, setPersonalizando] = useState(false);
   const [template, setTemplate] = useState(msgCobranca);
   const [salvandoMsg, setSalvandoMsg] = useState(false);
+  const [erroMsg, setErroMsg] = useState<string | null>(null);
 
   async function salvarTemplate() {
     setSalvandoMsg(true);
+    setErroMsg(null);
     try {
-      await fetch("/api/cobranca", {
+      const r = await fetch("/api/cobranca", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ texto: template }),
       });
+      // Fechar o painel sem conferir era dizer que salvou: a dona reescrevia a
+      // cobranca, via a tela fechar e continuava com o texto antigo no ar.
+      if (!r.ok) {
+        setErroMsg("Não deu pra salvar o texto. Tente de novo.");
+        return;
+      }
       setPersonalizando(false);
+    } catch {
+      setErroMsg("Não deu pra salvar o texto. Tente de novo.");
     } finally {
       setSalvandoMsg(false);
     }
@@ -452,9 +462,14 @@ export default function Recuperar({
               disabled={salvandoMsg || !template.trim()}
               className="btn-cobre press px-4 py-2 text-sm font-semibold rounded-lg inline-flex items-center gap-1.5 disabled:opacity-50"
             >
-              Salvar mensagem
+              {salvandoMsg ? "Salvando..." : "Salvar mensagem"}
             </button>
           </div>
+          {erroMsg && (
+            <p className="text-[12px] mt-2 text-right" style={{ color: "#f0a5a5" }}>
+              {erroMsg}
+            </p>
+          )}
         </Overlay>
       ) : null}
 
