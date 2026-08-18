@@ -13,6 +13,10 @@ const path = require("path");
 const os = require("os");
 
 const BASE = "https://docepao.enderecodigital.tech";
+// Hora em que a bateria comecou: o teste so olha pedido criado DAQUI pra frente.
+// Sem isso ele lia o ultimo pedido do negocio (um pedido real, ou o da
+// demonstracao) e acusava a IA de inventar o que era dado de outra conversa.
+const INICIO = new Date().toISOString();
 const LOGIN = { email: "admin@docepao.com", senha: "Docepao2026#" };
 
 function chrome() {
@@ -54,7 +58,17 @@ const CENARIOS = [
           {
             id: "RECHEIO-NAO-INVENTADO",
             porque: "ela já registrou 'empadinha de queijo' sem ninguém falar queijo",
-            ok: (r) => /recheio|sabor/i.test(norm(r)),
+            // O que nao pode e ela INVENTAR o recheio. Perguntar a quantidade
+            // primeiro e legitimo: aqui faltam as duas coisas (o cliente disse
+            // "metade de cada" sem dizer de quanto), e a regra da casa e uma
+            // pergunta por vez. Reprova so se ela citar um recheio que ninguem
+            // falou ou seguir em frente sem perguntar nada.
+            ok: (r) => {
+              const t = norm(r);
+              const inventou = /(queijo|palmito|calabresa|bacon|brocolis|presunto)/.test(t);
+              const perguntou = /recheio|sabor|quantos|quantas|quanto/.test(t);
+              return !inventou && perguntou;
+            },
           },
         ],
       },
@@ -246,7 +260,7 @@ const REGRAS_GERAIS = [
 
 async function buscarUltimoPedido(p) {
   try {
-    const r = await p.request.get(BASE + "/api/qa/ultimo-pedido", { timeout: 30000 });
+    const r = await p.request.get(BASE + "/api/qa/ultimo-pedido?desde=" + encodeURIComponent(INICIO), { timeout: 30000 });
     if (!r.ok()) return null;
     return await r.json();
   } catch {

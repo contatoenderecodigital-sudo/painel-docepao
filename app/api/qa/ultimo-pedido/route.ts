@@ -13,11 +13,16 @@ import { bancoConfigurado } from "@/lib/banco/db";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   const sessao = await lerSessao();
   if (!sessao) return new Response("nao autorizado", { status: 401 });
   if (!bancoConfigurado) return Response.json(null);
 
+  // O teste passa a hora em que a bateria comecou. Sem esse corte, o endpoint
+  // devolvia o ultimo pedido do negocio, e um pedido REAL de cliente (ou o da
+  // demonstracao) era lido como se fosse do cenario: a bateria acusou pagamento
+  // inventado que na verdade era o pix do Marcelo.
+  const desde = new URL(req.url).searchParams.get("desde");
   try {
     const { queryUm } = await import("@/lib/banco/db");
     const p = await queryUm<Record<string, unknown>>(
@@ -29,9 +34,9 @@ export async function GET() {
                 'subtotal_centavos', i.subtotal_centavos, 'obs', i.obs, 'unidade', i.unidade))
                from pedido_itens i where i.pedido_id = p.id), '[]'::json) as itens
          from pedidos p left join clientes c on c.id = p.cliente_id
-        where p.negocio_id = $1
+        where p.negocio_id = $1 and ($2::timestamptz is null or p.criado_em >= $2)
         order by p.criado_em desc limit 1`,
-      [sessao.negocioId],
+      [sessao.negocioId, desde],
     );
     return Response.json(p ?? null);
   } catch (e) {
