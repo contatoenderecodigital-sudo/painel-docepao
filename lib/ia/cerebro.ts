@@ -13,7 +13,7 @@
 import OpenAI from "openai";
 import { CARDAPIOS, type CardapioId } from "@/lib/whatsapp/api";
 import { montarSystemPrompt, DOCE_PAO, type ConfigNegocio } from "./persona";
-import { motorPadrao, formatarOrcamento, brl, type Motor, type LinhaCotacao } from "./orcamento";
+import { motorPadrao, formatarOrcamento, brl, citadoDeVerdade, type Motor, type LinhaCotacao } from "./orcamento";
 import { registrarUsoIA, type UsoTurno } from "./uso";
 import catalogo from "./dados/catalogo.json";
 
@@ -802,7 +802,8 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // Topo ou papel de arroz sem foto do tema: peca uma vez, sem insistir. A
     // peca e fabricada em cima do tema, e com a foto a producao acerta melhor.
     // Nao trava o pedido: muita gente nao tem foto nenhuma.
-    const pedeArte = /topo|papel de arroz/i.test(String(obsItem ?? ""));
+    const pedeArte =
+      citadoDeVerdade(String(obsItem ?? ""), "topo") || citadoDeVerdade(String(obsItem ?? ""), "papel de arroz");
     const temFoto = /foto/i.test(String(obsItem ?? ""));
     if ((categoria === "bolo_festa" || categoria === "bolo_caseiro") && pedeArte && !temFoto) {
       return (
@@ -1299,7 +1300,7 @@ ATENCAO: recusar o registro NAO quer dizer recomecar a coletar. Tudo que o clien
 
     const linhaPagamento = formaPagamento ? `*Forma de pagamento:* ${formaPagamento}\n` : "";
     const nomeResumo = nomeInformado && !pendencias.some((p) => p.includes("nome")) ? `*Nome:* ${nomeInformado}\n` : "";
-    const temTopo = itens.some((i) => /topo/i.test(String(i.obs ?? "")));
+    const temTopo = itens.some((i) => citadoDeVerdade(String(i.obs ?? ""), "topo"));
     estado.resumo =
       `*Pedido recebido*\n` +
       nomeResumo +
@@ -1574,7 +1575,8 @@ function etapasDaFesta(
   });
 
   // A peca e fabricada com nome, idade, tema e (se tiver) a foto.
-  if (bolo && /topo|papel de arroz/i.test(obsBolo) && !/sem topo/i.test(obsBolo)) {
+  // Sem topo e sem papel nao precisa de nome, idade nem tema: a peca nao existe.
+  if (bolo && (citadoDeVerdade(obsBolo, "topo") || citadoDeVerdade(obsBolo, "papel de arroz"))) {
     const falta: string[] = [];
     if (!/nome/i.test(obsBolo)) falta.push("o NOME do aniversariante");
     if (!/[0-9]{1,2} ?anos?/i.test(obsBolo) && !/idade *[0-9]{1,2}/i.test(obsBolo)) falta.push("a IDADE");

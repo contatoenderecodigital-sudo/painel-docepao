@@ -9,6 +9,19 @@
 import catalogo from "./dados/catalogo.json";
 import rendimentoJson from "./dados/rendimento.json";
 
+// O termo so conta quando nao esta negado: "sem topo", "nao quer papel de
+// arroz" e "sem papel" nao sao pedido de topo nem de papel.
+export function citadoDeVerdade(texto: string, termo: string): boolean {
+  const t = String(texto || "").toLowerCase();
+  const alvo = termo.toLowerCase();
+  let de = t.indexOf(alvo);
+  while (de >= 0) {
+    const antes = t.slice(Math.max(0, de - 22), de);
+    if (!/(sem|nao quer|não quer|nada de|tirar o|tira o|nem)\s+[a-zà-ú ]{0,12}$/.test(antes)) return true;
+    de = t.indexOf(alvo, de + alvo.length);
+  }
+  return false;
+}
 export const brl = (n: number) =>
   "R$ " +
   n.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d)(?=,))/g, ".");
@@ -163,7 +176,7 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
     // Papel de arroz citado só na observação do bolo é papel de arroz não
     // cobrado: são R$ 12 que somem do pedido e reaparecem como prejuízo na
     // produção. Se a observação pede e ele não está entre os itens, entra.
-    const citaPapel = linhas.some((l) => /papel de arroz/i.test(l.obs ?? ""));
+    const citaPapel = linhas.some((l) => citadoDeVerdade(String(l.obs ?? ""), "papel de arroz"));
     const temPapel = linhas.some((l) => /papel de arroz/i.test(l.item));
     if (citaPapel && !temPapel) {
       const ref = PRECOS[norm("papel de arroz")] ?? produtos.find((p) => norm(p.nome).includes("papel de arroz"));
