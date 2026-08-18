@@ -419,6 +419,12 @@ function umaPerguntaSo(texto: string): string {
     .trim();
 }
 
+// Festa muda o roteiro: tem ordem de etapas e costuma ter bolo. Uma regra so,
+// usada pelo lembrete e pelas guardas, pra nao divergirem.
+export function ehFestaNaFala(t: string): boolean {
+  return /festa|anivers|niver|formatura|casamento|confraterniza|batizado|ch[áa] de/i.test(t || "");
+}
+
 // Texto normalizado pra comparar sabor dito com sabor anotado.
 const marca = (t?: string | null) => String(t ?? "").trim().toLowerCase();
 
@@ -630,7 +636,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       (k) => juntos[k] && String(juntos[k]).trim() !== "",
     );
     const itensAnotados = montagemAtual?.itens ?? [];
-    const pendentes = pendenciasDeSabor(itensAnotados);
+    const pendentes = pendenciasDeSabor(itensAnotados, ehFestaNaFala(falaDoCliente), /bolo/i.test(falaDoCliente));
     if (temTudo && itensAnotados.length > 0 && pendentes.length === 0) {
       return (
         `Anotei: ${Object.keys(dados).join(", ")}. AGORA NAO FALTA MAIS NADA NESTE PEDIDO. ` +
@@ -1182,7 +1188,11 @@ function faltaNoItem(i: MontagemAtual["itens"][number]): string | null {
   return null;
 }
 
-function etapasDaFesta(itens: MontagemAtual["itens"]): Etapa[] {
+function etapasDaFesta(
+  itens: MontagemAtual["itens"],
+  festa = false,
+  pediuBolo = false,
+): Etapa[] {
   const da = (pref: string) => itens.filter((i) => String(i.categoria || "").startsWith(pref));
   const salgados = da("salgado");
   const docinhos = da("docinho");
@@ -1191,13 +1201,24 @@ function etapasDaFesta(itens: MontagemAtual["itens"]): Etapa[] {
 
   etapas.push({
     titulo: "SALGADOS",
-    pendencias: salgados.map(faltaNoItem).filter(Boolean) as string[],
+    pendencias: [
+      ...(festa && salgados.length === 0
+        ? [
+            "- o cliente ainda nao escolheu NENHUM salgado. Pergunte quais ele quer e quantos de cada, " +
+              "antes de falar de docinho ou de bolo.",
+          ]
+        : []),
+      ...(salgados.map(faltaNoItem).filter(Boolean) as string[]),
+    ],
   });
 
   const doceSemForminha = docinhos.filter((i) => !CORES_FORMINHA.test(String(i.obs ?? "")));
   etapas.push({
     titulo: "DOCINHOS",
     pendencias: [
+      ...(festa && docinhos.length === 0
+        ? ["- o cliente ainda nao escolheu NENHUM docinho. Pergunte quais sabores e quantos de cada."]
+        : []),
       ...(docinhos.map(faltaNoItem).filter(Boolean) as string[]),
       ...(docinhos.length && doceSemForminha.length
         ? [
@@ -1217,6 +1238,12 @@ function etapasDaFesta(itens: MontagemAtual["itens"]): Etapa[] {
   etapas.push({
     titulo: "BOLO",
     pendencias: [
+      ...(pediuBolo && bolos.length === 0
+        ? [
+            "- o cliente falou em bolo e nao tem bolo nenhum anotado. Mande o cardapio de bolos ou pergunte o " +
+              "sabor, e anote com o peso em quilos e o pao de lo.",
+          ]
+        : []),
       ...(bolos.map(faltaNoItem).filter(Boolean) as string[]),
       ...(bolo && !jaTratouArte
         ? [
@@ -1248,8 +1275,8 @@ function etapasDaFesta(itens: MontagemAtual["itens"]): Etapa[] {
 // Tudo que ainda falta, de todas as etapas. Quem decide se DA pra fechar usa
 // isto: sem ele, fechar so olhava sabor e passava por cima da forminha, do
 // topo e dos dados da peca.
-function pendenciasDeSabor(itens: MontagemAtual["itens"]): string[] {
-  return etapasDaFesta(itens).flatMap((e) => e.pendencias);
+function pendenciasDeSabor(itens: MontagemAtual["itens"], festa = false, pediuBolo = false): string[] {
+  return etapasDaFesta(itens, festa, pediuBolo).flatMap((e) => e.pendencias);
 }
 
 // O pedido anotado, em texto, pra IA ler no fim da conversa. É a memória dela:
@@ -1257,7 +1284,12 @@ function pendenciasDeSabor(itens: MontagemAtual["itens"]): string[] {
 // onde ela trocava bolo por docinho e perdia item), ela lê o que está guardado.
 // A equipe também mexe nisso pela tela, então o que vier aqui pode ter sido
 // corrigido na mão e vale mais que a lembrança dela.
-function descreverMontagem(m?: MontagemAtual | null, pedidoAguardando = false): string {
+function descreverMontagem(
+  m?: MontagemAtual | null,
+  pedidoAguardando = false,
+  festa = false,
+  pediuBolo = false,
+): string {
   // PEDIDO JA REGISTRADO ESPERANDO O ACEITE NAO SE MONTA DE NOVO.
   //
   // Com a montagem limpa (o pedido virou pedido de verdade), o lembrete mandava
@@ -1321,7 +1353,7 @@ function descreverMontagem(m?: MontagemAtual | null, pedidoAguardando = false): 
 
   // Uma etapa por vez: a lista inteira de uma vez fazia ela perguntar salgado,
   // docinho e bolo na mesma mensagem, e o cliente respondia so um.
-  const etapas = etapasDaFesta(itens);
+  const etapas = etapasDaFesta(itens, festa, pediuBolo);
   const atual = etapas[0];
   const pend = atual ? atual.pendencias : [];
   const faltaDepois = Math.max(0, etapas.length - 1);
@@ -1486,7 +1518,17 @@ async function rodarConversa(
   // O que já está anotado entra DEPOIS do histórico, nunca dentro do system: o
   // system é o prefixo que a OpenAI guarda em cache, e mexer nele a cada turno
   // jogaria o cache fora (a conta triplica). No fim ele é lido do mesmo jeito.
-  messages.push({ role: "system", content: descreverMontagem(montagemAtual, pedidoAguardando) });
+  // Festa muda o roteiro inteiro: tem ordem, tem etapa e tem bolo. Sai da fala
+  // do cliente, nao de adivinhacao: sem isso a ordem so comecava depois do
+  // primeiro item anotado, e ela pulava direto pro bolo.
+  const falaToda = historico
+    .filter((m) => m.role === "user" && typeof m.content === "string")
+    .map((m) => m.content as string)
+    .join("  ")
+    .toLowerCase();
+  const ehFesta = ehFestaNaFala(falaToda);
+  const pediuBolo = /bolo/.test(falaToda);
+  messages.push({ role: "system", content: descreverMontagem(montagemAtual, pedidoAguardando, ehFesta, pediuBolo) });
 
   // FERRAMENTA QUE NAO CABE AGORA NEM E OFERECIDA.
   //
@@ -1494,7 +1536,7 @@ async function rodarConversa(
   // quatro, e no fim desistiu e chamou a equipe. Fechar so existe quando da pra
   // fechar; aceite de orcamento so existe quando ha pedido esperando o cliente.
   const podeFechar =
-    (montagemAtual?.itens?.length ?? 0) > 0 && pendenciasDeSabor(montagemAtual?.itens ?? []).length === 0;
+    (montagemAtual?.itens?.length ?? 0) > 0 && pendenciasDeSabor(montagemAtual?.itens ?? [], ehFesta, pediuBolo).length === 0;
   const ferramentas = (tenant.sistemaCustom ? FERRAMENTAS_BASICAS : FERRAMENTAS).filter((f) => {
     const nome = "function" in f ? f.function.name : "";
     if (nome === "cliente_aceitou_orcamento") return pedidoAguardando;
