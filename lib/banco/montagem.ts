@@ -100,12 +100,32 @@ const UMA_LINHA_SO: CategoriaItem[] = ["bolo_festa", "bolo_caseiro", "papel_de_a
 const GENERICOS = ["salgado", "salgado assado", "salgado frito", "docinho", "doce", "bolo recheado", "bolo"];
 const ehGenerico = (produto: string) => GENERICOS.includes(produto.trim().toLowerCase());
 
+// Bolo com dois sabores: o nome do item precisa dizer os dois, senao a cozinha
+// produz so o primeiro. A observacao ja traz o segundo sabor.
+function nomeComOsDoisSabores(item: ItemMontagem): ItemMontagem {
+  if (!String(item.categoria ?? "").startsWith("bolo")) return item;
+  const nome = String(item.produto ?? "").toLowerCase();
+  const obs = String(item.obs ?? "").toLowerCase();
+  // "brigadeiro e morango" / "brigadeiro com morango" na observacao
+  const par = obs.match(/([a-zà-ú ]{3,20})\s+(?:e|com)\s+([a-zà-ú ]{3,20})/);
+  if (!par) return item;
+  const a = par[1].trim();
+  const b = par[2].trim();
+  const temA = nome.includes(a);
+  const temB = nome.includes(b);
+  if (temA && !temB && b.length > 3) {
+    return { ...item, produto: item.produto + " com " + b };
+  }
+  return item;
+}
+
 export async function anotarItem(
   negocioId: string,
   clienteId: string,
-  item: ItemMontagem,
+  itemBruto: ItemMontagem,
 ): Promise<Montagem> {
   const m = await lerMontagem(negocioId, clienteId);
+  const item = nomeComOsDoisSabores(itemBruto);
   const mesmoNome = m.itens.filter((x) => mesmaLinha(x, item));
 
   // MESMO PRODUTO COM RECHEIOS DIFERENTES SÃO DUAS LINHAS.

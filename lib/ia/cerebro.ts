@@ -2235,6 +2235,23 @@ async function rodarConversa(
     });
   }
 
+  // ELA JA DISSE QUE MANDOU O CARDAPIO: PARA DE DIZER.
+  //
+  // "Te mandei o cardapio de salgados aqui" saiu oito vezes na mesma conversa,
+  // enquanto o cliente respondia outra coisa. O cardapio vai uma vez; depois
+  // disso a conversa tem que ser sobre o que ele escreveu.
+  const repetiuCardapio = historico
+    .filter((h) => h.role === "assistant")
+    .slice(-4)
+    .filter((h) => /mandei o card[áa]pio|te mandei o card/i.test(String(h.content ?? ""))).length;
+  if (repetiuCardapio >= 2) {
+    messages.push({
+      role: "system",
+      content:
+        "Voce ja disse que mandou o cardapio nas ultimas mensagens. NAO repita isso e NAO mande a peca de novo. Responda exatamente o que o cliente escreveu na ultima mensagem e anote o que ele escolheu."
+    });
+  }
+
   // PERGUNTA JA FEITA NAO SE REPETE.
   //
   // A etapa fica pendente enquanto o cliente nao escolhe nem recusa, e ela
@@ -2523,7 +2540,11 @@ async function rodarConversa(
         pedidoRegistrado: estado.pedido,
         aceitouOrcamento: estado.aceitouOrcamento,
         montagem: estado.montagem,
-        cardapiosParaEnviar: honrarCardapioPrometido(semLista.texto, pecasFinais),
+        cardapiosParaEnviar: pecasPermitidas(
+          honrarCardapioPrometido(semLista.texto, pecasFinais, mandadasAgora),
+          String(falaDoCliente2),
+          String(montagemDoTurno?.dados?.nao_quer ?? ""),
+        ),
       };
     }
 
@@ -2607,6 +2628,27 @@ function pedidosQueNaoExistem(fala: string): string[] {
     m = re.exec(texto);
   }
   return achados;
+}
+
+// PORTAO FINAL: peca de familia recusada nao sai.
+//
+// Existem quatro caminhos que enfileiram cardapio (ferramenta, promessa no
+// texto, lista digitada, pedido do cliente). Barrar em cada um deles deixou
+// passar: a ferramenta recusou e a promessa mandou. Aqui e o unico lugar por
+// onde a peca sai de verdade.
+function pecasPermitidas(pecas: CardapioId[], ultimaFala: string, naoQuer: string): CardapioId[] {
+  if (pecas.length === 0) return pecas;
+  const dito = (String(naoQuer || "") + " " + String(ultimaFala || "")).toLowerCase();
+  const recusou: [CardapioId, RegExp][] = [
+    ["salgados", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}salgad/],
+    ["docinhos", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}(docinho|doce)/],
+    ["bolos-festa", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}bolo/],
+  ];
+  // Pediu agora, com todas as letras: manda mesmo assim.
+  const pediuAgora = /card[áa]pio|me manda|quais|que tipos|op[çc][õo]es|que sabores/i.test(String(ultimaFala || ""));
+  if (pediuAgora) return pecas;
+  const fora = recusou.filter(([, re]) => re.test(dito)).map(([peca]) => peca);
+  return pecas.filter((c) => !fora.includes(c));
 }
 
 // Quais pecas ja foram mandadas nas ultimas mensagens (a peca vai como imagem
@@ -2700,12 +2742,18 @@ function listaViraCardapio(
 // O prompt sozinho não resolve isso: é comportamento, não regra. Aqui a gente
 // cumpre a promessa que ela fez — se o texto anuncia uma peça e nenhuma foi
 // enfileirada, a peça citada entra na fila.
-function honrarCardapioPrometido(texto: string, jaNaFila: CardapioId[]): CardapioId[] {
+function honrarCardapioPrometido(
+  texto: string,
+  jaNaFila: CardapioId[],
+  jaMandadas: CardapioId[] = [],
+): CardapioId[] {
   if (jaNaFila.length > 0) return jaNaFila;
   const t = texto.toLowerCase();
   if (!/(mandei|mandando|enviei|enviando|mandar).{0,24}card[áa]pio|card[áa]pio.{0,24}(aqui|pra voc|de novo)/.test(t)) {
     return jaNaFila;
   }
+  // Peca ja mandada nao volta so porque ela repetiu a frase: era isso que
+  // fazia o mesmo cardapio ir cinco vezes na mesma conversa.
   const apelidos: [CardapioId, RegExp][] = [
     ["docinhos", /docinho|doce(s)?|brigadeiro|trufa/],
     ["salgados", /salgado|coxinha|esfirra|frito|assado/],
