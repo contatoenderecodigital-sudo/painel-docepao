@@ -481,7 +481,12 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const categoria = String(input.categoria || "outro");
     const qtd = Number(input.qtd) || 0;
     if (!produto || qtd <= 0) return "Não anotei: preciso do produto e de uma quantidade maior que zero.";
-    const obsItem = input.obs ? String(input.obs) : null;
+    // "sem sabor especificado", "a definir": ela preenche o campo pra nao deixar
+    // vazio, e isso desce pra comanda como se fosse instrucao da cozinha.
+    // Observacao de enfeite nao e observacao: melhor vazia e cobrada.
+    const ENFEITE = /^(sems+(sabor|recheio)|as+definir|naos+informad|n[ãa]os+especificad|indefinid|as+combinar)/i;
+    const obsBruta = input.obs ? String(input.obs).trim() : "";
+    const obsItem = obsBruta && !ENFEITE.test(obsBruta) ? obsBruta : null;
     estado.montagem.push({ tipo: "item", produto, categoria, qtd, obs: obsItem });
 
     // O aviso de sabor faltando vem AQUI, no mesmo turno. A lista de pendências
@@ -491,9 +496,10 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const opcoes = SABORES[produto.toLowerCase()];
     if (opcoes && faltaSabor(obsItem, opcoes)) {
       return (
-        `Anotei ${qtd} de ${produto}, mas FALTA O SABOR: as opções são ${opcoes.join(", ")}. ` +
-        `Pergunte isso antes de seguir pra outra coisa. Se o cliente já disse o sabor na conversa, ` +
-        `chame anotar_item de novo com ele na observação, em vez de perguntar de novo.`
+        `Anotei ${qtd} de ${produto}, mas FALTA O SABOR. Pergunte AGORA citando as opcoes na propria mensagem, ` +
+        `assim: "Qual o sabor d${produto.endsWith("a") ? "a" : "o"} ${produto}: ${opcoes.join(", ")}?". ` +
+        `Perguntar "qual voce prefere?" sem dizer as opcoes deixa o cliente sem saber o que responder. ` +
+        `Se ele ja disse o sabor na conversa, chame anotar_item de novo com ele na observacao em vez de perguntar.`
       );
     }
     // DOIS BOLOS NA MESMA FESTA SO SE O CLIENTE PEDIR DOIS.
