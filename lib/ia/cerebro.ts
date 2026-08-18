@@ -2822,7 +2822,15 @@ async function rodarConversa(
       // "pode fechar" depois do pedido fechado recebia "quer falar sobre esse
       // pedido ou e outro?". O cliente quer saber uma coisa so: preciso esperar
       // alguem? Entao a resposta diz exatamente isso.
-      const soConfirmou = /^(ok|okay|okey|blz|beleza|ta bom|ta certo|isso|isso mesmo|perfeito|fechado|pode fechar|pode mandar|pode ser|combinado|show|certo|sim|obrigad[oa]|valeu|brigad[oa])[.!, ]*$/i.test(String(falaDoCliente2 ?? "").trim());
+      // Vale por palavra: "ok obrigada" e "beleza, valeu" sao a mesma coisa que
+      // "ok", e antes so a palavra sozinha contava.
+      const PALAVRAS_DE_OK = new Set([
+        "ok", "okay", "okey", "blz", "beleza", "ta", "tá", "bom", "certo", "isso", "mesmo", "perfeito",
+        "fechado", "fechar", "pode", "mandar", "ser", "combinado", "show", "sim", "obrigado", "obrigada",
+        "brigado", "brigada", "valeu", "vlw", "otimo", "ótimo", "legal", "entao", "então",
+      ]);
+      const palavrasDele = String(falaDoCliente2 ?? "").toLowerCase().replace(/[.,!?;:]/g, " ").split(/\s+/).filter(Boolean);
+      const soConfirmou = palavrasDele.length > 0 && palavrasDele.length <= 4 && palavrasDele.every((w) => PALAVRAS_DE_OK.has(w));
       if (pedidoAberto && soConfirmou && !estado.pedido) {
         const quando = [
           pedidoAberto.retiradaData ? pedidoAberto.retiradaData : null,
