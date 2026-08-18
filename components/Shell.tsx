@@ -130,7 +130,7 @@ export default async function Shell({
               {/* No PC não existe barra de cima: o sino mora no rodapé do menu,
                   junto do que é "controle do painel" e não navegação. */}
               <div className="hidden lg:block shrink-0">
-                <SinoNotificacao />
+                <SinoNotificacao nome={nomeNegocio} />
               </div>
               <form action={sair}>
                 <button

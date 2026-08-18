@@ -336,6 +336,8 @@ export type PedidoEmAberto = {
   totalCentavos: number;
   motivoHumano: string | null;
   impresso: boolean;
+  formaPagamento: string | null;
+  quemRetira: string | null;
   itens: { produto: string; qtd: number; unidade: string; obs: string | null }[];
 };
 
@@ -352,18 +354,20 @@ export async function pedidoEmAberto(
     total_centavos: number;
     motivo_humano: string | null;
     impresso_em: string | null;
+    forma_pagamento: string | null;
+    quem_retira: string | null;
   }>(
-    `select id, status::text as status,
-            coalesce(aguardando_cliente, false) as aguardando_cliente,
-            to_char(retirada_data, 'DD/MM/YYYY') as retirada_data,
-            retirada_hora,
-            coalesce(total_centavos, 0) as total_centavos,
-            motivo_humano, impresso_em
-       from pedidos
-      where negocio_id = $1 and cliente_id = $2
-        and status in ('confirmado', 'aprovado', 'impresso')
-        and (retirada_data is null or retirada_data >= current_date)
-      order by criado_em desc
+    `select p.id, p.status::text as status,
+            coalesce(p.aguardando_cliente, false) as aguardando_cliente,
+            to_char(p.retirada_data, 'DD/MM/YYYY') as retirada_data,
+            p.retirada_hora,
+            coalesce(p.total_centavos, 0) as total_centavos,
+            p.motivo_humano, p.impresso_em, p.forma_pagamento, c.nome as quem_retira
+       from pedidos p left join clientes c on c.id = p.cliente_id
+      where p.negocio_id = $1 and p.cliente_id = $2
+        and p.status in ('confirmado', 'aprovado', 'impresso')
+        and (p.retirada_data is null or p.retirada_data >= current_date)
+      order by p.criado_em desc
       limit 1`,
     [negocioId, clienteId],
   );
@@ -382,6 +386,8 @@ export async function pedidoEmAberto(
     totalCentavos: Number(l.total_centavos) || 0,
     motivoHumano: l.motivo_humano,
     impresso: Boolean(l.impresso_em),
+    formaPagamento: l.forma_pagamento,
+    quemRetira: l.quem_retira,
     itens: itens.map((i) => ({
       produto: i.produto,
       qtd: Number(i.qtd) || 0,
@@ -397,6 +403,9 @@ export async function pedidoEmAberto(
 export type PedidoNaTela = {
   id: string;
   status: string;
+  clienteNome: string | null;
+  formaPagamento: string | null;
+  observacoes: string | null;
   totalCentavos: number;
   retiradaData: string | null;
   retiradaHora: string | null;
@@ -413,12 +422,15 @@ export async function pedidoRegistradoDoCliente(
     total_centavos: number;
     retirada_data: string | null;
     retirada_hora: string | null;
+    forma_pagamento: string | null;
+    observacoes: string | null;
+    cliente_nome: string | null;
   }>(
     `select id, status::text as status, coalesce(total_centavos, 0) as total_centavos,
             to_char(retirada_data, 'DD/MM/YYYY') as retirada_data, retirada_hora
        from pedidos
       where negocio_id = $1 and cliente_id = $2 and status in ('confirmado', 'aprovado') and impresso_em is null
-      order by criado_em desc
+      order by p.criado_em desc
       limit 1`,
     [negocioId, clienteId],
   );
@@ -437,6 +449,9 @@ export async function pedidoRegistradoDoCliente(
   return {
     id: p.id,
     status: p.status,
+    clienteNome: p.cliente_nome,
+    formaPagamento: p.forma_pagamento,
+    observacoes: p.observacoes,
     totalCentavos: Number(p.total_centavos) || 0,
     retiradaData: p.retirada_data,
     retiradaHora: p.retirada_hora,
@@ -472,13 +487,17 @@ export async function salvarItensDoPedido(
   if (itens.length === 0) throw new Error("pedido sem item: nao gravo por cima do que existe");
   let total = 0;
   await transacao(async (q) => {
-    const dono = await q<{ id: string; impresso_em: string | null }>(
-      "select id, impresso_em from pedidos where id = $1 and negocio_id = $2",
+    const dono = await q<{ id: string; status: string; impresso_em: string | null }>(
+      "select id, status::text as status, impresso_em from pedidos where id = $1 and negocio_id = $2",
       [pedidoId, negocioId],
     );
     const p = dono[0];
     if (!p) throw new Error("pedido nao encontrado neste negocio");
-    if (p.impresso_em) throw new Error("pedido ja impresso: a cozinha ja recebeu, nao da pra mexer");
+    // Aprovar dispara a impressao: o papel ja saiu na cozinha e mexer aqui
+    // deixaria a producao fazendo uma coisa e o caixa cobrando outra.
+    if (p.status !== "confirmado" || p.impresso_em) {
+      throw new Error("pedido ja aprovado: a cozinha recebeu, nao da pra mexer por aqui");
+    }
     await q("delete from pedido_itens where pedido_id = $1", [pedidoId]);
     for (const i of itens) {
       await q(

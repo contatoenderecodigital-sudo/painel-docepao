@@ -19,17 +19,19 @@
 // ============================================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Bell, BellOff, ChevronRight, AlertTriangle } from "lucide-react";
 import { brl } from "@/lib/tipos";
 
 const CHAVE = "docepao:som-notificacao";
-const INTERVALO_MS = 20000;
+const INTERVALO_MS = 7000;
 
 type Item = { id: string; nome: string; total: number; onde: "fila" | "aguardando"; motivo: string | null };
 type Contagem = { fila: number; aguardando: number; itens?: Item[] };
 
-export default function SinoNotificacao() {
+export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) {
+  const router = useRouter();
   const [som, setSom] = useState(false);
   const [aberto, setAberto] = useState(false);
   const [contagem, setContagem] = useState<Contagem | null>(null);
@@ -74,7 +76,7 @@ export default function SinoNotificacao() {
   const avisarNoNavegador = useCallback((texto: string) => {
     try {
       if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-      const n = new Notification("Padaria Doce Pão", { body: texto, tag: "docepao-fila" });
+      const n = new Notification(nome, { body: texto, tag: "docepao-fila" });
       n.onclick = () => {
         window.focus();
         n.close();
@@ -82,7 +84,7 @@ export default function SinoNotificacao() {
     } catch {
       // aviso é conforto, nunca pode derrubar o painel
     }
-  }, []);
+  }, [nome]);
 
   useEffect(() => {
     let vivo = true;
@@ -96,11 +98,17 @@ export default function SinoNotificacao() {
         setContagem(nova);
         // primeira leitura só estabelece a linha de base
         if (!antes) return;
+        // Mudou pra qualquer lado (entrou pedido novo ou um saiu de Aguardando
+        // pra Aprovacao): a pagina que esta na frente dela se atualiza sozinha,
+        // e com ela o numero da lateral. Sem isso so um F5 mostrava a verdade.
+        if (nova.fila !== antes.fila || nova.aguardando !== antes.aguardando) {
+          router.refresh();
+        }
         const cresceu = nova.fila > antes.fila || nova.aguardando > antes.aguardando;
         if (cresceu) {
           if (som) tocar();
           if (typeof document !== "undefined") {
-            document.title = `(${nova.fila + nova.aguardando}) Doce Pão`;
+            document.title = `(${nova.fila + nova.aguardando}) ${nome}`;
           }
         }
       } catch {

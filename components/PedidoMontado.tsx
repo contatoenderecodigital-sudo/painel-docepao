@@ -19,6 +19,10 @@ import { brl } from "@/lib/tipos";
 // O pedido ja fechado deste cliente, esperando a aprovacao.
 type Registrado = {
   id: string;
+  status: string;
+  clienteNome: string | null;
+  formaPagamento: string | null;
+  observacoes: string | null;
   totalCentavos: number;
   retiradaData: string | null;
   retiradaHora: string | null;
@@ -185,6 +189,15 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
   // ele que diz a categoria de cada produto, e ele chega por outra requisicao.
   useEffect(() => {
     if (!registrado || sujo) return;
+    // O que ja foi combinado no pedido preenche os campos: quem retira, quando
+    // e como paga estao no pedido, nao na montagem (que foi limpa no fechamento).
+    setDados((d) => ({
+      cliente_nome: d.cliente_nome || registrado.clienteNome || null,
+      retirada_data: d.retirada_data || registrado.retiradaData || null,
+      retirada_hora: d.retirada_hora || registrado.retiradaHora || null,
+      forma_pagamento: d.forma_pagamento || registrado.formaPagamento || null,
+      observacoes: d.observacoes || registrado.observacoes || null,
+    }));
     setItens(
       registrado.itens.map((x) => ({
         produto: x.produto,
@@ -251,6 +264,9 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
     }
   }
 
+  // Aprovado quer dizer impresso: a cozinha ja recebeu o papel e o pedido nao
+  // muda mais por aqui.
+  const travado = !!registrado && registrado.status !== "confirmado";
   const preenchidos = CAMPOS.filter((c) => (dados[c.chave] ?? "").toString().trim() !== "").length;
   const vazio = itens.length === 0 && preenchidos === 0;
 
@@ -297,12 +313,25 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
             Total {brl(registrado.totalCentavos)}
           </p>
           <p className="text-[11px] text-cream/45 mt-1 leading-snug">
-            O que voce mudar aqui vale no pedido. Ele sai da tela quando a aprovacao imprimir o ticket.
+            {travado
+              ? "Ja foi aprovado e impresso pra cozinha. Aqui e so pra consultar."
+              : "O que voce mudar aqui vale no pedido. Ele sai da tela quando a aprovacao imprimir o ticket."}
           </p>
         </div>
       )}
 
-      {aberto && (
+      {aberto && travado && (
+        <ul className="mt-2 flex flex-col gap-1">
+          {itens.map((x, i) => (
+            <li key={i} className="text-[12px] text-cream/75 leading-snug">
+              {x.qtd} {x.unidade === "kg" ? "kg" : "un"} de {x.produto}
+              {x.obs ? <span className="text-cream/45"> ({x.obs})</span> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {aberto && !travado && (
         <div className="mt-2.5">
           <datalist id="cardapio-produtos">
             {cardapio.map((c) => (

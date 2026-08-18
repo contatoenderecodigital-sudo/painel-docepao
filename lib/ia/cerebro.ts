@@ -1533,6 +1533,8 @@ export type PedidoEmAbertoIA = {
   totalCentavos: number;
   motivoHumano: string | null;
   impresso: boolean;
+  formaPagamento: string | null;
+  quemRetira: string | null;
   itens: { produto: string; qtd: number; unidade: string; obs: string | null }[];
 };
 
@@ -1560,6 +1562,13 @@ function blocoPedidoEmAberto(p: PedidoEmAbertoIA): string {
   }
   // As linhas do pedido, como estao AGORA no banco. Se a equipe corrigiu pela
   // tela, e isto que vale, nao o que voce lembra de ter combinado na conversa.
+  // O combinado tambem esta no pedido: sem isso ela perguntava de novo quem
+  // retira e como paga, coisas que o cliente ja tinha respondido.
+  const combinado = [
+    p.quemRetira ? `quem retira: ${p.quemRetira}` : null,
+    p.formaPagamento ? `pagamento: ${p.formaPagamento}` : null,
+  ].filter(Boolean);
+  if (combinado.length > 0) linhas.push("Combinado: " + combinado.join(", ") + ". Nao pergunte isso de novo.");
   if (p.itens.length > 0) {
     linhas.push("", "O QUE TEM NESSE PEDIDO (vale mais que a sua lembranca da conversa):");
     for (const i of p.itens) {
