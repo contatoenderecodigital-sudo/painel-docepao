@@ -659,6 +659,27 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // lugar so. O preco nao se perde: o motor cobra o papel de arroz que estiver
     // na observacao do bolo, e o topo vai pra equipe confirmar.
     if (/^(topo de bolo|topo|papel de arroz)$/i.test(produto)) {
+      // Tem bolo no pedido? Entao isso vai PRA DENTRO dele, aqui mesmo, sem
+      // depender de ela chamar de novo.
+      const boloDoPedido = (montagemAtual?.itens ?? []).find((x) =>
+        String(x.categoria || "").startsWith("bolo"),
+      );
+      if (boloDoPedido) {
+        const juntos = [String(boloDoPedido.obs ?? "").trim(), produto, String(obsBruta || "").trim()]
+          .filter(Boolean)
+          .join(", ");
+        estado.montagem.push({
+          tipo: "item",
+          produto: boloDoPedido.produto,
+          categoria: boloDoPedido.categoria,
+          qtd: boloDoPedido.qtd,
+          obs: juntos,
+        });
+        return (
+          `Coloquei o ${produto} dentro do bolo, que e onde a cozinha le. O bolo agora esta assim: "${juntos}". ` +
+          `Nao precisa anotar de novo; siga a conversa e confirme pro cliente numa frase.`
+        );
+      }
       return (
         `NAO anotei "${produto}" como item: isso faz parte do BOLO. Chame anotar_item do bolo de novo com isso na ` +
         `observacao, junto do resto (ex: "pao de lo branco, topo de bolo, papel de arroz, tema homem aranha, nome ` +
