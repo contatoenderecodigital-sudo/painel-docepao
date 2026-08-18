@@ -475,7 +475,10 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                     qualquer um dos dois abre tema, nome e idade, que é o que a
                     peça precisa pra ser fabricada. Tudo isso vive na observação
                     do item, que é o que a IA lê e o que vai pra cozinha. */}
-                {(it.categoria === "bolo_festa" || it.categoria === "bolo_caseiro") && (() => {
+                {/* So o bolo de festa leva topo, papel de arroz e os dados da peca.
+                    Bolo caseiro sai da vitrine inteiro: nao tem tema nem
+                    aniversariante, e mostrar esses campos so atrapalha a equipe. */}
+                {it.categoria === "bolo_festa" && (() => {
                   const obs = it.obs ?? "";
                   const temTopo = /topo/i.test(obs) && !/sem topo/i.test(obs);
                   const temPapel = /papel de arroz/i.test(obs) && !/sem papel/i.test(obs);

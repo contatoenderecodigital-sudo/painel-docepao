@@ -1817,6 +1817,27 @@ function mapaDeSabores(): Record<string, string[]> {
   for (const it of (catalogo.outros_produtos ?? []) as ItemCat[]) guardar(it.nome, it.sabores);
   // Como o cliente chama: "pastel frito" e a mini bolha, que tem sabor.
   if (m["mini bolha"]) m["pastel frito"] = m["mini bolha"];
+  // PIZZA e o produto com mais sabor da casa, e estava fora do mapa: os
+  // sabores moram numa estrutura propria, nao em itens.
+  const daPizza = [
+    ...((catalogo.pizza?.sabores_salgados ?? []) as string[]),
+    ...((catalogo.pizza?.sabores_doces ?? []) as string[]),
+  ];
+  if (daPizza.length) {
+    guardar("pizza inteira", daPizza);
+    guardar("pizza meia", daPizza);
+    guardar("pizza", daPizza);
+    guardar("pizza redonda", daPizza);
+    guardar("calzone", daPizza);
+    guardar("pizza redonda", daPizza);
+  }
+  // O cupcake grande tem os mesmos sabores do pequeno; a lista so estava
+  // escrita num deles.
+  if (m["cupcake pequeno"]) {
+    guardar("cupcake grande", m["cupcake pequeno"]);
+    guardar("cupcake grande recheado", m["cupcake pequeno"]);
+    guardar("cupcake", m["cupcake pequeno"]);
+  }
   return m;
 }
 const SABORES = mapaDeSabores();
