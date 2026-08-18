@@ -585,11 +585,12 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // pedido como se fosse item. Salgado nao se produz: coxinha se produz. O
     // cliente TEM que escolher os tipos, e e pra isso que a festa tem etapas.
     if (semTipo(produto)) {
-      const tipos = TIPOS_DA_FAMILIA[categoria] ?? TIPOS_DA_FAMILIA[produto.toLowerCase()] ?? [];
+      const tipos = TIPOS_DA_FAMILIA[produto.toLowerCase()] ?? TIPOS_DA_FAMILIA[categoria] ?? [];
       return (
         `NAO anotei "${produto}": isso e categoria, nao produto, e a cozinha nao produz categoria. ` +
         (tipos.length ? `Pergunte QUAIS ele quer, entre ${tipos.join(", ")}, e quantos de cada. ` : `Pergunte QUAIS ele quer e quantos de cada. `) +
-        `Pode usar o total que ele falou (${qtd}) pra dividir entre os tipos que ele escolher. Anote so depois que ele escolher.`
+        `E pergunte QUANTOS DE CADA: quem divide o total e o cliente, nunca voce. Nao ofereca "dividir igual" nem ` +
+        `"sortido" por conta propria, porque quase ninguem quer a mesma quantidade de tudo. Anote so depois que ele escolher.`
       );
     }
     return `Anotei ${qtd} de ${produto} no pedido. Continue a conversa normalmente; o pedido fica guardado e você não precisa repetir os itens anteriores.`;
@@ -1163,7 +1164,7 @@ function faltaNoItem(i: MontagemAtual["itens"][number]): string | null {
   const nome = String(i.produto || "").trim();
   if (!nome) return null;
   if (semTipo(nome)) {
-    const tipos = TIPOS_DA_FAMILIA[i.categoria] ?? TIPOS_DA_FAMILIA[nome.toLowerCase()] ?? [];
+    const tipos = TIPOS_DA_FAMILIA[nome.toLowerCase()] ?? TIPOS_DA_FAMILIA[i.categoria] ?? [];
     return (
       `- ${i.qtd} de "${nome}": falta o cliente escolher QUAIS TIPOS e quantos de cada. ` +
       (tipos.length ? `Os tipos sao ${tipos.join(", ")}. ` : "") +
