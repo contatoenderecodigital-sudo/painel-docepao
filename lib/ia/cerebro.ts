@@ -656,6 +656,20 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       );
     }
 
+    // TOPO E PAPEL DE ARROZ SAO DO BOLO, NAO ITEM SOLTO.
+    //
+    // Viraram linha propria no pedido e a arte do bolo (tema, nome, idade)
+    // acabou espalhada neles. Quem monta o bolo precisa ler tudo junto, num
+    // lugar so. O preco nao se perde: o motor cobra o papel de arroz que estiver
+    // na observacao do bolo, e o topo vai pra equipe confirmar.
+    if (/^(topo de bolo|topo|papel de arroz)$/i.test(produto)) {
+      return (
+        `NAO anotei "${produto}" como item: isso faz parte do BOLO. Chame anotar_item do bolo de novo com isso na ` +
+        `observacao, junto do resto (ex: "pao de lo branco, topo de bolo, papel de arroz, tema homem aranha, nome ` +
+        `Theo, 8 anos, prato aberto"). Assim a cozinha le o bolo inteiro numa linha so.`
+      );
+    }
+
     // GENERICO NAO ENTRA NO PEDIDO.
     //
     // Ela anotava "250 salgados fritos" e seguia a conversa, e aquilo ficava no

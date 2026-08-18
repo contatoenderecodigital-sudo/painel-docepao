@@ -448,6 +448,20 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                           aoTrocar={(v) => mexerItem(i, { obs: trocarTermo(obs, "papel de arroz", v) })}
                         />
                       </div>
+                      {/* Como o bolo vai embalado: a cozinha precisa saber, e
+                          isso vinha se perdendo porque nao tinha campo. */}
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        <Caixa
+                          ligado={/prato aberto/i.test(obs)}
+                          rotulo="prato aberto"
+                          aoTrocar={(v) => mexerItem(i, { obs: trocarTermo(trocarTermo(obs, "caixa com tampa", false), "prato aberto", v) })}
+                        />
+                        <Caixa
+                          ligado={/caixa com tampa/i.test(obs)}
+                          rotulo="caixa com tampa"
+                          aoTrocar={(v) => mexerItem(i, { obs: trocarTermo(trocarTermo(obs, "prato aberto", false), "caixa com tampa", v) })}
+                        />
+                      </div>
 
                       {precisaArte && (
                         <div className="mt-2 flex flex-col gap-2">
