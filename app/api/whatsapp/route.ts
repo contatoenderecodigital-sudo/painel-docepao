@@ -25,6 +25,7 @@ import {
   marcarWebhookNovo,
   salvarFotoPendente,
   resumoPedidoFechado,
+  mensagemPorWamid,
 } from "@/lib/banco/conversas";
 import { definirHandoff, iaPausada, ultimaMsgClienteMs } from "@/lib/banco/atendimentos";
 import { registrarAceiteCliente, temPedidoAguardandoCliente, pedidoEmAberto } from "@/lib/banco/pedidos";
@@ -235,6 +236,25 @@ async function processar(corpo: WebhookPayload) {
       // anterior ainda esta viva e o historico vai inteiro.
       const aguardando = await temPedidoAguardandoCliente(negocioId, clienteId).catch(() => false);
       const historico = await carregarHistorico(negocioId, clienteId, aguardando);
+      // MENSAGEM MARCADA: ela responde AQUILO, nao a ultima coisa que falou.
+      //
+      // Sem isso, cliente que responde uma pergunta antiga (ou corrige um item
+      // la de tras) recebe resposta sobre outro assunto.
+      try {
+        const marcado = msg.context?.id ? await mensagemPorWamid(negocioId, clienteId, msg.context.id) : null;
+        if (marcado?.conteudo) {
+          const ult = historico[historico.length - 1];
+          if (ult && ult.role === "user" && typeof ult.content === "string") {
+            const trecho = String(marcado.conteudo).slice(0, 220);
+            const dequem = marcado.papel === "assistant" ? "voce disse" : "ele disse";
+            ult.content =
+              "[o cliente respondeu MARCANDO esta mensagem, onde " + dequem + ": \"" + trecho + "\". Responda em cima dela]\n" +
+              ult.content;
+          }
+        }
+      } catch (e) {
+        console.error("[whatsapp] falha ao ler a mensagem marcada (segue sem ela):", e);
+      }
       const tenant = await carregarTenant(negocioId); // cardápio/persona DESTE negócio
 
       // A IA tenta os provedores em cadeia (OpenAI, Gemini, ...). Se TODOS caírem,
@@ -436,6 +456,8 @@ async function processar(corpo: WebhookPayload) {
           }
         }
       };
+      // O id que o Meta devolve identifica esta resposta quando o cliente a marcar.
+      let wamidResposta: string | null = null;
       try {
         // Imagem ANTES do texto: a IA diz "te mandei o cardápio aqui", e se o
         // texto chega primeiro o cliente lê a frase olhando pra uma conversa
@@ -445,12 +467,14 @@ async function processar(corpo: WebhookPayload) {
         // Proporcional ao tamanho da resposta, com teto — ninguém espera 20s
         // por uma frase, e o webhook tem prazo pra terminar.
         await pausa(tempoDeDigitar(textoResp));
-        await enviarTexto(telefone, textoResp, creds);
+        wamidResposta = await enviarTexto(telefone, textoResp, creds);
       } catch (e) {
         console.error("[whatsapp] falha ao enviar resposta:", e);
       }
       try {
-        await salvarMensagem(negocioId, clienteId, "assistant", textoResp);
+        // O id do WhatsApp vem junto: sem ele nao da pra reconhecer quando o
+        // cliente responde marcando esta mensagem.
+        await salvarMensagem(negocioId, clienteId, "assistant", textoResp, { wamid: wamidResposta ?? undefined });
       } catch (e) {
         console.error("[whatsapp] falha ao salvar resposta:", e);
       }
@@ -580,6 +604,8 @@ type WhatsAppMessage = {
   id?: string;
   from: string;
   type: string;
+  // Vem quando o cliente responde marcando uma mensagem: id da marcada.
+  context?: { id?: string; from?: string };
   text?: { body: string };
   audio?: { id: string; mime_type?: string };
   image?: { id: string; mime_type?: string; caption?: string };

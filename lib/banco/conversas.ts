@@ -122,6 +122,21 @@ export type ExtraMensagem = {
   wamid?: string | null;
   lida?: boolean;
 };
+// A mensagem que o cliente marcou pra responder, pelo id do WhatsApp.
+export async function mensagemPorWamid(
+  negocioId: string,
+  clienteId: string,
+  wamid: string,
+): Promise<{ conteudo: string; papel: string } | null> {
+  const l = await queryUm<{ conteudo: string; papel: string }>(
+    `select conteudo, papel from mensagens
+      where negocio_id = $1 and cliente_id = $2 and wamid = $3
+      limit 1`,
+    [negocioId, clienteId, wamid],
+  );
+  return l ?? null;
+}
+
 export async function salvarMensagem(
   negocioId: string,
   clienteId: string,

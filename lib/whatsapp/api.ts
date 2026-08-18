@@ -31,7 +31,7 @@ function normalizarBR(numero: string): string {
 }
 
 // Manda um texto de volta pro cliente (pelo numero do tenant, ou o do env).
-export async function enviarTexto(para: string, texto: string, creds?: CredsEnvio): Promise<void> {
+export async function enviarTexto(para: string, texto: string, creds?: CredsEnvio): Promise<string | null> {
   const { token, phoneId } = resolverCreds(creds);
   const destino = normalizarBR(para);
   console.log(`[whatsapp] enviando para ${destino} (recebido: ${para}) via ${phoneId}`);
@@ -46,6 +46,14 @@ export async function enviarTexto(para: string, texto: string, creds?: CredsEnvi
     }),
   });
   if (!r.ok) throw new Error(`Falha ao enviar WhatsApp: ${r.status} ${await r.text()}`);
+  // O id volta na resposta do Meta: e por ele que a gente reconhece depois
+  // qual mensagem o cliente marcou pra responder.
+  try {
+    const corpo = (await r.json()) as { messages?: { id?: string }[] };
+    return corpo?.messages?.[0]?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // Manda um TEMPLATE aprovado (única forma de falar FORA da janela de 24h, e de
