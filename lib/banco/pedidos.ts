@@ -378,3 +378,62 @@ export async function pedidoEmAberto(
     impresso: Boolean(l.impresso_em),
   };
 }
+
+// O pedido REGISTRADO que a equipe ainda nao aprovou, pro painel do atendimento
+// continuar mostrando o que foi fechado. Assim que a aprovacao imprime o ticket
+// ele sai da tela: e o unico momento em que o pedido deixa de estar em curso.
+export type PedidoNaTela = {
+  id: string;
+  status: string;
+  totalCentavos: number;
+  retiradaData: string | null;
+  retiradaHora: string | null;
+  itens: { produto: string; categoria: string; qtd: number; unidade: string; obs: string | null }[];
+};
+
+export async function pedidoRegistradoDoCliente(
+  negocioId: string,
+  clienteId: string,
+): Promise<PedidoNaTela | null> {
+  const p = await queryUm<{
+    id: string;
+    status: string;
+    total_centavos: number;
+    retirada_data: string | null;
+    retirada_hora: string | null;
+  }>(
+    `select id, status::text as status, coalesce(total_centavos, 0) as total_centavos,
+            to_char(retirada_data, 'DD/MM/YYYY') as retirada_data, retirada_hora
+       from pedidos
+      where negocio_id = $1 and cliente_id = $2 and status = 'confirmado'
+      order by criado_em desc
+      limit 1`,
+    [negocioId, clienteId],
+  );
+  if (!p) return null;
+  const itens = await query<{
+    produto: string;
+    categoria: string;
+    qtd: string;
+    unidade: string;
+    obs: string | null;
+  }>(
+    `select produto, coalesce(categoria, '') as categoria, qtd, coalesce(unidade, 'un') as unidade, obs
+       from pedido_itens where pedido_id = $1 order by id`,
+    [p.id],
+  );
+  return {
+    id: p.id,
+    status: p.status,
+    totalCentavos: Number(p.total_centavos) || 0,
+    retiradaData: p.retirada_data,
+    retiradaHora: p.retirada_hora,
+    itens: itens.map((i) => ({
+      produto: i.produto,
+      categoria: i.categoria,
+      qtd: Number(i.qtd) || 0,
+      unidade: i.unidade,
+      obs: i.obs,
+    })),
+  };
+}

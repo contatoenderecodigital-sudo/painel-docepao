@@ -13,7 +13,15 @@ export async function GET(req: NextRequest) {
   if (!clienteId || !bancoConfigurado) return Response.json({ itens: [], dados: {} });
   try {
     const { lerMontagem } = await import("@/lib/banco/montagem");
-    return Response.json(await lerMontagem(sessao.negocioId, clienteId));
+    const m = await lerMontagem(sessao.negocioId, clienteId);
+    // Sem nada em montagem, mas com pedido ja registrado: o painel mostra o
+    // pedido fechado em vez de dizer que nao tem nada.
+    if ((m.itens?.length ?? 0) === 0) {
+      const { pedidoRegistradoDoCliente } = await import("@/lib/banco/pedidos");
+      const registrado = await pedidoRegistradoDoCliente(sessao.negocioId, clienteId).catch(() => null);
+      if (registrado) return Response.json({ ...m, registrado });
+    }
+    return Response.json(m);
   } catch (e) {
     console.error("[montagem] GET", e);
     return Response.json({ itens: [], dados: {} });

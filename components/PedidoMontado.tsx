@@ -14,6 +14,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ChevronDown, Plus, Minus, Trash2, Check, Square, CheckSquare } from "lucide-react";
+import { brl } from "@/lib/tipos";
+
+// O pedido ja fechado deste cliente, esperando a aprovacao.
+type Registrado = {
+  totalCentavos: number;
+  retiradaData: string | null;
+  retiradaHora: string | null;
+  itens: { produto: string; categoria: string; qtd: number; unidade: string; obs: string | null }[];
+};
 
 type Categoria =
   | "bolo_festa" | "bolo_caseiro" | "docinho" | "salgado_frito" | "salgado_assado"
@@ -99,6 +108,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
   const [foto, setFoto] = useState<string | null>(null);
   const [itens, setItens] = useState<Item[]>([]);
   const [dados, setDados] = useState<Dados>({});
+  const [registrado, setRegistrado] = useState<Registrado | null>(null);
   const [sujo, setSujo] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
@@ -110,6 +120,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       const j = await r.json();
       setItens(Array.isArray(j.itens) ? j.itens : []);
       setDados(j.dados ?? {});
+      setRegistrado(j.registrado ?? null);
       // A foto de referencia do tema, pra dona conferir o bolo olhando pra ela.
       fetch(`/api/montagem/foto?cliente=${encodeURIComponent(clienteId)}`)
         .then((x) => x.json())
@@ -136,6 +147,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
     setSalvo(false);
     setItens([]);
     setDados({});
+    setRegistrado(null);
     carregar();
   }, [clienteId, carregar]);
 
@@ -208,11 +220,40 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       {/* Fechado, mostra o resumo numa linha: dá pra bater o olho e seguir. */}
       {!aberto && (
         <p className="text-[12px] text-cream/60 mt-2 leading-snug">
-          {vazio ? "Nada anotado ainda." : resumo}
+          {registrado && vazio
+            ? "Pedido fechado, esperando aprovacao: " + registrado.itens.map((x) => `${x.qtd} ${x.produto}`).join(", ")
+            : vazio
+              ? "Nada anotado ainda."
+              : resumo}
         </p>
       )}
 
-      {aberto && (
+      {/* Fechado e na mao da equipe: aqui e so pra ver, mudanca passa pela
+          tela de Aprovacao, que e onde o pedido de verdade e alterado. */}
+      {aberto && registrado && vazio && (
+        <div className="mt-2.5 rounded-lg border border-cream/12 p-2.5">
+          <p className="t-label text-cream/45 mb-2">
+            Pedido fechado{registrado.retiradaData ? ` pra ${registrado.retiradaData}` : ""}
+            {registrado.retiradaHora ? ` as ${registrado.retiradaHora}` : ""}
+          </p>
+          <ul className="flex flex-col gap-1">
+            {registrado.itens.map((x, i) => (
+              <li key={i} className="text-[12px] text-cream/75 leading-snug">
+                {x.qtd} {x.unidade === "kg" ? "kg" : "un"} de {x.produto}
+                {x.obs ? <span className="text-cream/45"> ({x.obs})</span> : null}
+              </li>
+            ))}
+          </ul>
+          <p className="text-[12px] mt-2 font-medium" style={{ color: "#e7cf94" }}>
+            Total {brl(registrado.totalCentavos)}
+          </p>
+          <p className="text-[11px] text-cream/45 mt-2 leading-snug">
+            Sai daqui quando a aprovacao imprimir o ticket. Pra mudar alguma coisa, use a tela de Aprovacao.
+          </p>
+        </div>
+      )}
+
+      {aberto && !(registrado && vazio) && (
         <div className="mt-2.5">
           <datalist id="cardapio-produtos">
             {cardapio.map((c) => (
