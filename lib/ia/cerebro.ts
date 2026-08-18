@@ -595,17 +595,6 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       }
     }
 
-    // Topo ou papel de arroz sem foto do tema: peca uma vez, sem insistir. A
-    // peca e fabricada em cima do tema, e com a foto a producao acerta melhor.
-    // Nao trava o pedido: muita gente nao tem foto nenhuma.
-    const pedeArte = /topo|papel de arroz/i.test(String(obsItem ?? ""));
-    const temFoto = /foto/i.test(String(obsItem ?? ""));
-    if ((categoria === "bolo_festa" || categoria === "bolo_caseiro") && pedeArte && !temFoto) {
-      return (
-        `Anotei ${qtd} kg de ${produto}. Como tem topo ou papel de arroz, peca a foto do tema UMA vez, numa frase ` +
-        `("se tiver uma foto do tema, me manda que ajuda bastante"). Se ele nao tiver, tudo bem, siga o pedido.`
-      );
-    }
 
     // BOLO DE DOIS SABORES: os dois tem que estar no NOME.
     //
@@ -711,6 +700,18 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       if (antiga && !brigam && !contida) obsFinal = antiga + ", " + nova;
     }
     estado.montagem.push({ tipo: "item", produto, categoria, qtd, obs: obsFinal });
+
+    // Topo ou papel de arroz sem foto do tema: peca uma vez, sem insistir. A
+    // peca e fabricada em cima do tema, e com a foto a producao acerta melhor.
+    // Nao trava o pedido: muita gente nao tem foto nenhuma.
+    const pedeArte = /topo|papel de arroz/i.test(String(obsItem ?? ""));
+    const temFoto = /foto/i.test(String(obsItem ?? ""));
+    if ((categoria === "bolo_festa" || categoria === "bolo_caseiro") && pedeArte && !temFoto) {
+      return (
+        `Anotei ${qtd} kg de ${produto}. Como tem topo ou papel de arroz, peca a foto do tema UMA vez, numa frase ` +
+        `("se tiver uma foto do tema, me manda que ajuda bastante"). Se ele nao tiver, tudo bem, siga o pedido.`
+      );
+    }
 
     // O aviso de sabor faltando vem AQUI, no mesmo turno. A lista de pendências
     // do fim do prompt é montada antes da resposta, então ela só enxergaria a
