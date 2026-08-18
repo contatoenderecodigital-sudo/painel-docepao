@@ -631,7 +631,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         const b = produto.trim().toLowerCase();
         return a === b || a.includes(b) || b.includes(a);
       });
-      if (!boloJaNoPedido && sabor && sabor.length > 3 && !falaDoCliente.toLowerCase().includes(sabor.toLowerCase())) {
+      // Sem acento: o cliente escreve "prestigio", "pessego", "maracuja", e o
+      // cardapio guarda com acento. Recusar por acento e recusar o que ele pediu.
+      const semAcentoSabor = (t: string) =>
+        String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+      if (
+        !boloJaNoPedido &&
+        sabor &&
+        sabor.length > 3 &&
+        !semAcentoSabor(falaDoCliente).includes(semAcentoSabor(sabor))
+      ) {
         return (
           `NAO anotei: o cliente nunca falou em bolo de ${sabor}. Bolo de festa e escolha dele, nunca sua nem da ` +
           `sugestao de tamanho da festa. Mande o cardapio de bolos ou pergunte qual sabor ele quer, e anote o que ele responder.`
@@ -1089,7 +1098,10 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       "pizza",
       "cupcakes-franciscano",
     ];
-    const itensJa = montagemAtual?.itens ?? [];
+    // Conta o que ela acabou de anotar: o cliente que manda tudo numa mensagem
+    // ja escolheu salgado e docinho, e receber o cardapio de salgados depois
+    // disso e sinal de que ninguem leu o que ele escreveu.
+    const itensJa = itensAgora();
     const tem = (pref: string) => itensJa.some((i) => String(i.categoria || "").startsWith(pref));
     // Parte dispensada nao e etapa: o cliente disse que nao quer salgado, pediu o
     // cardapio de docinhos e recebeu o de salgados "porque e a etapa certa".
