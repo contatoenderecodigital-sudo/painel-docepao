@@ -75,6 +75,11 @@ export type Mensagem = {
   midiaUrl?: string; // imagem publicada (cardapio); dispensa guardar base64
   midiaMime?: string;
   midiaNome?: string; // nome do arquivo (documento)
+  // O que o WhatsApp respondeu depois do envio. Falha e o que mais importa:
+  // significa que o cliente NAO recebeu, e alguem precisa agir.
+  entregue?: boolean;
+  lidaWpp?: boolean;
+  falhaEnvio?: string;
   // Só no cliente (envio otimista): status visual do balão enquanto sai.
   status?: "enviando" | "enviado" | "erro";
   // id da mensagem (dedupe no polling / chave estável).
@@ -94,6 +99,9 @@ export type Conversa = {
   // completa 24h. Depois disso, só template aprovado reabre a conversa.
   // null = o cliente nunca escreveu (nova conversa proativa).
   janelaExpiraMs?: number | null;
+  // Anuncio que trouxe o cliente (Click-to-WhatsApp). A Meta so conta na
+  // primeira mensagem da conversa; depois some.
+  origemAnuncio?: { titulo?: string | null; url?: string | null; anuncio_id?: string | null } | null;
   // Custo de IA ACUMULADO desta conversa (centavos de R$). Estimativa (preços
   // "ajustar" na tabela de preços). Some do consumo do cérebro amarrado ao
   // cliente. 0 = sem consumo registrado (ou registrado sem cliente).

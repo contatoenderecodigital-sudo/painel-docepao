@@ -22,6 +22,9 @@ type MsgBruta = {
   nome: string | null;
   tem_midia: boolean;
   url: string | null;
+  entregue: boolean | null;
+  lida_wpp: boolean | null;
+  falha: string | null;
 };
 type LinhaConversa = {
   cliente_id: string;
@@ -71,10 +74,14 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
             'mime', m.midia_mime,
             'nome', m.midia_nome,
             'tem_midia', (m.midia_dados is not null),
-            'url', m.midia_url)
+            'url', m.midia_url,
+            'entregue', (m.entregue_em is not null),
+            'lida_wpp', (m.lida_em is not null),
+            'falha', m.falha)
           order by m.criado_em)
           from mensagens m where m.cliente_id = c.id and m.negocio_id = $1),
          '[]'::json) as msgs
+       , c.origem_anuncio
        from clientes c
       where c.negocio_id = $1
         and exists (select 1 from mensagens m where m.cliente_id = c.id and m.negocio_id = $1)
@@ -95,8 +102,13 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
       midiaUrl: m.url ?? undefined,
       midiaMime: m.mime ?? undefined,
       midiaNome: m.nome ?? undefined,
+      entregue: m.entregue ?? undefined,
+      lidaWpp: m.lida_wpp ?? undefined,
+      falhaEnvio: m.falha ?? undefined,
       id: m.id,
     }));
+    // O anuncio de origem, quando existir.
+    const anuncio = (l as unknown as { origem_anuncio?: Record<string, string> | null }).origem_anuncio ?? null;
     const ultima = msgs[msgs.length - 1];
     return {
       id: l.cliente_id,
@@ -110,6 +122,7 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
       janelaExpiraMs: l.janela_expira_ms != null ? Number(l.janela_expira_ms) : null,
       custoCentavos: Number(l.custo_cent) || 0,
       mensagens,
+      origemAnuncio: anuncio,
     };
   });
 }

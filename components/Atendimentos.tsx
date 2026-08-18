@@ -20,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatarTelefoneBR, linkWhatsapp, brl } from "@/lib/tipos";
 import CampoTelefone, { telefoneCompleto } from "@/components/CampoTelefone";
 import AudioBolha from "@/components/AudioBolha";
-import {
+import { Check,
   Search, Plus, Paperclip, SendHorizontal, ArrowLeft, Bot, X,
   MessageSquare, Info, FileText, Download, CheckCheck, AlertCircle,
   Clock, ShieldAlert, Hand, ShoppingBag,
@@ -111,7 +111,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
 
   // legenda que acompanha a mídia: tira as notas internas ("[o cliente enviou
   // ...]") e os rótulos automáticos (Foto/Áudio/nome do arquivo), pra não repetir.
-  const isMidia = m.tipo === "imagem" || m.tipo === "audio" || m.tipo === "documento";
+  const isMidia = m.tipo === "imagem" || m.tipo === "audio" || m.tipo === "documento" || m.tipo === "video";
   let legenda = (m.texto || "").replace(/\[o cliente enviou[^\]]*\]/gi, "").replace(/\[midia\]/gi, "").trim();
   const rotulosAuto = [m.midiaNome ?? "", "foto", "áudio", "audio"].map((s) => s.toLowerCase());
   if (isMidia && legenda && rotulosAuto.includes(legenda.toLowerCase())) legenda = "";
@@ -122,6 +122,16 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
       {!isCliente && m.de === "equipe" && m.status === "enviando" && <Clock size={11} />}
       {!isCliente && m.de === "equipe" && m.status === "enviado" && <CheckCheck size={12} />}
       {!isCliente && m.de === "equipe" && m.status === "erro" && <AlertCircle size={12} className="text-red-900" />}
+      {/* O que o WhatsApp respondeu depois do envio. Falha e o unico caso que
+          pede acao: a mensagem nao chegou no cliente. */}
+      {!isCliente && m.falhaEnvio && (
+        <span className="inline-flex items-center gap-1 text-red-900" title={m.falhaEnvio}>
+          <AlertCircle size={12} /> não chegou
+        </span>
+      )}
+      {!isCliente && !m.falhaEnvio && m.lidaWpp && <CheckCheck size={12} className="text-sky-800" />}
+      {!isCliente && !m.falhaEnvio && !m.lidaWpp && m.entregue && <CheckCheck size={12} />}
+      {!isCliente && !m.falhaEnvio && !m.lidaWpp && !m.entregue && m.de === "ia" && <Check size={12} />}
     </span>
   );
 
@@ -157,6 +167,10 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
                 </span>
               )}
             </div>
+          )}
+          {/* VÍDEO */}
+          {m.tipo === "video" && src && (
+            <video src={src} controls preload="metadata" className="rounded-[11px] max-h-64 w-auto block" />
           )}
           {/* ÁUDIO */}
           {m.tipo === "audio" && src && (
@@ -814,6 +828,13 @@ function PainelContato({ conversa, qtdMensagens, onToast }: { conversa: Conversa
             <a href={linkWhatsapp(conversa.clienteTelefone)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-cream/60 mt-1 hover:text-cream transition-colors">
               <span className="text-[#25d366]"><WhatsAppIcon size={12} /></span> {formatarTelefoneBR(conversa.clienteTelefone)}
             </a>
+            {/* Veio de anuncio: a Meta so conta isso na primeira mensagem da
+                conversa, entao e informacao que nao da pra recuperar depois. */}
+            {conversa.origemAnuncio?.titulo && (
+              <div className="mt-2 text-[11px] text-cream/55 px-3 py-1.5 rounded-[10px]" style={{ background: "rgba(231,207,148,0.10)" }}>
+                Veio do anúncio: <span className="text-cream/80">{conversa.origemAnuncio.titulo}</span>
+              </div>
+            )}
           </div>
           {/* O pedido tomando forma, no alto da coluna: fica ao lado da conversa
               (dá pra conferir sem tapar o que o cliente está escrevendo) e é a
