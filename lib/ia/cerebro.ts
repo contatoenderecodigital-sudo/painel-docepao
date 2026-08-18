@@ -1120,6 +1120,11 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // ter sido corrigido.
     const RECHEIOS = /(carne|frango|calabresa|bacon|br[óo]colis|palmito|milho|queijo|presunto|catupiry)/gi;
     for (const l of c.linhas) {
+      // Item que veio do pedido anotado ja passou pela guarda de recheio na hora
+      // de entrar, inclusive aceitando o que ELA propos e o cliente confirmou.
+      // Rechecar aqui contra a fala do cliente barrava o recheio da indicacao
+      // ("100 mini bolha de carne, pode ser assim?" e o cliente dizendo que sim).
+      if (anotados.length > 0) continue;
       if (!PEDE_RECHEIO.test(l.item)) continue;
       const ditos = String(l.obs ?? "").match(RECHEIOS) ?? [];
       const inventado = ditos.find((r) => !new RegExp(r.replace(/[óo]/i, "[óo]"), "i").test(falaDoCliente));
