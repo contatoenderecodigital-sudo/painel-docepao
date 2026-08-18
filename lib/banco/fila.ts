@@ -5,6 +5,7 @@
 // ============================================================================
 
 import { query, queryUm } from "./db";
+import { unidadeDoProduto } from "@/lib/ia/cerebro";
 
 export type JobImpressao = {
   filaId: string;
@@ -98,7 +99,9 @@ export async function jobsPendentes(negocioId: string): Promise<JobImpressao[]> 
         categoria: i.categoria || "",
         qtd: i.qtd,
         obs: i.obs,
-        unidade: i.unidade,
+        // Unidade vazia vira peca na impressao: 3 kg de bolo viram tres bolos.
+        // O cardapio decide, igual ao preco.
+        unidade: i.unidade ?? unidadeDoProduto(String(i.produto ?? ""), String(i.categoria ?? "")),
         unitCentavos: i.unit_centavos,
         subtotalCentavos: i.subtotal_centavos,
       })),
