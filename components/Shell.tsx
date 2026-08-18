@@ -70,6 +70,10 @@ export default async function Shell({
     if (marca?.tipo) tipoNegocio = marca.tipo;
     logoUrl = marca?.logoUrl ?? null;
   }
+  // OWNER e quem cuida do sistema (eu), nao a dona da padaria: ferramenta de
+  // teste, conexao do WhatsApp e logo do negocio sao dele, e no menu dela so
+  // atrapalham.
+  const ehOwner = sessao?.papel === "owner";
   const styleMarca = paletaDoTenant(corPrimaria, corDestaque);
 
   // No celular vira coluna (barra superior + conteúdo); no desktop, lado a lado.
@@ -114,7 +118,7 @@ export default async function Shell({
           </div>
         </div>
 
-        <SidebarNav filaCount={filaCount} tipo={tipoNegocio} />
+        <SidebarNav filaCount={filaCount} tipo={tipoNegocio} owner={ehOwner} />
 
         <div className="px-4 py-4 border-t border-white/10">
           {sessao ? (

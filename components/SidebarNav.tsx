@@ -10,18 +10,21 @@ import { usePathname } from "next/navigation";
 // tipos: em quais tipos de negócio a aba aparece. Sem tipos = aparece em todos
 // (universal). Padaria vê tudo; agência (só WhatsApp/CRM) não vê aprovação de
 // pedido, pedidos do dia, recuperação nem resultados de padaria.
-type Item = { href: string; label: string; icon: string; tipos?: string[] };
+type Item = { href: string; label: string; icon: string; tipos?: string[]
+  // So o dono do sistema ve: a padaria nao usa e so polui o menu dela.
+  owner?: boolean;
+};
 
 const ITENS: Item[] = [
   { href: "/", label: "Aprovação", icon: "bell", tipos: ["padaria"] },
   { href: "/aguardando", label: "Aguardando confirmação", icon: "aguardando", tipos: ["padaria"] },
   { href: "/dia", label: "Pedidos do dia", icon: "order", tipos: ["padaria"] },
   { href: "/atendimentos", label: "Atendimentos", icon: "chat" },
-  { href: "/testar", label: "Testar IA", icon: "bot" },
+  { href: "/testar", label: "Testar IA", icon: "bot", owner: true },
   { href: "/clientes", label: "Clientes", icon: "clientes" },
   { href: "/recuperar", label: "Recuperar", icon: "restore", tipos: ["padaria"] },
   { href: "/resultados", label: "Resultados", icon: "chart", tipos: ["padaria"] },
-  { href: "/conectar", label: "Conectar WhatsApp", icon: "whatsapp" },
+  { href: "/conectar", label: "Conectar WhatsApp", icon: "whatsapp", owner: true },
   { href: "/configuracoes", label: "Configurações", icon: "config" },
 ];
 
@@ -93,12 +96,14 @@ function Icone({ nome }: { nome: string }) {
 export default function SidebarNav({
   filaCount = 0,
   tipo = "padaria",
+  owner = false,
 }: {
   filaCount?: number;
   tipo?: string;
+  owner?: boolean;
 }) {
   const path = usePathname();
-  const itens = ITENS.filter((it) => !it.tipos || it.tipos.includes(tipo));
+  const itens = ITENS.filter((it) => (!it.tipos || it.tipos.includes(tipo)) && (!it.owner || owner));
   return (
     <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
       {itens.map((it) => {

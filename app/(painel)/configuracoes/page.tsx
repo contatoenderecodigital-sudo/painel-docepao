@@ -46,7 +46,10 @@ export default async function Page() {
 
       <div className="flex flex-col gap-4">
         <ToggleIA ativa={iaAtiva} />
-        <LogoUpload inicial={logoAtual} />
+        {/* Trocar a logo e coisa de quem cuida do sistema, nao do dia a dia da
+            padaria: no meio das configuracoes dela e so risco de mexer sem
+            querer. */}
+        {sessao?.papel === "owner" && <LogoUpload inicial={logoAtual} />}
         <AvisoDoDia texto={texto} atualizadoEm={atualizadoEm} ativoHoje={ativoHoje} />
       </div>
     </div>
