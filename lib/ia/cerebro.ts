@@ -645,7 +645,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // Papel de arroz e topo de bolo sao um por bolo: ninguem diz "quero 1 topo",
     // diz "quero topo". Cobrar o numero deles trava a conversa a toa.
     const unicoPorNatureza = /papel de arroz|topo de bolo|topo/i.test(produto) || categoria === "papel_de_arroz";
-    if (!unicoPorNatureza && !mandouDividir && !numerosDitos.has(qtd)) {
+    // Item que JA esta no pedido com essa mesma quantidade nao esta pedindo
+    // quantidade nenhuma: ela so esta mexendo na observacao (topo, tema, nome).
+    // Sem isso a trava barrava a propria atualizacao do bolo.
+    const mesmaQtdJaAnotada = (montagemAtual?.itens ?? []).some(
+      (x) =>
+        x.produto.trim().toLowerCase() === produto.trim().toLowerCase() &&
+        x.categoria === categoria &&
+        Number(x.qtd) === qtd,
+    );
+    if (!unicoPorNatureza && !mesmaQtdJaAnotada && !mandouDividir && !numerosDitos.has(qtd)) {
       return (
         `NAO anotei: o cliente nunca falou em ${qtd} de ${produto}. Quantidade e escolha dele, nao sua. ` +
         `Pergunte QUANTOS de cada ele quer. Se ele mandar voce dividir o total, ai sim pode dividir e anotar.`
