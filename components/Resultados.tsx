@@ -280,7 +280,7 @@ export default function Resultados({
                       <span className="text-cream/90">
                         <b className="text-dourado mr-1.5">{i + 1}</b>
                         {p.produto}
-                        <span className="text-cream/45 text-xs ml-2">{p.qtd} un.</span>
+                        <span className="text-cream/45 text-xs ml-2">{p.qtd} {p.unidade === "kg" ? "kg" : "un."}</span>
                       </span>
                       <span className="text-cream tabular-nums font-medium">{brl(p.centavos)}</span>
                     </div>
@@ -478,7 +478,7 @@ function TipCount({ active, payload, label, unidade }: any) {
 // Relatório limpo (preto no branco) num iframe isolado, pronto pra imprimir/salvar.
 function imprimirRelatorio(d: Dados, nome: string) {
   const linhaProd = d.produtosTop
-    .map((p) => `<tr><td>${p.produto}</td><td class="r">${p.qtd} un.</td><td class="r">${brl(p.centavos)}</td></tr>`)
+    .map((p) => `<tr><td>${p.produto}</td><td class="r">${p.qtd} ${p.unidade === "kg" ? "kg" : "un."}</td><td class="r">${brl(p.centavos)}</td></tr>`)
     .join("");
   const linhaCli = d.topClientes
     .map((c) => `<tr><td>${c.nome}</td><td class="r">${c.pedidos} ped.</td><td class="r">${brl(c.centavos)}</td></tr>`)

@@ -199,8 +199,8 @@ export async function agregar(
   });
 
   // O que mais vendeu, por produto.
-  const prods = await query<{ produto: string; qtd: string; centavos: string }>(
-    `select i.produto, sum(i.qtd) as qtd, sum(i.subtotal_centavos) as centavos
+  const prods = await query<{ produto: string; qtd: string; centavos: string; unidade: string }>(
+    `select i.produto, sum(i.qtd) as qtd, sum(i.subtotal_centavos) as centavos, min(coalesce(i.unidade, 'un')) as unidade
        from pedido_itens i join pedidos p on p.id = i.pedido_id
       where p.negocio_id = $1 and ${VENDIDO} and ${DATA_VENDA} >= $2 and ${DATA_VENDA} < $3
       group by 1 order by 3 desc limit 8`,
@@ -210,6 +210,7 @@ export async function agregar(
     produto: x.produto,
     qtd: Number(x.qtd) || 0,
     centavos: Number(x.centavos) || 0,
+    unidade: x.unidade || "un",
   }));
 
   // Quando chegam as mensagens (e quando a padaria precisa estar pronta).

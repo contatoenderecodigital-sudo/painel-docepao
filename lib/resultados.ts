@@ -12,7 +12,7 @@ export type Periodo = "hoje" | "semana" | "mes" | "ano" | "custom";
 
 export type Kpi = { valor: number; variacaoPct: number | null };
 export type PontoSerie = { label: string; valor: number };
-export type ProdutoVenda = { produto: string; qtd: number; centavos: number };
+export type ProdutoVenda = { produto: string; qtd: number; centavos: number; unidade?: string };
 export type ClienteVenda = { nome: string; centavos: number; pedidos: number };
 
 export type Resultados = {
