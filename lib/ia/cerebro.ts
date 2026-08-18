@@ -683,7 +683,15 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         for (const sab of f.sabores ?? []) doCardapio.push(String(sab).toLowerCase());
       }
       const pedido = produto.replace(/^bolo (de |do |da )?/i, "").trim().toLowerCase();
-      const combina = (x: string) => doCardapio.some((d) => d === x || d.includes(x) || x.includes(d));
+      // Sem acento dos dois lados: o cliente escreve "prestigio", "pessego",
+      // "maracuja". Recusar por acento e dizer que nao faz o que esta no cardapio.
+      const limpo = (t: string) =>
+        String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+      const combina = (x: string) => doCardapio.some((d) => {
+        const a = limpo(d);
+        const b = limpo(x);
+        return a === b || a.includes(b) || b.includes(a);
+      });
       // Bolo misto: cada metade tem que existir.
       const partes = pedido.split(/ com | e /).map((x) => x.trim()).filter(Boolean);
       const existe = combina(pedido) || (partes.length > 1 && partes.every(combina));
