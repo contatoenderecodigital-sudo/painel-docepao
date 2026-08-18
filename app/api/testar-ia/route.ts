@@ -15,6 +15,8 @@ import { urlDoCardapio } from "@/lib/whatsapp/api";
 import { NextRequest } from "next/server";
 import { lerSessao } from "@/lib/auth";
 import { carregarTenant } from "@/lib/ia/tenant";
+import { lerMontagem, anotarItem, removerItem, anotarDados, limparMontagem } from "@/lib/banco/montagem";
+import { pedidoEmAberto } from "@/lib/banco/pedidos";
 import { responder, type Mensagem } from "@/lib/ia/cerebro";
 import { acharOuCriarCliente, registrarPedido, anexarFotoAoPedido, salvarFotoPendente } from "@/lib/banco/conversas";
 
@@ -102,12 +104,41 @@ export async function POST(req: NextRequest) {
 
   let resp;
   try {
-    resp = await responder(historico, tenant, "whatsapp", clienteId);
+    // Igual ao webhook: a IA precisa enxergar o pedido que ja esta montado,
+    // senao o teste exercita um sistema que nao existe em producao.
+    const montado = clienteId ? await lerMontagem(negocioId, clienteId).catch(() => null) : null;
+    const emAberto = clienteId ? await pedidoEmAberto(negocioId, clienteId).catch(() => null) : null;
+    resp = await responder(historico, tenant, "whatsapp", clienteId, montado, false, null, emAberto);
   } catch (e) {
     // Erro real dos provedores (ex: sem crédito/chave na Anthropic/OpenAI). Devolve
     // 200 com a mensagem crua pra UI mostrar o motivo — é útil o dono saber.
     const msg = (e as Error)?.message || String(e);
     return Response.json({ erro: msg });
+  }
+
+  // As mudancas do turno entram no pedido montado, como no webhook. Sem isto o
+  // teste perde tudo entre uma mensagem e outra.
+  if (clienteId) {
+    for (const mud of resp.montagem ?? []) {
+      try {
+        if (mud.tipo === "item") {
+          const porQuilo = mud.categoria === "bolo_festa" || mud.categoria === "por_quilo";
+          await anotarItem(negocioId, clienteId, {
+            produto: mud.produto,
+            categoria: mud.categoria as never,
+            qtd: mud.qtd,
+            unidade: porQuilo ? "kg" : "un",
+            obs: mud.obs ?? null,
+          });
+        } else if (mud.tipo === "remover") {
+          await removerItem(negocioId, clienteId, mud.produto, mud.categoria as never);
+        } else {
+          await anotarDados(negocioId, clienteId, mud.dados);
+        }
+      } catch (e) {
+        console.error("[testar-ia] falha ao aplicar mudanca do pedido:", e);
+      }
+    }
   }
 
   // Igual ao webhook: se a IA fechou o pedido, registra ANTES de responder pro
@@ -122,6 +153,7 @@ export async function POST(req: NextRequest) {
       // resta cobrir o caso em que a foto veio na MESMA mensagem que fechou o
       // pedido e o cliente sintético não pôde ser resolvido antes.
       const pedidoId = await registrarPedido(negocioId, idCliente, resp.pedidoRegistrado);
+      await limparMontagem(negocioId, idCliente).catch(() => {});
       if (foto && pedidoId && !clienteId) {
         try {
           await anexarFotoAoPedido(negocioId, pedidoId, idCliente, foto.dados, foto.mime);
@@ -145,6 +177,8 @@ export async function POST(req: NextRequest) {
     // Mesmas peças que o webhook mandaria no WhatsApp. Sem isto o /testar
     // mostrava só o texto e dava a impressão de que o cardápio não foi enviado.
     cardapios: (resp.cardapiosParaEnviar ?? []).map(urlDoCardapio),
+    // O pedido como ficou depois deste turno: e o que o teste automatico cobra.
+    itens: clienteId ? (await lerMontagem(negocioId, clienteId).catch(() => ({ itens: [] }))).itens : [],
   });
 }
 

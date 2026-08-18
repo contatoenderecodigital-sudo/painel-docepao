@@ -182,6 +182,121 @@ const CENARIOS = [
       ] },
     ],
   },
+  // -------------------------------------------------------------------------
+  //  COMPLEXAS: nasceram de conversas reais lidas na tela, uma a uma.
+  // -------------------------------------------------------------------------
+  {
+    nome: "Indeciso: troca item no meio e a conversa nao pode entrar em laco",
+    passos: [
+      { diz: "vcs fazem salgado pra festa?" },
+      { diz: "eh dia 12/09, 20 pessoas" },
+      {
+        diz: "quero 200 salgados, coxinha e empadinha, metade de cada",
+        checa: [
+          {
+            id: "ANOTOU-O-QUE-ELE-ESCOLHEU",
+            porque: "ele deu tipo e quantidade e a IA ficou repetindo pergunta sem anotar nada",
+            ok: (r, h, extra) => (extra.itens || []).some((i) => /coxinha/i.test(i.produto)),
+          },
+        ],
+      },
+      { diz: "a empadinha pode ser de frango" },
+      {
+        diz: "pensando bem, tira a empadinha e poe risoles de carne",
+        checa: [
+          {
+            id: "TROCA-DE-ITEM",
+            porque: "o cliente trocou o item e o pedido ficou com os dois, ou perdeu os dois",
+            ok: (r, h, extra) => {
+              const itens = extra.itens || [];
+              const temRisoles = itens.some((i) => /ris[óo]lis|risoles/i.test(i.produto));
+              const temEmpadinha = itens.some((i) => /empadinha/i.test(i.produto));
+              return temRisoles && !temEmpadinha;
+            },
+          },
+        ],
+      },
+      {
+        diz: "quero 100 brigadeiro com forminha branca",
+        checa: [
+          {
+            id: "NAO-REPETE-CARDAPIO",
+            porque: "'te mandei o cardapio de salgados' saiu oito vezes na mesma conversa",
+            ok: (r, h) =>
+              h.filter((m) => m.de === "ia" && /mandei o card[áa]pio/i.test(m.texto)).length <= 2,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    nome: "Pergunta preco antes de decidir, bolo de dois sabores",
+    passos: [
+      { diz: "quanto custa o bolo de festa?", checa: [{ id: "PECA-PEDIDA-E-A-CERTA", porque: "ele perguntou do BOLO e recebeu o cardapio de salgados", ok: (r, h, extra) => !(extra.cardapios || []).includes("salgados") }] },
+      {
+        diz: "quantos quilos pra 25 pessoas?",
+        checa: [
+          {
+            id: "RESPONDE-A-PERGUNTA",
+            porque: "ele fez uma pergunta de conta e levou outra pergunta de volta",
+            ok: (r) => /2,5|2\.5|100 ?g|kg/i.test(r),
+          },
+        ],
+      },
+      {
+        diz: "brigadeiro com morango entao, 2,5 kg, pao de lo de chocolate",
+        checa: [
+          {
+            id: "DOIS-SABORES-NO-NOME",
+            porque: "o pedido foi pra cozinha como 'bolo brigadeiro' e o morango sumiu do nome",
+            ok: (r, h, extra) =>
+              (extra.itens || []).some((i) => /brigadeiro/i.test(i.produto) && /morango/i.test(i.produto + " " + (i.obs || ""))),
+          },
+        ],
+      },
+      {
+        diz: "nao quero salgado nem docinho",
+        checa: [
+          {
+            id: "NAO-MANDA-RECUSADO",
+            porque: "ele recusou e recebeu o cardapio da coisa recusada",
+            ok: (r, h, extra) => !(extra.cardapios || []).includes("salgados") && !(extra.cardapios || []).includes("docinhos"),
+          },
+        ],
+      },
+    ],
+  },
+  {
+    nome: "Bagunçado: metade de cada entre dois tipos, e nome parecido",
+    passos: [
+      { diz: "eh pro casamento da minha irma" },
+      {
+        diz: "150 salgados assados, esfirra e empadinha, metade de cada",
+        checa: [
+          {
+            id: "METADE-DE-CADA",
+            porque: "150 viraram 37 e 37: a divisao foi feita duas vezes",
+            ok: (r, h, extra) => {
+              const soma = (extra.itens || [])
+                .filter((i) => /esfirra|empadinha/i.test(i.produto))
+                .reduce((t, i) => t + (Number(i.qtd) || 0), 0);
+              return soma === 150;
+            },
+          },
+        ],
+      },
+      {
+        diz: "quero 1 empadao de palmito tambem",
+        checa: [
+          {
+            id: "EMPADAO-NAO-VIRA-EMPADINHA",
+            porque: "empadao e empadinha tem nome parecido e preco muito diferente",
+            ok: (r, h, extra) => (extra.itens || []).some((i) => /empad[ãa]o/i.test(i.produto)),
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 // Regras que valem em TODA resposta.
@@ -231,7 +346,12 @@ const REGRAS_GERAIS = [
       console.log("  " + resposta.replace(/\n/g, "\n  "));
       if (j.cardapios?.length) console.log("  [pecas] " + j.cardapios.join(", "));
 
-      const extra = { cardapios: (j.cardapios || []).map((u) => String(u).split("/").pop().replace(".jpg", "")) };
+      // O pedido como ficou depois deste turno: e isso que separa teste de
+      // verdade de teste que so olha texto.
+      const extra = {
+        cardapios: (j.cardapios || []).map((u) => String(u).split("/").pop().replace(".jpg", "")),
+        itens: j.itens || [],
+      };
 
       if (passo.fim) {
         const dados = await p.request.get(BASE + "/api/fila/contagem");
