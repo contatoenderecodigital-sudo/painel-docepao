@@ -1720,7 +1720,9 @@ async function rodarConversa(
         .join("  ");
       const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemAtual, pedidoAguardando, ultimaFala);
       // Sem isto, quando ela faz besteira so da pra adivinhar o que ela chamou.
-      console.log(`[ia] ${tc.function.name} -> ${saida.slice(0, 90)}`);
+      // 90 caracteres cortavam justamente a lista do que falta, que e o motivo da
+      // recusa. Sem ela o log so diz que recusou, nao por que.
+      console.log(`[ia] ${tc.function.name} -> ${saida.replace(/s+/g, " ").slice(0, 320)}`);
       messages.push({ role: "tool", tool_call_id: tc.id, content: saida });
     }
   }
