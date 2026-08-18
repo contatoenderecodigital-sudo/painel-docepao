@@ -103,6 +103,28 @@ const campo =
 
 type OpcaoCardapio = { nome: string; categoria: Categoria; unidade: Unidade; sabores: string[] };
 
+// Do nome do produto pra categoria da tela. O cardapio manda; a tabela abaixo
+// e so pro que a equipe lancou na mao e nao existe no cardapio.
+const semAcento = (t: string) =>
+  String(t || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+const DO_MOTOR: Record<string, Categoria> = {
+  doce: "docinho",
+  salgado: "salgado_frito",
+  bolo_recheado: "bolo_festa",
+  bolo_caseiro: "bolo_caseiro",
+  adicional_bolo: "papel_de_arroz",
+  pizza: "pizza",
+};
+function categoriaDaTela(produto: string, doMotor: string, cardapio: OpcaoCardapio[]): Categoria {
+  const n = semAcento(produto);
+  const exato = cardapio.find((c) => semAcento(c.nome) === n);
+  if (exato) return exato.categoria;
+  const perto = cardapio.find((c) => semAcento(c.nome).includes(n) || n.includes(semAcento(c.nome)));
+  if (perto) return perto.categoria;
+  if (CATEGORIAS.some((c) => c.id === doMotor)) return doMotor as Categoria;
+  return DO_MOTOR[doMotor] ?? "outro";
+}
+
 export default function PedidoMontado({ clienteId, versao }: { clienteId: string; versao: number }) {
   const [aberto, setAberto] = useState(false);
   const [cardapio, setCardapio] = useState<OpcaoCardapio[]>([]);
@@ -123,19 +145,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       const reg: Registrado | null = j.registrado ?? null;
       const daMontagem: Item[] = Array.isArray(j.itens) ? j.itens : [];
       setRegistrado(reg);
-      // Sem montagem e com pedido fechado, quem preenche o editor e o pedido:
-      // a equipe mexe nos mesmos seletores, so que gravando no pedido.
-      setItens(
-        daMontagem.length === 0 && reg
-          ? reg.itens.map((x) => ({
-              produto: x.produto,
-              categoria: (CATEGORIAS.some((c) => c.id === x.categoria) ? x.categoria : "outro") as Categoria,
-              qtd: Number(x.qtd) || 0,
-              unidade: x.unidade === "kg" ? "kg" : "un",
-              obs: x.obs,
-            }))
-          : daMontagem,
-      );
+      setItens(daMontagem);
       setDados(j.dados ?? {});
       // A foto de referencia do tema, pra dona conferir o bolo olhando pra ela.
       fetch(`/api/montagem/foto?cliente=${encodeURIComponent(clienteId)}`)
@@ -170,6 +180,21 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
   useEffect(() => {
     if (!sujo) carregar();
   }, [versao, sujo, carregar]);
+
+  // O pedido ja fechado preenche o mesmo editor. Depende do cardapio porque e
+  // ele que diz a categoria de cada produto, e ele chega por outra requisicao.
+  useEffect(() => {
+    if (!registrado || sujo) return;
+    setItens(
+      registrado.itens.map((x) => ({
+        produto: x.produto,
+        categoria: categoriaDaTela(x.produto, x.categoria, cardapio),
+        qtd: Number(x.qtd) || 0,
+        unidade: x.unidade === "kg" ? "kg" : "un",
+        obs: x.obs,
+      })),
+    );
+  }, [registrado, cardapio, sujo]);
 
   function mexerItem(i: number, patch: Partial<Item>) {
     setItens((p) => p.map((x, k) => (k === i ? { ...x, ...patch } : x)));
@@ -215,6 +240,9 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       setItens(limpos);
       setSujo(false);
       setSalvo(true);
+      // A gravacao pode mudar a lista (papel de arroz da observacao entra como
+      // item): a tela le de volta o que ficou gravado, nao o que ela mandou.
+      carregar();
       setTimeout(() => setSalvo(false), 2500);
     } catch {
       setSalvo(false);
