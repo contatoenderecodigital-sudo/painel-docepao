@@ -15,6 +15,7 @@ import { urlDoCardapio } from "@/lib/whatsapp/api";
 import { NextRequest } from "next/server";
 import { lerSessao } from "@/lib/auth";
 import { carregarTenant } from "@/lib/ia/tenant";
+import { unidadeDoProduto } from "@/lib/ia/cerebro";
 import { lerMontagem, anotarItem, removerItem, anotarDados, limparMontagem } from "@/lib/banco/montagem";
 import { pedidoEmAberto } from "@/lib/banco/pedidos";
 import { responder, type Mensagem } from "@/lib/ia/cerebro";
@@ -125,12 +126,12 @@ export async function POST(req: NextRequest) {
     for (const mud of resp.montagem ?? []) {
       try {
         if (mud.tipo === "item") {
-          const porQuilo = mud.categoria === "bolo_festa" || mud.categoria === "por_quilo";
+          // Mesma fonte do preco, igual ao webhook.
           await anotarItem(negocioId, clienteId, {
             produto: mud.produto,
             categoria: mud.categoria as never,
             qtd: mud.qtd,
-            unidade: porQuilo ? "kg" : "un",
+            unidade: unidadeDoProduto(mud.produto, mud.categoria),
             obs: mud.obs ?? null,
           });
         } else if (mud.tipo === "remover") {

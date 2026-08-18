@@ -439,7 +439,13 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                   {/* A unidade só aparece quando existe escolha: bolo é sempre
                       por quilo e docinho é sempre por unidade, e um seletor de
                       uma opção só é decoração que atrapalha. */}
-                  {unidadesDe(it.categoria).length > 1 ? (
+                  {(() => {
+                    // A unidade do produto vem do cardapio; so quem nao esta la
+                    // (item lancado na mao) ainda pode escolher.
+                    const base = String(it.produto || "").split(/\s+com\s+/i)[0].trim().toLowerCase();
+                    const doCardapio = cardapio.find((c) => c.nome.toLowerCase() === base);
+                    return unidadesDe(it.categoria).length > 1 && !doCardapio;
+                  })() ? (
                     <select
                       value={it.unidade}
                       onChange={(e) => mexerItem(i, { unidade: e.target.value as Unidade })}

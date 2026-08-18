@@ -1494,7 +1494,7 @@ ATENCAO: recusar o registro NAO quer dizer recomecar a coletar. Tudo que o clien
       itens,
       linhas: c.linhas,
       retiradaData: String(input.retirada_data || ""),
-      retiradaHora: input.retirada_hora ? String(input.retirada_hora) : undefined,
+      retiradaHora: input.retirada_hora ? horaLimpa(input.retirada_hora) : undefined,
       formaPagamento,
       observacoes: input.observacoes ? String(input.observacoes) : undefined,
       clienteNome: input.cliente_nome ? String(input.cliente_nome) : undefined,
@@ -1539,7 +1539,9 @@ ATENCAO: recusar o registro NAO quer dizer recomecar a coletar. Tudo que o clien
       `*Pedido recebido*\n` +
       nomeResumo +
       linhaPagamento +
-      `*Data:* ${String(input.retirada_data || "")}\n` +
+      // Dia sem hora nao serve: o cliente precisa saber quando buscar, e a
+      // equipe precisa da mesma informacao no ticket.
+      `*Retirada:* ${String(input.retirada_data || "")}${horaLimpa(input.retirada_hora) ? " às " + horaLimpa(input.retirada_hora) : ""}\n` +
       (input.observacoes ? `*Obs:* ${String(input.observacoes)}\n` : "") +
       c.linhas.map((l) => `${l.item}: ${fmtQtd(l.qtd, l.unidade)} x ${brl(l.unit)} = ${brl(l.subtotal)}`).join("\n") +
       `\n*Total: ${brl(c.total)}*` +
@@ -1604,6 +1606,8 @@ function montarSystemComData(tenant: Tenant): string {
     `\n\n# DATA E HORA DE AGORA\nHoje é ${hojeBR}, e agora são ${horaBR} (fuso de Brasília). ` +
     `Cumprimente pela HORA: até 11h59 é bom dia, de 12h às 17h59 boa tarde, de 18h em diante boa noite. ` +
     `Sem esta linha você não teria como saber a hora e chutaria o período, o que já fez você dar boa tarde às 9 da manhã. ` +
+    `O cumprimento vale SO na sua primeira mensagem da conversa: no meio do atendimento você já cumprimentou, ` +
+    `e recomeçar com "boa noite" faz o cliente achar que você perdeu o fio. Responda direto o que ele acabou de dizer. ` +
     `A data serve pra completar o ANO das retiradas: se o cliente disser só dia e mês (ex: 05/05) e essa data ainda não passou este ano, use o ano atual. Data sempre em DD/MM/AAAA. ` +
     `Nunca use a data de hoje como data de retirada por suposição.`
   );
@@ -1841,6 +1845,41 @@ function pendenciasDeSabor(
 
 // A peca de cardapio que combina com a etapa de agora. O webhook usa isso pra
 // mandar a imagem sem depender de ela pedir.
+// A unidade de venda de cada produto, direto do cardapio. E a mesma fonte que
+// da o preco, entao ticket, painel e cobranca falam a mesma lingua.
+// A hora da retirada num formato so. O cliente escreve de todo jeito; a
+// equipe precisa ler sempre igual no ticket e na tela.
+export function horaLimpa(bruta: unknown): string {
+  const t = String(bruta ?? "").trim().toLowerCase();
+  if (!t) return "";
+  const m = t.match(/(\d{1,2})\s*(?::|h|hs)?\s*(\d{2})?/);
+  if (!m) return t;
+  const h = Number(m[1]);
+  const min = m[2] ? Number(m[2]) : 0;
+  if (!Number.isFinite(h) || h > 23 || min > 59) return t;
+  return String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0");
+}
+
+export function unidadeDoProduto(nome: string, categoria?: string): "kg" | "un" {
+  const limpo = String(nome || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const todos: { nome: string; unidade?: string }[] = [
+    ...((catalogo.salgados?.frito?.itens ?? []) as { nome: string; unidade?: string }[]),
+    ...((catalogo.salgados?.assado?.itens ?? []) as { nome: string; unidade?: string }[]),
+    ...((catalogo.doces?.itens ?? []) as { nome: string; unidade?: string }[]),
+    ...((catalogo.bolos_caseiros?.itens ?? []) as { nome: string; unidade?: string }[]),
+    ...((catalogo.outros_produtos ?? []) as { nome: string; unidade?: string }[]),
+  ];
+  const achado = todos.find((x) => {
+    const n = String(x.nome || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return n === limpo || limpo.includes(n) || n.includes(limpo);
+  });
+  if (achado?.unidade === "kg") return "kg";
+  if (achado?.unidade === "un") return "un";
+  // Bolo de festa e por quilo por definicao (as faixas sao preco por kg).
+  if (/^bolo/i.test(limpo) && categoria !== "bolo_caseiro") return "kg";
+  return "un";
+}
+
 export function pecaDaEtapa(
   itens: MontagemAtual["itens"],
   naoQuer = "",

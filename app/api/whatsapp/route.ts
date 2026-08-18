@@ -13,7 +13,7 @@
 // ============================================================================
 
 import { NextRequest, after } from "next/server";
-import { responder, pecaDaEtapa, ehFestaNaFala } from "@/lib/ia/cerebro";
+import { responder, pecaDaEtapa, ehFestaNaFala, unidadeDoProduto } from "@/lib/ia/cerebro";
 import { carregarTenant } from "@/lib/ia/tenant";
 import { enviarTexto, enviarImagemPorLink, urlDoCardapio, RECADOS_CARDAPIO, baixarMidia, type CredsEnvio } from "@/lib/whatsapp/api";
 import { transcrever } from "@/lib/whatsapp/transcrever";
@@ -286,12 +286,12 @@ async function processar(corpo: WebhookPayload) {
       for (const mud of resp.montagem ?? []) {
         try {
           if (mud.tipo === "item") {
-            const porQuilo = mud.categoria === "bolo_festa" || mud.categoria === "por_quilo";
+            // A unidade vem do cardapio, que e a mesma fonte do preco.
             await anotarItem(negocioId, clienteId, {
               produto: mud.produto,
               categoria: mud.categoria as never,
               qtd: mud.qtd,
-              unidade: porQuilo ? "kg" : "un",
+              unidade: unidadeDoProduto(mud.produto, mud.categoria),
               obs: mud.obs ?? null,
             });
           } else if (mud.tipo === "remover") {
