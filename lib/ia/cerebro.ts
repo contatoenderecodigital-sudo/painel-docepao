@@ -2254,6 +2254,49 @@ async function rodarConversa(
     });
   }
 
+  // A RECUSA VIRA ESTADO NA HORA.
+  const jaDispensado = String(montagemDoTurno?.dados?.nao_quer ?? "");
+  const recusasAgora: string[] = [];
+  const falaRecusa = String(ultimaFalaDoCliente).toLowerCase();
+  const RECUSOU: [string, RegExp][] = [
+    ["salgado", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer|dispensa)[^.]{0,24}salgad/],
+    ["docinho", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer|dispensa)[^.]{0,24}(docinho|doce)/],
+    ["bolo", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer|dispensa)[^.]{0,24}bolo/],
+  ];
+  for (const [fam, re] of RECUSOU) {
+    if (re.test(falaRecusa) && !jaDispensado.includes(fam)) recusasAgora.push(fam);
+  }
+
+  // Ofereceu duas vezes e ele nao pediu: nao quer. Sem isto ela pergunta a
+  // festa inteira em toda mensagem e o cliente desiste antes de fechar.
+  const falasDelaAgora = historico
+    .filter((h) => h.role === "assistant")
+    .slice(-6)
+    .map((h) => String(h.content ?? "").toLowerCase());
+  const ofertas = (re: RegExp) => falasDelaAgora.filter((t) => re.test(t)).length;
+  const CANSOU: [string, RegExp][] = [
+    ["salgado", /querer salgad|quer salgad|salgado tambem|salgados tambem|salgado também|salgados também/],
+    ["docinho", /querer docinho|quer docinho|docinho tambem|docinho também/],
+    ["bolo", /querer bolo|quer bolo|bolo tambem|bolo também/],
+  ];
+  for (const [fam, re] of CANSOU) {
+    if (ofertas(re) >= 2 && !jaDispensado.includes(fam) && !recusasAgora.includes(fam)) recusasAgora.push(fam);
+  }
+
+  if (recusasAgora.length > 0) {
+    const naoQuerNovo = [jaDispensado, ...recusasAgora].filter(Boolean).join(", ");
+    estado.montagem.push({ tipo: "dados", dados: { nao_quer: naoQuerNovo } });
+    montagemDoTurno = {
+      ...(montagemDoTurno ?? { itens: [], dados: {} }),
+      dados: { ...(montagemDoTurno?.dados ?? {}), nao_quer: naoQuerNovo },
+    } as MontagemAtual;
+    messages.push({
+      role: "system",
+      content:
+        "JA ESTA ANOTADO que este cliente nao quer: " + naoQuerNovo + ". NAO ofereca, NAO pergunte e NAO mande cardapio disso de novo em nenhuma mensagem. Siga pro que falta e feche o pedido."
+    });
+  }
+
   // PERGUNTA JA FEITA NAO SE REPETE.
   //
   // A etapa fica pendente enquanto o cliente nao escolhe nem recusa, e ela
