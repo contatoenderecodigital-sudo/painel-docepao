@@ -2272,6 +2272,47 @@ async function rodarConversa(
     });
   }
 
+  // PEDIU PRA TIRAR: TIRA.
+  //
+  // "pensando bem, tira a empadinha e poe risoles" e ela seguiu com os dois no
+  // pedido. Item cancelado que fica vira producao que ninguem pediu e total
+  // maior do que o combinado.
+  const semAcentoTira = (t: string) =>
+    String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const mandouTirar = /\b(tira|tirar|tire|remove|remover|cancela|cancelar|troca|trocar|substitui|substituir|sem)\b/i.test(
+    String(ultimaFalaDoCliente),
+  );
+  if (mandouTirar) {
+    const falaLimpaTira = semAcentoTira(ultimaFalaDoCliente);
+    const paraTirar = (montagemDoTurno?.itens ?? []).filter((x) => {
+      const nome = semAcentoTira(String(x.produto ?? ""));
+      if (nome.length < 4) return false;
+      // O nome aparece DEPOIS do verbo de remover, na mesma frase.
+      const re = new RegExp(
+        "(tira|tirar|tire|remove|remover|cancela|cancelar|troca|trocar|substitui|substituir|sem)[^.]{0,30}" +
+          nome.split(" ")[0],
+        "i",
+      );
+      return re.test(falaLimpaTira);
+    });
+    for (const item of paraTirar) {
+      estado.montagem.push({ tipo: "remover", produto: item.produto, categoria: item.categoria });
+    }
+    if (paraTirar.length > 0) {
+      montagemDoTurno = {
+        ...(montagemDoTurno ?? { itens: [], dados: {} }),
+        itens: (montagemDoTurno?.itens ?? []).filter((x) => !paraTirar.includes(x)),
+      } as MontagemAtual;
+      messages.push({
+        role: "system",
+        content:
+        "O cliente mandou TIRAR isto do pedido e EU JA TIREI: " +
+          paraTirar.map((x) => x.produto).join(", ") +
+          ". Confirme numa frase curta que saiu e anote o que ele quer no lugar, se ele disse. Nao pergunte de novo o que ele acabou de cancelar."
+      });
+    }
+  }
+
   // NAO TEM FOTO DO TEMA: FICA ESCRITO NO BOLO.
   //
   // A etapa da arte cobra a foto ate a observacao registrar a resposta. Sem
