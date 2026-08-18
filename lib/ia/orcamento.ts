@@ -59,8 +59,30 @@ export type Motor = {
 
 // Fábrica: monta um motor a partir de uma lista de produtos + rendimento.
 export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
+  // Tira plural comum do portugues: coxinhas, risoles, pasteis, esfihas.
+  const semPlural = (t: string) => t.replace(/(oes|aes|ais|eis|res|zes|ns|es|s)$/, "");
+  // Distancia de edicao curta, so pra pegar erro de digitacao e de transcricao.
+  const distancia = (a: string, b: string): number => {
+    if (Math.abs(a.length - b.length) > 3) return 99;
+    const linha = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      let anterior = linha[0];
+      linha[0] = i;
+      for (let j = 1; j <= b.length; j++) {
+        const guardado = linha[j];
+        linha[j] = Math.min(linha[j] + 1, linha[j - 1] + 1, anterior + (a[i - 1] === b[j - 1] ? 0 : 1));
+        anterior = guardado;
+      }
+    }
+    return linha[b.length];
+  };
+  // Sem acento dos dois lados: o cliente escreve "prestigio" e o cardapio tem
+  // "prestígio". Com a chave acentuada o produto nao era achado, a linha saia do
+  // orcamento e o pedido travava dizendo que faltava o bolo.
+  const semAcento = (t: string) =>
+    String(t).trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const PRECOS: Record<string, Produto> = {};
-  for (const p of produtos) PRECOS[p.nome.trim().toLowerCase()] = p;
+  for (const p of produtos) PRECOS[semAcento(p.nome)] = p;
 
   // acha o 1º produto de uma categoria (pro "por pessoas")
   const primeiroDaCategoria = (cat: string) =>
@@ -68,7 +90,7 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
 
   const unidade = rend.unidadePorProduto && rend.unidadePorProduto > 0 ? rend.unidadePorProduto : 1;
 
-  const norm = (s: string) => String(s).trim().toLowerCase();
+  const norm = (s: string) => semAcento(s);
 
   // Sinais de que a linha é o BOLO da festa, e não um docinho de mesmo nome.
   // Sem isto, "brigadeiro" com a observação do bolo casa com o docinho de
@@ -148,6 +170,34 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
           const ultima = pn.split(" ").pop() || "";
           return ultima.length > 3 && chave.includes(ultima);
         });
+      }
+      // Ainda nao achou: tenta por aproximacao (plural e erro de digitacao ou de
+      // transcricao de audio). So aceita quando ha UM candidato claro; empate
+      // vira aviso pra equipe, porque cobrar produto errado e pior que conferir.
+      if (!ref) {
+        const ehBolo2 = /^bolo\b/.test(chave);
+        const universo2 = ehBolo2 ? produtos.filter((x) => /^bolo\b/.test(norm(x.nome))) : produtos;
+        const alvo = semPlural(chave);
+        let melhor: { p: Produto; d: number } | null = null;
+        let empate = false;
+        for (const cand of universo2) {
+          const nomeCand = semPlural(norm(cand.nome));
+          const partes = nomeCand.split(' ').filter((x) => x.length > 3);
+          const d = Math.min(distancia(alvo, nomeCand), ...partes.map((x) => distancia(alvo, x)), 99);
+          if (d > 2) continue;
+          if (!melhor || d < melhor.d) {
+            melhor = { p: cand, d };
+            empate = false;
+          } else if (d === melhor.d && cand.nome !== melhor.p.nome) {
+            empate = true;
+          }
+        }
+        if (melhor && !empate) {
+          ref = melhor.p;
+          if (semPlural(norm(melhor.p.nome)) !== alvo) {
+            avisos.push(`"${item}" foi cotado como ${melhor.p.nome}.`);
+          }
+        }
       }
       if (!ref) {
         avisos.push(`Não achei "${item}" no cardápio, conferir com a equipe.`);
