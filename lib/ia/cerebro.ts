@@ -496,7 +496,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // "sem sabor especificado", "a definir": ela preenche o campo pra nao deixar
     // vazio, e isso desce pra comanda como se fosse instrucao da cozinha.
     // Observacao de enfeite nao e observacao: melhor vazia e cobrada.
-    const ENFEITE = /^(sems+(sabor|recheio)|as+definir|naos+informad|n[ãa]os+especificad|indefinid|as+combinar)/i;
+    const ENFEITE = /^(sem +(sabor|recheio)|a +definir|nao +informad|n[ãa]o +especificad|indefinid|a +combinar)/i;
     const obsBruta = input.obs ? String(input.obs).trim() : "";
     const obsItem = obsBruta && !ENFEITE.test(obsBruta) ? obsBruta : null;
     estado.montagem.push({ tipo: "item", produto, categoria, qtd, obs: obsItem });
@@ -1305,7 +1305,7 @@ function etapasDaFesta(
   if (bolo && /topo|papel de arroz/i.test(obsBolo) && !/sem topo/i.test(obsBolo)) {
     const falta: string[] = [];
     if (!/nome/i.test(obsBolo)) falta.push("o NOME do aniversariante");
-    if (!/\bd{1,2}s*anos?\b/i.test(obsBolo)) falta.push("a IDADE");
+    if (!/[0-9]{1,2} ?anos?/i.test(obsBolo)) falta.push("a IDADE");
     if (!/tema/i.test(obsBolo)) falta.push("o TEMA da festa");
     if (!/foto/i.test(obsBolo)) falta.push("se ele tem FOTO de referencia do tema (se nao tiver, anote 'sem foto')");
     etapas.push({
@@ -1722,7 +1722,7 @@ async function rodarConversa(
       // Sem isto, quando ela faz besteira so da pra adivinhar o que ela chamou.
       // 90 caracteres cortavam justamente a lista do que falta, que e o motivo da
       // recusa. Sem ela o log so diz que recusou, nao por que.
-      console.log(`[ia] ${tc.function.name} -> ${saida.replace(/s+/g, " ").slice(0, 320)}`);
+      console.log(`[ia] ${tc.function.name} -> ${saida.replace(new RegExp("\\s+", "g"), " ").slice(0, 320)}`);
       messages.push({ role: "tool", tool_call_id: tc.id, content: saida });
     }
   }

@@ -519,7 +519,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                               const obs = (it.obs ?? "").trim();
                               const semCor = obs
                                 .replace(new RegExp("\s*,?\s*(forminha\s+)?" + cor, "ig"), "")
-                                .replace(/^,s*/, "")
+                                .replace(/^, */, "")
                                 .trim();
                               mexerItem(i, { obs: marcado ? semCor : semCor ? semCor + ", forminha " + cor : "forminha " + cor });
                             }}
