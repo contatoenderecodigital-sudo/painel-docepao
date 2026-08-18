@@ -639,6 +639,28 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       }
     }
 
+    // SABOR DE BOLO DE FESTA TEM QUE EXISTIR NO CARDAPIO.
+    //
+    // Aceitar um sabor que a casa nao faz nao para na conversa: na hora de
+    // cobrar, o motor casa com o produto parecido que existe e o pedido fecha
+    // com outro bolo, outro preco e outra unidade.
+    if (categoria === "bolo_festa") {
+      const doCardapio: string[] = [];
+      for (const f of (catalogo.bolos_recheados?.faixas ?? []) as { sabores?: string[] }[]) {
+        for (const sab of f.sabores ?? []) doCardapio.push(String(sab).toLowerCase());
+      }
+      const pedido = produto.replace(/^bolo (de |do |da )?/i, "").trim().toLowerCase();
+      const combina = (x: string) => doCardapio.some((d) => d === x || d.includes(x) || x.includes(d));
+      // Bolo misto: cada metade tem que existir.
+      const partes = pedido.split(/ com | e /).map((x) => x.trim()).filter(Boolean);
+      const existe = combina(pedido) || (partes.length > 1 && partes.every(combina));
+      if (pedido && !existe) {
+        return (
+          "NAO anotei: a padaria nao faz bolo de festa de " + pedido + ". Fechar um sabor que a casa nao tem faz o pedido sair com outro bolo e outro preco. Mande a peca do cardapio de bolos de festa (enviar_cardapio) e diga que temos: " + doCardapio.slice(0, 8).join(", ") + ". Anote o que ele escolher."
+        );
+      }
+    }
+
     // BOLO DE DOIS SABORES: os dois tem que estar no NOME.
     //
     // O cliente pediu brigadeiro com morango e ela anotou so "bolo brigadeiro",
@@ -1155,6 +1177,23 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       if (!falado) {
         precisaConfirmacao = true;
         pendencias.push(`confirmar o sabor do bolo: "${sabor}" não foi dito pelo cliente`);
+      }
+    }
+
+    // Bolo de festa e vendido por QUILO. Linha cobrada por unidade quer dizer
+    // que o motor casou com outro produto (um bolo caseiro de nome parecido).
+    for (const l of c.linhas) {
+      const eraDeFesta = (montagemAtual?.itens ?? []).some((x) => {
+        if (String(x.categoria ?? "") !== "bolo_festa") return false;
+        const a = String(x.produto ?? "").trim().toLowerCase();
+        const b = String(l.item).trim().toLowerCase();
+        return a === b || a.includes(b) || b.includes(a);
+      });
+      if (eraDeFesta && l.unidade !== "kg") {
+        precisaConfirmacao = true;
+        pendencias.push(
+          "conferir o bolo: o pedido tem bolo de festa (por quilo) e ele saiu como \"" + l.item + "\" por unidade",
+        );
       }
     }
 
