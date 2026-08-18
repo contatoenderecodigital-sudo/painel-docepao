@@ -1021,6 +1021,43 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       obsItem = null;
     }
 
+    // NOME DO CARDAPIO MANDA, E O RESTO DO NOME VIRA OBSERVACAO.
+    {
+      const semAcN = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const todosDoCardapio: string[] = [
+        ...((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]).map((i) => String(i.nome)),
+        ...((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[]).map((i) => String(i.nome)),
+        ...((catalogo.doces?.itens ?? []) as { nome: string }[]).map((i) => String(i.nome)),
+        ...((catalogo.outros_produtos ?? []) as { nome: string }[]).map((i) => String(i.nome)),
+      ];
+      const alvoN = semAcN(produto);
+      // O mais longo primeiro: 'torta fria com palmito' ganha de 'torta fria'.
+      const base = todosDoCardapio
+        .filter((n) => {
+          const x = semAcN(n);
+          if (!x || alvoN === x) return alvoN === x;
+          return alvoN.startsWith(x + " ");
+        })
+        .sort((a, b) => semAcN(b).length - semAcN(a).length)[0];
+      if (base && semAcN(base) !== alvoN) {
+        const sobra = produto
+          .slice(base.length)
+          .trim()
+          .replace(/^(de|do|da|com|sabor)\s+/i, "")
+          .trim();
+        console.warn("[ia] nome com sabor colado: \"" + produto + "\" virou \"" + base + "\" + obs \"" + sobra + "\"");
+        produto = base;
+        if (sobra) {
+          const jaTem = obsItem && semAcN(obsItem).includes(semAcN(sobra));
+          obsItem = jaTem ? obsItem : [String(obsItem ?? "").trim(), sobra].filter(Boolean).join(", ");
+        }
+      } else if (base) {
+        // Mesmo produto, grafia diferente (empadão x empadao): vale a do
+        // cardapio, que e a que casa com a tabela de preco.
+        produto = base;
+      }
+    }
+
     // SABOR EM PRODUTO QUE NAO TEM SABOR: E O IRMAO RECHEADO QUE ELE QUER.
     //
     // "cuca" com observacao "banana" fechou pedido depois de "cuca recheada de
