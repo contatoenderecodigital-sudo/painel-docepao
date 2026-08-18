@@ -2722,6 +2722,41 @@ async function rodarConversa(
         if (!faltando.length) estado.precisaHumano = true;
       }
 
+      // CONFIRMACAO CURTA COM PEDIDO REGISTRADO VIRA STATUS, NAO PERGUNTA.
+      //
+      // "pode fechar" depois do pedido fechado recebia "quer falar sobre esse
+      // pedido ou e outro?". O cliente quer saber uma coisa so: preciso esperar
+      // alguem? Entao a resposta diz exatamente isso.
+      const soConfirmou = /^(ok|okay|okey|blz|beleza|ta bom|ta certo|isso|isso mesmo|perfeito|fechado|pode fechar|pode mandar|pode ser|combinado|show|certo|sim|obrigad[oa]|valeu|brigad[oa])[.!, ]*$/i.test(String(falaDoCliente2 ?? "").trim());
+      if (pedidoAberto && soConfirmou && !estado.pedido) {
+        const quando = [
+          pedidoAberto.retiradaData ? pedidoAberto.retiradaData : null,
+          pedidoAberto.retiradaHora ? `às ${pedidoAberto.retiradaHora}` : null,
+        ].filter(Boolean).join(" ");
+        const jaConfirmado = pedidoAberto.impresso || pedidoAberto.status === "aprovado";
+        // Item que depende da equipe pra fechar preco (topo de bolo, sabor fora
+        // da tabela) tem que ser dito com nome, senao o cliente acha que o total
+        // que ele viu e final.
+        const temTopo = pedidoAberto.itens.some((i) =>
+          /topo|papel de arroz/i.test(String(i.obs ?? "")),
+        );
+        if (jaConfirmado) {
+          textoFinal =
+            "A equipe já confirmou seu pedido" + (quando ? " pra " + quando : "") + "." +
+            " É só retirar aqui na padaria no dia.";
+        } else {
+          textoFinal =
+            "Seu pedido já está registrado" + (quando ? " pra " + quando : "") +
+            " e agora está com a equipe da padaria, esperando a confirmação deles." +
+            (temTopo
+              ? " O topo é a equipe que confirma: eles te passam o valor junto com a confirmação."
+              : pedidoAberto.motivoHumano
+                ? " Tem um detalhe que a equipe está conferindo e eu te trago a resposta aqui."
+                : "") +
+            " Assim que confirmarem, eu te aviso por aqui.";
+        }
+      }
+
       // Lista de produtos digitada vira peca do cardapio: a imagem tem tudo e o
       // preco, e ninguem escolhe festa lendo nove nomes num paragrafo.
       // Peca que ja foi pro cliente ha pouco nao volta: repetir cardapio no meio
@@ -2996,15 +3031,34 @@ export async function responder(
   // quebrado, devolvendo 404. Um tropeco passageiro virava "tive um probleminha"
   // pro cliente. Repetir no mesmo provedor resolve a esmagadora maioria desses
   // casos, porque a falha e de rede e nao de pedido.
+  // Limite de tokens por minuto pede espera, nao desistencia: o proprio erro
+  // diz quanto tempo falta, e esperar isso custa segundos contra perder o
+  // pedido. Por isso 429 ganha ate quatro tentativas com a espera que ele pede.
+  const TENTATIVAS_LIMITE = 4;
+  const TENTATIVAS_NORMAIS = 2;
   for (const prov of lista) {
-    for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    let teto = TENTATIVAS_NORMAIS;
+    for (let tentativa = 1; tentativa <= teto; tentativa++) {
       try {
         return await rodarConversa(prov, system, historico, tenant, origem, clienteId, montagemAtual, pedidoAguardando, pedidoAnterior, pedidoAberto);
       } catch (e) {
         ultimoErro = e;
         const msg = (e as Error)?.message ?? String(e);
-        console.error(`[ia] provedor ${prov.nome} falhou (tentativa ${tentativa}/2):`, msg);
-        if (tentativa === 1) await new Promise((r) => setTimeout(r, 800));
+        console.error(`[ia] provedor ${prov.nome} falhou (tentativa ${tentativa}/${teto}):`, msg);
+        const noLimite = /429|rate limit|quota/i.test(msg);
+        if (noLimite) teto = TENTATIVAS_LIMITE;
+        if (tentativa >= teto) break;
+        // A propria mensagem traz o tempo: "try again in 1.54s" ou "in 200ms".
+        const pedidoEmS = msg.match(/try again in ([0-9.]+)s/i);
+        const pedidoEmMs = msg.match(/try again in ([0-9.]+)ms/i);
+        const espera = pedidoEmS
+          ? Math.ceil(Number(pedidoEmS[1]) * 1000) + 400
+          : pedidoEmMs
+            ? Math.ceil(Number(pedidoEmMs[1])) + 400
+            : noLimite
+              ? tentativa * 2500
+              : 800;
+        await new Promise((r) => setTimeout(r, Math.min(espera, 12000)));
       }
     }
   }
