@@ -624,6 +624,32 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         );
       }
     }
+    // QUANTIDADE QUE O CLIENTE NAO FALOU NAO ENTRA.
+    //
+    // Ele escolheu tres tipos sem dizer quantos e ela anotou 100 de cada,
+    // dividindo a sugestao por conta propria. Numero so entra se veio dele,
+    // em algarismo ou por extenso, ou se ele mandou dividir.
+    const POR_EXTENSO: Record<string, number> = {
+      um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7,
+      oito: 8, nove: 9, dez: 10, doze: 12, quinze: 15, vinte: 20, trinta: 30, quarenta: 40,
+      cinquenta: 50, sessenta: 60, setenta: 70, oitenta: 80, noventa: 90, cem: 100, cento: 100,
+      duzentos: 200, trezentos: 300, quatrocentos: 400, quinhentos: 500, duzia: 12, meia: 6,
+    };
+    const mandouDividir = /divid|igual|sortido|voce que sabe|voce escolhe|do seu jeito|como voce achar|o que voce sugerir/i.test(
+      falaDoCliente,
+    );
+    const numerosDitos = new Set<number>();
+    for (const n of falaDoCliente.match(/[0-9]+/g) ?? []) numerosDitos.add(Number(n));
+    for (const [palavra, valor] of Object.entries(POR_EXTENSO)) {
+      if (new RegExp(palavra, "i").test(falaDoCliente)) numerosDitos.add(valor);
+    }
+    if (!mandouDividir && !numerosDitos.has(qtd)) {
+      return (
+        `NAO anotei: o cliente nunca falou em ${qtd} de ${produto}. Quantidade e escolha dele, nao sua. ` +
+        `Pergunte QUANTOS de cada ele quer. Se ele mandar voce dividir o total, ai sim pode dividir e anotar.`
+      );
+    }
+
     // GENERICO NAO ENTRA NO PEDIDO.
     //
     // Ela anotava "250 salgados fritos" e seguia a conversa, e aquilo ficava no
