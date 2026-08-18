@@ -441,6 +441,7 @@ function executarFerramenta(
   falaDoCliente = "",
   montagemAtual?: MontagemAtual | null,
   pedidoAguardando = false,
+  ultimaFala = "",
 ): string {
   if (nome === "montar_orcamento") {
     if (input.modo === "itens") {
@@ -590,11 +591,19 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // quando ve os dois, entao o bolo saiu a R$ 46,90 o quilo em vez de R$ 49,90
     // e a padaria perdeu R$ 12 no bolo de 4 kg.
     if ((categoria === "bolo_festa" || categoria === "bolo_caseiro") && !/ com /i.test(produto)) {
-      return (
-        `Anotei ${qtd} kg de ${produto}. Se o cliente escolheu MAIS DE UM SABOR pro bolo, o nome tem que trazer os dois ` +
-        `(ex: "bolo brigadeiro com morango"): bolo misto vale o preco do sabor mais caro, e com um sabor so no nome a ` +
-        `padaria cobra a menos. Se for um sabor so, esta certo assim e pode seguir.`
-      );
+      // Os sabores que o cliente acabou de citar. Dois ou mais e bolo misto:
+      // o nome precisa trazer os dois, senao a padaria cobra a menos e a
+      // cozinha faz um sabor so.
+      const ditos = SABORES_DE_BOLO.filter((sab) => new RegExp(sab, "i").test(ultimaFala));
+      const noNome = ditos.filter((sab) => new RegExp(sab, "i").test(produto));
+      if (ditos.length >= 2 && noNome.length < 2) {
+        return (
+          `NAO anotei: o cliente falou em ${ditos.join(" e ")} no mesmo bolo, e voce mandou so "${produto}". ` +
+          `Chame anotar_item de novo com os DOIS sabores no nome, assim: "bolo ${ditos[0]} com ${ditos[1]}". ` +
+          `Bolo misto vale o preco do sabor mais caro; com um sabor so no nome a padaria cobra a menos e a cozinha ` +
+          `faz o bolo errado.`
+        );
+      }
     }
     // GENERICO NAO ENTRA NO PEDIDO.
     //
@@ -1152,6 +1161,9 @@ function mapaDeSabores(): Record<string, string[]> {
 }
 const SABORES = mapaDeSabores();
 
+// Os sabores de bolo recheado, pra reconhecer bolo misto na fala do cliente.
+const SABORES_DE_BOLO: string[] = (catalogo.bolos_recheados.faixas ?? []).flatMap((f) => f.sabores ?? []);
+
 // As cores de forminha do cardapio, pra saber se a observacao do docinho ja tem
 // uma. Sem a cor a cozinha nao sabe em que forminha embrulhar.
 const CORES_FORMINHA =
@@ -1689,11 +1701,15 @@ async function rodarConversa(
       // TUDO que o cliente escreveu na conversa serve de prova pras guardas.
       // Só a última mensagem daria falso positivo: ele pode ter falado o
       // pagamento cinco mensagens antes de fechar.
+      // A ULTIMA fala, separada: pra saber o que ele acabou de pedir sem a
+      // conversa inteira contaminando (morango e sabor de trufa e de bolo).
+      const ultimaFala =
+        [...historico].reverse().find((m) => m.role === "user" && typeof m.content === "string")?.content ?? "";
       const falaDoCliente = historico
         .filter((m) => m.role === "user" && typeof m.content === "string")
         .map((m) => m.content as string)
         .join("  ");
-      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemAtual, pedidoAguardando);
+      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemAtual, pedidoAguardando, ultimaFala);
       // Sem isto, quando ela faz besteira so da pra adivinhar o que ela chamou.
       console.log(`[ia] ${tc.function.name} -> ${saida.slice(0, 90)}`);
       messages.push({ role: "tool", tool_call_id: tc.id, content: saida });
