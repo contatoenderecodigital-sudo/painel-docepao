@@ -126,7 +126,12 @@ export default function PedidosDoDia({
   const agregado = useMemo(() => agregarPorDepto(doDia), [doDia]);
 
   const kpis = useMemo(() => {
-    const totalItens = doDia.reduce((s, p) => s + p.itens.reduce((x, i) => x + i.qtd, 0), 0);
+    // Peso nao e peca: um bolo de 3 kg e UM bolo pra cozinha, nao tres itens.
+    // Somando o peso, a tela dizia "3 itens a produzir" pra um unico bolo.
+    const totalItens = doDia.reduce(
+      (s, p) => s + p.itens.reduce((x, i) => x + (i.unidade === "kg" ? 1 : i.qtd), 0),
+      0,
+    );
     const fat = doDia.reduce((s, p) => s + p.totalCentavos, 0);
     const horas = doDia.map((p) => p.retiradaHora).filter(Boolean).sort() as string[];
     return { pedidos: doDia.length, fat, totalItens, proxima: horas[0] ?? "-" };
