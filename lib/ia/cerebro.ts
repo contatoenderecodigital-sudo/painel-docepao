@@ -3030,6 +3030,14 @@ async function rodarConversa(
       const pecasFinais = anunciadoNoTexto.length
         ? Array.from(new Set([...escolhidas.filter((x) => anunciadoNoTexto.includes(x)), ...anunciadoNoTexto]))
         : escolhidas;
+      // A peca ja vai junto desta resposta: perguntar se pode mandar e pedir
+      // permissao pra uma coisa que ja saiu.
+      if (pecasFinais.length) {
+        const oferta =
+          /[^.!?\n]*(quer que eu (te )?mand|posso (te )?mandar|quer (ver )?o card[áa]pio|quer que eu envie)[^.!?\n]*[.!?]/gi;
+        const semOferta = semLista.texto.replace(oferta, "").replace(/\n{3,}/g, "\n\n").trim();
+        if (semOferta) semLista.texto = semOferta;
+      }
       return {
         texto: semLista.texto,
         precisaHumano: estado.precisaHumano,
