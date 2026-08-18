@@ -923,12 +923,31 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       .filter((c): c is CardapioId => (CARDAPIOS as readonly string[]).includes(c));
     if (!pedidos.length) return "Não conheço esse cardápio. Peça um destes: " + CARDAPIOS.join(", ");
 
+    // O que ele ja dispensou nao volta como imagem. Vale a recusa anotada no
+    // pedido e a que ele acabou de escrever.
+    const dispensou = (String(montagemAtual?.dados?.nao_quer ?? "") + " " + String(falaDoCliente || "")).toLowerCase();
+    const RECUSA: [string, RegExp][] = [
+      ["salgados", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}salgad/],
+      ["docinhos", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}(docinho|doce)/],
+      ["bolos-festa", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}bolo/],
+    ];
+    const recusados = RECUSA.filter(([, r]) => r.test(dispensou)).map(([peca]) => peca);
+    // A nao ser que ele mesmo peca a peca agora, com todas as letras.
+    const pediuAgora = /card[áa]pio|me manda|quais|que tipos|op[çc][õo]es/i.test(String(falaDoCliente || ""));
+    const permitidos = pediuAgora ? pedidos : pedidos.filter((c) => !recusados.includes(c));
+    if (!permitidos.length) {
+      return (
+        "NAO mandei o cardapio: o cliente disse que nao quer isso. Siga pra proxima etapa do pedido em vez de oferecer de novo o que ele acabou de dispensar."
+      );
+    }
+
     // FESTA TEM ORDEM: SALGADO, DOCINHO, BOLO.
     //
     // O cliente disse "manda tudo que voces tem" e ela despejou OITO imagens de
     // uma vez, sem uma palavra junto: cardapio de pizza, de cuca, de torta, tudo
     // no meio de um orcamento de festa. Ninguem escolhe nada assim. Vai uma peca
     // por vez, na ordem, e o resto depois que ele fechar a etapa.
+    const pedidosFiltrados = permitidos;
     const ORDEM: string[] = [
       "salgados",
       "docinhos",
@@ -954,7 +973,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
             ? "bolos-festa"
             : null;
 
-    const naOrdem = [...pedidos].sort((a, b) => {
+    const naOrdem = [...pedidosFiltrados].sort((a, b) => {
       const ia = ORDEM.indexOf(a) < 0 ? 99 : ORDEM.indexOf(a);
       const ib = ORDEM.indexOf(b) < 0 ? 99 : ORDEM.indexOf(b);
       if (etapa) {
