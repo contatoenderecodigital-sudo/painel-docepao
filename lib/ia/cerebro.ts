@@ -1348,7 +1348,14 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // e a categoria deles nao e "bolo", entao comparar categoria fazia a guarda
     // disparar em todo pedido com bolo, inclusive nos que estavam corretos.
     const temLinhaDeBolo = c.linhas.some((l) => /^bolo/i.test(l.item));
-    if (!temLinhaDeBolo && (falaDeBolo.test(falaDoCliente) || itens.some((i) => falaDeBolo.test(String(i.obs ?? ""))))) {
+    // Negacao conta: quem escreveu "nao quero bolo" nao pediu bolo, e exigir a
+    // linha trava o pedido pra sempre.
+    const dispensouBolo = /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}bolo/i.test(falaDoCliente) ||
+      /bolo/i.test(String(montagemAtual?.dados?.nao_quer ?? ""));
+    const pediuBoloDeVerdade =
+      !dispensouBolo &&
+      (falaDeBolo.test(falaDoCliente) || itens.some((i) => falaDeBolo.test(String(i.obs ?? ""))));
+    if (!temLinhaDeBolo && pediuBoloDeVerdade) {
       // RECUSA, não avisa. Sinalizar deixava o pedido ir pra cozinha sem bolo,
       // cobrando R$ 97 a menos, com um aviso que a dona teria que ler e
       // corrigir. Já aconteceu três vezes: o bolo vira "brigadeiro: 2 un x
@@ -2653,6 +2660,29 @@ async function rodarConversa(
         });
         continue;
       }
+      // PROMESSA DE PEDIDO FECHADO SEM PEDIDO FECHADO NAO SAI.
+      //
+      // Ela ja disse "passei seu pedido pra equipe" com o registro recusado nas
+      // duas tentativas: o cliente foi embora achando que encomendou e a padaria
+      // nao tinha nada. Se nao registrou, o texto vira a verdade.
+      const prometeuFechamento =
+        /passei (seu |o )?pedido|pedido recebido|passei pra (nossa )?equipe|ja passei pra equipe|esta com a equipe|mandei pra cozinha/i.test(
+          textoFinal,
+        );
+      if (prometeuFechamento && !estado.pedido && !pedidoAguardando && !pedidoAberto) {
+        console.warn("[ia] ela anunciou pedido fechado sem registrar; texto trocado pela verdade");
+        const faltando = pendenciasDeSabor(
+          montagemDoTurno?.itens ?? [],
+          ehFesta,
+          pediuBolo,
+          String(montagemDoTurno?.dados?.nao_quer ?? ""),
+        );
+        textoFinal = faltando.length
+          ? "Pra fechar seu pedido ainda falta " + faltando[0].replace(/^- /, "") + ". Me confirma isso que eu fecho agora."
+          : "Ainda nao consegui fechar seu pedido aqui. Vou chamar alguem da equipe pra terminar com voce.";
+        if (!faltando.length) estado.precisaHumano = true;
+      }
+
       // Lista de produtos digitada vira peca do cardapio: a imagem tem tudo e o
       // preco, e ninguem escolhe festa lendo nove nomes num paragrafo.
       // Peca que ja foi pro cliente ha pouco nao volta: repetir cardapio no meio
