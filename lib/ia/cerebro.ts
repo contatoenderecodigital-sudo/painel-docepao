@@ -797,9 +797,15 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       let pedidoTotal = Number((String(falaDoCliente).match(alvo) ?? [])[1] ?? 0);
       // "metade frito metade assado": cada metade e um balde separado, senao a
       // conta fecha no total e estoura dentro de uma das duas.
+      // So e meio a meio quando ele cita OS DOIS tipos: "metade frito metade
+      // assado". "Metade de cada" entre dois produtos escolhidos e outra coisa,
+      // e ler como metade/metade dividia o pedido duas vezes.
+      const citouFrito = /frito|fritos/i.test(falaDoCliente);
+      const citouAssado = /assado|assados/i.test(falaDoCliente);
       const meioAMeio =
-        /(metade|meio a meio|50 ?%)[^.]{0,40}(frito|assado)/i.test(falaDoCliente) ||
-        /(frito|assado)[^.]{0,40}(metade|meio a meio)/i.test(falaDoCliente);
+        citouFrito &&
+        citouAssado &&
+        /(metade|meio a meio|50 ?%)/i.test(falaDoCliente);
       const soDoTipo = meioAMeio && String(categoria).startsWith("salgado");
       if (soDoTipo) pedidoTotal = Math.round(pedidoTotal / 2);
       if (pedidoTotal > 0) {
@@ -2212,6 +2218,26 @@ async function rodarConversa(
       role: "system",
       content:
         "O cliente pediu isto e a padaria NAO FAZ: " + naoExistem.join(", ") + ". Diga numa frase que esse item a gente nao tem, ofereca os parecidos que existem no cardapio e ANOTE normalmente o resto do que ele pediu. Nao repita o cardapio inteiro nem ignore o pedido dele."
+    });
+  }
+
+  // PERGUNTA JA FEITA NAO SE REPETE.
+  //
+  // A etapa fica pendente enquanto o cliente nao escolhe nem recusa, e ela
+  // repetia a MESMA oferta a cada mensagem: o cliente falava de outra coisa e
+  // levava "vai querer salgados tambem?" tres vezes seguidas. Quem foi
+  // perguntado duas vezes e nao respondeu nao quer; a conversa tem que andar.
+  const falasDela = historico.filter((h) => h.role === "assistant").slice(-6).map((h) => String(h.content ?? "").toLowerCase());
+  const jaOfereceu = (marcador: RegExp) => falasDela.filter((t) => marcador.test(t)).length;
+  const repetidas: string[] = [];
+  if (jaOfereceu(/querer salgad|quer salgad|salgado tambem|salgados tambem/) >= 2) repetidas.push("salgados");
+  if (jaOfereceu(/querer docinho|quer docinho|docinho tambem|doce tambem/) >= 2) repetidas.push("docinhos");
+  if (jaOfereceu(/querer bolo|quer bolo|bolo tambem/) >= 2) repetidas.push("bolo");
+  if (repetidas.length > 0) {
+    messages.push({
+      role: "system",
+      content:
+        "Voce JA ofereceu " + repetidas.join(" e ") + " duas vezes nesta conversa e o cliente nao pediu. NAO pergunte de novo: trate como se ele nao quisesse, siga pro que falta e feche o pedido. Repetir a mesma oferta faz o cliente achar que voce nao esta lendo o que ele escreve."
     });
   }
 
