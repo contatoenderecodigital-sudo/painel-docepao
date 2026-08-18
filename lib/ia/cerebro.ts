@@ -587,7 +587,14 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // cliente ainda nem tendo visto o cardapio de bolos.
     if (categoria === "bolo_festa" || categoria === "bolo_caseiro") {
       const sabor = produto.replace(/^bolo (caseiro )?/i, "").split(/ com /i)[0].trim();
-      if (sabor && sabor.length > 3 && !falaDoCliente.toLowerCase().includes(sabor.toLowerCase())) {
+      // Bolo que JA esta no pedido nao entra aqui de novo: acrescentar tema,
+      // topo ou papel de arroz e edicao, e o sabor ja foi conferido na entrada.
+      const boloJaNoPedido = (montagemAtual?.itens ?? []).some((x) => {
+        const a = String(x.produto ?? "").trim().toLowerCase();
+        const b = produto.trim().toLowerCase();
+        return a === b || a.includes(b) || b.includes(a);
+      });
+      if (!boloJaNoPedido && sabor && sabor.length > 3 && !falaDoCliente.toLowerCase().includes(sabor.toLowerCase())) {
         return (
           `NAO anotei: o cliente nunca falou em bolo de ${sabor}. Bolo de festa e escolha dele, nunca sua nem da ` +
           `sugestao de tamanho da festa. Mande o cardapio de bolos ou pergunte qual sabor ele quer, e anote o que ele responder.`
