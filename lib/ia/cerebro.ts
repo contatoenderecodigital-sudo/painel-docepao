@@ -677,7 +677,47 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       .map((c) => String(c || "").trim())
       .filter((c): c is CardapioId => (CARDAPIOS as readonly string[]).includes(c));
     if (!pedidos.length) return "Não conheço esse cardápio. Peça um destes: " + CARDAPIOS.join(", ");
-    for (const c of pedidos) if (!estado.cardapios.includes(c)) estado.cardapios.push(c);
+
+    // FESTA TEM ORDEM: SALGADO, DOCINHO, BOLO.
+    //
+    // O cliente disse "manda tudo que voces tem" e ela despejou OITO imagens de
+    // uma vez, sem uma palavra junto: cardapio de pizza, de cuca, de torta, tudo
+    // no meio de um orcamento de festa. Ninguem escolhe nada assim. Vai uma peca
+    // por vez, na ordem, e o resto depois que ele fechar a etapa.
+    const ORDEM: string[] = [
+      "salgados",
+      "docinhos",
+      "bolos-festa",
+      "bolos-caseiros",
+      "cucas-paes",
+      "tortas-empadao",
+      "pizza",
+      "cupcakes-franciscano",
+    ];
+    const itensJa = montagemAtual?.itens ?? [];
+    const tem = (pref: string) => itensJa.some((i) => String(i.categoria || "").startsWith(pref));
+    const etapa = !tem("salgado") ? "salgados" : !tem("docinho") ? "docinhos" : !tem("bolo") ? "bolos-festa" : null;
+
+    const naOrdem = [...pedidos].sort((a, b) => {
+      const ia = ORDEM.indexOf(a) < 0 ? 99 : ORDEM.indexOf(a);
+      const ib = ORDEM.indexOf(b) < 0 ? 99 : ORDEM.indexOf(b);
+      if (etapa) {
+        if (a === etapa) return -1;
+        if (b === etapa) return 1;
+      }
+      return ia - ib;
+    });
+    const enviar = naOrdem.slice(0, 2);
+    const sobrou = naOrdem.slice(2);
+
+    for (const c of enviar) if (!estado.cardapios.includes(c)) estado.cardapios.push(c);
+    if (sobrou.length) {
+      return (
+        `Mandei so ${enviar.join(" e ")}. Peca de cardapio vai uma de cada vez, na ordem da festa: primeiro os ` +
+        `salgados, depois os docinhos, depois o bolo. Fale sobre a que acabou de ir e pergunte o que ele quer dela. ` +
+        `Quando ele fechar essa etapa, ai sim mande a proxima (${sobrou.join(", ")}). NAO liste itens nem precos em texto.`
+      );
+    }
     return (
       `A imagem do cardápio (${pedidos.join(", ")}) já vai ser enviada logo depois da sua mensagem. ` +
       `NÃO liste os itens nem os preços em texto: só diga em uma linha curta que está mandando o cardápio ` +
