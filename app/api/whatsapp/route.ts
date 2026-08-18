@@ -13,7 +13,7 @@
 // ============================================================================
 
 import { NextRequest, after } from "next/server";
-import { responder } from "@/lib/ia/cerebro";
+import { responder, pecaDaEtapa, ehFestaNaFala } from "@/lib/ia/cerebro";
 import { carregarTenant } from "@/lib/ia/tenant";
 import { enviarTexto, enviarImagemPorLink, urlDoCardapio, RECADOS_CARDAPIO, baixarMidia, type CredsEnvio } from "@/lib/whatsapp/api";
 import { transcrever } from "@/lib/whatsapp/transcrever";
@@ -334,6 +334,24 @@ async function processar(corpo: WebhookPayload) {
       }
 
       // Guard contra resposta vazia (modelo devolveu nada): manda algo, não body vazio.
+      // A peca da etapa vai sozinha quando ela nao pediu: mandada a mandar o
+      // cardapio, ela digitava a lista de sabores em texto e o cliente tinha
+      // que pedir a foto. Peca ja enviada nesta conversa nao repete.
+      try {
+        const falaToda = historico
+          .filter((m) => m.role === "user" && typeof m.content === "string")
+          .map((m) => m.content as string)
+          .join("  ");
+        if (ehFestaNaFala(falaToda) && !resp.pedidoRegistrado && !aguardando) {
+          const peca = pecaDaEtapa(montado?.itens ?? [], String(montado?.dados?.nao_quer ?? ""));
+          if (peca && !(resp.cardapiosParaEnviar ?? []).includes(peca)) {
+            resp.cardapiosParaEnviar = [...(resp.cardapiosParaEnviar ?? []), peca];
+          }
+        }
+      } catch (e) {
+        console.error("[whatsapp] falha ao escolher a peca da etapa:", e);
+      }
+
       const textoResp = (resp.texto || "").trim() || "Ja recebi sua mensagem, so um instante.";
       // Cardápio pedido: manda a peça pronta depois do texto. Uma imagem custa
       // zero token e não corre o risco de a IA errar preço redigitando a lista.

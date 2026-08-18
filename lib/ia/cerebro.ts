@@ -1374,7 +1374,7 @@ function etapasDaFesta(
     pendencias: [
       ...(festa && !dispensou("docinho|doce") && docinhos.length === 0 && !falouDocinho
         ? [
-            "- o cliente NAO falou em docinho ainda. E festa: PERGUNTE se ele vai querer docinho tambem, numa frase. " +
+            "- o cliente NAO falou em docinho ainda. E festa: PERGUNTE se ele vai querer docinho tambem, e aproveite pra citar o resto que serve festa numa frase so (docinho, bolo, pizza de metro, torta, empadao): tem gente que so lembra da pizza quando alguem fala nela. " +
               "Se ele disser que nao, chame anotar_dados com nao_quer=\"docinho\".",
           ]
         : []),
@@ -1461,6 +1461,20 @@ function pendenciasDeSabor(
   naoQuer = "",
 ): string[] {
   return etapasDaFesta(itens, festa, pediuBolo, naoQuer).flatMap((e) => e.pendencias);
+}
+
+// A peca de cardapio que combina com a etapa de agora. O webhook usa isso pra
+// mandar a imagem sem depender de ela pedir.
+export function pecaDaEtapa(
+  itens: MontagemAtual["itens"],
+  naoQuer = "",
+): CardapioId | null {
+  const tem = (pref: string) => itens.some((i) => String(i.categoria || "").startsWith(pref));
+  const fora = (o: string) => new RegExp(o, "i").test(naoQuer);
+  if (!tem("salgado") && !fora("salgado")) return "salgados";
+  if (!tem("docinho") && !fora("docinho|doce")) return "docinhos";
+  if (!tem("bolo") && !fora("bolo")) return "bolos-festa";
+  return null;
 }
 
 // O pedido anotado, em texto, pra IA ler no fim da conversa. É a memória dela:
