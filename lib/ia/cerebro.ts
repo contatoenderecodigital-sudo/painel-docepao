@@ -1631,7 +1631,7 @@ ATENCAO: recusar o registro NAO quer dizer recomecar a coletar. Tudo que o clien
       // equipe precisa da mesma informacao no ticket.
       `*Retirada:* ${String(input.retirada_data || "")}${horaLimpa(input.retirada_hora) ? " às " + horaLimpa(input.retirada_hora) : ""}\n` +
       (input.observacoes ? `*Obs:* ${String(input.observacoes)}\n` : "") +
-      c.linhas.map((l) => `${l.item}: ${fmtQtd(l.qtd, l.unidade)} x ${brl(l.unit)} = ${brl(l.subtotal)}`).join("\n") +
+      c.linhas.map((l) => `${l.item}${l.obs ? " (" + l.obs + ")" : ""}: ${fmtQtd(l.qtd, l.unidade)} x ${brl(l.unit)} = ${brl(l.subtotal)}`).join("\n") +
       `\n*Total: ${brl(c.total)}*` +
       (temTopo ? `\nA equipe vai te informar o valor do topo.` : "") +
       `\nJá passei pra nossa equipe. Assim que confirmarem, eu te aviso por aqui.` +
@@ -1645,7 +1645,7 @@ ATENCAO: recusar o registro NAO quer dizer recomecar a coletar. Tudo que o clien
           : "");
 
     const itensFmt = c.linhas
-      .map((l) => `${l.item}: ${fmtQtd(l.qtd, l.unidade)} x ${brl(l.unit)} = ${brl(l.subtotal)}`)
+      .map((l) => `${l.item}${l.obs ? " (" + l.obs + ")" : ""}: ${fmtQtd(l.qtd, l.unidade)} x ${brl(l.unit)} = ${brl(l.subtotal)}`)
       .join("\n");
     const avisosFmt = c.avisos?.length
       ? `\nATENCAO: ${c.avisos.join(" ")} Registre precisa_confirmacao=true e avise que a equipe confirma esse item.`

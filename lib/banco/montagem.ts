@@ -93,7 +93,7 @@ const COR_FORMINHA =
 // tema, o nome, a foto) e cada refinamento é a mesma linha. Tratar a observação
 // como identidade aqui criava dois bolos de 2 kg no mesmo pedido, e a conta
 // dobrava. Nos salgados é o contrário: frango e calabresa são linhas separadas.
-const UMA_LINHA_SO: CategoriaItem[] = ["bolo_festa", "bolo_caseiro", "papel_de_arroz"];
+const UMA_LINHA_SO: CategoriaItem[] = ["bolo_festa", "bolo_caseiro", "papel_de_arroz", "pizza"];
 
 // Nomes que o cliente usa quando ainda não escolheu o tipo. Quando ele detalha
 // depois ("desses 300, metade frango"), o detalhe sai de dentro do genérico.
@@ -169,7 +169,16 @@ export async function anotarItem(
     // pela metade), fica a antiga, que é a completa.
     const antiga = m.itens[i].obs ?? null;
     const nova = item.obs ?? null;
-    const obs = !marca(nova) ? antiga : marca(antiga).includes(marca(nova)) ? antiga : nova;
+    // Na pizza o sabor SOMA: sao ate 4 na mesma pizza, e trocar um pelo outro
+    // faz a cozinha montar metade do que o cliente pediu.
+    const somaSabor = item.categoria === "pizza" && !!marca(antiga) && !!marca(nova) && !marca(antiga).includes(marca(nova));
+    const obs = somaSabor
+      ? String(antiga).trim() + ", " + String(nova).trim()
+      : !marca(nova)
+        ? antiga
+        : marca(antiga).includes(marca(nova))
+          ? antiga
+          : nova;
     m.itens[i] = { ...m.itens[i], ...item, obs };
   } else {
     m.itens.push(item);
