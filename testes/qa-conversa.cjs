@@ -76,7 +76,7 @@ const CENARIOS = [
               // croissant: carne, frango, calabresa?" nao usa a palavra sabor.
               const perguntou =
                 /recheio|sabor|quantos|quantas|quanto/.test(t) ||
-                (/?/.test(t) && /(carne|frango|calabresa|palmito|brocolis|bacon|queijo)/.test(t));
+                (/[?]/.test(t) && /(carne|frango|calabresa|palmito|brocolis|bacon|queijo)/.test(t));
               return !inventou && perguntou;
             },
           },
@@ -103,13 +103,36 @@ const CENARIOS = [
           {
             id: "TOPO-PEDE-NOME-E-IDADE",
             porque: "sem nome e idade a peça não pode ser fabricada",
-            ok: (r) => /(nome|idade|aniversariante|tema)/i.test(norm(r)),
+            // Ela pode terminar a etapa aberta antes (salgado sem sabor), entao
+            // aqui basta que o topo tenha entrado no bolo. Nome e idade sao
+            // cobrados no fechamento, que e onde a peca vira producao.
+            ok: (r, h, extra) =>
+              (extra.itens || []).some((i2) => /bolo/i.test(i2.produto) && /topo/i.test(String(i2.obs || ""))) ||
+              /(nome|idade|aniversariante|tema)/i.test(norm(r)),
           },
         ],
       },
       { diz: "tema Toy Story, Vinicius, 4 anos" },
       { diz: "caixa com tampa" },
-      { diz: "so isso, pode fechar" },
+      {
+        diz: "so isso, pode fechar",
+        fim: true,
+        checa: [
+          {
+            id: "BOLO-COM-TOPO-FECHOU-COM-NOME-E-IDADE",
+            porque: "a peça do topo não é fabricada sem o nome e a idade do aniversariante",
+            ok: (r, h, extra) => {
+              const p2 = extra.pedido;
+              if (!p2) return "pendente";
+              const bolo = (p2.itens || []).find((i2) => /bolo/i.test(i2.produto));
+              if (!bolo) return "pendente";
+              const obs = String(bolo.obs || "").toLowerCase();
+              if (!/topo/.test(obs)) return "pendente";
+              return /vinicius/.test(obs) && /4 ?anos|idade ?4/.test(obs);
+            },
+          },
+        ],
+      },
       // Armadilha: o nome que ele dá é o do aniversariante, não o de quem paga.
       // Ela pode aceitar (e aí o pedido tem que ir sinalizado) ou insistir — as
       // duas saídas são boas, e a segunda é melhor ainda.
