@@ -47,14 +47,21 @@ export type DadosMontagem = {
 
 export type Montagem = { itens: ItemMontagem[]; dados: DadosMontagem };
 
-const VAZIA: Montagem = { itens: [], dados: {} };
+// PEDIDO VAZIO PRECISA SER NOVO A CADA CLIENTE.
+//
+// Isto era uma constante compartilhada, e lerMontagem devolvia vazia():
+// a copia rasa leva o MESMO array de itens. Quem anotava o primeiro item
+// empurrava dentro do array compartilhado, e o proximo cliente sem pedido ja
+// nascia com o item do anterior. Com um cliente por vez ninguem via; com tres
+// conversando junto, a cuca de um caiu no pedido do outro.
+const vazia = (): Montagem => ({ itens: [], dados: {} });
 
 export async function lerMontagem(negocioId: string, clienteId: string): Promise<Montagem> {
   const l = await queryUm<{ itens: ItemMontagem[]; dados: DadosMontagem }>(
     "select itens, dados from pedido_montagem where negocio_id = $1 and cliente_id = $2",
     [negocioId, clienteId],
   );
-  return l ? { itens: l.itens ?? [], dados: l.dados ?? {} } : { ...VAZIA };
+  return l ? { itens: l.itens ?? [], dados: l.dados ?? {} } : vazia();
 }
 
 async function gravar(negocioId: string, clienteId: string, m: Montagem): Promise<void> {
