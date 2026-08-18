@@ -1121,59 +1121,100 @@ function faltaSabor(obs: string | null | undefined, ops: string[]): boolean {
   return !ops.some((o) => t.includes(o.trim().toLowerCase()));
 }
 
-function pendenciasDeSabor(itens: MontagemAtual["itens"]): string[] {
-  const p: string[] = [];
-  for (const i of itens) {
-    const nome = String(i.produto || "").trim();
-    if (!nome) continue;
-    if (semTipo(nome)) {
-      // O que falta aqui e o TIPO, nao o recheio. Ela juntou as duas perguntas
-      // ("me diz os recheios dos assados: pastel assado, esfirra, croissant...")
-      // e na resposta seguinte inventou recheio pra tudo.
-      const tipos = TIPOS_DA_FAMILIA[i.categoria] ?? TIPOS_DA_FAMILIA[nome.toLowerCase()] ?? [];
-      p.push(
-        `- ${i.qtd} de "${nome}": falta o cliente escolher QUAIS TIPOS e quantos de cada. ` +
-          (tipos.length ? `Os tipos sao ${tipos.join(", ")}. ` : "") +
-          `Pergunte SO o tipo agora; o recheio de cada um vem depois que ele escolher.`,
-      );
-      continue;
-    }
-    // Topo de bolo e papel de arroz sao FABRICADOS com o nome e a idade do
-    // aniversariante. Sem esses dois a producao para, e ela fechou pedido com
-    // topo sem perguntar nenhum dos dois.
-    const obsBolo = String(i.obs ?? "");
-    if (
-      (i.categoria === "bolo_festa" || i.categoria === "bolo_caseiro") &&
-      /topo|papel de arroz/i.test(obsBolo)
-    ) {
-      const temIdade = /\b\d{1,2}\s*anos?\b/i.test(obsBolo);
-      const temNome = /nome/i.test(obsBolo);
-      if (!temNome || !temIdade) {
-        p.push(
-          `- ${i.produto}: tem topo ou papel de arroz, e falta ${!temNome ? "o NOME do aniversariante" : ""}` +
-            `${!temNome && !temIdade ? " e " : ""}${!temIdade ? "a IDADE" : ""}. ` +
-            `A peca e fabricada com esses dados; sem eles a producao para. Escreva na observacao como "nome Fulano, 8 anos".`,
-        );
-        continue;
-      }
-    }
+// A FESTA TEM UMA ORDEM, E ELA E FIXA.
+//
+// Salgados inteiros (tipo, quantidade de cada e recheio), depois docinhos
+// inteiros (sabor, quantos de cada e a cor da forminha), depois o bolo (sabor,
+// peso e pao de lo), depois os acompanhamentos do bolo (topo e papel de arroz)
+// e, no fim, os dados da peca: nome e idade do aniversariante, tema e foto.
+// Sem ordem ela pulava etapa e voltava, e o cliente respondia tres assuntos ao
+// mesmo tempo. Aqui o prompt cobra UMA etapa por vez, a da vez.
+type Etapa = { titulo: string; pendencias: string[] };
 
-    // Docinho sem a cor da forminha para a producao do mesmo jeito: a cozinha
-    // nao sabe em que forminha embrulhar. E a cor vem depois do sabor, nunca
-    // antes, senao e escolher a cor de uma coisa que ainda nao existe.
-    if (i.categoria === "docinho" && !CORES_FORMINHA.test(String(i.obs ?? ""))) {
-      p.push(
-        `- ${i.produto}: falta a COR DA FORMINHA. Pergunte depois de fechar os sabores, uma vez so pra todos os docinhos.`,
-      );
-      continue;
-    }
-
-    const ops = SABORES[nome.toLowerCase()];
-    if (ops && faltaSabor(i.obs, ops)) {
-      p.push(`- ${nome}: falta o sabor. As opcoes sao ${ops.join(", ")}.`);
-    }
+function faltaNoItem(i: MontagemAtual["itens"][number]): string | null {
+  const nome = String(i.produto || "").trim();
+  if (!nome) return null;
+  if (semTipo(nome)) {
+    const tipos = TIPOS_DA_FAMILIA[i.categoria] ?? TIPOS_DA_FAMILIA[nome.toLowerCase()] ?? [];
+    return (
+      `- ${i.qtd} de "${nome}": falta o cliente escolher QUAIS TIPOS e quantos de cada. ` +
+      (tipos.length ? `Os tipos sao ${tipos.join(", ")}. ` : "") +
+      `Pergunte SO o tipo agora; o recheio de cada um vem depois que ele escolher.`
+    );
   }
-  return p;
+  const ops = SABORES[nome.toLowerCase()];
+  if (ops && faltaSabor(i.obs, ops)) return `- ${nome}: falta o sabor. As opcoes sao ${ops.join(", ")}.`;
+  return null;
+}
+
+function etapasDaFesta(itens: MontagemAtual["itens"]): Etapa[] {
+  const da = (pref: string) => itens.filter((i) => String(i.categoria || "").startsWith(pref));
+  const salgados = da("salgado");
+  const docinhos = da("docinho");
+  const bolos = itens.filter((i) => String(i.categoria || "").startsWith("bolo"));
+  const etapas: Etapa[] = [];
+
+  etapas.push({
+    titulo: "SALGADOS",
+    pendencias: salgados.map(faltaNoItem).filter(Boolean) as string[],
+  });
+
+  const doceSemForminha = docinhos.filter((i) => !CORES_FORMINHA.test(String(i.obs ?? "")));
+  etapas.push({
+    titulo: "DOCINHOS",
+    pendencias: [
+      ...(docinhos.map(faltaNoItem).filter(Boolean) as string[]),
+      ...(docinhos.length && doceSemForminha.length
+        ? [
+            `- falta a COR DA FORMINHA dos docinhos (${doceSemForminha
+              .map((d) => d.produto)
+              .join(", ")}). Pergunte uma vez so, pra todos.`,
+          ]
+        : []),
+    ],
+  });
+
+  // Acompanhamento do bolo: e aqui que a padaria ganha os R$ 12 do papel de
+  // arroz e o valor do topo, e e a ultima hora de perguntar.
+  const bolo = bolos[0];
+  const obsBolo = String(bolo?.obs ?? "");
+  const jaTratouArte = /topo|papel de arroz|sem topo|sem papel/i.test(obsBolo);
+  etapas.push({
+    titulo: "BOLO",
+    pendencias: [
+      ...(bolos.map(faltaNoItem).filter(Boolean) as string[]),
+      ...(bolo && !jaTratouArte
+        ? [
+            "- falta oferecer TOPO DE BOLO e PAPEL DE ARROZ pro bolo. Pergunte os dois de uma vez. " +
+              "Se ele nao quiser, anote na observacao do bolo \"sem topo e sem papel de arroz\", senao eu pergunto de novo.",
+          ]
+        : []),
+    ],
+  });
+
+  // A peca e fabricada com nome, idade, tema e (se tiver) a foto.
+  if (bolo && /topo|papel de arroz/i.test(obsBolo) && !/sem topo/i.test(obsBolo)) {
+    const falta: string[] = [];
+    if (!/nome/i.test(obsBolo)) falta.push("o NOME do aniversariante");
+    if (!/\bd{1,2}s*anos?\b/i.test(obsBolo)) falta.push("a IDADE");
+    if (!/tema/i.test(obsBolo)) falta.push("o TEMA da festa");
+    if (!/foto/i.test(obsBolo)) falta.push("se ele tem FOTO de referencia do tema (se nao tiver, anote 'sem foto')");
+    etapas.push({
+      titulo: "DADOS DA PECA DO BOLO",
+      pendencias: falta.length
+        ? [`- ${bolo.produto}: falta ${falta.join(", ")}. Sem isso a peca nao e fabricada. Escreva tudo na observacao do bolo.`]
+        : [],
+    });
+  }
+
+  return etapas.filter((e) => e.pendencias.length > 0);
+}
+
+// Tudo que ainda falta, de todas as etapas. Quem decide se DA pra fechar usa
+// isto: sem ele, fechar so olhava sabor e passava por cima da forminha, do
+// topo e dos dados da peca.
+function pendenciasDeSabor(itens: MontagemAtual["itens"]): string[] {
+  return etapasDaFesta(itens).flatMap((e) => e.pendencias);
 }
 
 // O pedido anotado, em texto, pra IA ler no fim da conversa. É a memória dela:
@@ -1243,14 +1284,19 @@ function descreverMontagem(m?: MontagemAtual | null, pedidoAguardando = false): 
     );
   }
 
-  const pend = pendenciasDeSabor(itens);
+  // Uma etapa por vez: a lista inteira de uma vez fazia ela perguntar salgado,
+  // docinho e bolo na mesma mensagem, e o cliente respondia so um.
+  const etapas = etapasDaFesta(itens);
+  const atual = etapas[0];
+  const pend = atual ? atual.pendencias : [];
+  const faltaDepois = Math.max(0, etapas.length - 1);
   const cobrar = pend.length
-    ? "\n\nFALTA FECHAR ISTO, E E AGORA:\n" +
+    ? `\n\nETAPA DE AGORA: ${atual?.titulo}. Fale SO desta etapa nesta mensagem.\n` +
       pend.join(String.fromCharCode(10)) +
       "\n\nSe o cliente JA respondeu alguma dessas coisas na conversa, nao pergunte de novo: chame anotar_item agora " +
       "com o que ele disse. Perguntar duas vezes a mesma coisa faz ele achar que ninguem anotou nada. Pergunte so o que " +
-      "sobrou, de uma vez so, e nao passe pros docinhos, pro bolo nem pro fechamento com sabor em aberto: a cozinha faz " +
-      "o padrao e o cliente so descobre na festa."
+      "sobrou desta etapa, de uma vez so." +
+      (faltaDepois > 0 ? ` Depois desta ainda faltam ${faltaDepois} etapas, mas NAO fale delas agora.` : "")
     : "";
 
   // TEM TUDO? ENTAO FECHA.
