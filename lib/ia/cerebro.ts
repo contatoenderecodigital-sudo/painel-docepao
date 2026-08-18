@@ -1314,6 +1314,8 @@ function etapasDaFesta(
   festa = false,
   pediuBolo = false,
   naoQuer = "",
+  falouSalgado = false,
+  falouDocinho = false,
 ): Etapa[] {
   // O cliente pode dispensar uma parte inteira da festa, e ai ela para de
   // cobrar aquilo em vez de perguntar a mesma coisa pra sempre.
@@ -1327,7 +1329,13 @@ function etapasDaFesta(
   etapas.push({
     titulo: "SALGADOS",
     pendencias: [
-      ...(festa && !dispensou("salgado") && salgados.length === 0
+      ...(festa && !dispensou("salgado") && salgados.length === 0 && !falouSalgado
+        ? [
+            "- o cliente NAO falou em salgado ainda. E festa: PERGUNTE se ele vai querer salgado tambem, numa frase, " +
+              "sem mandar cardapio nenhum ainda. Se ele disser que nao, chame anotar_dados com nao_quer=\"salgado\".",
+          ]
+        : []),
+      ...(festa && !dispensou("salgado") && salgados.length === 0 && falouSalgado
         ? [
             "- o cliente ainda nao escolheu NENHUM salgado. MANDE a peca do cardapio de salgados (enviar_cardapio) e " +
               "Se ele ja disse quantas pessoas e voce ainda NAO passou a base da festa, chame montar_orcamento por " +
@@ -1347,7 +1355,13 @@ function etapasDaFesta(
   etapas.push({
     titulo: "DOCINHOS",
     pendencias: [
-      ...(festa && !dispensou("docinho|doce") && docinhos.length === 0
+      ...(festa && !dispensou("docinho|doce") && docinhos.length === 0 && !falouDocinho
+        ? [
+            "- o cliente NAO falou em docinho ainda. E festa: PERGUNTE se ele vai querer docinho tambem, numa frase. " +
+              "Se ele disser que nao, chame anotar_dados com nao_quer=\"docinho\".",
+          ]
+        : []),
+      ...(festa && !dispensou("docinho|doce") && docinhos.length === 0 && falouDocinho
         ? ["- o cliente ainda nao escolheu NENHUM docinho. MANDE a peca do cardapio de docinhos e pergunte em cima dela; ninguem decora cardapio. Depois pergunte quais sabores e quantos de cada."]
         : []),
       ...(docinhos.map(faltaNoItem).filter(Boolean) as string[]),
@@ -1369,6 +1383,12 @@ function etapasDaFesta(
   etapas.push({
     titulo: "BOLO",
     pendencias: [
+      ...(festa && !pediuBolo && !dispensou("bolo") && bolos.length === 0
+        ? [
+            "- o cliente NAO falou em bolo ainda. E festa de aniversario: PERGUNTE se ele vai querer bolo tambem. " +
+              "Se ele disser que nao, chame anotar_dados com nao_quer=\"bolo\".",
+          ]
+        : []),
       ...(pediuBolo && !dispensou("bolo") && bolos.length === 0
         ? [
             "- o cliente falou em bolo e nao tem bolo nenhum anotado. Mande o cardapio de bolos ou pergunte o " +
@@ -1425,6 +1445,8 @@ function descreverMontagem(
   pedidoAguardando = false,
   festa = false,
   pediuBolo = false,
+  falouSalgado = false,
+  falouDocinho = false,
 ): string {
   // PEDIDO JA REGISTRADO ESPERANDO O ACEITE NAO SE MONTA DE NOVO.
   //
@@ -1489,7 +1511,7 @@ function descreverMontagem(
 
   // Uma etapa por vez: a lista inteira de uma vez fazia ela perguntar salgado,
   // docinho e bolo na mesma mensagem, e o cliente respondia so um.
-  const etapas = etapasDaFesta(itens, festa, pediuBolo, String(m?.dados?.nao_quer ?? ""));
+  const etapas = etapasDaFesta(itens, festa, pediuBolo, String(m?.dados?.nao_quer ?? ""), falouSalgado, falouDocinho);
   const atual = etapas[0];
   const pend = atual ? atual.pendencias : [];
   const faltaDepois = Math.max(0, etapas.length - 1);
@@ -1664,7 +1686,11 @@ async function rodarConversa(
     .toLowerCase();
   const ehFesta = ehFestaNaFala(falaToda);
   const pediuBolo = /bolo/.test(falaToda);
-  messages.push({ role: "system", content: descreverMontagem(montagemAtual, pedidoAguardando, ehFesta, pediuBolo) });
+  // Mencionar nao e escolher: quem falou "quero salgado" precisa da peca e da
+  // cobranca; quem nunca falou precisa da pergunta antes.
+  const falouSalgado = /salgad|frito|assado|coxinha|esfirra|empadinha|risolis|ris[óo]lis/.test(falaToda);
+  const falouDocinho = /docinho|doce|brigadeiro|beijinho|trufa/.test(falaToda);
+  messages.push({ role: "system", content: descreverMontagem(montagemAtual, pedidoAguardando, ehFesta, pediuBolo, falouSalgado, falouDocinho) });
 
   // FERRAMENTA QUE NAO CABE AGORA NEM E OFERECIDA.
   //
