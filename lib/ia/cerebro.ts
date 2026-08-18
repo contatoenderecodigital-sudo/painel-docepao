@@ -442,6 +442,7 @@ function executarFerramenta(
   montagemAtual?: MontagemAtual | null,
   pedidoAguardando = false,
   ultimaFala = "",
+  ultimaFalaDela = "",
 ): string {
   if (nome === "montar_orcamento") {
     if (input.modo === "itens") {
@@ -640,6 +641,9 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     );
     const numerosDitos = new Set<number>();
     for (const n of falaDoCliente.match(/[0-9]+/g) ?? []) numerosDitos.add(Number(n));
+    // Numero que ela propos e o cliente respondeu em cima: vale. Sem isso, o
+    // cliente que aceita a sugestao ("pode ser assim") travava o pedido.
+    for (const n of (ultimaFalaDela || "").match(/[0-9]+/g) ?? []) numerosDitos.add(Number(n));
     // Palavra INTEIRA, nao pedaco: "umas 30" contem "um" e liberava qualquer
     // quantidade 1 que ela inventasse.
     const palavrasDitas = new Set((falaDoCliente.toLowerCase().match(/[0-9a-zà-úçãõâêôáéíóú]+/g) ?? []));
@@ -1355,6 +1359,9 @@ function etapasDaFesta(
       ...(festa && !dispensou("salgado") && salgados.length === 0 && falouSalgado
         ? [
             "- o cliente ainda nao escolheu NENHUM salgado. MANDE a peca do cardapio de salgados (enviar_cardapio) e " +
+              "Se ele disser que nao entende ou pedir a sua indicacao, INDIQUE: monte um sortido dos mais pedidos com " +
+              "quantidade (ex: 100 coxinha, 100 mini bolha de carne e 100 esfirra de calabresa) e pergunte se pode ser " +
+              "assim. Nao devolva a pergunta pra ele. " +
               "Se ele ja disse quantas pessoas e voce ainda NAO passou a base da festa, chame montar_orcamento por " +
               "pessoas primeiro: ninguem sabe quanto salgado pedir pra 30 convidados, e sem a base ele chuta ou voce " +
               "chuta por ele. " +
@@ -1880,11 +1887,15 @@ async function rodarConversa(
       // conversa inteira contaminando (morango e sabor de trufa e de bolo).
       const ultimaFala =
         [...historico].reverse().find((m) => m.role === "user" && typeof m.content === "string")?.content ?? "";
+      // O que ELA propos na mensagem anterior: numero que ela colocou na mesa e
+      // o cliente aceitou vale tanto quanto numero que ele digitou.
+      const ultimaFalaDela =
+        [...historico].reverse().find((m) => m.role === "assistant" && typeof m.content === "string")?.content ?? "";
       const falaDoCliente = historico
         .filter((m) => m.role === "user" && typeof m.content === "string")
         .map((m) => m.content as string)
         .join("  ");
-      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemAtual, pedidoAguardando, ultimaFala);
+      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemAtual, pedidoAguardando, ultimaFala, ultimaFalaDela);
       // Sem isto, quando ela faz besteira so da pra adivinhar o que ela chamou.
       // 90 caracteres cortavam justamente a lista do que falta, que e o motivo da
       // recusa. Sem ela o log so diz que recusou, nao por que.
