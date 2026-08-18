@@ -119,13 +119,38 @@ function nomeComOsDoisSabores(item: ItemMontagem): ItemMontagem {
   return item;
 }
 
+// A observacao do jeito que a cozinha precisa ler: sem pedaco repetido e sem
+// recado interno sobre o que ainda falta perguntar.
+function observacaoLimpa(obs?: string | null): string | null {
+  const bruto = String(obs ?? "").trim();
+  if (!bruto) return null;
+  const pedacos = bruto
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean)
+    // Recado interno nao e observacao de produto: sai do ticket.
+    .filter((t) => !/(faltando|falta[rm]? (o|a|os|as)\b|nao informad|sem informar|a confirmar com o cliente)/i.test(t));
+  const vistos = new Set<string>();
+  const unicos: string[] = [];
+  for (const t of pedacos) {
+    const chave = t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (vistos.has(chave)) continue;
+    // Pedaco que ja esta contido em outro maior tambem e repeticao.
+    if ([...vistos].some((v) => v.includes(chave) || chave.includes(v))) continue;
+    vistos.add(chave);
+    unicos.push(t);
+  }
+  const limpo = unicos.join(", ").trim();
+  return limpo || null;
+}
+
 export async function anotarItem(
   negocioId: string,
   clienteId: string,
   itemBruto: ItemMontagem,
 ): Promise<Montagem> {
   const m = await lerMontagem(negocioId, clienteId);
-  const item = nomeComOsDoisSabores(itemBruto);
+  const item = nomeComOsDoisSabores({ ...itemBruto, obs: observacaoLimpa(itemBruto.obs) });
   const mesmoNome = m.itens.filter((x) => mesmaLinha(x, item));
 
   // MESMO PRODUTO COM RECHEIOS DIFERENTES SÃO DUAS LINHAS.
@@ -179,7 +204,7 @@ export async function anotarItem(
         : marca(antiga).includes(marca(nova))
           ? antiga
           : nova;
-    m.itens[i] = { ...m.itens[i], ...item, obs };
+    m.itens[i] = { ...m.itens[i], ...item, obs: observacaoLimpa(obs) };
   } else {
     m.itens.push(item);
     // O detalhe sai de dentro do genérico: o cliente pediu 300 assados e agora

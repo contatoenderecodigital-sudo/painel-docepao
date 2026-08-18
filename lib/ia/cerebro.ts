@@ -443,6 +443,9 @@ function executarFerramenta(
   pedidoAguardando = false,
   ultimaFala = "",
   ultimaFalaDela = "",
+  // As ultimas falas DELA: e assim que o codigo sabe que a mesma pergunta ja
+  // foi feita tres vezes sem resposta.
+  falasDela: string[] = [],
 ): string {
   if (nome === "montar_orcamento") {
     if (input.modo !== "itens") {
@@ -1380,6 +1383,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         "NAO registrei: falta " + falta + ". A cozinha produz pela data e pela hora que estao na comanda, entao pedido sem isso nao pode fechar. Pergunte agora, numa frase, e registre depois que ele responder."
       );
     }
+    // ITEM SEM SABOR NAO SE PERDE NO CAMINHO.
+    //
+    // A IA perguntou o sabor da cuca cinco vezes, o cliente nunca respondeu, e
+    // ela fechou o pedido sem as tres cucas. O item some do pedido mas nao some
+    // da cabeca do cliente.
+    const perguntasDeSabor = falasDela
+      .slice(-8)
+      .filter((t) => /qual (o )?sabor|que sabor|qual recheio|que recheio/i.test(String(t)))
+      .length;
+
     // SABOR DE PRODUTO COM LISTA FECHADA E OBRIGATORIO NO FECHAMENTO.
     //
     // "3 cucas recheadas" com a lista de sete sabores na observacao ja foi pra
@@ -1394,6 +1407,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     if (semSabor.length) {
       const i = semSabor[0];
       const ops = opcoesDeSabor(String(i.produto));
+      // Ja perguntou tres vezes: insistir vira loop e some com o item. A
+      // equipe resolve isso numa ligacao.
+      if (perguntasDeSabor >= 3) {
+        estado.precisaHumano = true;
+        return (
+          "NAO registrei, e ja perguntei o sabor d" + (String(i.produto).endsWith("a") ? "a " : "o ") + i.produto +
+          " tres vezes sem resposta. NAO feche o pedido sem esse item e NAO o tire da lista: diga ao cliente que " +
+          "alguem da equipe vai falar com ele pra acertar o sabor, e pare de perguntar."
+        );
+      }
       return (
         "NAO registrei: falta o sabor d" + (String(i.produto).endsWith("a") ? "a" : "o") + " " + i.produto +
         ". As opcoes sao: " + ops.join(", ") + ". Pergunte qual ele quer e registre depois que ele responder; " +
@@ -3160,7 +3183,24 @@ async function rodarConversa(
           .map((i) => ({ nome: String(i.nome), preco: Number(i.preco), unidade: String(i.unidade ?? "un") }))
           .filter((i) => t.includes(i.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")))
           .sort((a, b) => b.nome.length - a.nome.length);
-        const achado = tabela[0];
+        // Pergunta generica ("quanto custa a cuca?") num assunto especifico
+        // (cuca recheada): a variante da conversa manda.
+        const recente = historico
+          .slice(-6)
+          .map((h) => (typeof h.content === "string" ? h.content : ""))
+          .join(" ")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+        const daConversa = ((catalogo.outros_produtos ?? []) as { nome: string; preco: number; unidade?: string }[])
+          .map((i) => ({ nome: String(i.nome), preco: Number(i.preco), unidade: String(i.unidade ?? "un") }))
+          .filter((i) => {
+            const n = i.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            // So variantes do que ele perguntou, e que aparecem na conversa.
+            return tabela.some((t) => n.startsWith(t.nome.toLowerCase()) && n !== t.nome.toLowerCase()) && recente.includes(n);
+          })
+          .sort((a, b) => b.nome.length - a.nome.length);
+        const achado = daConversa[0] ?? tabela[0];
         if (achado && achado.preco > 0) {
           console.warn("[ia] ela nao respondeu o preco de " + achado.nome + "; preco escrito pelo codigo");
           textoFinal =
@@ -3258,6 +3298,29 @@ async function rodarConversa(
         }
       }
 
+      // PARAGRAFO REPETIDO DA MENSAGEM ANTERIOR NAO SAI DE NOVO.
+      const anteriorDela = [...historico].reverse().find((h) => h.role === "assistant")?.content ?? "";
+      if (textoFinal && String(anteriorDela).trim()) {
+        const limpar = (t: string) => String(t).toLowerCase().replace(/\s+/g, " ").trim();
+        const jaDito = new Set(
+          String(anteriorDela)
+            .split(/\n{2,}/)
+            .map(limpar)
+            .filter((t) => t.length > 25),
+        );
+        if (jaDito.size) {
+          const paragrafos = textoFinal.split(/\n{2,}/);
+          const sobrou = paragrafos.filter((t) => !jaDito.has(limpar(t)));
+          const restante = sobrou.join("\n\n").trim();
+          // So corta se ainda sobra conversa: uma resposta vazia e pior que uma
+          // repetida.
+          if (sobrou.length < paragrafos.length && restante.length >= 20) {
+            console.warn("[ia] paragrafo repetido da mensagem anterior; cortado");
+            textoFinal = restante;
+          }
+        }
+      }
+
       // Lista de produtos digitada vira peca do cardapio: a imagem tem tudo e o
       // preco, e ninguem escolhe festa lendo nove nomes num paragrafo.
       // Peca que ja foi pro cliente ha pouco nao volta: repetir cardapio no meio
@@ -3344,7 +3407,8 @@ async function rodarConversa(
         .filter((m) => m.role === "user" && typeof m.content === "string")
         .map((m) => m.content as string)
         .join("  ");
-      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemDoTurno, pedidoAguardando, ultimaFala, ultimaFalaDela);
+      const falasDela = historico.filter((m) => m.role === "assistant" && typeof m.content === "string").map((m) => m.content as string);
+      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemDoTurno, pedidoAguardando, ultimaFala, ultimaFalaDela, falasDela);
       // Sem isto, quando ela faz besteira so da pra adivinhar o que ela chamou.
       // 90 caracteres cortavam justamente a lista do que falta, que e o motivo da
       // recusa. Sem ela o log so diz que recusou, nao por que.
