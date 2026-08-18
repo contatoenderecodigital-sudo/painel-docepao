@@ -449,8 +449,15 @@ function executarFerramenta(
       // Numero de pessoas tem que ter saido da conversa, nao da cabeca dela.
       const pedidas = Number(input.pessoas) || 0;
       const ditos = new Set<number>();
-      for (const n of (falaDoCliente || "").match(/[0-9]+/g) ?? []) ditos.add(Number(n));
-      for (const n of (ultimaFalaDela || "").match(/[0-9]+/g) ?? []) ditos.add(Number(n));
+      // Numero com unidade colada nao e convidado: idade, hora, peso, data e
+      // ano saem antes da conta. "8 anos" ja virou festa pra 8 pessoas.
+      const semUnidade = (t: string) =>
+        String(t || "")
+          .replace(/(\d{1,2})[\/.-](\d{1,2})([\/.-](\d{2,4}))?/g, " ")
+          .replace(/(\d+)\s*(anos?|aninhos?|h|hs|horas?|kg|quilos?|g|gramas?|reais|r\$)/gi, " ")
+          .replace(/(as|às|as)\s+(\d+)/gi, " ");
+      for (const n of semUnidade(falaDoCliente).match(/[0-9]+/g) ?? []) ditos.add(Number(n));
+      for (const n of semUnidade(ultimaFalaDela).match(/[0-9]+/g) ?? []) ditos.add(Number(n));
       if (pedidas > 0 && ditos.size > 0 && !ditos.has(pedidas)) {
         return (
           "NAO orcei: o cliente nunca falou em " + pedidas + " pessoas. Convidado que ele nao citou vira o dobro de " +
@@ -551,9 +558,27 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // ("salgado_frito"), e isso nao e nome de nada: nao casa com a tabela de
     // preco, nao e absorvido pelo generico e sobra fantasma no pedido.
     const cru = String(input.produto || "").trim().replace(/_/g, " ");
-    const produto = APELIDOS[cru.toLowerCase()] ?? cru;
+    const anotado = APELIDOS[cru.toLowerCase()] ?? cru;
+    // Nome completo do cardapio na fala do cliente manda: a variante com
+    // palmito e outro produto, com outro preco.
+    const produto = (() => {
+      const semAc = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const naFala = semAc(falaDoCliente);
+      const curto = semAc(anotado);
+      if (!curto) return anotado;
+      const variantes = ((catalogo.outros_produtos ?? []) as { nome: string }[])
+        .map((i) => String(i.nome))
+        .filter((n) => {
+          const x = semAc(n);
+          return x.length > curto.length && x.startsWith(curto) && naFala.includes(x);
+        })
+        .sort((a, b) => b.length - a.length);
+      return variantes[0] ?? anotado;
+    })();
     const categoria = String(input.categoria || "outro");
-    const qtd = Number(input.qtd) || 0;
+    // A divisao entre tipos pode corrigir esse numero antes de anotar.
+    let qtd = Number(input.qtd) || 0;
+    let avisoDivisao = "";
     if (!produto || qtd <= 0) return "Não anotei: preciso do produto e de uma quantidade maior que zero.";
     // "sem sabor especificado", "a definir": ela preenche o campo pra nao deixar
     // vazio, e isso desce pra comanda como se fosse instrucao da cozinha.
@@ -835,10 +860,14 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
             return falaLimpa.includes(x) || falaLimpa.includes(x.slice(0, Math.max(4, x.length - 2)));
           }).length;
           const cabe = Math.floor(pedidoTotal / Math.max(1, citados));
-          if (citados > 1 && qtd > cabe) {
-            return (
-              "NAO anotei: o cliente citou " + citados + " tipos pra essa parte e nao disse quanto de cada. Cabem " + pedidoTotal + " no total, entao sao " + cabe + " de cada um. Anote " + cabe + " de " + produto + " e " + cabe + " dos outros que ele citou."
-            );
+          if (citados > 1 && qtd > cabe && cabe > 0) {
+            // Recusar fazia o item sumir do pedido: ela corrigia um tipo e
+            // esquecia o outro. Corrigir aqui garante que nada se perde.
+            qtd = cabe;
+            avisoDivisao =
+              " Dividi os " + pedidoTotal + " entre os " + citados + " tipos que ele citou: " + cabe +
+              " de cada. Anote AGORA os outros " + (citados - 1) + " tipo(s) com " + cabe +
+              " cada, na mesma resposta, senao eles ficam de fora do pedido.";
           }
         }
         if (jaTem + qtd > pedidoTotal) {
@@ -957,6 +986,20 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       const contida = antiga.toLowerCase().includes(nova.toLowerCase()) || nova.toLowerCase().includes(antiga.toLowerCase());
       if (antiga && !brigam && !contida) obsFinal = antiga + ", " + nova;
     }
+    // Produto de quilo com peso dito na fala: o peso e a quantidade. Ela ja
+    // anotou "1" pra quem pediu 1,5 kg, e a padaria cobraria meio quilo a menos.
+    if (unidadeDoProduto(produto, categoria) === "kg") {
+      // Um peso so na fala: sem isso, "3 kg de bolo e 2 kg de torta" colocaria
+      // 3 kg nos dois. Com dois pesos na frase quem decide continua sendo ela.
+      const pesos = [...String(falaDoCliente).matchAll(/([0-9]+(?:[.,][0-9]+)?)\s*(kg|quilos?)/gi)];
+      if (pesos.length === 1) {
+        const peso = Number(pesos[0][1].replace(",", "."));
+        if (peso > 0 && peso !== qtd) {
+          console.warn("[ia] peso do cliente vale: " + qtd + " -> " + peso + " kg de " + produto);
+          qtd = peso;
+        }
+      }
+    }
     estado.montagem.push({ tipo: "item", produto, categoria, qtd, obs: obsFinal });
 
     // Topo ou papel de arroz sem foto do tema: peca uma vez, sem insistir. A
@@ -968,7 +1011,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     if ((categoria === "bolo_festa" || categoria === "bolo_caseiro") && pedeArte && !temFoto) {
       return (
         `Anotei ${qtd} kg de ${produto}. Como tem topo ou papel de arroz, peca a foto do tema UMA vez, numa frase ` +
-        `("se tiver uma foto do tema, me manda que ajuda bastante"). Se ele nao tiver, tudo bem, siga o pedido.`
+        `("se tiver uma foto do tema, me manda que ajuda bastante"). Se ele nao tiver, tudo bem, siga o pedido.` + avisoDivisao
       );
     }
 
@@ -983,10 +1026,10 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         `Anotei ${qtd} de ${produto}, mas FALTA O SABOR. Pergunte AGORA citando as opcoes na propria mensagem, ` +
         `assim: "Qual o sabor d${produto.endsWith("a") ? "a" : "o"} ${produto}: ${opcoes.join(", ")}?". ` +
         `Perguntar "qual voce prefere?" sem dizer as opcoes deixa o cliente sem saber o que responder. ` +
-        `Se ele ja disse o sabor na conversa, chame anotar_item de novo com ele na observacao em vez de perguntar.`
+        `Se ele ja disse o sabor na conversa, chame anotar_item de novo com ele na observacao em vez de perguntar.` + avisoDivisao
       );
     }
-    return `Anotei ${qtd} de ${produto} no pedido. Continue a conversa normalmente; o pedido fica guardado e você não precisa repetir os itens anteriores.`;
+    return `Anotei ${qtd} de ${produto} no pedido.${avisoDivisao} Continue a conversa normalmente; o pedido fica guardado e você não precisa repetir os itens anteriores.`;
   }
   if (nome === "remover_item") {
     estado.montagem.push({
@@ -2757,6 +2800,66 @@ async function rodarConversa(
         }
       }
 
+      // PERGUNTA DE SABOR TEM RESPOSTA NO CARDAPIO: ELA SAI DAQUI.
+      //
+      // "o risoles de que sabor vem?" virou "anotei 67 coxinhas, e o pastel, de
+      // que sabor?". Quem perguntou ficou sem resposta e ainda levou pergunta.
+      const perguntouSabor =
+        /(de |que |quais |qual )?(que |quais |qual )?(sabor|sabores|recheio|recheios)/i.test(
+          String(falaDoCliente2 ?? ""),
+        ) && /[?]|^(qual|quais|que|de que|tem)/i.test(String(falaDoCliente2 ?? "").trim());
+      if (perguntouSabor && textoFinal) {
+        const limpo = String(falaDoCliente2 ?? "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+        // O produto de que ele falou, entre os que tem escolha de recheio.
+        const alvo = Object.keys(SABORES).find((nome) => {
+          const n = nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          return limpo.includes(n) || limpo.includes(n.slice(0, Math.max(4, n.length - 2)));
+        });
+        const ops = alvo ? SABORES[alvo] : null;
+        if (ops && ops.length) {
+          // Ela respondeu o sabor? Basta citar um deles pra valer.
+          const respondeu = ops.some((o) =>
+            textoFinal.toLowerCase().includes(String(o).trim().toLowerCase().split(" ")[0]),
+          );
+          if (!respondeu) {
+            console.warn("[ia] ela ignorou a pergunta de sabor de " + alvo + "; resposta escrita pelo codigo");
+            textoFinal =
+              "O " + alvo + " tem " + ops.slice(0, -1).join(", ") +
+              (ops.length > 1 ? " ou " + ops[ops.length - 1] : String(ops[0])) + "." +
+              "\n\n" + textoFinal;
+          }
+        }
+      }
+
+      // NEGAR O QUILO DE UM PRODUTO DE QUILO NAO SAI.
+      //
+      // Ela escreveu "nao vende cachorro-quente por quilo, so por unidade" pra
+      // um produto que o cardapio vende a R$ 19,90 o quilo. O cliente desiste
+      // ou compra errado por causa de uma frase que o proprio catalogo desmente.
+      const negouOQuilo = /(n[ãa]o|nao)[^.]{0,40}por quilo|s[óo] por unidade|somente por unidade|por unidade mesmo/i.test(
+        textoFinal,
+      );
+      if (negouOQuilo) {
+        const porQuilo = ((catalogo.outros_produtos ?? []) as { nome: string; unidade?: string }[])
+          .filter((i) => i.unidade === "kg")
+          .map((i) => String(i.nome))
+          .filter((n) => {
+            const x = n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const t = (String(falaDoCliente2 ?? "") + " " + textoFinal).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            return t.includes(x);
+          });
+        if (porQuilo.length) {
+          console.warn("[ia] ela negou o quilo de " + porQuilo[0] + "; frase trocada pela verdade");
+          textoFinal = textoFinal.replace(/[^.!?\n]*(n[ãa]o|nao)[^.!?\n]{0,40}por quilo[^.!?\n]*[.!?]?/gi, "").trim();
+          textoFinal = textoFinal.replace(/[^.!?\n]*(s[óo] por unidade|somente por unidade|por unidade mesmo)[^.!?\n]*[.!?]?/gi, "").trim();
+          textoFinal =
+            "O " + porQuilo[0] + " a gente vende por quilo." + (textoFinal ? "\n\n" + textoFinal : "");
+        }
+      }
+
       // Lista de produtos digitada vira peca do cardapio: a imagem tem tudo e o
       // preco, e ninguem escolhe festa lendo nove nomes num paragrafo.
       // Peca que ja foi pro cliente ha pouco nao volta: repetir cardapio no meio
@@ -2764,9 +2867,17 @@ async function rodarConversa(
       const mandadasAgora = pecasJaMandadas(historico);
       const semLista = listaViraCardapio(textoFinal, estado.cardapios, mandadasAgora);
       // O que o CLIENTE pediu vale por ultimo: se ele pediu a peca, ela vai.
-      const pecasFinais = cardapioPedidoPeloCliente(String(falaDoCliente2), semLista.cardapios).filter(
+      const pedidasPeloCliente = cardapioPedidoPeloCliente(String(falaDoCliente2), semLista.cardapios).filter(
         (x) => semLista.cardapios.includes(x) || !mandadasAgora.includes(x) || /card[áa]pio|me manda|quais|que tipos/i.test(String(falaDoCliente2)),
       );
+      // Ele nomeou a familia que quer ver: so ela vai agora. Mandar junto o
+      // cardapio que ninguem pediu polui a conversa e atrapalha a escolha.
+      const nomeouAFamilia = QUER_VER.test(String(falaDoCliente2 ?? ""))
+        ? PEDIDO_DE_CARDAPIO.filter(([, rx]) => rx.test(String(falaDoCliente2 ?? ""))).map(([id]) => id)
+        : [];
+      const pecasFinais = nomeouAFamilia.length
+        ? pedidasPeloCliente.filter((x) => nomeouAFamilia.includes(x))
+        : pedidasPeloCliente;
       return {
         texto: semLista.texto,
         precisaHumano: estado.precisaHumano,
