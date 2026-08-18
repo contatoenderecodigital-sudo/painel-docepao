@@ -2124,13 +2124,16 @@ async function rodarConversa(
         });
         continue;
       }
+      // Lista de produtos digitada vira peca do cardapio: a imagem tem tudo e o
+      // preco, e ninguem escolhe festa lendo nove nomes num paragrafo.
+      const semLista = listaViraCardapio(textoFinal, estado.cardapios);
       return {
-        texto: textoFinal,
+        texto: semLista.texto,
         precisaHumano: estado.precisaHumano,
         pedidoRegistrado: estado.pedido,
         aceitouOrcamento: estado.aceitouOrcamento,
         montagem: estado.montagem,
-        cardapiosParaEnviar: honrarCardapioPrometido(textoFinal, estado.cardapios),
+        cardapiosParaEnviar: honrarCardapioPrometido(semLista.texto, semLista.cardapios),
       };
     }
 
@@ -2177,6 +2180,39 @@ async function rodarConversa(
   };
 }
 
+
+// Os nomes que o cardapio de cada familia ja mostra em imagem.
+const NOMES_DA_FAMILIA: [CardapioId, string[]][] = [
+  ["salgados", ((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[])
+    .concat((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[])
+    .map((i) => String(i.nome).toLowerCase())],
+  ["docinhos", ((catalogo.doces?.itens ?? []) as { nome: string }[]).map((i) => String(i.nome).toLowerCase())],
+];
+
+// Enumerou a familia inteira em texto? Manda a peca e corta a lista da frase.
+function listaViraCardapio(
+  texto: string,
+  jaNaFila: CardapioId[],
+): { texto: string; cardapios: CardapioId[] } {
+  const frases = texto.split(new RegExp('(?<=[.!?])', 'g'));
+  let fila = [...jaNaFila];
+  let mudou = false;
+  const saida = frases.map((frase) => {
+    const t = frase.toLowerCase();
+    for (const [peca, nomes] of NOMES_DA_FAMILIA) {
+      if (fila.includes(peca)) continue;
+      const achados = nomes.filter((n) => n.length > 3 && t.includes(n));
+      // Quatro ou mais nomes na MESMA frase e lista de cardapio, nao conversa.
+      if (achados.length >= 4) {
+        fila = [...fila, peca];
+        mudou = true;
+        return " Te mandei o cardápio de " + peca + " aqui, com tudo e os preços.";
+      }
+    }
+    return frase;
+  });
+  return mudou ? { texto: saida.join("").trim(), cardapios: fila } : { texto, cardapios: jaNaFila };
+}
 
 // A IA às vezes ESCREVE que mandou o cardápio sem ter chamado enviar_cardapio.
 // O cliente fica olhando pra "te mandei o cardápio aqui" e nada chega; ele
