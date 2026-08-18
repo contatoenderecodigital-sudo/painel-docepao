@@ -40,6 +40,9 @@ export type DadosMontagem = {
   retirada_hora?: string | null;
   forma_pagamento?: string | null;
   observacoes?: string | null;
+  // O que o cliente DISPENSOU nesta festa ("salgado", "docinho", "bolo"),
+  // separado por virgula. Sem isso a etapa dele fica cobrando pra sempre.
+  nao_quer?: string | null;
 };
 
 export type Montagem = { itens: ItemMontagem[]; dados: DadosMontagem };

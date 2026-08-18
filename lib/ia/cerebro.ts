@@ -204,8 +204,13 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           retirada_hora: { type: ["string", "null"] },
           forma_pagamento: { type: ["string", "null"], description: "pix, cartao ou dinheiro." },
           observacoes: { type: ["string", "null"] },
+          nao_quer: {
+            type: ["string", "null"],
+            description:
+              "O que o cliente disse que NAO quer nesta festa: salgado, docinho ou bolo (pode ser mais de um, separado por virgula). Use quando ele dispensar: \"nao quero salgado\", \"so docinho\", \"sem bolo\". Assim eu paro de cobrar essa parte. null quando ele nao dispensou nada.",
+          },
         },
-        required: ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento", "observacoes"],
+        required: ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento", "observacoes", "nao_quer"],
         additionalProperties: false,
       },
       strict: true,
@@ -619,7 +624,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
 
   if (nome === "anotar_dados") {
     const dados: Record<string, string | null> = {};
-    for (const k of ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento", "observacoes"]) {
+    for (const k of ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento", "observacoes", "nao_quer"]) {
       const v = input[k];
       if (v !== undefined && v !== null && String(v).trim() !== "") dados[k] = String(v);
     }
@@ -636,7 +641,12 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       (k) => juntos[k] && String(juntos[k]).trim() !== "",
     );
     const itensAnotados = montagemAtual?.itens ?? [];
-    const pendentes = pendenciasDeSabor(itensAnotados, ehFestaNaFala(falaDoCliente), /bolo/i.test(falaDoCliente));
+    const pendentes = pendenciasDeSabor(
+      itensAnotados,
+      ehFestaNaFala(falaDoCliente),
+      /bolo/i.test(falaDoCliente),
+      String(montagemAtual?.dados?.nao_quer ?? ""),
+    );
     if (temTudo && itensAnotados.length > 0 && pendentes.length === 0) {
       return (
         `Anotei: ${Object.keys(dados).join(", ")}. AGORA NAO FALTA MAIS NADA NESTE PEDIDO. ` +
@@ -1192,7 +1202,11 @@ function etapasDaFesta(
   itens: MontagemAtual["itens"],
   festa = false,
   pediuBolo = false,
+  naoQuer = "",
 ): Etapa[] {
+  // O cliente pode dispensar uma parte inteira da festa, e ai ela para de
+  // cobrar aquilo em vez de perguntar a mesma coisa pra sempre.
+  const dispensou = (o: string) => new RegExp(o, "i").test(naoQuer);
   const da = (pref: string) => itens.filter((i) => String(i.categoria || "").startsWith(pref));
   const salgados = da("salgado");
   const docinhos = da("docinho");
@@ -1202,10 +1216,11 @@ function etapasDaFesta(
   etapas.push({
     titulo: "SALGADOS",
     pendencias: [
-      ...(festa && salgados.length === 0
+      ...(festa && !dispensou("salgado") && salgados.length === 0
         ? [
             "- o cliente ainda nao escolheu NENHUM salgado. Pergunte quais ele quer e quantos de cada, " +
-              "antes de falar de docinho ou de bolo.",
+              "antes de falar de docinho ou de bolo. Se ele disser que NAO quer salgado, chame anotar_dados com " +
+              "nao_quer=\"salgado\" e siga, que eu paro de cobrar.",
           ]
         : []),
       ...(salgados.map(faltaNoItem).filter(Boolean) as string[]),
@@ -1216,7 +1231,7 @@ function etapasDaFesta(
   etapas.push({
     titulo: "DOCINHOS",
     pendencias: [
-      ...(festa && docinhos.length === 0
+      ...(festa && !dispensou("docinho|doce") && docinhos.length === 0
         ? ["- o cliente ainda nao escolheu NENHUM docinho. Pergunte quais sabores e quantos de cada."]
         : []),
       ...(docinhos.map(faltaNoItem).filter(Boolean) as string[]),
@@ -1238,7 +1253,7 @@ function etapasDaFesta(
   etapas.push({
     titulo: "BOLO",
     pendencias: [
-      ...(pediuBolo && bolos.length === 0
+      ...(pediuBolo && !dispensou("bolo") && bolos.length === 0
         ? [
             "- o cliente falou em bolo e nao tem bolo nenhum anotado. Mande o cardapio de bolos ou pergunte o " +
               "sabor, e anote com o peso em quilos e o pao de lo.",
@@ -1275,8 +1290,13 @@ function etapasDaFesta(
 // Tudo que ainda falta, de todas as etapas. Quem decide se DA pra fechar usa
 // isto: sem ele, fechar so olhava sabor e passava por cima da forminha, do
 // topo e dos dados da peca.
-function pendenciasDeSabor(itens: MontagemAtual["itens"], festa = false, pediuBolo = false): string[] {
-  return etapasDaFesta(itens, festa, pediuBolo).flatMap((e) => e.pendencias);
+function pendenciasDeSabor(
+  itens: MontagemAtual["itens"],
+  festa = false,
+  pediuBolo = false,
+  naoQuer = "",
+): string[] {
+  return etapasDaFesta(itens, festa, pediuBolo, naoQuer).flatMap((e) => e.pendencias);
 }
 
 // O pedido anotado, em texto, pra IA ler no fim da conversa. É a memória dela:
@@ -1353,7 +1373,7 @@ function descreverMontagem(
 
   // Uma etapa por vez: a lista inteira de uma vez fazia ela perguntar salgado,
   // docinho e bolo na mesma mensagem, e o cliente respondia so um.
-  const etapas = etapasDaFesta(itens, festa, pediuBolo);
+  const etapas = etapasDaFesta(itens, festa, pediuBolo, String(m?.dados?.nao_quer ?? ""));
   const atual = etapas[0];
   const pend = atual ? atual.pendencias : [];
   const faltaDepois = Math.max(0, etapas.length - 1);
@@ -1536,7 +1556,7 @@ async function rodarConversa(
   // quatro, e no fim desistiu e chamou a equipe. Fechar so existe quando da pra
   // fechar; aceite de orcamento so existe quando ha pedido esperando o cliente.
   const podeFechar =
-    (montagemAtual?.itens?.length ?? 0) > 0 && pendenciasDeSabor(montagemAtual?.itens ?? [], ehFesta, pediuBolo).length === 0;
+    (montagemAtual?.itens?.length ?? 0) > 0 && pendenciasDeSabor(montagemAtual?.itens ?? [], ehFesta, pediuBolo, String(montagemAtual?.dados?.nao_quer ?? "")).length === 0;
   const ferramentas = (tenant.sistemaCustom ? FERRAMENTAS_BASICAS : FERRAMENTAS).filter((f) => {
     const nome = "function" in f ? f.function.name : "";
     if (nome === "cliente_aceitou_orcamento") return pedidoAguardando;
