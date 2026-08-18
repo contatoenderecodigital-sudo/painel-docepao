@@ -1550,7 +1550,10 @@ function descreverMontagem(
   const ordem =
     "ANTES de escrever a resposta, chame anotar_item pra cada produto que o cliente decidiu agora e anotar_dados pro que ele informou agora " +
     "(nome, data, hora, pagamento). Quantidade nova do mesmo produto e recheio escolhido depois entram com anotar_item de novo: corrigir nao duplica. " +
-    "O que voce nao anotar se perde, e o pedido registrado no fim sai DESTA lista, nao da sua lembranca da conversa.";
+    "O que voce nao anotar se perde, e o pedido registrado no fim sai DESTA lista, nao da sua lembranca da conversa. " +
+    "E quando o cliente disser que NAO ENTENDE ou pedir a sua indicacao, INDIQUE: monte a festa inteira com tipos e " +
+    "quantidades (salgados, docinhos e bolo, na base do numero de pessoas) e pergunte se pode ser assim. Devolver a " +
+    "pergunta pra quem acabou de dizer que nao entende deixa a pessoa travada.";
 
   if (linhas.length === 0 && dados.length === 0) {
     return (
