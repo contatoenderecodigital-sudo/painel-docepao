@@ -1,7 +1,7 @@
 "use client";
 
 // CRM: a ficha de cada cliente num layout de dois painéis (lista + ficha).
-// Histórico de pedidos, total gasto, selos, aniversário e preferências que a
+// Histórico de pedidos, total gasto, aniversário e preferências que a
 // equipe escreve. O cliente é o centro: dá pra abrir a conversa dele num toque.
 
 import { useMemo, useState } from "react";
@@ -16,7 +16,6 @@ import {
   Users,
   Search,
   Cake,
-  Award,
   MessageCircle,
   ShoppingBag,
   Banknote,
@@ -24,7 +23,6 @@ import {
   Save,
   Loader2,
   Check,
-  Star,
   ChevronRight,
 } from "lucide-react";
 
@@ -140,10 +138,10 @@ export default function Clientes({
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold text-cream truncate">{c.nome}</span>
                     <span className="block text-[12px] text-cream/50">
-                      {c.qtdPedidos} {c.qtdPedidos === 1 ? "pedido" : "pedidos"} · {brl(c.totalGastoCentavos)}
+                      {c.qtdPedidos} {c.qtdPedidos === 1 ? "pedido" : "pedidos"} ·{" "}
+                      {c.totalGastoCentavos > 0 ? brl(c.totalGastoCentavos) : "ainda sem compra fechada"}
                     </span>
                   </span>
-                  {c.selos >= 9 && <Star size={14} className="text-dourado shrink-0" fill="currentColor" />}
                 </button>
               );
             })}
@@ -218,11 +216,6 @@ function Ficha({ c }: { c: ClienteCRM }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xl font-bold text-cream tracking-tight-apple">{c.nome}</span>
-            {c.selos >= 9 && (
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1" style={{ background: "rgba(212,175,55,0.16)", color: "#e6c766" }}>
-                <Star size={11} fill="currentColor" /> quase brinde
-              </span>
-            )}
           </div>
           <a
             href={linkWhatsapp(c.telefone)}
@@ -238,9 +231,6 @@ function Ficha({ c }: { c: ClienteCRM }) {
                 <Cake size={14} className="text-dourado" /> {diaMes(c.aniversario)}
               </span>
             )}
-            <span className="inline-flex items-center gap-1.5">
-              <Award size={14} className="text-dourado" /> {c.selos}/10 selos
-            </span>
           </div>
         </div>
         <Link

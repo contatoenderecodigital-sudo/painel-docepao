@@ -142,11 +142,23 @@ export async function marcarImpresso(
   cupomTexto?: string,
   erro?: string,
 ): Promise<void> {
+  // Tira os bytes de controle do ESC/POS (o 0x00 derruba a gravacao inteira).
+  // Guarda o texto legivel, que e pro que ele serve: conferir o que saiu.
+  const cupomLimpo =
+    typeof cupomTexto === "string"
+      ? [...cupomTexto]
+          .filter((ch) => {
+            const c = ch.charCodeAt(0);
+            return c === 10 || c > 31; // guarda a quebra de linha, corta o resto
+          })
+          .join("")
+          .slice(0, 20000)
+      : null;
   if (ok) {
     await query(
       `update fila_impressao set status = 'impresso', impresso_em = now(), cupom_texto = $3
          where id = $1 and negocio_id = $2 and status = 'imprimindo'`,
-      [filaId, negocioId, cupomTexto ?? null],
+      [filaId, negocioId, cupomLimpo],
     );
     await query(
       `update pedidos set status = 'impresso', impresso_em = now()

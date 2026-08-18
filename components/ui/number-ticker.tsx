@@ -32,6 +32,24 @@ export function NumberTicker({
     return () => clearTimeout(t);
   }, [inView, value, delay, motionValue]);
 
+  // REDE DE SEGURANCA: numero errado na tela e pior que numero sem animacao.
+  // Quando a mola nao emite mudanca (valor pequeno, elemento que entra na tela
+  // fora do observador), o contador ficava travado em 0 com um cliente na lista
+  // logo abaixo. Passado o tempo da animacao, escreve o valor de verdade.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (!ref.current) return;
+      ref.current.textContent =
+        prefix +
+        new Intl.NumberFormat("pt-BR", {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+        }).format(value) +
+        suffix;
+    }, delay * 1000 + 1500);
+    return () => clearTimeout(t);
+  }, [value, decimals, prefix, suffix, delay]);
+
   useEffect(() => {
     return spring.on("change", (v) => {
       if (!ref.current) return;
