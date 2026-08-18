@@ -336,11 +336,19 @@ const REGRAS_GERAIS = [
     const msgs = [];
     for (const passo of cen.passos) {
       msgs.push({ de: "cliente", texto: passo.diz });
-      const r = await p.request.post(BASE + "/api/testar-ia", { data: { mensagens: msgs }, timeout: 120000 });
+      // Primeiro passo do cenario limpa o pedido do cliente de teste, senao um
+      // cenario herda o pedido do outro e a checagem vira loteria.
+      const primeiro = msgs.filter((m) => m.de === "cliente").length === 1;
+      const r = await p.request.post(BASE + "/api/testar-ia", {
+        data: { mensagens: msgs, reiniciar: primeiro },
+        timeout: 120000,
+      });
       let j = {};
       try { j = await r.json(); } catch { j = { erro: "HTTP " + r.status() }; }
       const resposta = String(j.resposta || j.erro || "");
       msgs.push({ de: "ia", texto: resposta });
+      // Respiro pra nao estourar o limite de chamadas da OpenAI no meio da bateria.
+      await new Promise((r2) => setTimeout(r2, 1200));
 
       console.log("\n> " + passo.diz);
       console.log("  " + resposta.replace(/\n/g, "\n  "));

@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   // imagem: base64 (com ou sem prefixo data:) da foto de referência que o dono
   // anexou na última mensagem, pra testar o fluxo completo do /testar.
-  let corpo: { mensagens?: MsgEntrada[]; imagem?: string; imagemMime?: string };
+  let corpo: { mensagens?: MsgEntrada[]; imagem?: string; imagemMime?: string; reiniciar?: boolean };
   try {
     corpo = await req.json();
   } catch {
@@ -106,6 +106,9 @@ export async function POST(req: NextRequest) {
   try {
     // Igual ao webhook: a IA precisa enxergar o pedido que ja esta montado,
     // senao o teste exercita um sistema que nao existe em producao.
+    // Cada cenario do teste comeca do zero: sem isso o pedido de um vaza no
+    // outro e o resultado nao quer dizer nada.
+    if (clienteId && corpo?.reiniciar) await limparMontagem(negocioId, clienteId).catch(() => {});
     const montado = clienteId ? await lerMontagem(negocioId, clienteId).catch(() => null) : null;
     const emAberto = clienteId ? await pedidoEmAberto(negocioId, clienteId).catch(() => null) : null;
     resp = await responder(historico, tenant, "whatsapp", clienteId, montado, false, null, emAberto);
