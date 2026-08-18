@@ -518,7 +518,9 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                   if (!ops.length) return null;
                   const atual = (it.obs ?? "").toLowerCase();
                   return (
-                    <div className="flex flex-wrap gap-1 mt-1.5">
+                    <div className="mt-2">
+                      <span className="block text-[11px] text-cream/45 mb-1">Sabor</span>
+                      <div className="flex flex-wrap gap-1">
                       {ops.map((sab) => {
                         const marcado = atual.includes(sab.toLowerCase());
                         return (
@@ -545,6 +547,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                         );
                       })}
                     </div>
+                    </div>
                   );
                 })()}
                 {/* A COR DA FORMINHA, PRONTA PRA CLICAR.
@@ -554,9 +557,16 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                 {it.categoria === "docinho" && (() => {
                   const atual = (it.obs ?? "").toLowerCase();
                   return (
-                    <div className="flex flex-wrap gap-1 mt-1.5">
+                    <div className="mt-2">
+                      <span className="block text-[11px] text-cream/45 mb-1">Forminha</span>
+                      <div className="flex flex-wrap gap-1">
                       {CORES_FORMINHA.map((cor) => {
-                        const marcado = atual.includes(cor.toLowerCase());
+                        // "azul royal" acendia tambem o "azul": marca so a mais
+                        // especifica que aparece na observacao.
+                        const escolhida = [...CORES_FORMINHA]
+                          .sort((a, b) => b.length - a.length)
+                          .find((c) => atual.includes(c.toLowerCase()));
+                        const marcado = escolhida === cor;
                         return (
                           <button
                             key={cor}
@@ -579,6 +589,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                           </button>
                         );
                       })}
+                    </div>
                     </div>
                   );
                 })()}
