@@ -72,7 +72,11 @@ const CENARIOS = [
               // "produto de recheio" afirmado: o recheio tem que ter saido dele.
               const afirmacoes = [...t.matchAll(/(coxinha|empadinha|croissant|esfirra|risolis|mini bolha|pastel|quiche|enroladinho)s? de ([a-z]+)/g)];
               const inventou = afirmacoes.some((m) => !dele.includes(m[2]));
-              const perguntou = /recheio|sabor|quantos|quantas|quanto/.test(t);
+              // Listar as opcoes com interrogacao tambem e perguntar: "E o
+              // croissant: carne, frango, calabresa?" nao usa a palavra sabor.
+              const perguntou =
+                /recheio|sabor|quantos|quantas|quanto/.test(t) ||
+                (/?/.test(t) && /(carne|frango|calabresa|palmito|brocolis|bacon|queijo)/.test(t));
               return !inventou && perguntou;
             },
           },
