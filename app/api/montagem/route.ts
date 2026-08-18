@@ -18,7 +18,12 @@ export async function GET(req: NextRequest) {
     // pedido fechado em vez de dizer que nao tem nada.
     if ((m.itens?.length ?? 0) === 0) {
       const { pedidoRegistradoDoCliente } = await import("@/lib/banco/pedidos");
-      const registrado = await pedidoRegistradoDoCliente(sessao.negocioId, clienteId).catch(() => null);
+      const registrado = await pedidoRegistradoDoCliente(sessao.negocioId, clienteId).catch((e) => {
+        // Catch mudo aqui escondeu uma consulta quebrada: a tela dizia "nada
+        // anotado" com o pedido do lado e nao sobrava pista nenhuma.
+        console.error("[montagem] falha ao ler o pedido registrado:", e);
+        return null;
+      });
       if (registrado) return Response.json({ ...m, registrado });
     }
     return Response.json(m);

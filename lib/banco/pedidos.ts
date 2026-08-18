@@ -426,10 +426,13 @@ export async function pedidoRegistradoDoCliente(
     observacoes: string | null;
     cliente_nome: string | null;
   }>(
-    `select id, status::text as status, coalesce(total_centavos, 0) as total_centavos,
-            to_char(retirada_data, 'DD/MM/YYYY') as retirada_data, retirada_hora
-       from pedidos
-      where negocio_id = $1 and cliente_id = $2 and status in ('confirmado', 'aprovado') and impresso_em is null
+    `select p.id, p.status::text as status, coalesce(p.total_centavos, 0) as total_centavos,
+            to_char(p.retirada_data, 'DD/MM/YYYY') as retirada_data, p.retirada_hora,
+            p.forma_pagamento, p.observacoes, c.nome as cliente_nome
+       from pedidos p
+       left join clientes c on c.id = p.cliente_id
+      where p.negocio_id = $1 and p.cliente_id = $2
+        and p.status in ('confirmado', 'aprovado') and p.impresso_em is null
       order by p.criado_em desc
       limit 1`,
     [negocioId, clienteId],
