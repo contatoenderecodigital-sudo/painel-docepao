@@ -54,17 +54,41 @@ export async function POST(req: NextRequest) {
       const cot = tenant.motor.cotarPorItens(
         brutos.map((i) => ({ item: i.produto, qtd: Number(i.qtd) || 0, obs: i.obs ?? undefined })),
       );
-      // A linha cotada manda no preco; o que a equipe escolheu na tela manda no
-      // resto (categoria, unidade e observacao sao decisao dela, nao do motor).
-      const precificados = cot.linhas.map((l, k) => ({
-        produto: l.item,
-        categoria: brutos[k]?.categoria || l.categoria,
-        qtd: l.qtd,
-        unidade: brutos[k]?.unidade || l.unidade || "un",
-        obs: brutos[k]?.obs ?? l.obs ?? null,
-        unitCentavos: Math.round(l.unit * 100),
-        subtotalCentavos: Math.round(l.subtotal * 100),
-      }));
+      // Nome do cardapio e nome da tela nao sao iguais (a cotacao devolve o nome
+      // oficial), entao o casamento e por aproximacao, e cada item da tela so
+      // casa uma vez.
+      const norm = (t: string) => String(t || "").trim().toLowerCase().replace(/^bolo (de |do |da )/, "bolo ");
+      const usados = new Set<number>();
+      const casar = (nome: string) => {
+        const a = norm(nome);
+        for (let k = 0; k < brutos.length; k++) {
+          if (usados.has(k)) continue;
+          const b = norm(brutos[k].produto);
+          if (a === b || a.includes(b) || b.includes(a)) {
+            usados.add(k);
+            return brutos[k];
+          }
+        }
+        return null;
+      };
+      const precificados = cot.linhas.map((l) => {
+        const dela = casar(l.item);
+        return {
+          produto: l.item,
+          categoria: dela?.categoria || l.categoria,
+          qtd: l.qtd,
+          unidade: dela?.unidade || l.unidade || "un",
+          obs: dela?.obs ?? l.obs ?? null,
+          unitCentavos: Math.round(l.unit * 100),
+          subtotalCentavos: Math.round(l.subtotal * 100),
+        };
+      });
+      // Item que a equipe deixou na tela e o cardapio nao reconhece nao pode
+      // sumir calado: sem preco ele viraria um pedido menor do que o combinado.
+      const semPreco = brutos.filter((_, k) => !usados.has(k)).map((i) => i.produto);
+      if (semPreco.length > 0) {
+        return Response.json({ erro: "sem_preco", produtos: semPreco }, { status: 400 });
+      }
       const total = await salvarItensDoPedido(sessao.negocioId, corpo.pedidoId, precificados);
       return Response.json({ ok: true, totalCentavos: total });
     }

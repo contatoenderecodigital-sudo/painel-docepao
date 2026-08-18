@@ -113,6 +113,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
   const [sujo, setSujo] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     try {
@@ -184,6 +185,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
 
   async function salvar() {
     setSalvando(true);
+    setErro(null);
     try {
       const limpos = itens
         .filter((x) => x.produto.trim() !== "" && x.qtd > 0)
@@ -193,7 +195,18 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clienteId, pedidoId: registrado?.id, itens: limpos, dados }),
       });
-      if (!r.ok) throw new Error("falhou");
+      if (!r.ok) {
+        const e = (await r.json().catch(() => ({}))) as { erro?: string; produtos?: string[] };
+        if (e.erro === "sem_preco") {
+          setErro(
+            "Sem preço no cardápio: " + (e.produtos ?? []).join(", ") +
+              ". Escolha o produto pela lista pra ele entrar no total.",
+          );
+        } else {
+          setErro("Não deu pra salvar agora. Tente de novo.");
+        }
+        throw new Error("falhou");
+      }
       // O total muda quando a equipe mexe: a tela mostra o novo, nao o antigo.
       const j = await r.json().catch(() => ({}) as { totalCentavos?: number });
       if (registrado && typeof j.totalCentavos === "number") {
@@ -697,6 +710,11 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                 {salvo ? <><Check size={15} /> Salvo</> : salvando ? "Salvando..." : "Salvar correções"}
               </button>
             </div>
+            {erro && (
+              <p className="text-[11px] leading-snug" style={{ color: "#f0a5a5" }}>
+                {erro}
+              </p>
+            )}
             <p className="text-[11px] text-cream/40 leading-snug">
               O que você corrigir aqui a IA passa a usar na conversa. Categoria importa: brigadeiro docinho e bolo de
               brigadeiro são coisas diferentes na hora de cobrar.
