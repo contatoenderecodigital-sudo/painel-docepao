@@ -582,6 +582,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // A divisao entre tipos pode corrigir esse numero antes de anotar.
     let qtd = Number(input.qtd) || 0;
     let avisoDivisao = "";
+    let avisoSabor = "";
     if (!produto || qtd <= 0) return "Não anotei: preciso do produto e de uma quantidade maior que zero.";
     // "sem sabor especificado", "a definir": ela preenche o campo pra nao deixar
     // vazio, e isso desce pra comanda como se fosse instrucao da cozinha.
@@ -774,6 +775,27 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         );
       }
     }
+    // PRODUTO NOVO SO ENTRA COM O NUMERO DA MENSAGEM EM QUE ELE FOI CITADO.
+    //
+    // "e cachorro quente voces fazem?" virou 2 kg de cachorro-quente, numero
+    // emprestado dos 2 kg de torta fria pedidos antes. Pergunta nao e pedido.
+    const jaNoPedido = (montagemAtual?.itens ?? []).some(
+      (x) => String(x.produto ?? "").trim().toLowerCase() === produto.trim().toLowerCase(),
+    );
+    if (!jaNoPedido && qtd > 0) {
+      const naUltima = /[0-9]/.test(String(ultimaFala ?? ""));
+      const soPergunta =
+        /voc[êe]s? (fazem|tem|t[êe]m|vendem)|tem\s|faz\s|existe/i.test(String(ultimaFala ?? "")) &&
+        !naUltima;
+      if (soPergunta) {
+        console.warn("[ia] pergunta virando pedido: " + qtd + " de " + produto + "; recusado");
+        return (
+          "NAO anotei: nesta mensagem o cliente so PERGUNTOU se a padaria faz " + produto + ", sem dizer quantidade. " +
+          "Responda que faz, diga como e vendido, e pergunte quanto ele quer. Numero de outro produto nao vale pra este."
+        );
+      }
+    }
+
     // QUANTIDADE QUE O CLIENTE NAO FALOU NAO ENTRA.
     //
     // Ele escolheu tres tipos sem dizer quantos e ela anotou 100 de cada,
@@ -1034,15 +1056,17 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const opsFechadas = opcoesDeSabor(produto);
     if (opsFechadas.length && obsItem && String(obsItem).trim()) {
       const semAc = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const naObs = opsFechadas.filter((o) => semAc(obsItem).includes(semAc(o)));
+      // A observacao pode ser zerada logo abaixo, entao a leitura fica presa
+      // numa variavel propria.
+      const obsAgora = String(obsItem ?? "");
+      const naObs = opsFechadas.filter((o) => semAc(obsAgora).includes(semAc(o)));
       const doCliente = naObs.filter((o) => semAc(falaDoCliente).includes(semAc(o)));
       if (naObs.length && !doCliente.length) {
-        console.warn("[ia] sabor inventado pra " + produto + ": " + naObs.join(", "));
-        return (
-          "NAO anotei: o cliente nunca falou em " + naObs.join(" nem em ") + ". Escolher o sabor por ele faz a " +
-          "cozinha produzir o que ninguem pediu. Pergunte qual ele quer, citando as opcoes (" +
-          opsFechadas.join(", ") + "), e anote depois que ele responder."
-        );
+        console.warn("[ia] sabor inventado pra " + produto + ": " + naObs.join(", ") + "; item entra sem sabor");
+        // O item fica, o sabor sai: e o item sem sabor que segura o pedido.
+        obsItem = null;
+        avisoSabor =
+          " O sabor NAO foi anotado: o cliente nunca falou em " + naObs.join(" nem em ") + ". Pergunte qual ele quer, citando as opcoes (" + opsFechadas.join(", ") + "). O item ficou no pedido esperando essa resposta.";
       }
     }
 
@@ -1061,11 +1085,12 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         return dito.includes(x) || x.includes(dito);
       });
       if (!conhecido) {
-        return (
-          "NAO anotei: a padaria nao faz " + produto + " de " + String(obsItem).trim() + ". Os sabores sao: " +
-          (listaFechada.sabores ?? []).join(", ") + ". Diga isso ao cliente e pergunte qual ele quer; " +
-          "aceitar um sabor que a cozinha nao faz entrega outra coisa no dia."
-        );
+        console.warn("[ia] sabor fora do cardapio em " + produto + ": " + obsItem + "; item entra sem sabor");
+        // Recusar o item inteiro fazia a encomenda sumir. O item entra sem o
+        // sabor invalido e cobra a escolha ate o fim.
+        avisoSabor =
+          " A padaria NAO faz " + produto + " de " + String(obsItem).trim() + ". Diga isso ao cliente, cite os sabores (" + (listaFechada.sabores ?? []).join(", ") + ") e pergunte qual ele quer. O item ficou no pedido esperando essa resposta, entao nao repita a recusa toda mensagem.";
+        obsItem = null;
       }
     }
 
@@ -1148,7 +1173,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         `Se ele ja disse o sabor na conversa, chame anotar_item de novo com ele na observacao em vez de perguntar.` + avisoDivisao
       );
     }
-    return `Anotei ${qtd} de ${produto} no pedido.${avisoDivisao} Continue a conversa normalmente; o pedido fica guardado e você não precisa repetir os itens anteriores.`;
+    return `Anotei ${qtd} de ${produto} no pedido.${avisoDivisao}${avisoSabor} Continue a conversa normalmente; o pedido fica guardado e você não precisa repetir os itens anteriores.`;
   }
   if (nome === "remover_item") {
     estado.montagem.push({
@@ -3017,6 +3042,26 @@ async function rodarConversa(
           ? "Pra fechar seu pedido ainda falta " + faltando[0].replace(/^- /, "") + ". Me confirma isso que eu fecho agora."
           : "Ainda nao consegui fechar seu pedido aqui. Vou chamar alguem da equipe pra terminar com voce.";
         if (!faltando.length) estado.precisaHumano = true;
+      }
+
+      // "QUANTO FICOU O TOTAL?" COM PEDIDO REGISTRADO TEM RESPOSTA.
+      //
+      // Ela devolveu "ta querendo fazer um pedido novo?" pra quem tinha acabado
+      // de fechar. O valor esta no pedido; perguntar de volta e fazer o cliente
+      // duvidar do que combinou.
+      const perguntouTotal =
+        /(quanto|qual)[^?]{0,30}(total|ficou|deu|valor)|quanto (ficou|deu|custou)/i.test(String(falaDoCliente2 ?? ""));
+      if (pedidoAberto && perguntouTotal && !estado.pedido && pedidoAberto.totalCentavos > 0) {
+        if (!/R\$\s?[0-9]/.test(textoFinal)) {
+          console.warn("[ia] total do pedido respondido pelo codigo");
+          const quandoT = [
+            pedidoAberto.retiradaData ? pedidoAberto.retiradaData : null,
+            pedidoAberto.retiradaHora ? "às " + pedidoAberto.retiradaHora : null,
+          ].filter(Boolean).join(" ");
+          textoFinal =
+            "Seu pedido" + (quandoT ? " pra " + quandoT : "") + " deu " + brl(pedidoAberto.totalCentavos / 100) + "." +
+            "\n\n" + textoFinal;
+        }
       }
 
       // CONFIRMACAO CURTA COM PEDIDO REGISTRADO VIRA STATUS, NAO PERGUNTA.
