@@ -63,9 +63,15 @@ const CENARIOS = [
             // "metade de cada" sem dizer de quanto), e a regra da casa e uma
             // pergunta por vez. Reprova so se ela citar um recheio que ninguem
             // falou ou seguir em frente sem perguntar nada.
-            ok: (r) => {
+            ok: (r, h) => {
               const t = norm(r);
-              const inventou = /(queijo|palmito|calabresa|bacon|brocolis|presunto)/.test(t);
+              // Tudo que o CLIENTE ja escreveu nesta conversa.
+              const dele = norm(
+                (h || []).filter((m) => m.de === "cliente").map((m) => m.texto).join(" "),
+              );
+              // "produto de recheio" afirmado: o recheio tem que ter saido dele.
+              const afirmacoes = [...t.matchAll(/(coxinha|empadinha|croissant|esfirra|risolis|mini bolha|pastel|quiche|enroladinho)s? de ([a-z]+)/g)];
+              const inventou = afirmacoes.some((m) => !dele.includes(m[2]));
               const perguntou = /recheio|sabor|quantos|quantas|quanto/.test(t);
               return !inventou && perguntou;
             },
