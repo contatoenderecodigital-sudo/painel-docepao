@@ -561,7 +561,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const anotado = APELIDOS[cru.toLowerCase()] ?? cru;
     // Nome completo do cardapio na fala do cliente manda: a variante com
     // palmito e outro produto, com outro preco.
-    const produto = (() => {
+    let produto = (() => {
       const semAc = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       const naFala = semAc(falaDoCliente);
       const curto = semAc(anotado);
@@ -994,6 +994,37 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     if (obsEhAListaInteira(produto, obsItem)) {
       console.warn("[ia] a lista de sabores veio como observacao de " + produto + "; descartada");
       obsItem = null;
+    }
+
+    // SABOR EM PRODUTO QUE NAO TEM SABOR: E O IRMAO RECHEADO QUE ELE QUER.
+    //
+    // "cuca" com observacao "banana" fechou pedido depois de "cuca recheada de
+    // banana" ter sido recusada. Produto sem lista nao vira atalho.
+    if (obsItem && String(obsItem).trim() && saboresDoCardapio(produto).length === 0) {
+      const semAc0 = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const base = semAc0(produto);
+      const irmaos = ((catalogo.outros_produtos ?? []) as { nome: string; sabores?: string[] }[]).filter(
+        (i) =>
+          Array.isArray(i.sabores) &&
+          i.sabores.length > 0 &&
+          semAc0(i.nome) !== base &&
+          semAc0(i.nome).startsWith(base),
+      );
+      if (irmaos.length) {
+        const ops = irmaos[0].sabores as string[];
+        const combina = ops.some((o) => semAc0(obsItem as string).includes(semAc0(o)));
+        if (!combina) {
+          console.warn("[ia] sabor entrando por " + produto + " (sem lista): " + obsItem);
+          return (
+            "NAO anotei: " + produto + " nao tem recheio, e \"" + String(obsItem).trim() + "\" nao e sabor de " +
+            irmaos[0].nome + ". As opcoes de " + irmaos[0].nome + " sao: " + ops.join(", ") + ". " +
+            "Pergunte qual ele quer, ou confirme que e o produto sem recheio mesmo, e anote sem observacao de sabor."
+          );
+        }
+        // O sabor e do irmao recheado: e ele que entra, com o preco dele.
+        console.warn("[ia] sabor de " + irmaos[0].nome + " anotado em " + produto + "; produto corrigido");
+        produto = irmaos[0].nome;
+      }
     }
 
     // SABOR QUE O CLIENTE NAO ESCREVEU NAO E ESCOLHA DELE.
@@ -3011,7 +3042,9 @@ async function rodarConversa(
         const ops = alvo ? SABORES[alvo] : null;
         if (ops && ops.length) {
           // Ela respondeu o sabor? Basta citar um deles pra valer.
-          const respondeu = ops.some((o) =>
+          // TODAS as opcoes, nao uma. Ela respondeu "o risolis e de carne" e
+          // escondeu o frango: o cliente escolhe entre o que ele conhece.
+          const respondeu = ops.every((o) =>
             textoFinal.toLowerCase().includes(String(o).trim().toLowerCase().split(" ")[0]),
           );
           if (!respondeu) {
@@ -3021,6 +3054,52 @@ async function rodarConversa(
               (ops.length > 1 ? " ou " + ops[ops.length - 1] : String(ops[0])) + "." +
               "\n\n" + textoFinal;
           }
+        }
+      }
+
+      // PRECO DO BOLO DE FESTA: as faixas estao no cardapio, e o sabor decide.
+      const perguntouBolo =
+        /(quanto|qual|pre[çc]o)[^?]{0,40}(quilo|kg)[^?]{0,20}bolo|quanto (custa|fica|sai) o bolo|pre[çc]o do bolo/i.test(
+          String(falaDoCliente2 ?? ""),
+        );
+      if (perguntouBolo && textoFinal && !/R\$\s?[0-9]/.test(textoFinal)) {
+        const faixas = ((catalogo.bolos_recheados?.faixas ?? []) as { preco?: number }[])
+          .map((f) => Number(f.preco ?? 0))
+          .filter((n) => n > 0)
+          .sort((a, b) => a - b);
+        if (faixas.length) {
+          console.warn("[ia] preco do bolo respondido pelo codigo");
+          const menor = faixas[0];
+          const maior = faixas[faixas.length - 1];
+          textoFinal =
+            "O bolo de festa é vendido por quilo: de " + brl(menor) + " a " + brl(maior) +
+            " o quilo, dependendo do sabor." + "\n\n" + textoFinal;
+        }
+      }
+
+      // PRECO DE SALGADO, DOCINHO E BOLO: POR UNIDADE E POR CENTO.
+      const perguntouCento =
+        /(quanto|qual|preco|preço)[^?]{0,40}(cento|cem|100)|quanto (custa|fica|sai) o (cento|salgadinho|salgado|docinho|doce|bolo)|pre[çc]o d[oa] (cento|salgado|docinho|bolo)/i.test(
+          String(falaDoCliente2 ?? ""),
+        );
+      if (perguntouCento && textoFinal && !/R\$\s?[0-9]/.test(textoFinal)) {
+        const t = String(falaDoCliente2 ?? "").toLowerCase();
+        const frito = Number(catalogo.salgados?.frito?.preco ?? 0);
+        const assado = Number(catalogo.salgados?.assado?.preco ?? 0);
+        const doce = Number(catalogo.doces?._preco_padrao_doce ?? 0);
+        const linhas: string[] = [];
+        if (/salgad|frito|assado|cento/i.test(t) && frito > 0) {
+          linhas.push(
+            "Salgado frito sai " + brl(frito) + " a unidade (" + brl(frito * 100) + " o cento) e o assado " +
+              brl(assado) + " (" + brl(assado * 100) + " o cento).",
+          );
+        }
+        if (/docinho|doce/i.test(t) && doce > 0) {
+          linhas.push("Docinho sai " + brl(doce) + " cada (" + brl(doce * 100) + " o cento).");
+        }
+        if (linhas.length) {
+          console.warn("[ia] preco por cento respondido pelo codigo");
+          textoFinal = linhas.join(" ") + "\n\n" + textoFinal;
         }
       }
 
