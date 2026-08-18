@@ -1388,7 +1388,12 @@ function etapasDaFesta(
     /topo|papel de arroz/i.test(String(i.produto || "")) || String(i.categoria || "").startsWith("bolo"),
   );
   const obsBolo = linhasDaArte.map((i) => String(i.obs ?? "")).join(", ");
-  const jaTratouArte = /topo|papel de arroz|sem topo|sem papel/i.test(obsBolo);
+  // Topo e papel de arroz podem estar como ITEM proprio, nao so citados na
+  // observacao do bolo: sem olhar o nome do produto, ela ficava sendo mandada
+  // "oferecer topo" com o topo ja no pedido.
+  const jaTratouArte =
+    linhasDaArte.some((i) => /topo|papel de arroz/i.test(String(i.produto || ""))) ||
+    /topo|papel de arroz|sem topo|sem papel/i.test(obsBolo);
   etapas.push({
     titulo: "BOLO",
     pendencias: [
