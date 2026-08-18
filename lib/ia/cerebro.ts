@@ -1381,7 +1381,13 @@ function etapasDaFesta(
   // Acompanhamento do bolo: e aqui que a padaria ganha os R$ 12 do papel de
   // arroz e o valor do topo, e e a ultima hora de perguntar.
   const bolo = bolos[0];
-  const obsBolo = String(bolo?.obs ?? "");
+  // A arte do bolo pode estar na linha do BOLO ou nas linhas do topo e do papel
+  // de arroz, que agora sao itens proprios. Ela anotou tema, nome e idade no
+  // topo, e a regra, olhando so o bolo, mandava perguntar tudo de novo.
+  const linhasDaArte = itens.filter((i) =>
+    /topo|papel de arroz/i.test(String(i.produto || "")) || String(i.categoria || "").startsWith("bolo"),
+  );
+  const obsBolo = linhasDaArte.map((i) => String(i.obs ?? "")).join(", ");
   const jaTratouArte = /topo|papel de arroz|sem topo|sem papel/i.test(obsBolo);
   etapas.push({
     titulo: "BOLO",
