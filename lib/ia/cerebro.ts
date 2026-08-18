@@ -696,6 +696,13 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const mandouDividir = /divid|igual|sortido|voce que sabe|voce escolhe|do seu jeito|como voce achar|o que voce sugerir/i.test(
       falaDoCliente,
     );
+    // Os nomes de salgado do cardapio, pra saber quantos tipos o cliente citou
+    // numa mesma frase.
+    const SALGADOS_CONHECIDOS = [
+      ...(((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]).map((i) => String(i.nome).toLowerCase())),
+      ...(((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[]).map((i) => String(i.nome).toLowerCase())),
+    ];
+
     // PRODUTO QUE NINGUEM CITOU NAO ENTRA.
     //
     // Vale o que o cliente escreveu e o que ELA propos e ele aceitou (a
@@ -723,19 +730,35 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // produz o dobro.
     if (familiaEscolhida) {
       const alvo = categoria === "docinho" ? /([0-9]+) *(docinho|doce)/i : /([0-9]+) *salgado/i;
-      const pedidoTotal = Number((String(falaDoCliente).match(alvo) ?? [])[1] ?? 0);
+      let pedidoTotal = Number((String(falaDoCliente).match(alvo) ?? [])[1] ?? 0);
+      // "metade frito metade assado": cada metade e um balde separado, senao a
+      // conta fecha no total e estoura dentro de uma das duas.
+      const meioAMeio =
+        /(metade|meio a meio|50 ?%)[^.]{0,40}(frito|assado)/i.test(falaDoCliente) ||
+        /(frito|assado)[^.]{0,40}(metade|meio a meio)/i.test(falaDoCliente);
+      const soDoTipo = meioAMeio && String(categoria).startsWith("salgado");
+      if (soDoTipo) pedidoTotal = Math.round(pedidoTotal / 2);
       if (pedidoTotal > 0) {
         const mesmaFamilia = (montagemAtual?.itens ?? []).filter((x) =>
           categoria === "docinho"
             ? x.categoria === "docinho"
-            : String(x.categoria ?? "").startsWith("salgado"),
+            : soDoTipo
+              ? x.categoria === categoria
+              : String(x.categoria ?? "").startsWith("salgado"),
         );
         const jaTem = mesmaFamilia
           .filter((x) => String(x.produto ?? "").trim().toLowerCase() !== produto.trim().toLowerCase())
           .reduce((t, x) => t + (Number(x.qtd) || 0), 0);
         if (jaTem + qtd > pedidoTotal) {
+          const resta = Math.max(0, pedidoTotal - jaTem);
+          // Quantos tipos dessa metade o cliente citou nesta fala: e por eles
+          // que o resto se divide.
+          const tiposCitados = (SALGADOS_CONHECIDOS as string[]).filter((n) =>
+            falaDoCliente.toLowerCase().includes(n),
+          ).length;
+          const cada = tiposCitados > 1 ? Math.floor(resta / tiposCitados) : resta;
           return (
-            "NAO anotei: o cliente pediu " + pedidoTotal + " no total dessa familia e o pedido ja tem " + jaTem + ". Somando " + qtd + " de " + produto + " passa do que ele pediu. Divida o total entre os tipos que ELE escolheu e anote com as contas fechando, ou pergunte quantos de cada ele quer."
+            "NAO anotei: cabem " + pedidoTotal + " nessa parte do pedido e ja tem " + jaTem + ". Somando " + qtd + " de " + produto + " passa do que o cliente pediu. Sobram " + resta + ", e ele citou " + Math.max(1, tiposCitados) + " tipo(s) aqui: anote " + cada + " de cada um e as contas fecham. Nao pergunte de novo o que ele ja escolheu."
           );
         }
       }
