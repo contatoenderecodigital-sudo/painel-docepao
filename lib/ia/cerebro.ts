@@ -585,7 +585,8 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // Observacao de enfeite nao e observacao: melhor vazia e cobrada.
     const ENFEITE = /^(sem +(sabor|recheio)|a +definir|nao +informad|n[ãa]o +especificad|indefinid|a +combinar)/i;
     const obsBruta = input.obs ? String(input.obs).trim() : "";
-    const obsItem = obsBruta && !ENFEITE.test(obsBruta) ? obsBruta : null;
+    // Pode ser zerada adiante quando vier a lista de opcoes no lugar da escolha.
+    let obsItem = obsBruta && !ENFEITE.test(obsBruta) ? obsBruta : null;
 
     // DOIS BOLOS NA MESMA FESTA SO SE O CLIENTE PEDIR DOIS.
     //
@@ -972,6 +973,13 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // isso que o painel mostrava justamente o que a guarda dizia ter barrado.
     // A observacao nova COMPLETA a que ja existe quando nao briga com ela: a
     // trufa tinha a forminha e recebeu o sabor, e virava uma segunda trufa.
+    // Lista inteira de opcoes na observacao e a pergunta copiada, nao a
+    // escolha: entra vazia e o sabor segue pendente.
+    if (obsEhAListaInteira(produto, obsItem)) {
+      console.warn("[ia] a lista de sabores veio como observacao de " + produto + "; descartada");
+      obsItem = null;
+    }
+
     // SABOR FORA DA LISTA DO CARDAPIO: ANOTA E AVISA, NUNCA ACEITA CALADO.
     const listaFechada = ((catalogo.outros_produtos ?? []) as { nome: string; sabores?: string[] }[]).find(
       (i) =>
@@ -1307,6 +1315,26 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         .join(" e ");
       return (
         "NAO registrei: falta " + falta + ". A cozinha produz pela data e pela hora que estao na comanda, entao pedido sem isso nao pode fechar. Pergunte agora, numa frase, e registre depois que ele responder."
+      );
+    }
+    // SABOR DE PRODUTO COM LISTA FECHADA E OBRIGATORIO NO FECHAMENTO.
+    //
+    // "3 cucas recheadas" com a lista de sete sabores na observacao ja foi pra
+    // cozinha. Sem escolha nao ha o que assar.
+    const semSabor = (montagemAtual?.itens ?? []).filter((i) => {
+      const ops = saboresDoCardapio(String(i.produto));
+      if (!ops.length) return false;
+      if (obsEhAListaInteira(String(i.produto), i.obs)) return true;
+      const t = String(i.obs ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return !ops.some((o) => t.includes(String(o).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+    });
+    if (semSabor.length) {
+      const i = semSabor[0];
+      const ops = saboresDoCardapio(String(i.produto));
+      return (
+        "NAO registrei: falta o sabor d" + (String(i.produto).endsWith("a") ? "a" : "o") + " " + i.produto +
+        ". As opcoes sao: " + ops.join(", ") + ". Pergunte qual ele quer e registre depois que ele responder; " +
+        "a lista de opcoes NAO e a escolha dele, e a cozinha nao produz sete sabores de uma vez."
       );
     }
     const daIA = (input.itens as { item: string; qtd: number; obs?: string; categoria?: string }[]) || [];
@@ -1948,6 +1976,26 @@ export function horaLimpa(bruta: unknown): string {
   return String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0");
 }
 
+// A lista fechada de sabores de um produto do cardapio, se existir.
+export function saboresDoCardapio(nome: string): string[] {
+  const limpo = String(nome || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const achado = ((catalogo.outros_produtos ?? []) as { nome: string; sabores?: string[] }[]).find(
+    (i) => String(i.nome).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === limpo,
+  );
+  return Array.isArray(achado?.sabores) ? (achado?.sabores as string[]) : [];
+}
+
+// A observacao e a ESCOLHA dele, nao a lista que voce ofereceu. Quando ela
+// traz tres ou mais opcoes do mesmo produto, e a pergunta copiada.
+export function obsEhAListaInteira(produto: string, obs?: string | null): boolean {
+  const ops = saboresDoCardapio(produto);
+  if (ops.length < 3) return false;
+  const t = String(obs ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (!t) return false;
+  const citados = ops.filter((o) => t.includes(String(o).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))).length;
+  return citados >= 3;
+}
+
 export function unidadeDoProduto(nome: string, categoria?: string): "kg" | "un" {
   const limpo = String(nome || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const todos: { nome: string; unidade?: string }[] = [
@@ -2312,7 +2360,13 @@ async function rodarConversa(
   const pediuBolo = /bolo/.test(falaToda);
   // Mencionar nao e escolher: quem falou "quero salgado" precisa da peca e da
   // cobranca; quem nunca falou precisa da pergunta antes.
-  const falouSalgado = /salgad|frito|assado|coxinha|esfirra|empadinha|risolis|ris[óo]lis/.test(falaToda);
+  // "sabores salgados" e "pizza salgada" falam de pizza, nao de salgadinho de
+  // festa. Sem tirar isso, quem pede pizza entra na esteira da festa.
+  const falaSemPizza = falaToda
+    .replace(/sabor(es)?\s+salgad\w*/g, " ")
+    .replace(/pizzas?\s+salgad\w*/g, " ")
+    .replace(/salgad\w*\s+d[ae]\s+pizza/g, " ");
+  const falouSalgado = /salgad|frito|assado|coxinha|esfirra|empadinha|risolis|ris[óo]lis/.test(falaSemPizza);
   const falouDocinho = /docinho|doce|brigadeiro|beijinho|trufa/.test(falaToda);
   // O pedido que ja existe vem primeiro: e o contexto de tudo que ela vai
   // responder, inclusive do silencio dele.
@@ -3027,9 +3081,14 @@ async function rodarConversa(
       const escolhidas = nomeouAFamilia.length
         ? pedidasPeloCliente.filter((x) => nomeouAFamilia.includes(x))
         : pedidasPeloCliente;
-      const pecasFinais = anunciadoNoTexto.length
+      const pecasAntesDoAssunto = anunciadoNoTexto.length
         ? Array.from(new Set([...escolhidas.filter((x) => anunciadoNoTexto.includes(x)), ...anunciadoNoTexto]))
         : escolhidas;
+      // Assunto pizza: o cardapio de salgados de festa nao tem nada a ver com
+      // "quais sabores salgados tem" de uma pizza.
+      const pecasFinais = querSaborDePizza
+        ? pecasAntesDoAssunto.filter((x) => x !== "salgados")
+        : pecasAntesDoAssunto;
       // A peca ja vai junto desta resposta: perguntar se pode mandar e pedir
       // permissao pra uma coisa que ja saiu.
       if (pecasFinais.length) {
