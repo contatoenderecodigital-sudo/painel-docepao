@@ -2209,6 +2209,44 @@ async function rodarConversa(
     });
   }
 
+  // RECUSOU TOPO E PAPEL DE ARROZ: FICA ESCRITO NO BOLO.
+  //
+  // A etapa cobra ate a observacao do bolo registrar a recusa. Deixar isso pro
+  // modelo fez a conversa girar em falso: ele recusava, ela perguntava de novo.
+  const recusouArte =
+    /sem topo|nao quero topo|não quero topo|sem papel de arroz|nao quero papel|não quero papel|nem topo|nenhum dos dois/i.test(
+      String(ultimaFalaDoCliente),
+    );
+  if (recusouArte) {
+    const bolo = (montagemDoTurno?.itens ?? []).find((x) =>
+      String(x.categoria ?? "").startsWith("bolo"),
+    );
+    const jaEscrito = /sem topo|sem papel/i.test(String(bolo?.obs ?? ""));
+    if (bolo && !jaEscrito) {
+      const obsNova = [String(bolo.obs ?? "").trim(), "sem topo e sem papel de arroz"]
+        .filter(Boolean)
+        .join(", ");
+      estado.montagem.push({
+        tipo: "item",
+        produto: bolo.produto,
+        categoria: bolo.categoria,
+        qtd: bolo.qtd,
+        obs: obsNova,
+      });
+      montagemDoTurno = {
+        ...(montagemDoTurno ?? { itens: [], dados: {} }),
+        itens: (montagemDoTurno?.itens ?? []).map((x) =>
+          x === bolo ? { ...x, obs: obsNova } : x,
+        ),
+      } as MontagemAtual;
+      messages.push({
+        role: "system",
+        content:
+          "O cliente recusou topo de bolo e papel de arroz, e EU JA ANOTEI isso na observacao do bolo. Nao pergunte de novo sobre topo nem papel: siga pro que falta e feche o pedido."
+      });
+    }
+  }
+
   messages.push({ role: "system", content: descreverMontagem(montagemDoTurno, pedidoAguardando, ehFesta, pediuBolo, falouSalgado, falouDocinho) });
 
   // FERRAMENTA QUE NAO CABE AGORA NEM E OFERECIDA.
