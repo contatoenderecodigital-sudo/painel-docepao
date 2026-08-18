@@ -106,8 +106,16 @@ export async function anotarItem(
   // "metade frango e metade calabresa" virava uma linha só: o calabresa
   // entrava por cima do frango e sumiam 150 salgados do pedido. Agora a
   // observação faz parte da identidade da linha.
+  // No bolo o nome muda enquanto o cliente decide ("bolo bombom" vira "bolo
+  // bombom com morango"): nome que contem o outro e a mesma linha ficando
+  // completa, senao a festa fica com dois bolos e o dobro do preco.
+  const nomeCresceu = (a: string, b: string) => {
+    const x = a.trim().toLowerCase();
+    const y = b.trim().toLowerCase();
+    return x.includes(y) || y.includes(x);
+  };
   let i = UMA_LINHA_SO.includes(item.categoria)
-    ? m.itens.findIndex((x) => mesmaLinha(x, item))
+    ? m.itens.findIndex((x) => x.categoria === item.categoria && nomeCresceu(x.produto, item.produto))
     : m.itens.findIndex((x) => mesmaLinha(x, item) && marca(x.obs) === marca(item.obs));
 
   // Só existe uma linha desse produto: é correção dela, não linha nova. Cobre

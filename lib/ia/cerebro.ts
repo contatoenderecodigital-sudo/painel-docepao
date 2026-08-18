@@ -523,9 +523,18 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const boloJaAnotado = (montagemAtual?.itens ?? []).find(
       (x) => x.categoria === "bolo_festa" || x.categoria === "bolo_caseiro",
     );
+    // Nome que cresce e o MESMO bolo ficando completo ("bolo bombom" virando
+    // "bolo bombom com morango"), nao um bolo novo. Sem isso os dois guardas
+    // brigavam: um mandava refazer com os dois sabores e o outro barrava por ja
+    // existir bolo.
+    const mesmoBolo =
+      !!boloJaAnotado &&
+      (boloJaAnotado.produto.trim().toLowerCase().includes(produto.trim().toLowerCase()) ||
+        produto.trim().toLowerCase().includes(boloJaAnotado.produto.trim().toLowerCase()));
     if (
       (categoria === "bolo_festa" || categoria === "bolo_caseiro") &&
       boloJaAnotado &&
+      !mesmoBolo &&
       boloJaAnotado.produto.trim().toLowerCase() !== produto.trim().toLowerCase()
     ) {
       if (!input.dois_bolos) {
