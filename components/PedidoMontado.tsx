@@ -388,6 +388,47 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
 
                   return (
                     <div className="mt-2 pt-2 border-t border-white/8">
+                      {/* MISTURAR DOIS SABORES.
+                          O preco do bolo misto e o do sabor mais caro, e quem
+                          decide isso e o NOME do item. Por isso o segundo
+                          sabor entra no nome, e nao na observacao. */}
+                      {it.categoria === "bolo_festa" && (() => {
+                        const sabores = cardapio
+                          .filter((c) => c.categoria === "bolo_festa")
+                          .map((c) => c.nome.replace(/^bolo /i, ""));
+                        const partes = it.produto.replace(/^bolo /i, "").split(/\s+com\s+/i);
+                        const base = partes[0] ?? "";
+                        const segundo = partes[1] ?? "";
+                        return (
+                          <label className="block mb-2">
+                            <span className="block text-[11px] text-cream/45 mb-1">Misturar com outro sabor</span>
+                            <select
+                              value={segundo}
+                              onChange={(e) => {
+                                const s2 = e.target.value;
+                                mexerItem(i, { produto: s2 ? `bolo ${base} com ${s2}` : `bolo ${base}` });
+                              }}
+                              className={campo + " w-full"}
+                            >
+                              <option value="" style={OPCAO}>
+                                sem mistura
+                              </option>
+                              {sabores
+                                .filter((s) => s.toLowerCase() !== base.toLowerCase())
+                                .map((s) => (
+                                  <option key={s} value={s} style={OPCAO}>
+                                    {s}
+                                  </option>
+                                ))}
+                            </select>
+                            {segundo && (
+                              <span className="block text-[11px] text-cream/40 mt-1">
+                                Bolo misto: vale o preço do sabor mais caro dos dois.
+                              </span>
+                            )}
+                          </label>
+                        );
+                      })()}
                       <div className="flex flex-wrap gap-1.5">
                         <Caixa
                           ligado={temTopo}
