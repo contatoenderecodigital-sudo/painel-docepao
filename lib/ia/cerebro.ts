@@ -596,6 +596,29 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     }
 
 
+    // PAO DE LO TAMBEM E ESCOLHA DELE.
+    //
+    // Ela perguntou "branco ou chocolate?", o cliente respondeu outra coisa (o
+    // tema do bolo) e ela anotou "pao de lo branco" assim mesmo. Diferente do
+    // recheio, aqui nao vale o que ELA falou: a pergunta dela estava justamente
+    // esperando resposta, entao so a fala do cliente conta.
+    const PAO_DE_LO = /p[ãa]o de l[óo] (branco|chocolate|mesclado)/i;
+    const achouPao = PAO_DE_LO.exec(String(obsBruta || ""));
+    if (achouPao) {
+      const tipo = achouPao[1].toLowerCase();
+      const jaTinha = (montagemAtual?.itens ?? []).some((x) =>
+        String(x.obs ?? "").toLowerCase().includes("pão de ló " + tipo) ||
+        String(x.obs ?? "").toLowerCase().includes("pao de lo " + tipo),
+      );
+      if (!jaTinha && !falaDoCliente.toLowerCase().includes(tipo)) {
+        return (
+          "NAO anotei: o cliente nunca falou em pao de lo " + tipo + ". Ele nao respondeu a sua pergunta, e escolher " +
+            "por ele faz a cozinha assar a massa errada. Pergunte de novo, numa frase, e anote o que ele responder. " +
+            "O resto do bolo voce pode anotar agora, sem essa parte."
+        );
+      }
+    }
+
     // BOLO DE DOIS SABORES: os dois tem que estar no NOME.
     //
     // O cliente pediu brigadeiro com morango e ela anotou so "bolo brigadeiro",
@@ -1853,6 +1876,37 @@ async function rodarConversa(
   if (pedidoAberto && !pedidoAguardando) {
     messages.push({ role: "system", content: blocoPedidoEmAberto(pedidoAberto) });
   }
+  // ACEITOU A INDICACAO: O CODIGO ANOTA TUDO QUE PROPOS.
+  //
+  // Deixar isso pro modelo custou uma festa inteira: ele anotou os salgados da
+  // proposta e perguntou de novo pelos docinhos que o cliente tinha acabado de
+  // aceitar na mesma frase. Quem escreveu a proposta anota a proposta.
+  const propostaGuardada = String(montagemAtual?.dados?.proposta ?? "");
+  const ultimaFalaDoCliente = [...historico].reverse().find((h) => h.role === "user")?.content ?? "";
+  const aceitou = /^(pode ser assim|pode ser|isso mesmo|isso|ta bom|tá bom|ta otimo|tá ótimo|perfeito|fechado|fechou|beleza|blz|ok|sim|pode|quero assim|manda assim)[ ]*[.!,]*$/i.test(
+    String(ultimaFalaDoCliente).trim(),
+  );
+  if (propostaGuardada && aceitou && (montagemAtual?.itens?.length ?? 0) === 0) {
+    try {
+      const itensPropostos = JSON.parse(propostaGuardada) as {
+        produto: string; categoria: string; qtd: number; obs?: string | null;
+      }[];
+      for (const it of itensPropostos) {
+        estado.montagem.push({ tipo: "item", produto: it.produto, categoria: it.categoria, qtd: it.qtd, obs: it.obs ?? null });
+      }
+      estado.montagem.push({ tipo: "dados", dados: { proposta: null } });
+      messages.push({
+        role: "system",
+        content:
+          "O cliente ACEITOU a indicacao que voce deu, e o pedido inteiro dela JA FOI ANOTADO: " +
+          itensPropostos.map((i) => i.qtd + " " + i.produto + (i.obs ? " (" + i.obs + ")" : "")).join(", ") + ". " +
+          "NAO anote nada disso de novo e NAO pergunte de novo por esses itens. Confirme numa frase curta e siga pra proxima etapa que faltar.",
+      });
+    } catch {
+      // proposta ilegivel: segue o fluxo normal, o modelo pergunta
+    }
+  }
+
   messages.push({ role: "system", content: descreverMontagem(montagemAtual, pedidoAguardando, ehFesta, pediuBolo, falouSalgado, falouDocinho) });
 
   // FERRAMENTA QUE NAO CABE AGORA NEM E OFERECIDA.
@@ -1973,6 +2027,29 @@ async function rodarConversa(
             linhas.push(a + " brigadeiro e " + (doc - a) + " beijinho");
           }
           if (kg > 0) linhas.push(String(kg).replace(".", ",") + " kg de bolo de brigadeiro");
+          // A INDICACAO FICA GUARDADA PRA VALER QUANDO ELE ACEITAR.
+          //
+          // O cliente respondia "pode ser assim" e so os salgados entravam: o
+          // modelo anotava a primeira linha e seguia perguntando dos docinhos
+          // que ELE mesmo tinha acabado de aceitar. Quem escreveu a proposta
+          // (este codigo) e quem anota quando o aceite vem.
+          const propostos: { produto: string; categoria: string; qtd: number; obs?: string | null }[] = [];
+          if (salg > 0) {
+            const a = Math.round(salg / 3);
+            const b = Math.round(salg / 3);
+            propostos.push({ produto: "coxinha", categoria: "salgado_frito", qtd: a, obs: null });
+            propostos.push({ produto: "mini bolha", categoria: "salgado_frito", qtd: b, obs: "carne" });
+            propostos.push({ produto: "esfirra", categoria: "salgado_assado", qtd: salg - a - b, obs: "calabresa" });
+          }
+          if (doc > 0) {
+            const a = Math.round(doc / 2);
+            propostos.push({ produto: "brigadeiro", categoria: "docinho", qtd: a, obs: null });
+            propostos.push({ produto: "beijinho", categoria: "docinho", qtd: doc - a, obs: null });
+          }
+          if (kg > 0) propostos.push({ produto: "bolo brigadeiro", categoria: "bolo_festa", qtd: kg, obs: null });
+          if (propostos.length) {
+            estado.montagem.push({ tipo: "dados", dados: { proposta: JSON.stringify(propostos) } });
+          }
           textoFinal =
             "Então deixa eu te indicar o que a gente mais faz em festa de criança:" +
             String.fromCharCode(10) + String.fromCharCode(10) +
