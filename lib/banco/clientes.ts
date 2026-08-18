@@ -44,7 +44,12 @@ export async function listarClientes(negocioId: string): Promise<ClienteCRM[]> {
                 ) order by s.criado_em desc) as pedidos
            from (select * from pedidos where cliente_id = c.id and negocio_id = $1 order by criado_em desc limit 8) s
        ) ped on true
+      -- O cliente da tela "Testar IA" nao e cliente da padaria: ele aparecia no
+      -- CRM da dona, entrava na contagem e no futuro apareceria em relatorio.
       where c.negocio_id = $1
+        and c.telefone not like '55000000%'
+        and coalesce(c.nome, '') not ilike 'cliente de teste%'
+        and coalesce(c.nome, '') not ilike 'qa %'
       order by agg.ultimo desc nulls last
       limit 500`,
     [negocioId],
