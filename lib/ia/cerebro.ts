@@ -1459,7 +1459,10 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     //
     // "3 cucas recheadas" com a lista de sete sabores na observacao ja foi pra
     // cozinha. Sem escolha nao ha o que assar.
-    const semSabor = (montagemAtual?.itens ?? []).filter((i) => {
+    // itensAgora() e o pedido COM o que foi anotado neste turno. Lendo o
+    // estado antigo, o sabor que o cliente acabou de escolher nao existia e o
+    // pedido travava pra sempre.
+    const semSabor = itensAgora().filter((i) => {
       const ops = opcoesDeSabor(String(i.produto));
       if (!ops.length) return false;
       if (obsEhAListaInteira(String(i.produto), i.obs)) return true;
@@ -1471,7 +1474,12 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       const ops = opcoesDeSabor(String(i.produto));
       // Ja perguntou tres vezes: insistir vira loop e some com o item. A
       // equipe resolve isso numa ligacao.
-      if (perguntasDeSabor >= 3) {
+      // Se ele respondeu agora, nao e caso de equipe: e caso de anotar.
+      const respondeuAgora = opcoesDeSabor(String(i.produto)).some((o) =>
+        String(ultimaFala ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .includes(String(o).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")),
+      );
+      if (perguntasDeSabor >= 3 && !respondeuAgora) {
         estado.precisaHumano = true;
         return (
           "NAO registrei, e ja perguntei o sabor d" + (String(i.produto).endsWith("a") ? "a " : "o ") + i.produto +
