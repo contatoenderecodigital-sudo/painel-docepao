@@ -259,22 +259,29 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
 
                 {(() => {
                   const daCategoria = cardapio.filter((c) => c.categoria === it.categoria);
-                  const conhecido = daCategoria.some((c) => c.nome === it.produto);
+                  // No bolo o nome carrega a mistura ("bolo X com Y"). O seletor
+                  // de cima e do sabor base; o Y tem campo proprio embaixo.
+                  const partes = it.produto.split(new RegExp(" com ", "i"));
+                  const baseNome = partes[0] ?? "";
+                  const mistura = partes[1] ?? "";
+                  const conhecido = daCategoria.some((c) => c.nome === baseNome);
                   return (
                     <select
-                      value={conhecido ? it.produto : "__vazio"}
+                      value={conhecido ? baseNome : "__vazio"}
                       onChange={(e) => {
                         const nome = e.target.value;
                         if (nome === "__vazio") return;
                         const achado = daCategoria.find((c) => c.nome === nome);
-                        mexerItem(i, { produto: nome, unidade: achado?.unidade ?? it.unidade });
+                        // Trocar o sabor base nao joga fora a mistura escolhida.
+                        const completo = mistura ? nome + " com " + mistura : nome;
+                        mexerItem(i, { produto: completo, unidade: achado?.unidade ?? it.unidade });
                       }}
                       className={campo + " w-full mt-1.5"}
                       aria-label="Produto"
                     >
                       {!conhecido && (
                         <option value="__vazio" style={OPCAO}>
-                          {it.produto || (daCategoria.length ? "escolha o produto" : "nada nesta categoria")}
+                          {baseNome || (daCategoria.length ? "escolha o produto" : "nada nesta categoria")}
                         </option>
                       )}
                       {daCategoria.map((c) => (
