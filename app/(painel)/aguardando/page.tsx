@@ -15,7 +15,7 @@ export default async function Aguardando() {
   }
   const pedidos = await carregarAguardandoConfirmacao(sessao?.negocioId);
   return (
-    <div className="space-y-5">
+    <div className="px-4 py-5 md:px-8 md:py-7 space-y-5">
       <div>
         <div className="t-label text-dourado">Aguardando confirmação</div>
         <h1 className="t-h1 text-cream mt-1">
