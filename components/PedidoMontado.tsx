@@ -13,13 +13,33 @@
 // ============================================================================
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, Plus, Trash2, Check } from "lucide-react";
+import { ChevronDown, Plus, Minus, Trash2, Check } from "lucide-react";
 
 type Categoria =
   | "bolo_festa" | "bolo_caseiro" | "docinho" | "salgado_frito" | "salgado_assado"
   | "pizza" | "por_quilo" | "por_unidade" | "cupcake" | "papel_de_arroz" | "outro";
 
-type Item = { produto: string; categoria: Categoria; qtd: number; unidade: "un" | "kg"; obs?: string | null };
+type Unidade = "un" | "kg";
+type Item = { produto: string; categoria: Categoria; qtd: number; unidade: Unidade; obs?: string | null };
+
+// Como a padaria fala de cada unidade, e quais valem em cada familia. Bolo de
+// festa e por quilo, docinho e salgado por unidade; so o que e vendido dos dois
+// jeitos mostra escolha.
+const ROTULO_UNIDADE: Record<Unidade, string> = { un: "unidades", kg: "quilos" };
+const UNIDADES_POR_CATEGORIA: Record<Categoria, Unidade[]> = {
+  bolo_festa: ["kg"],
+  bolo_caseiro: ["un"],
+  docinho: ["un"],
+  salgado_frito: ["un"],
+  salgado_assado: ["un"],
+  pizza: ["un", "kg"],
+  por_quilo: ["kg"],
+  por_unidade: ["un"],
+  cupcake: ["un"],
+  papel_de_arroz: ["un"],
+  outro: ["un", "kg"],
+};
+const unidadesDe = (c: Categoria): Unidade[] => UNIDADES_POR_CATEGORIA[c] ?? ["un", "kg"];
 type Dados = {
   cliente_nome?: string | null;
   retirada_data?: string | null;
@@ -63,7 +83,7 @@ const OPCAO = { background: "#3d1219", color: "#fff7eb" } as const;
 const campo =
   "min-w-0 bg-white/8 rounded-lg px-2.5 py-2 text-[13px] text-cream placeholder:text-cream/35 focus:outline-none focus:ring-2 focus:ring-cobre/25 border border-white/8";
 
-type OpcaoCardapio = { nome: string; categoria: Categoria; unidade: "un" | "kg"; sabores: string[] };
+type OpcaoCardapio = { nome: string; categoria: Categoria; unidade: Unidade; sabores: string[] };
 
 export default function PedidoMontado({ clienteId, versao }: { clienteId: string; versao: number }) {
   const [aberto, setAberto] = useState(false);
@@ -188,24 +208,29 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
           <div className="flex flex-col gap-2">
             {itens.map((it, i) => (
               <div key={i} className="rounded-[12px] p-2.5 border border-white/8" style={{ background: "rgba(0,0,0,0.18)" }}>
-                {/* Coluna estreita: o produto ocupa a linha inteira e o resto
-                    vem embaixo. Lado a lado, sobrava um campo de produto de
-                    dois dedos de largura. */}
+                {/* ESCOLHA EM DOIS PASSOS: primeiro a categoria, depois o
+                    produto DELA. O cardápio inteiro num select só ficava com
+                    quarenta linhas numa coluna estreita, e ninguém acha nada
+                    assim. A categoria também define a unidade, e é ela que faz
+                    o preço sair certo. */}
                 <div className="flex items-center gap-1.5">
-                  <input
-                    value={it.produto}
-                    list="cardapio-produtos"
+                  <select
+                    value={it.categoria}
                     onChange={(e) => {
-                      const nome = e.target.value;
-                      // Escolheu um produto do cardápio: a categoria e a unidade
-                      // vêm junto, que é o que faz o preço sair certo.
-                      const achado = cardapio.find((c) => c.nome.toLowerCase() === nome.trim().toLowerCase());
-                      mexerItem(i, achado ? { produto: nome, categoria: achado.categoria, unidade: achado.unidade } : { produto: nome });
+                      const cat = e.target.value as Categoria;
+                      const uns = unidadesDe(cat);
+                      // Trocou de família: o produto de antes não vale mais.
+                      mexerItem(i, { categoria: cat, produto: "", unidade: uns[0] });
                     }}
-                    placeholder="produto"
                     className={campo + " flex-1"}
-                    aria-label="Produto"
-                  />
+                    aria-label="Categoria"
+                  >
+                    {CATEGORIAS.map((c) => (
+                      <option key={c.id} value={c.id} style={OPCAO}>
+                        {c.rotulo}
+                      </option>
+                    ))}
+                  </select>
                   <button
                     onClick={() => {
                       setItens((p) => p.filter((_, k) => k !== i));
@@ -217,42 +242,81 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                     <Trash2 size={15} />
                   </button>
                 </div>
+
+                {(() => {
+                  const daCategoria = cardapio.filter((c) => c.categoria === it.categoria);
+                  const conhecido = daCategoria.some((c) => c.nome === it.produto);
+                  return (
+                    <select
+                      value={conhecido ? it.produto : "__vazio"}
+                      onChange={(e) => {
+                        const nome = e.target.value;
+                        if (nome === "__vazio") return;
+                        const achado = daCategoria.find((c) => c.nome === nome);
+                        mexerItem(i, { produto: nome, unidade: achado?.unidade ?? it.unidade });
+                      }}
+                      className={campo + " w-full mt-1.5"}
+                      aria-label="Produto"
+                    >
+                      {!conhecido && (
+                        <option value="__vazio" style={OPCAO}>
+                          {it.produto || (daCategoria.length ? "escolha o produto" : "nada nesta categoria")}
+                        </option>
+                      )}
+                      {daCategoria.map((c) => (
+                        <option key={c.nome} value={c.nome} style={OPCAO}>
+                          {c.nome}
+                        </option>
+                      ))}
+                    </select>
+                  );
+                })()}
+
                 <div className="flex items-center gap-1.5 mt-1.5">
+                  <button
+                    onClick={() => mexerItem(i, { qtd: Math.max(0, it.qtd - (it.unidade === "kg" ? 0.5 : 1)) })}
+                    className="w-8 h-8 shrink-0 grid place-items-center rounded-lg text-cream/70 hover:text-cream hover:bg-white/10 border border-white/8"
+                    aria-label="Menos"
+                  >
+                    <Minus size={14} />
+                  </button>
                   <input
                     type="number"
                     min={0}
                     step={it.unidade === "kg" ? 0.5 : 1}
                     value={it.qtd}
                     onChange={(e) => mexerItem(i, { qtd: Number(e.target.value) })}
-                    className={campo + " w-[58px] shrink-0 text-center"}
+                    className={campo + " w-[62px] shrink-0 text-center"}
                     aria-label="Quantidade"
                   />
-                  <select
-                    value={it.unidade}
-                    onChange={(e) => mexerItem(i, { unidade: e.target.value as "un" | "kg" })}
-                    className={campo + " w-[76px] shrink-0 pr-1"}
-                    aria-label="Unidade"
+                  <button
+                    onClick={() => mexerItem(i, { qtd: it.qtd + (it.unidade === "kg" ? 0.5 : 1) })}
+                    className="w-8 h-8 shrink-0 grid place-items-center rounded-lg text-cream/70 hover:text-cream hover:bg-white/10 border border-white/8"
+                    aria-label="Mais"
                   >
-                    <option value="un" style={OPCAO}>un</option>
-                    <option value="kg" style={OPCAO}>kg</option>
-                  </select>
-                  <select
-                    value={it.categoria}
-                    onChange={(e) => {
-                      const cat = e.target.value as Categoria;
-                      const porQuilo = CATEGORIAS.find((c) => c.id === cat)?.porQuilo;
-                      mexerItem(i, { categoria: cat, unidade: porQuilo ? "kg" : it.unidade });
-                    }}
-                    className={campo + " flex-1"}
-                    aria-label="Categoria"
-                  >
-                    {CATEGORIAS.map((c) => (
-                      <option key={c.id} value={c.id} style={OPCAO}>
-                        {c.rotulo}
-                      </option>
-                    ))}
-                  </select>
+                    <Plus size={14} />
+                  </button>
+                  {/* A unidade só aparece quando existe escolha: bolo é sempre
+                      por quilo e docinho é sempre por unidade, e um seletor de
+                      uma opção só é decoração que atrapalha. */}
+                  {unidadesDe(it.categoria).length > 1 ? (
+                    <select
+                      value={it.unidade}
+                      onChange={(e) => mexerItem(i, { unidade: e.target.value as Unidade })}
+                      className={campo + " flex-1 pr-1"}
+                      aria-label="Unidade"
+                    >
+                      {unidadesDe(it.categoria).map((u) => (
+                        <option key={u} value={u} style={OPCAO}>
+                          {ROTULO_UNIDADE[u]}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="flex-1 text-[12.5px] text-cream/55 pl-1">{ROTULO_UNIDADE[it.unidade]}</span>
+                  )}
                 </div>
+
                 <input
                   value={it.obs ?? ""}
                   onChange={(e) => mexerItem(i, { obs: e.target.value })}
@@ -277,9 +341,9 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                             onClick={() => {
                               const obs = (it.obs ?? "").trim();
                               const novo = marcado
-                                ? obs.replace(new RegExp(`\\s*,?\\s*${sab}`, "i"), "").replace(/^,\s*/, "").trim()
+                                ? obs.replace(new RegExp("\\s*,?\\s*" + sab, "i"), "").replace(/^,\s*/, "").trim()
                                 : obs
-                                  ? `${obs}, ${sab}`
+                                  ? obs + ", " + sab
                                   : sab;
                               mexerItem(i, { obs: novo });
                             }}
@@ -302,7 +366,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
 
             <button
               onClick={() => {
-                setItens((p) => [...p, { produto: "", categoria: "outro", qtd: 1, unidade: "un", obs: null }]);
+                setItens((p) => [...p, { produto: "", categoria: "salgado_frito", qtd: 1, unidade: "un", obs: null }]);
                 setSujo(true);
                 setSalvo(false);
               }}
