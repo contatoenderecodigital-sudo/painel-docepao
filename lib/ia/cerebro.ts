@@ -707,19 +707,40 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       }
       return ia - ib;
     });
-    const enviar = naOrdem.slice(0, 2);
-    const sobrou = naOrdem.slice(2);
+    // Peca de etapa futura vira a peca da etapa de agora: cardapio de docinho no
+    // meio dos salgados faz o cliente escolher docinho antes de fechar salgado.
+    const SEQUENCIA = ["salgados", "docinhos", "bolos-festa"];
+    const posEtapa = etapa ? SEQUENCIA.indexOf(etapa) : -1;
+    let redirecionou = "";
+    let alvo = naOrdem;
+    if (posEtapa >= 0) {
+      const adiantadas = naOrdem.filter((c) => {
+        const i = SEQUENCIA.indexOf(c);
+        return i >= 0 && i > posEtapa;
+      });
+      if (adiantadas.length && !naOrdem.includes(etapa as CardapioId)) {
+        alvo = [etapa as CardapioId, ...naOrdem.filter((c) => !adiantadas.includes(c))];
+        redirecionou =
+          ` A festa esta na etapa de ${etapa}, entao mandei essa peca no lugar de ${adiantadas.join(", ")}: ` +
+          `o cliente escolhe uma etapa por vez.`;
+      }
+    }
+
+    const enviar = alvo.slice(0, 2);
+    const sobrou = alvo.slice(2);
 
     for (const c of enviar) if (!estado.cardapios.includes(c)) estado.cardapios.push(c);
     if (sobrou.length) {
       return (
-        `Mandei so ${enviar.join(" e ")}. Peca de cardapio vai uma de cada vez, na ordem da festa: primeiro os ` +
+        redirecionou +
+      `Mandei so ${enviar.join(" e ")}. Peca de cardapio vai uma de cada vez, na ordem da festa: primeiro os ` +
         `salgados, depois os docinhos, depois o bolo. Fale sobre a que acabou de ir e pergunte o que ele quer dela. ` +
         `Quando ele fechar essa etapa, ai sim mande a proxima (${sobrou.join(", ")}). NAO liste itens nem precos em texto.`
       );
     }
     return (
-      `A imagem do cardápio (${pedidos.join(", ")}) já vai ser enviada logo depois da sua mensagem. ` +
+      redirecionou +
+      `A imagem do cardápio (${enviar.join(", ")}) já vai ser enviada logo depois da sua mensagem. ` +
       `NÃO liste os itens nem os preços em texto: só diga em uma linha curta que está mandando o cardápio ` +
       `e pergunte o que a pessoa quer.`
     );
