@@ -354,7 +354,11 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                   const obs = it.obs ?? "";
                   const temTopo = /topo/i.test(obs) && !/sem topo/i.test(obs);
                   const temPapel = /papel de arroz/i.test(obs) && !/sem papel/i.test(obs);
-                  const precisaArte = temTopo || temPapel;
+                  // Bolo de festa SEMPRE mostra tema, nome e idade: sao os dados que
+                  // a producao precisa, e escondidos atras de uma caixa de marcar eles
+                  // sumiam da tela justamente quando ninguem tinha marcado nada.
+                  const precisaArte = true;
+                  void temTopo; void temPapel;
 
                   const trocarTermo = (texto: string, termo: string, ligar: boolean) => {
                     const semEle = texto
