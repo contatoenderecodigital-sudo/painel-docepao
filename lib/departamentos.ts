@@ -58,10 +58,13 @@ export function deptoDe(item: { categoria?: string; produto: string }): DeptoId 
   return "confeitaria";
 }
 
-export type ItemAgregado = { produto: string; qtd: number };
+export type ItemAgregado = { produto: string; qtd: number; unidade?: string };
 
 // Soma consolidada de todos os itens do dia, por departamento.
 export function agregarPorDepto(pedidos: Pedido[]): Record<DeptoId, ItemAgregado[]> {
+  // Guarda a unidade junto: bolo e por quilo, e a cozinha lendo "3 bolo" entende
+  // tres bolos em vez de um de tres quilos.
+  const unidades = new Map<string, string>();
   const mapas: Record<DeptoId, Map<string, number>> = {
     salgados: new Map(),
     confeitaria: new Map(),
@@ -71,12 +74,13 @@ export function agregarPorDepto(pedidos: Pedido[]): Record<DeptoId, ItemAgregado
     for (const it of ped.itens) {
       const d = deptoDe(it);
       mapas[d].set(it.produto, (mapas[d].get(it.produto) || 0) + it.qtd);
+      if (it.unidade) unidades.set(it.produto, it.unidade);
     }
   }
   const out = {} as Record<DeptoId, ItemAgregado[]>;
   for (const id of Object.keys(mapas) as DeptoId[]) {
     out[id] = [...mapas[id].entries()]
-      .map(([produto, qtd]) => ({ produto, qtd }))
+      .map(([produto, qtd]) => ({ produto, qtd, unidade: unidades.get(produto) }))
       .sort((a, b) => b.qtd - a.qtd);
   }
   return out;

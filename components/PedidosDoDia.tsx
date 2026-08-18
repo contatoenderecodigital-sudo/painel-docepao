@@ -245,7 +245,9 @@ export default function PedidosDoDia({
                     ) : (
                       itens.map((it) => (
                         <div key={it.produto} className="flex items-center gap-2">
-                          <b className="text-[14px] text-cream tabular-nums" style={{ color: d.cor }}>{it.qtd}</b>
+                          <b className="text-[14px] text-cream tabular-nums" style={{ color: d.cor }}>
+                            {it.unidade === "kg" ? `${String(it.qtd).replace(".", ",")} kg` : it.qtd}
+                          </b>
                           <span className="text-[14px] text-cream">{it.produto}</span>
                         </div>
                       ))
