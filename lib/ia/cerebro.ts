@@ -1330,6 +1330,9 @@ function etapasDaFesta(
       ...(festa && !dispensou("salgado") && salgados.length === 0
         ? [
             "- o cliente ainda nao escolheu NENHUM salgado. MANDE a peca do cardapio de salgados (enviar_cardapio) e " +
+              "Se ele ja disse quantas pessoas e voce ainda NAO passou a base da festa, chame montar_orcamento por " +
+              "pessoas primeiro: ninguem sabe quanto salgado pedir pra 30 convidados, e sem a base ele chuta ou voce " +
+              "chuta por ele. " +
               "pergunte em cima dela: ninguem decora cardapio, nem quem ja comprou dez vezes. Se a peca ja foi mandada " +
               "nesta conversa, o sistema nao repete, entao pode pedir de novo sem medo. Depois pergunte quais ele quer e " +
               "quantos de cada, antes de falar de docinho ou de bolo. Se ele disser que NAO quer salgado, chame " +
