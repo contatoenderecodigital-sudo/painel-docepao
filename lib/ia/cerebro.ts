@@ -1125,6 +1125,15 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       if (!/^bolo/i.test(l.item)) continue;
       const sabor = l.item.replace(/^bolo\s+/i, "").trim();
       if (sabor.length < 3) continue;
+      // Bolo que veio do pedido montado ja foi conferido quando entrou (e pode
+      // ter vindo da indicacao que o cliente aceitou). Cobrar de novo aqui para
+      // o pedido numa tela de pendencia sem pendencia.
+      const veioDoPedidoMontado = (montagemAtual?.itens ?? []).some((x) => {
+        const a = String(x.produto ?? "").trim().toLowerCase();
+        const b = String(l.item).trim().toLowerCase();
+        return a === b || a.includes(b) || b.includes(a);
+      });
+      if (veioDoPedidoMontado) continue;
       const palavras = sabor.split(/\s+/).filter((p) => p.length > 3);
       const falado = palavras.length === 0 || palavras.some((p) => new RegExp(p, "i").test(falaDoCliente));
       if (!falado) {
