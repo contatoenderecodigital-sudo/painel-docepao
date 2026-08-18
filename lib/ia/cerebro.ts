@@ -1360,7 +1360,13 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       });
       if (veioDoPedidoMontado) continue;
       const palavras = sabor.split(/\s+/).filter((p) => p.length > 3);
-      const falado = palavras.length === 0 || palavras.some((p) => new RegExp(p, "i").test(falaDoCliente));
+      // Sem acento: o cliente escreve "prestigio" e o cardapio tem "prestígio".
+      // Com acento na comparacao, o pedido parava numa pendencia falsa dizendo
+      // que ele nao tinha falado o sabor que ele acabou de escolher.
+      const limpar = (t: string) =>
+        String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+      const falaLimpa = limpar(falaDoCliente);
+      const falado = palavras.length === 0 || palavras.some((x) => falaLimpa.includes(limpar(x)));
       if (!falado) {
         precisaConfirmacao = true;
         pendencias.push(`confirmar o sabor do bolo: "${sabor}" não foi dito pelo cliente`);
