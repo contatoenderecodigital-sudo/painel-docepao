@@ -470,9 +470,9 @@ function executarFerramenta(
       const lista =
         partes.length > 1 ? partes.slice(0, -1).join(", ") + " e " + partes[partes.length - 1] : partes[0];
       estado.sugestao =
-        "Pra " + pessoas + " pessoas, uma base boa e " + lista + "." +
+        "Pra " + pessoas + " pessoas, uma base boa é " + lista + "." +
         String.fromCharCode(10) + String.fromCharCode(10) +
-        "Da " + brl(c.total) + " no total, e da pra ajustar o que voce quiser.";
+        "Dá " + brl(c.total) + " no total, e dá pra ajustar o que você quiser.";
     }
     // Nesta etapa o cliente ainda não escolheu NADA. A ferramenta precisa citar
     // um produto pra ter preço, mas anunciar "300 coxinhas e 150 brigadeiros"
@@ -567,7 +567,10 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const opcoesDoProduto = SABORES[produto.toLowerCase()] ?? [];
     if (opcoesDoProduto.length && marca(obsItem)) {
       const escolhido = opcoesDoProduto.find((o) => marca(obsItem).includes(o.trim().toLowerCase()));
-      const cliente = falaDoCliente.toLowerCase();
+      // Vale o que o cliente falou E o que ELA propos e ele aceitou: a indicacao
+      // ("100 mini bolha de carne... pode ser assim?") tem o sabor na fala dela,
+      // e sem isso o "pode ser" do cliente nao anotava nada.
+      const cliente = (falaDoCliente + " " + (ultimaFalaDela || "")).toLowerCase();
       if (escolhido && !cliente.includes(escolhido.trim().toLowerCase())) {
         return (
           `NAO anotei: o cliente nunca falou "${escolhido}" pra ${produto}. Escolher o recheio por ele faz a cozinha ` +
@@ -1863,11 +1866,11 @@ async function rodarConversa(
           }
           if (kg > 0) linhas.push(String(kg).replace(".", ",") + " kg de bolo de brigadeiro");
           textoFinal =
-            "Entao deixa eu te indicar o que a gente mais faz em festa de crianca:" +
+            "Então deixa eu te indicar o que a gente mais faz em festa de criança:" +
             String.fromCharCode(10) + String.fromCharCode(10) +
             linhas.map((l) => "- " + l).join(String.fromCharCode(10)) +
             String.fromCharCode(10) + String.fromCharCode(10) +
-            "Pode ser assim, ou voce quer trocar alguma coisa?";
+            "Pode ser assim, ou você quer trocar alguma coisa?";
         }
       }
 
