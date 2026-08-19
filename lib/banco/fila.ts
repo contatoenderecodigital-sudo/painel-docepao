@@ -174,6 +174,10 @@ export async function marcarImpresso(
   ok: boolean,
   cupomTexto?: string,
   erro?: string,
+  // A impressora nao esta PRONTA (bobina acabada, tampa aberta). Isso nao e
+  // falha: o trabalho volta pra fila sem gastar tentativa e imprime sozinho
+  // quando o papel voltar.
+  aguardando?: boolean,
 ): Promise<void> {
   // Tira os bytes de controle do ESC/POS (o 0x00 derruba a gravacao inteira).
   // Guarda o texto legivel, que e pro que ele serve: conferir o que saiu.
@@ -199,9 +203,17 @@ export async function marcarImpresso(
            and negocio_id = $2`,
       [filaId, negocioId],
     );
+  } else if (aguardando) {
+    // Impressora não está pronta: devolve pra fila COM o recado, sem contar
+    // tentativa. Fica assim o tempo que precisar até alguém pôr papel.
+    await query(
+      `update fila_impressao set status = 'pendente'::impressao_status, erro_msg = $3
+         where id = $1 and negocio_id = $2 and status = 'imprimindo'`,
+      [filaId, negocioId, (erro ?? "").slice(0, 300)],
+    );
   } else {
-    // Falha de impressão (papel acabou, impressora offline...): reenfileira pra
-    // tentar de novo, e só marca 'erro' de vez depois de MAX_TENTATIVAS.
+    // Falha de verdade (impressora recusou os bytes, cabo solto): reenfileira
+    // pra tentar de novo, e só marca 'erro' de vez depois de MAX_TENTATIVAS.
     await query(
       `update fila_impressao
           set tentativas = tentativas + 1,

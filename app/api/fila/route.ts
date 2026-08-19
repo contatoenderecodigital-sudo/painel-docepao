@@ -2,7 +2,9 @@
 //  API DA FILA DE IMPRESSÃO — a ponte na padaria consome isto por HTTPS.
 //  Autenticada por token (PONTE_TOKEN), pra ninguém de fora ler/mexer.
 //   GET   -> jobs pendentes (com o pedido montado pro cupom)
-//   POST  -> a ponte confirma impresso/erro  { filaId, ok, cupomTexto?, erro? }
+//   POST  -> a ponte confirma impresso/erro  { filaId, ok, cupomTexto?, erro?, aguardando? }
+//           aguardando=true e a impressora sem papel ou de tampa aberta: o job
+//           volta pra fila sem gastar tentativa (nao e falha, e espera).
 //
 //  Assim o Postgres NUNCA fica exposto na internet — só esta porta controlada.
 // ============================================================================
@@ -32,13 +34,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   if (!autorizado(req)) return new Response("unauthorized", { status: 401 });
-  let body: { filaId?: string; ok?: boolean; cupomTexto?: string; erro?: string };
+  let body: { filaId?: string; ok?: boolean; cupomTexto?: string; erro?: string; aguardando?: boolean };
   try {
     body = await req.json();
   } catch {
     return new Response("bad request", { status: 400 });
   }
   if (!body.filaId) return new Response("filaId obrigatório", { status: 400 });
-  await marcarImpresso(NEGOCIO, body.filaId, body.ok !== false, body.cupomTexto, body.erro);
+  await marcarImpresso(NEGOCIO, body.filaId, body.ok !== false, body.cupomTexto, body.erro, body.aguardando === true);
   return Response.json({ ok: true });
 }
