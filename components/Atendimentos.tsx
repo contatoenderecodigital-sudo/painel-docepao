@@ -439,8 +439,22 @@ export default function Atendimentos({
     [ativa, pendentes],
   );
 
+  const trocouDeConversa = useRef<string | undefined>(undefined);
+
   useEffect(() => {
-    fim.current?.scrollIntoView({ block: "end" });
+    const alvo = fim.current;
+    if (!alvo) return;
+    // Trocou de conversa: desce direto, e o comeco do atendimento.
+    if (trocouDeConversa.current !== ativa?.id) {
+      trocouDeConversa.current = ativa?.id;
+      alvo.scrollIntoView({ block: "end" });
+      return;
+    }
+    // Mensagem nova com a dona lendo o meio da conversa: nao puxa a tela.
+    const caixa = alvo.parentElement;
+    if (!caixa) return;
+    const naoFim = caixa.scrollHeight - caixa.scrollTop - caixa.clientHeight;
+    if (naoFim < 120) alvo.scrollIntoView({ block: "end", behavior: "smooth" });
   }, [ativa?.id, mensagens.length]);
 
   // janela de 24h: undefined = mock/demo (deixa aberto); null = cliente nunca
@@ -454,6 +468,14 @@ export default function Atendimentos({
   function abrir(id: string) {
     setAtivaId(id);
     setVista("chat");
+    // O endereco guarda quem esta aberto: enviar mensagem recarrega a tela, e
+    // sem isso a dona voltava pra lista com o cliente esperando resposta.
+    const c = conversas.find((x) => x.id === id);
+    if (c?.clienteTelefone && typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("cliente", c.clienteTelefone);
+      window.history.replaceState(null, "", url.toString());
+    }
     setDrawer(false);
     setNaoLidasLocal((n) => ({ ...n, [id]: 0 }));
     fetch("/api/conversas/ler", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clienteId: id }) }).catch(() => {});
@@ -602,7 +624,7 @@ export default function Atendimentos({
                     <button
                       key={c.id}
                       onClick={() => abrir(c.id)}
-                      className={"w-full text-left px-2.5 py-2.5 rounded-[12px] flex gap-2.5 transition-colors mb-0.5 relative " + (on ? "grad-cobre" : "hover:bg-white/10")}
+                      className={"w-full text-left px-2.5 py-2.5 rounded-[12px] flex gap-2.5 transition-colors mb-0.5 relative " + (on ? "grad-cobre" : "hover:bg-white/10") + (handoff && !on ? " chama-equipe" : "")}
                       style={handoff && !on ? { boxShadow: "inset 3px 0 0 #e7cf94" } : undefined}
                     >
                       <Avatar nome={c.clienteNome} tam={44} raio={12} />

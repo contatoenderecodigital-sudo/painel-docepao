@@ -256,3 +256,17 @@ button, a { -webkit-tap-highlight-color: transparent; }
     radial-gradient(7px at 50% 0, #0000 96%, #000) 0 100% / 18px 9px repeat-x,
     linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 8px) no-repeat;
 }
+
+/* Conversa esperando a equipe: pulsacao lenta na barra lateral do cartao.
+   Lenta de proposito, porque alarme rapido a pessoa aprende a ignorar. */
+@keyframes chama-equipe {
+  0%, 100% { box-shadow: inset 3px 0 0 #e7cf94; }
+  50% { box-shadow: inset 3px 0 0 #e7cf94, 0 0 0 1px rgba(231, 207, 148, 0.45); background: rgba(231, 207, 148, 0.07); }
+}
+.chama-equipe {
+  animation: chama-equipe 2.4s ease-in-out infinite;
+}
+/* Quem prefere menos movimento na tela nao ve a pulsacao. */
+@media (prefers-reduced-motion: reduce) {
+  .chama-equipe { animation: none; box-shadow: inset 3px 0 0 #e7cf94; }
+}
