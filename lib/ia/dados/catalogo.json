@@ -434,10 +434,10 @@
       "categoria": "torta_recheada",
       "unidade": "kg",
       "sabores": [
-        "limao",
+        "limão",
         "morango",
         "bombom",
-        "prestigio",
+        "prestígio",
         "porto alegre"
       ]
     },
@@ -448,7 +448,7 @@
       "unidade": "kg",
       "sabores": [
         "oreo",
-        "mousse 4 leites",
+        "mousse de 4 leites",
         "mousse morango"
       ]
     },
@@ -509,7 +509,7 @@
         "presunto e queijo",
         "salsicha com presunto e queijo",
         "salsicha presunto queijo e bacon",
-        "so bacon",
+        "só bacon",
         "calabresa com bacon"
       ]
     },
@@ -564,7 +564,7 @@
         "vinho",
         "goiaba",
         "frutas vermelhas",
-        "limao"
+        "limão"
       ],
       "_nota": "vendida POR QUILO (dona confirmou em audio 16/08/2026; o cardapio impresso dizia unidade)"
     },

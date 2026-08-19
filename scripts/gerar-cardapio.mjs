@@ -56,6 +56,10 @@ function pagina({ etiqueta, titulo, subtitulo, itens, rodapeNota }) {
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
   * { margin:0; padding:0; box-sizing:border-box; }
+  /* A peca e desenhada em 1080x1296 e o zoom leva pra 4320x5184, que e o
+     tamanho da janela do navegador que gera a imagem. A captura devolve os
+     1080x1296 finais. */
+  html { zoom: 4; }
   body {
     width:1080px; height:1296px;
     font-family:"Poppins","Segoe UI",Arial,sans-serif;
@@ -65,41 +69,41 @@ function pagina({ etiqueta, titulo, subtitulo, itens, rodapeNota }) {
   /* Bloco fixo em vez de item flexivel: dentro do flex ele encolhia pro
      tamanho do conteudo e a peca saia com um quarto da largura. */
   .moldura { position:absolute; inset:22px; border:1px solid rgba(231,207,148,.35); border-radius:10px; }
-  .folha { width:1080px; height:1296px; padding:52px 62px; text-align:center; display:flex; flex-direction:column; justify-content:center; }
+  .folha { width:1080px; height:1296px; padding:30px 58px; text-align:center; display:flex; flex-direction:column; justify-content:center; }
   .selo {
-    width:118px; height:118px; margin:0 auto 26px; border-radius:50%;
+    width:84px; height:84px; flex:0 0 84px; margin:0 auto 14px; border-radius:50%;
     background:linear-gradient(150deg,#f0d493,#c99a35);
     display:flex; align-items:center; justify-content:center;
     box-shadow:0 10px 30px rgba(0,0,0,.28);
   }
   .etiqueta { font-size:17px; letter-spacing:7px; color:#e7cf94; font-weight:600; }
-  h1 { font-size:78px; font-weight:700; line-height:1; margin:14px 0 10px; letter-spacing:-1px; }
-  .sub { font-size:29px; opacity:.9; font-weight:400; }
-  .divisor { display:flex; align-items:center; justify-content:center; gap:16px; margin:26px 0 34px; }
+  h1 { font-size:66px; font-weight:700; line-height:1; margin:10px 0 8px; letter-spacing:-1px; }
+  .sub { font-size:25px; opacity:.9; font-weight:400; }
+  .divisor { display:flex; align-items:center; justify-content:center; gap:16px; margin:18px 0 22px; }
   .divisor span { width:120px; height:1px; background:linear-gradient(90deg,transparent,#e7cf94); }
   .divisor span:last-child { background:linear-gradient(90deg,#e7cf94,transparent); }
-  .lista { display:flex; flex-direction:column; gap:14px; text-align:left; }
+  .lista { display:flex; flex-direction:column; gap:7px; text-align:left; }
   .item {
     display:flex; align-items:center; justify-content:space-between; gap:26px;
     background:rgba(255,255,255,.055); border:1px solid rgba(231,207,148,.18);
-    border-radius:16px; padding:22px 28px;
+    border-radius:14px; padding:12px 26px;
   }
-  .nome { font-size:33px; font-weight:600; }
-  .detalhe { font-size:22px; opacity:.82; margin-top:6px; line-height:1.35; font-weight:400; }
+  .nome { font-size:30px; font-weight:600; }
+  .detalhe { font-size:19px; opacity:.82; margin-top:4px; line-height:1.3; font-weight:400; }
   .dir { text-align:right; flex-shrink:0; }
-  .preco { font-size:38px; font-weight:700; color:#f0d493; white-space:nowrap; }
+  .preco { font-size:34px; font-weight:700; color:#f0d493; white-space:nowrap; }
   .unidade { font-size:20px; opacity:.8; margin-top:2px; }
-  .nota { font-size:21px; font-style:italic; opacity:.85; margin-top:26px; }
-  .rodape { margin-top:26px; padding-top:22px; border-top:1px solid rgba(231,207,148,.22); }
+  .nota { font-size:19px; font-style:italic; opacity:.85; margin-top:14px; }
+  .rodape { margin-top:14px; padding-top:14px; border-top:1px solid rgba(231,207,148,.22); }
   .rodape .zap { font-size:26px; }
   .rodape .zap b { color:#f0d493; }
   .rodape .arroba { font-size:33px; font-weight:700; margin-top:8px; }
-  .rodape .cidade { font-size:18px; letter-spacing:5px; opacity:.8; margin-top:10px; }
+  .rodape .cidade { font-size:18px; letter-spacing:5px; opacity:.8; margin-top:8px; }
 </style></head><body>
   <div class="moldura"></div>
   <div class="folha">
     <div class="selo">
-      <svg width="62" height="62" viewBox="0 0 24 24" fill="none" stroke="#8a5a12" stroke-width="1.6" stroke-linecap="round">
+      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#8a5a12" stroke-width="1.6" stroke-linecap="round">
         <path d="M12 3c-1.6 1.7-1.6 3.6 0 5.3 1.6-1.7 1.6-3.6 0-5.3Z"/>
         <path d="M12 21V9"/><path d="M12 12c-2 0-3.4-1-4-2.6 2 0 3.4 1 4 2.6Z"/>
         <path d="M12 12c2 0 3.4-1 4-2.6-2 0-3.4 1-4 2.6Z"/>
