@@ -1091,6 +1091,26 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       }
     }
 
+    // O SABOR QUE ELE ESCREVEU COLADO NO PRODUTO NAO SE PERDE.
+    if (!obsItem || !String(obsItem).trim()) {
+      const opsDele = opcoesDeSabor(produto);
+      if (opsDele.length) {
+        const semAcF = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const falaLimpa = semAcF(falaDoCliente);
+        const alvoNome = semAcF(produto);
+        // Procura '<produto> de <sabor>' ou '<produto> com <sabor>' na fala.
+        const achado = opsDele.find((o) => {
+          const sab = semAcF(o);
+          const re = new RegExp(alvoNome + "[a-z ]{0,12}(de|com|sabor) " + sab.replace(/[.*+?^${}()|[\\]\\\\]/g, ""), "i");
+          return re.test(falaLimpa);
+        });
+        if (achado) {
+          console.warn("[ia] sabor " + achado + " estava na fala do cliente pra " + produto + "; anotado pelo codigo");
+          obsItem = achado;
+        }
+      }
+    }
+
     // SABOR QUE O CLIENTE NAO ESCREVEU NAO E ESCOLHA DELE.
     const opsFechadas = opcoesDeSabor(produto);
     if (opsFechadas.length && obsItem && String(obsItem).trim()) {
