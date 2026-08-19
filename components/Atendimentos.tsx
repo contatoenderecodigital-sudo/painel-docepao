@@ -465,6 +465,18 @@ export default function Atendimentos({
       : ativa.janelaExpiraMs != null && Date.now() < ativa.janelaExpiraMs
     : false;
 
+  // A terceira coluna so existe a partir de 1280px. Escondida por CSS ela
+  // continuava montada no celular, buscando o pedido por tras de uma tela de
+  // largura zero, e a gaveta de informacoes buscava de novo.
+  const [telaLarga, setTelaLarga] = useState(false);
+  useEffect(() => {
+    const consulta = window.matchMedia("(min-width: 1280px)");
+    const aplicar = () => setTelaLarga(consulta.matches);
+    aplicar();
+    consulta.addEventListener("change", aplicar);
+    return () => consulta.removeEventListener("change", aplicar);
+  }, []);
+
   // Voltar pra lista limpa o endereco, senao recarregar a pagina joga a dona
   // de volta pra dentro do chat que ela acabou de fechar.
   function fecharConversa() {
@@ -807,7 +819,7 @@ export default function Atendimentos({
           </div>
 
           {/* ===================== CONTATO (3a coluna no PC) ===================== */}
-          {ativa && (
+          {ativa && telaLarga && (
             <div className="hidden xl:flex glass rounded-[20px] flex-col min-h-0 overflow-hidden h-full">
               <div className="px-4 h-[58px] border-b border-white/10 flex items-center shrink-0">
                 <span className="text-[11px] uppercase tracking-[0.18em] text-dourado font-semibold">Contato</span>

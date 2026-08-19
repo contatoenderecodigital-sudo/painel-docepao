@@ -30,6 +30,12 @@ const INTERVALO_MS = 7000;
 type Item = { id: string; nome: string; total: number; onde: "fila" | "aguardando"; motivo: string | null };
 type Contagem = { fila: number; aguardando: number; ajuda: number; itens?: Item[] };
 
+// Quem busca e quem escuta. Fora do componente porque valem pra pagina
+// inteira: o sino do monitor e o do celular sao duas instancias do mesmo
+// componente e nao podem virar dois relogios.
+let liderAtivo = false;
+const ouvintes = new Set<(c: Contagem) => void>();
+
 export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) {
   const router = useRouter();
   const [som, setSom] = useState(false);
@@ -88,6 +94,18 @@ export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) 
 
   useEffect(() => {
     let vivo = true;
+    // O sino existe duas vezes na pagina: no topo do monitor e na barra do
+    // celular. Um deles busca e conta pro outro; senao sao duas batidas por
+    // ciclo na mesma rota, e dois pedidos de atualizacao da pagina.
+    const souOLider = !liderAtivo;
+    if (!souOLider) {
+      ouvintes.add(setContagem);
+      return () => {
+        vivo = false;
+        ouvintes.delete(setContagem);
+      };
+    }
+    liderAtivo = true;
     const checar = async () => {
       try {
         const r = await fetch("/api/fila/contagem", { cache: "no-store" });
@@ -96,6 +114,7 @@ export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) 
         const antes = anterior.current;
         anterior.current = nova;
         setContagem(nova);
+        ouvintes.forEach((avisar) => avisar(nova));
         // primeira leitura só estabelece a linha de base
         if (!antes) return;
         // Mudou pra qualquer lado (entrou pedido novo ou um saiu de Aguardando
@@ -119,6 +138,7 @@ export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) 
     const id = setInterval(checar, INTERVALO_MS);
     return () => {
       vivo = false;
+      liderAtivo = false;
       clearInterval(id);
     };
   }, [som, tocar, avisarNoNavegador]);
