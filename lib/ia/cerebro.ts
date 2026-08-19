@@ -3216,6 +3216,54 @@ async function rodarConversa(
     }
   }
 
+  // A RESPOSTA DO CLIENTE E APROVEITADA PELO CODIGO, NAO PELA BOA VONTADE DELA.
+  //
+  // A cliente respondeu "forminha rosa" e a pergunta voltou mais tres vezes.
+  // Numa delas ela chegou a escrever "a cor da forminha, que voce ja falou que
+  // quer rosa. Qual cor prefere?": sabia a resposta e perguntou assim mesmo,
+  // porque o lembrete mandava. O codigo detecta a cor na observacao, mas quem
+  // tinha que ESCREVER a cor la era ela, e ela nao escrevia.
+  //
+  // Agora o codigo aproveita a resposta sozinho. So dispara quando a pergunta
+  // anterior DELA foi sobre forminha, senao "chocolate branco" viraria cor.
+  const ultimaDelaAqui = [...historico].reverse().find((h) => h.role === "assistant")?.content ?? "";
+  const perguntouForminha = /forminha/i.test(String(ultimaDelaAqui));
+  if (perguntouForminha) {
+    const cor = String(ultimaFalaDoCliente).match(CORES_FORMINHA)?.[0];
+    const semCor = (montagemDoTurno?.itens ?? []).filter(
+      (i) => i.categoria === "docinho" && !CORES_FORMINHA.test(String(i.obs ?? "")),
+    );
+    if (cor && semCor.length) {
+      // A palavra inteira, nao o pedaco que o regex casou ("ros" de "rosa").
+      const inteira = String(ultimaFalaDoCliente).match(new RegExp("[a-zà-ú]*" + cor + "[a-zà-ú]*", "i"))?.[0] ?? cor;
+      const comCor = (obs: unknown) => [String(obs ?? "").trim(), "forminha " + inteira].filter(Boolean).join(", ");
+      for (const i of semCor) {
+        estado.montagem.push({
+          tipo: "item",
+          produto: i.produto,
+          categoria: i.categoria,
+          qtd: i.qtd,
+          obs: comCor(i.obs),
+        });
+      }
+      // Vale JA neste turno: senao a maquina de etapas continua achando que
+      // falta a cor, e o lembrete manda perguntar pela quarta vez.
+      montagemDoTurno = {
+        ...(montagemDoTurno ?? { itens: [], dados: {} }),
+        itens: (montagemDoTurno?.itens ?? []).map((i) =>
+          semCor.includes(i) ? { ...i, obs: comCor(i.obs) } : i,
+        ),
+      } as MontagemAtual;
+      messages.push({
+        role: "system",
+        content:
+          "A cor da forminha JA FOI ANOTADA como " + inteira + " em " +
+          semCor.map((i) => i.produto).join(", ") + ". NAO pergunte a cor de novo e NAO anote esses " +
+          "itens outra vez: confirme numa frase curta e siga pro que falta.",
+      });
+    }
+  }
+
   // Pediu com quantidade uma coisa que a casa nao faz: ela precisa dizer isso
   // e seguir com o resto, em vez de repetir o cardapio e travar a conversa.
   const naoExistem = pedidosQueNaoExistem(String(ultimaFalaDoCliente));
