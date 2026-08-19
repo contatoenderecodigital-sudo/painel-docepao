@@ -3822,7 +3822,21 @@ async function rodarConversa(
         const anotouAgora =
           JSON.stringify(montagemDoTurno?.dados ?? {}) !== JSON.stringify(montagemAtual?.dados ?? {}) ||
           JSON.stringify(montagemDoTurno?.itens ?? []) !== JSON.stringify(montagemAtual?.itens ?? []);
-        if (iguais >= 2 && respondeuAlgo && !anotouAgora) {
+        // Ja pediu pra repetir na mensagem anterior? Entao repetir a desculpa
+        // vira parede: o cliente escreve outra coisa e ouve a mesma frase
+        // decorada. Uma vez a Dora tenta; da segunda, quem assume e a equipe.
+        const ultimaDela = [...historico]
+          .reverse()
+          .find((h) => h.role === "assistant" && typeof h.content === "string");
+        const jaPediuPraRepetir = /n[ãa]o entendi direito/i.test(
+          String(ultimaDela?.content ?? ""),
+        );
+        if (iguais >= 2 && respondeuAlgo && !anotouAgora && jaPediuPraRepetir) {
+          console.warn("[ia] segunda vez sem entender; chamando a equipe");
+          estado.precisaHumano =
+            estado.precisaHumano ??
+            "A Dora pediu pro cliente repetir e continuou sem entender. Alguem precisa ler a conversa.";
+        } else if (iguais >= 2 && respondeuAlgo && !anotouAgora) {
           console.warn("[ia] terceira vez na mesma pergunta; admitindo que nao entendeu");
           textoFinal =
             "Desculpa, acho que eu não entendi direito o que você escreveu." +
