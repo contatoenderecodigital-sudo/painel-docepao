@@ -162,6 +162,58 @@ export function obsQueOClienteNaoDisse(obs: unknown, falasDoCliente: string[]): 
   return fora;
 }
 
+// ===========================================================================
+//  O RESUMO QUE ELA FALA TEM QUE SER O PEDIDO QUE ESTA GRAVADO.
+//
+//  Teste com clientes ao vivo, 19/08/2026. Ela recitou "1 quilo de torta doce
+//  de morango" com total de R$ 131,40 enquanto o registro tinha SO coxinha e
+//  brigadeiro. E antes disso disse "esta certo, so tem uma torta doce de
+//  morango no pedido agora" num momento em que nao havia torta nenhuma.
+//
+//  Cliente que confia no resumo fecha um pedido que nao existe. Aqui o codigo
+//  compara o que ela escreveu com o que esta gravado, e quando diverge o resumo
+//  e refeito a partir do estado.
+//
+//  So vale pra RESUMO, marcado pela linha de total. Responder "a torta doce sai
+//  R$ 33,90 o quilo" pra quem perguntou preco nao e resumo e passa direto.
+// ===========================================================================
+
+export function ehResumoDePedido(texto: string): boolean {
+  return /\*?\s*total\s*:?\s*\*?\s*R\$/i.test(String(texto ?? ""));
+}
+
+// Itens que ela citou no resumo e que NAO estao no pedido gravado.
+export function citadosForaDoPedido(texto: string, itens: { produto?: string }[]): string[] {
+  if (!ehResumoDePedido(texto)) return [];
+  const gravados = itens.map((i) => semAcMin(i.produto).trim()).filter(Boolean);
+  const fora: string[] = [];
+  for (const linha of String(texto ?? "").split(/[\n]/)) {
+    // So linha de item: tem dinheiro e nao e a linha do total.
+    if (!/R\$\s?[0-9]/.test(linha) || /total/i.test(linha)) continue;
+    const l = semAcMin(linha);
+    // A linha casa com algum item gravado? Basta a primeira palavra do produto.
+    const casa = gravados.some((g) => {
+      const chave = g.split(" ").filter((w) => w.length > 2)[0] ?? g;
+      return chave && l.includes(chave);
+    });
+    if (!casa) fora.push(linha.trim());
+  }
+  return fora;
+}
+
+// Itens gravados que ela DEIXOU DE FORA do resumo. Some do papel do cliente e
+// aparece na comanda: a equipe produz o que ele nao sabe que pediu.
+export function faltandoNoResumo(texto: string, itens: { produto?: string }[]): string[] {
+  if (!ehResumoDePedido(texto)) return [];
+  const t = semAcMin(texto);
+  return itens
+    .map((i) => String(i.produto ?? "").trim())
+    .filter((p) => {
+      const chave = semAcMin(p).split(" ").filter((w) => w.length > 2)[0] ?? semAcMin(p);
+      return chave && !t.includes(chave);
+    });
+}
+
 // ENDERECO DITO QUE NAO E O DA PADARIA, trocado pelo verdadeiro.
 //
 // Ela disse "Rua XV de Novembro, 123" pra uma cliente de 68 anos que ia
@@ -4367,6 +4419,42 @@ async function rodarConversa(
         }
       } catch (e) {
         console.error("[ia] falha na guarda de preco (segue com o texto dela):", e);
+      }
+
+      // O RESUMO SAI DO PEDIDO GRAVADO, NAO DA LEMBRANCA DELA.
+      //
+      // Ela recitou "1 quilo de torta doce de morango, total R$ 131,40" com o
+      // registro tendo so coxinha e brigadeiro. Cliente que confia no resumo
+      // fecha um pedido que nao existe.
+      try {
+        const doPedido = montagemDoTurno?.itens ?? [];
+        if (doPedido.length && ehResumoDePedido(textoFinal)) {
+          const sobrando = citadosForaDoPedido(textoFinal, doPedido);
+          const faltando = faltandoNoResumo(textoFinal, doPedido);
+          if (sobrando.length || faltando.length) {
+            console.warn(
+              "[ia] resumo nao bate com o pedido gravado; refeito pelo codigo.",
+              "sobrando:", sobrando.join(" | "), "faltando:", faltando.join(" | "),
+            );
+            // Refaz do estado, com o motor do tenant: mesmo preco do papel.
+            const cot = tenant.motor.cotarPorItens(
+              doPedido.map((i) => ({ item: String(i.produto), qtd: Number(i.qtd) || 0, obs: i.obs ?? undefined })),
+            );
+            // Tira as linhas de dinheiro que ela escreveu e poe o resumo certo
+            // no lugar. O que ela falou fora do resumo continua valendo.
+            const semAsLinhas = textoFinal
+              .split(String.fromCharCode(10))
+              .filter((l) => !/R\$\s?[0-9]/.test(l) && !/^\s*\.{3,}\s*$/.test(l))
+              .join(String.fromCharCode(10))
+              .replace(/\n{3,}/g, String.fromCharCode(10, 10))
+              .trim();
+            textoFinal =
+              (semAsLinhas ? semAsLinhas + String.fromCharCode(10, 10) : "") +
+              formatarOrcamento(cot, "Seu pedido");
+          }
+        }
+      } catch (e) {
+        console.error("[ia] falha ao conferir o resumo (segue com o texto dela):", e);
       }
 
       // ENDERECO E HORARIO SAO DADO FIXO, E ELA INVENTOU MESMO TENDO O CERTO.
