@@ -36,6 +36,7 @@ import { anotarItem, removerItem, anotarDados, limparMontagem, lerMontagem } fro
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
 import crypto from "node:crypto";
+import { avisoDeProblema } from "@/lib/padaria-aberta";
 
 const pausa = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -468,7 +469,9 @@ async function processar(corpo: WebhookPayload) {
         if (falouDeNovo) {
           console.log("[whatsapp] a IA caiu, mas o cliente ja falou de novo; a proxima execucao responde");
         } else {
-          const desculpa = "Tive um probleminha aqui agora, ja ja te respondo, ta?";
+          // Fora do horario a promessa muda: quem volta nao e a Dora daqui a
+          // pouco, e a equipe de manha.
+          const desculpa = avisoDeProblema();
           try {
             await enviarTexto(telefone, desculpa, creds);
           } catch {

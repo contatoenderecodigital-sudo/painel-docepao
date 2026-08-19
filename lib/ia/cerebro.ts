@@ -16,6 +16,7 @@ import { montarSystemPrompt, DOCE_PAO, type ConfigNegocio } from "./persona";
 import { motorPadrao, formatarOrcamento, brl, citadoDeVerdade, type Motor, type LinhaCotacao } from "./orcamento";
 import { registrarUsoIA, type UsoTurno } from "./uso";
 import catalogo from "./dados/catalogo.json";
+import { padariaAberta } from "@/lib/padaria-aberta";
 
 const MODELO = process.env.MODELO_IA || "gpt-4o-mini";
 
@@ -1458,7 +1459,11 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         "Sem isso ele sai da conversa sem saber que encomendou."
       );
     }
-    return "OK, marquei pra equipe assumir esta conversa. Avise o cliente com carinho que já já respondem.";
+    // Dentro do horário alguém está lá; fora dele, quem responde é a equipe
+    // quando abrir, e prometer o contrário deixa o cliente esperando à toa.
+    return padariaAberta()
+      ? "OK, marquei pra equipe assumir esta conversa. Avise o cliente com carinho que já já respondem."
+      : "OK, marquei pra equipe assumir esta conversa. MAS a padaria já fechou: avise o cliente que anotou tudo e que a equipe responde assim que abrir, sem prometer que é agora.";
   }
 
   if (nome === "enviar_cardapio") {

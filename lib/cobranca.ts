@@ -38,10 +38,10 @@ const JANELA_HORAS = 24;
 // não é respondida. A padaria abre 6h30, mas quem abre padaria às 6h30 não é
 // quem encomenda bolo de festa às 6h30.
 //
-// Termina às 19h e não às 22h: a cobrança é um convite pra responder. Saindo
-// às 22h, o cliente responde 22h15 com uma pergunta que a Dora não resolve e
-// não tem ninguém na padaria pra atender. Às 19h a loja ainda fica aberta uma
-// hora, e a resposta dele encontra gente.
+// Termina às 21h: a padaria fecha às 20h e uma hora depois ainda é horário
+// de gente acordada. Mais tarde que isso a cobrança vira convite pra uma
+// conversa que ninguém pode atender, e o cliente fala sozinho justamente
+// depois de a gente ter puxado assunto.
 //
 // Ajusta em COBRANCA_INICIO e COBRANCA_FIM, no formato "09:00" ou "22:30".
 
@@ -56,7 +56,7 @@ function emMinutos(valor: string | undefined, padrao: number): number {
   return h * 60 + min;
 }
 const INICIO = emMinutos(process.env.COBRANCA_INICIO, 9 * 60);
-const FIM = emMinutos(process.env.COBRANCA_FIM, 19 * 60);
+const FIM = emMinutos(process.env.COBRANCA_FIM, 21 * 60);
 
 function comoRelogio(minutos: number): string {
   return String(Math.floor(minutos / 60)).padStart(2, "0") + "h" + String(minutos % 60).padStart(2, "0");
