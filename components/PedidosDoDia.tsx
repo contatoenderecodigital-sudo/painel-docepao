@@ -180,7 +180,13 @@ export default function PedidosDoDia({
   }, [doDia]);
 
   const grandes = doDia.filter((p) => p.pessoas && p.pessoas >= 20);
-  const deptosMostrar = depto === "todos" ? DEPARTAMENTOS : DEPARTAMENTOS.filter((d) => d.id === depto);
+  // AS COMANDAS SAO TREZE, MAS SO APARECEM AS QUE TEM PRODUCAO NO DIA.
+  //
+  // Antes eram tres estacoes fixas e cabia mostrar todas. Com treze, um dia
+  // normal deixaria dez cartoes vazios na tela, e vazio demais esconde o que
+  // importa: a dona procura o que tem pra fazer, nao o que nao tem.
+  const comProducao = DEPARTAMENTOS.filter((d) => (agregado[d.id] ?? []).length > 0);
+  const deptosMostrar = depto === "todos" ? comProducao : DEPARTAMENTOS.filter((d) => d.id === depto);
 
   // grade do mini-calendario
   const [ay, am] = mesRef.split("-").map(Number);
@@ -228,7 +234,9 @@ export default function PedidosDoDia({
 
         <div className="flex items-center gap-1.5 flex-wrap">
           <Pill on={depto === "todos"} onClick={() => setDepto("todos")}>Todos</Pill>
-          {DEPARTAMENTOS.map((d) => (
+          {/* Filtro so das comandas que tem item hoje: filtro que sempre volta
+              vazio vira ruido, e sao treze deles. */}
+          {comProducao.map((d) => (
             <Pill key={d.id} on={depto === d.id} cor={d.cor} onClick={() => setDepto(d.id)}>{d.nome}</Pill>
           ))}
         </div>
