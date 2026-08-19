@@ -218,10 +218,14 @@ export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) 
           {/* clicar fora fecha, sem precisar mirar de novo no sino */}
           <button className="fixed inset-0 z-40 cursor-default" aria-label="Fechar" onClick={() => setAberto(false)} />
           <div
-            // Ancorado na ESQUERDA e pra cima: o sino fica no rodape da barra
-            // lateral, entao abrir pra direita jogava o painel pra fora da tela
-            // e a dona so via um pedaco cortado.
-            className="absolute bottom-12 left-0 z-50 w-[262px] max-w-[calc(100vw-2rem)] rounded-[14px] overflow-hidden text-left"
+            // No MONITOR abre pra cima e pra esquerda, porque o sino fica no
+            // rodape da barra lateral: pra baixo ou pra direita sairia da tela.
+            //
+            // No CELULAR o mesmo sino fica na barra do TOPO, e abrir pra cima
+            // jogava o painel pra fora da tela: ele abria, so que onde ninguem
+            // via. Ali ele e preso a TELA, logo abaixo da barra de cima, com
+            // margem dos dois lados.
+            className="fixed left-3 right-3 top-16 lg:absolute lg:left-0 lg:right-auto lg:top-auto lg:bottom-12 lg:w-[262px] z-50 rounded-[14px] overflow-hidden text-left"
             style={{ background: "rgba(58,16,28,0.98)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 16px 44px rgba(0,0,0,0.5)" }}
           >
             <div className="px-3.5 py-2.5 border-b border-white/10 text-[11px] uppercase tracking-[0.16em] text-dourado font-semibold">

@@ -6,9 +6,21 @@
 
 import { query, queryUm } from "./db";
 import { unidadeDoProduto } from "@/lib/ia/cerebro";
+import { montarCupons } from "@/lib/cupom-escpos";
 
 export type JobImpressao = {
   filaId: string;
+  // O cupom JA MONTADO, pronto pra mandar pra impressora.
+  //
+  // Antes quem montava era a ponte, o programa que fica aberto na maquina da
+  // padaria. Toda mudanca de layout exigia editar o arquivo LA e reiniciar o
+  // programa, e isso falhou do jeito previsivel: o arquivo foi corrigido as
+  // 02:17 e o processo rodava desde as 14:26 do dia anterior, entao continuou
+  // imprimindo o layout velho da memoria.
+  //
+  // Vindo pronto daqui, mudanca de layout sobe com o painel e chega na proxima
+  // impressao, sem ninguem tocar naquela maquina.
+  cupons: string[];
   pedido: {
     id: string;
     clienteNome: string;
@@ -87,9 +99,8 @@ export async function jobsPendentes(negocioId: string): Promise<JobImpressao[]> 
     [negocioId],
   );
 
-  return linhas.map((l) => ({
-    filaId: l.fila_id,
-    pedido: {
+  return linhas.map((l) => {
+    const pedido = {
       id: l.pedido_id,
       clienteNome: l.cliente_nome || "-",
       clienteTelefone: l.cliente_telefone || "",
@@ -110,8 +121,18 @@ export async function jobsPendentes(negocioId: string): Promise<JobImpressao[]> 
         unitCentavos: i.unit_centavos,
         subtotalCentavos: i.subtotal_centavos,
       })),
-    },
-  }));
+    };
+    // O cupom sai pronto daqui. Se montar falhar por causa de um pedido
+    // estranho, a ponte ainda tem o pedido inteiro pra se virar: melhor um
+    // papel no formato antigo do que nenhum papel.
+    let cupons: string[] = [];
+    try {
+      cupons = montarCupons(pedido);
+    } catch (e) {
+      console.error("[fila] falha ao montar o cupom do pedido " + pedido.id + ":", e);
+    }
+    return { filaId: l.fila_id, pedido, cupons };
+  });
 }
 
 // REIMPRESSÃO MANUAL — recoloca um pedido JÁ APROVADO na fila de impressão.
