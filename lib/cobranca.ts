@@ -20,7 +20,7 @@
 import { query } from "./banco/db";
 import { carregarCredsWhatsapp, carregarMsgCobranca, carregarCobrancaAtiva } from "./banco/negocios";
 import { salvarMensagem } from "./banco/conversas";
-import { listarParados, cobrancasDoCliente, AUTOR_COBRANCA } from "./banco/parados";
+import { listarParados, cobrancasDoCliente, AUTOR_COBRANCA, HORAS_PARA_COBRAR } from "./banco/parados";
 import { enviarTexto } from "./whatsapp/api";
 import { brl } from "./tipos";
 
@@ -85,7 +85,9 @@ export async function rodarCobranca(
   const ligada = permitido && escolhida;
   const detalhe: Resultado["detalhe"] = [];
 
-  const parados = await listarParados(negocioId);
+  // A cobrança usa o relógio dela, mais longo que o da lista: a tela mostra
+  // quem parou faz uma hora, mas o robô só escreve depois de seis.
+  const parados = await listarParados(negocioId, HORAS_PARA_COBRAR);
   const alvos = opcoes.apenasCliente ? parados.filter((p) => p.id === opcoes.apenasCliente) : parados;
 
   if (!alvos.length) {

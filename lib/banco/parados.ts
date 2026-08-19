@@ -23,9 +23,16 @@ import { query, queryUm } from "./db";
 import { cotarPorItens } from "@/lib/ia/orcamento";
 import type { ItemPedido, Pedido } from "@/lib/tipos";
 
-// Quanto tempo sem falar até a conversa virar orçamento parado. Curto demais
-// cobra quem só foi almoçar; longo demais perde a venda pra concorrência.
-export const HORAS_PARA_PARAR = 6;
+// Dois relógios, de propósito.
+//
+// A LISTA mostra cedo, porque quem age nela é gente: a dona olha o nome, vê
+// que é a cliente que sempre pede pra sábado, e manda um alô com jeito. Uma
+// hora parado já é informação útil pra ela.
+//
+// A COBRANÇA automática espera muito mais, porque quem escreve é um robô, e
+// robô não lê a situação. Cobrar quem só foi almoçar queima a cliente.
+export const HORAS_PARA_LISTAR = 1;
+export const HORAS_PARA_COBRAR = 6;
 
 export const AUTOR_COBRANCA = "cobranca";
 
@@ -120,7 +127,7 @@ function horaLimpa(h?: string | null): string | null {
 // nenhum item montado, ainda está conversando (parou faz pouco tempo), ou foi
 // dispensado pela dona.
 // ---------------------------------------------------------------------------
-export async function listarParados(negocioId: string, horas = HORAS_PARA_PARAR): Promise<Pedido[]> {
+export async function listarParados(negocioId: string, horas = HORAS_PARA_LISTAR): Promise<Pedido[]> {
   const dispensados = await carregarDispensados(negocioId);
 
   const linhas = await query<LinhaParado>(
