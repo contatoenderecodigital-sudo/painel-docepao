@@ -1178,7 +1178,12 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       const jaTemSabor = opsDele.some((o) => semAcJa(obsItem ?? "").includes(semAcJa(o)));
       if (opsDele.length && !jaTemSabor) {
         const semAcF = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const falaLimpa = semAcF(falaDoCliente);
+        // A fala dele mais, quando ele aceitou a indicacao, a fala DELA: o
+        // sabor sugerido e aceito com "pode ser" e escolha do cliente.
+        const aceitou = /pode ser|pode mandar|isso mesmo|fechado|perfeito|ta bom|ta otimo|combinado|manda assim|assim ta bom/i.test(
+          String(ultimaFala ?? ""),
+        );
+        const falaLimpa = semAcF(falaDoCliente + (aceitou ? " " + String(ultimaFalaDela ?? "") : ""));
         const alvoNome = semAcF(produto);
         // Procura '<produto> de <sabor>' ou '<produto> com <sabor>' na fala.
         const achado = opsDele.find((o) => {
@@ -1550,6 +1555,26 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
   }
 
   if (nome === "registrar_pedido") {
+    // "hoje", "amanha" e "depois de amanha" viram data no fuso da padaria.
+    // Sem isso o pedido vai pra cozinha sem dia, e no dia seguinte esse
+    // "hoje" ja e ontem.
+    const emSaoPaulo = (dias: number) => {
+      const agoraSP = new Date(
+        new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
+      );
+      agoraSP.setDate(agoraSP.getDate() + dias);
+      const d = String(agoraSP.getDate()).padStart(2, "0");
+      const m = String(agoraSP.getMonth() + 1).padStart(2, "0");
+      return d + "/" + m + "/" + agoraSP.getFullYear();
+    };
+    {
+      const dita = String(input.retirada_data ?? "").trim().toLowerCase();
+      const semAcD = dita.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (/^(hoje|hj)$/.test(semAcD)) input.retirada_data = emSaoPaulo(0);
+      else if (/^(amanha|manha seguinte)$/.test(semAcD)) input.retirada_data = emSaoPaulo(1);
+      else if (/^depois de amanha$/.test(semAcD)) input.retirada_data = emSaoPaulo(2);
+    }
+
     // DIA E HORA DA RETIRADA SAO OBRIGATORIOS NO FECHAMENTO.
     //
     // E o que a producao le primeiro na comanda. Pedido sem isso vira papel
@@ -1558,8 +1583,11 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       String(input.retirada_data ?? "").trim() || String(montagemAtual?.dados?.retirada_data ?? "").trim();
     const horaRetirada =
       String(input.retirada_hora ?? "").trim() || String(montagemAtual?.dados?.retirada_hora ?? "").trim();
-    if (!dataRetirada || !horaRetirada) {
-      const falta = [!dataRetirada ? "o DIA da retirada" : "", !horaRetirada ? "a HORA da retirada" : ""]
+    // Texto que nao e data nao passa: ja saiu pedido com a palavra "hoje" no
+    // lugar do dia, e o banco ficou sem data nenhuma.
+    const dataDeVerdade = /^[0-9]{1,2}[/-][0-9]{1,2}([/-][0-9]{2,4})?$/.test(dataRetirada.trim());
+    if (!dataRetirada || !horaRetirada || !dataDeVerdade) {
+      const falta = [!dataRetirada || !dataDeVerdade ? "o DIA da retirada em dia/mes (ex: 21/09)" : "", !horaRetirada ? "a HORA da retirada" : ""]
         .filter(Boolean)
         .join(" e ");
       return (
