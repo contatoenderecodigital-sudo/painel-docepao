@@ -29,7 +29,16 @@ export type FatosDaCasa = {
   pedidoMinimo: number | null;
   // Quantos dias de antecedencia. Vem da config do negocio.
   prazoMinimoDias: number | null;
-  // Entrega: null = nao existe entrega combinada, quem responde e a equipe.
+  // ENTREGA EXISTE, mas nunca pode ser PROMETIDA.
+  //
+  // A padaria entrega: das 7h as 9h30 e das 14h30 as 17h, e fora disso as vezes
+  // por aplicativo, de R$ 10 a R$ 15 conforme a distancia. So que a regra da
+  // propria casa e "nunca prometa entrega: ofereca e registre pra equipe
+  // fechar", porque depende do dia, da distancia e de ter entregador livre.
+  //
+  // Por isso o campo guarda o TEXTO do que ela pode dizer, e a guarda continua
+  // cortando promessa fechada de entrega e de taxa. Dizer que existe e passar
+  // pra equipe sai; cravar "entrego no centro por R$ 10" nao sai.
   entrega: string | null;
   // Rendimento autorizado, por produto. Quem nao esta aqui, ela nao chuta.
   serve: Record<string, string>;
@@ -42,8 +51,14 @@ export function fatosDaCasa(cfg?: { prazoMinimoDias?: number }): FatosDaCasa {
   if (p?.inteira?.serve) serve["pizza inteira"] = p.inteira.serve.join(" a ") + " pessoas";
   if (p?.meia?.serve) serve["pizza meia"] = p.meia.serve.join(" a ") + " pessoas";
   return {
+    // NAO EXISTE minimo de pedido. O que a dona chama de minimo e por SABOR
+    // dentro do cento ("num cento voce pode escolher cinco sabores, que ai
+    // seria no minimo 20 de cada"), e no mesmo audio ela emenda "a gente deixa
+    // bem a criterio da pessoa". Ou seja, e orientacao, nao regra fechada, e a
+    // Dora nao pode cravar como se fosse. Fonte: lib/ia/dados/rendimento.json.
     pedidoMinimo: null,
     prazoMinimoDias: cfg?.prazoMinimoDias ?? null,
+    // Guardado como texto, e nao como promessa: ver o comentario do tipo.
     entrega: null,
     serve,
   };
