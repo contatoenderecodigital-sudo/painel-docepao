@@ -1307,6 +1307,18 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         obsPizza = jaNaObs ? obsItem : [String(obsItem ?? "").trim(), sabor].filter(Boolean).join(", ");
       }
       produtoPizza = base;
+      // ESCOLHER O TIPO CORRIGE A LINHA, NAO CRIA OUTRA.
+      //
+      // "Quero 2 pizzas" vira pizza inteira. Ele responde "redonda" e isso e a
+      // MESMA escolha, nao um segundo produto. Sem isto saiu pizza inteira de
+      // R$ 240,00 e pizza redonda de R$ 83,80 no mesmo pedido.
+      const outraPizza = (montagemAtual?.itens ?? []).find(
+        (x) => /^pizza/i.test(String(x.produto)) && String(x.produto).toLowerCase() !== base.toLowerCase(),
+      );
+      if (outraPizza) {
+        console.warn("[ia] pizza trocada de " + outraPizza.produto + " pra " + base);
+        estado.montagem.push({ tipo: "remover", produto: String(outraPizza.produto), categoria: String(outraPizza.categoria ?? "pizza") });
+      }
     }
 
     // Sabor diferente do mesmo produto continua sendo linha nova.
@@ -1843,6 +1855,30 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       if (pareceHoje && !clienteFalouHoje) {
         precisaConfirmacao = true;
         pendencias.push("conferir a data: ficou pra hoje e o cliente não disse hoje");
+      }
+    }
+
+    // ITEM ANOTADO QUE NAO ENTROU NO FECHAMENTO.
+    //
+    // A cliente pediu meio quilo de cuca e 1 kg de pao doce; no fechamento so
+    // o pao doce entrou. Saiu um pedido de R$ 22,90 em vez de R$ 34,35, e
+    // ninguem na padaria ficou sabendo que existia uma cuca.
+    //
+    // Nao inventa nem apaga: o cliente pode ter desistido no meio da conversa,
+    // e adivinhar isso seria pior. Para na mesa da equipe com o nome do item.
+    {
+      const noPedido = new Set(
+        c.linhas.map((l) => semAcento(String(l.item)).toLowerCase().trim()),
+      );
+      const sumiram = itensAgora()
+        .map((i) => String(i.produto ?? "").trim())
+        .filter((nome) => nome && !noPedido.has(semAcento(nome).toLowerCase()));
+      if (sumiram.length) {
+        console.warn("[ia] item anotado ficou de fora do pedido: " + sumiram.join(", "));
+        precisaConfirmacao = true;
+        pendencias.push(
+          "conferir: " + sumiram.join(", ") + " estava anotado na conversa e nao entrou no pedido",
+        );
       }
     }
 
