@@ -3735,6 +3735,31 @@ async function rodarConversa(
         });
       }
 
+      // PERGUNTOU DUAS VEZES E NAO ENTENDEU: ADMITE E PEDE PRA REPETIR.
+      //
+      // O cliente escreveu "a esfia de calabreza" e ouviu tres vezes "qual o
+      // recheio da esfirra?". Ninguem entende que ela nao entendeu: parece que
+      // a conversa travou, e o pedido morre ali.
+      const perguntaAgora = textoFinal.match(/[^.!?\n]*\?/g)?.slice(-1)[0] ?? "";
+      if (perguntaAgora.trim().length > 12) {
+        const chave = (t: string) => String(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z ]/g, "").trim();
+        const iguais = historico
+          .filter((h) => h.role === "assistant" && typeof h.content === "string")
+          .slice(-6)
+          .filter((h) => chave(String(h.content)).includes(chave(perguntaAgora).slice(0, 30)))
+          .length;
+        // Ele respondeu alguma coisa entre uma pergunta e outra? Entao o problema
+        // e ela nao ter entendido, nao ele ter ignorado.
+        const respondeuAlgo = String(falaDoCliente2 ?? "").trim().length > 2;
+        if (iguais >= 2 && respondeuAlgo) {
+          console.warn("[ia] terceira vez na mesma pergunta; admitindo que nao entendeu");
+          textoFinal =
+            "Desculpa, acho que eu não entendi direito o que você escreveu." +
+            " Pode me dizer de outro jeito, com outras palavras?" +
+            "\n\n" + perguntaAgora.trim();
+        }
+      }
+
       // Lista de produtos digitada vira peca do cardapio: a imagem tem tudo e o
       // preco, e ninguem escolhe festa lendo nove nomes num paragrafo.
       // Peca que ja foi pro cliente ha pouco nao volta: repetir cardapio no meio
