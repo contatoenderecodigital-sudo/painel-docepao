@@ -346,10 +346,11 @@
       ],
       "sabores_ate": 2
     },
-    "_nota_sabores": "Lista igual a do cardapio impresso mais novo (cardapio.html, revisado em 16/08/2026, que a dona aprovou no audio docepao16082 (1): 'o padrao ta otimo'). 'Bacon com brocolis' saiu: constava so na extracao dos PDFs de julho (catalogo-precos.md) e nao aparece no cardapio revisado. Bacon e brocolis continuam existindo separados, e a inteira aceita ate 4 sabores.",
+    "_nota_sabores": "Lista igual a do PDF oficial de julho (5 PDFs em Desktop/docepao/MazyOS-main/dados/tabelas de produtos), conferida sabor a sabor em 19/08/2026: 21 salgadas e 10 doces. 'Bacon com brocolis' e um sabor PROPRIO, diferente de 'bacon' e de 'brocolis', e chegou a ser removido por engano quando o cardapio revisado de 16/08 nao o listou. A regra e copiar o cardapio dela, nao editar.",
     "sabores_salgados": [
       "bacon",
       "bacon com milho",
+      "bacon com brócolis",
       "4 queijos",
       "filé ao molho madeira com fritas",
       "filé acebolado",
