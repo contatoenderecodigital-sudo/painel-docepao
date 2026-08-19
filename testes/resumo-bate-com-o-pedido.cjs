@@ -68,6 +68,28 @@ conferir(citadosForaDoPedido(RESUMO_CERTO, PEDIDO_REAL).length === 0, "nao acusa
 conferir(faltandoNoResumo(RESUMO_CERTO, PEDIDO_REAL).length === 0, "nao acusa item faltando", "acusou errado");
 
 console.log("");
+console.log("== resumo de conferencia SEM linha de total tambem conta ==");
+// O CASO REAL: o cliente pediu conferencia e ela listou os itens com valor sem
+// linha de total, deixando 63 brigadeiros e 62 beijinhos de fora. Como nao
+// tinha "Total", a guarda nem chegava a olhar, e o cliente conferiu uma lista
+// incompleta achando que estava conferindo o pedido.
+const CONFERENCIA_SEM_TOTAL = [
+  "Deixa eu conferir com voce:",
+  "45x coxinha: R$ 45,00",
+  "1 kg torta doce (morango): R$ 33,90",
+].join("\n");
+conferir(
+  ehResumoDePedido(CONFERENCIA_SEM_TOTAL),
+  "reconhece conferencia com dois itens e sem total",
+  "passa batido e o cliente confere lista incompleta",
+);
+conferir(
+  faltandoNoResumo(CONFERENCIA_SEM_TOTAL, PEDIDO_REAL).some((p) => /brigadeiro/i.test(p)),
+  "  e acusa o brigadeiro que ficou de fora",
+  "nao viu o item faltando",
+);
+
+console.log("");
 console.log("== resposta de PRECO nao e resumo e nao pode ser mexida ==");
 // Este e o lado que quebra o atendimento se eu errar.
 for (const frase of [

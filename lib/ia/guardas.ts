@@ -187,7 +187,20 @@ export function obsQueOClienteNaoDisse(obs: unknown, falasDoCliente: string[]): 
 // ===========================================================================
 
 export function ehResumoDePedido(texto: string): boolean {
-  return /\*?\s*total\s*:?\s*\*?\s*R\$/i.test(String(texto ?? ""));
+  const t = String(texto ?? "");
+  // A linha de total e o sinal mais claro.
+  if (/\*?\s*total\s*:?\s*\*?\s*R\$/i.test(t)) return true;
+  // MAS NAO E O UNICO. Na bateria de 19/08/2026 o cliente pediu conferencia e
+  // ela listou os itens com valor SEM linha de total, deixando 63 brigadeiros e
+  // 62 beijinhos de fora. Como nao tinha "Total", a guarda nem olhou.
+  //
+  // Duas ou mais linhas no formato "N produto: R$ X" e recitacao de pedido, nao
+  // resposta de preco. Resposta de preco vem em prosa, na mesma linha
+  // ("frito R$ 1,00 e assado R$ 1,25"), e por isso a contagem e de LINHAS.
+  const linhasDeItem = t
+    .split(/[\n]/)
+    .filter((l) => /R\$\s?[0-9]/.test(l) && /[0-9]+\s*(x|un|kg|quilos?)\b|^\s*[-*]?\s*[0-9]+\s/i.test(l));
+  return linhasDeItem.length >= 2;
 }
 
 // Itens que ela citou no resumo e que NAO estao no pedido gravado.
@@ -255,6 +268,38 @@ export function produtoQueNinguemCitou(
     .filter((w) => w.length > 3);
   if (!palavras.length) return false;
   return !palavras.every((w) => tudo.includes(w));
+}
+
+// A FORMA DE PAGAMENTO E A ULTIMA QUE ELE FALOU, NAO A PRIMEIRA.
+//
+// A funcao antiga testava numa ORDEM FIXA: pix, depois cartao, depois dinheiro.
+// Entao quem falasse pix e depois corrigisse pra cartao continuava com pix.
+//
+// Foi o que aconteceu na bateria de 19/08/2026: o pedido fechou com
+// "*Forma de pagamento:* pix" depois do cliente ter corrigido pra cartao e dela
+// ter respondido "Anotei que o pagamento sera no cartao". O pedido foi pra
+// producao com o dado errado, e na hora de pagar isso vira discussao no balcao.
+//
+// Corrigir de ideia e normal. Quem manda e a ultima palavra dele.
+export function pagamentoQueEleFalou(fala: string): string | undefined {
+  const t = String(fala ?? "").toLowerCase();
+  const jeitos: { nome: string; acha: RegExp }[] = [
+    { nome: "pix", acha: /\bpix\b/g },
+    { nome: "cartao", acha: /cart[ãa]o|cr[ée]dito|d[ée]bito|parcel/g },
+    { nome: "dinheiro", acha: /dinheiro|esp[ée]cie|\bvista\b/g },
+  ];
+  let escolhido: string | undefined;
+  let ondeUltimo = -1;
+  for (const j of jeitos) {
+    for (const m of t.matchAll(j.acha)) {
+      const onde = m.index ?? -1;
+      if (onde > ondeUltimo) {
+        ondeUltimo = onde;
+        escolhido = j.nome;
+      }
+    }
+  }
+  return escolhido;
 }
 
 // ENDERECO DITO QUE NAO E O DA PADARIA, trocado pelo verdadeiro.

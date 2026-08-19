@@ -30,6 +30,7 @@ import {
   citadosForaDoPedido,
   faltandoNoResumo,
   produtoQueNinguemCitou,
+  pagamentoQueEleFalou,
   corrigirEndereco,
 } from "./guardas";
 
@@ -427,13 +428,9 @@ export type Mensagem = { role: "user" | "assistant"; content: string };
 // Lê a forma de pagamento na fala do cliente. Devolve undefined quando ele não
 // disse nada — e "não disse" é diferente de "disse dinheiro": a segunda é uma
 // escolha, a primeira é um buraco que a equipe precisa fechar.
-function detectarPagamento(fala: string): string | undefined {
-  const t = fala.toLowerCase();
-  if (/\bpix\b/.test(t)) return "pix";
-  if (/cart[ãa]o|cr[ée]dito|d[ée]bito|parcel/.test(t)) return "cartao";
-  if (/dinheiro|esp[ée]cie|\bvista\b/.test(t)) return "dinheiro";
-  return undefined;
-}
+// A deteccao mora em guardas.ts e vale a ULTIMA forma que ele falou, nao a
+// primeira: cliente que corrige de pix pra cartao tem que ficar com cartao.
+const detectarPagamento = pagamentoQueEleFalou;
 
 
 // Corta a pergunta a mais. A regra "uma pergunta por vez" está no prompt com
@@ -3246,6 +3243,35 @@ async function rodarConversa(
           "A cor da forminha JA FOI ANOTADA como " + inteira + " em " +
           semCor.map((i) => i.produto).join(", ") + ". NAO pergunte a cor de novo e NAO anote esses " +
           "itens outra vez: confirme numa frase curta e siga pro que falta.",
+      });
+    }
+  }
+
+  // A FORMA DE PAGAMENTO TAMBEM E APROVEITADA PELO CODIGO.
+  //
+  // Mesmo defeito da cor da forminha, mesmo conserto. Na bateria de 19/08/2026
+  // a cliente respondeu pix na mensagem 14 e ela ainda perguntava na ultima:
+  // "Quer aproveitar e ja me dizer se vai pagar no pix, cartao ou dinheiro na
+  // retirada?". Quatro vezes a mesma pergunta.
+  //
+  // So dispara quando a pergunta ANTERIOR dela foi sobre pagamento, senao um
+  // "pix" solto no meio de outro assunto viraria forma de pagamento.
+  const perguntouPagamento = /pagamento|pagar|pix|cart[ãa]o|dinheiro/i.test(String(ultimaDelaAqui));
+  if (perguntouPagamento && !montagemDoTurno?.dados?.forma_pagamento) {
+    const forma = pagamentoQueEleFalou(String(ultimaFalaDoCliente));
+    if (forma) {
+      estado.montagem.push({ tipo: "dados", dados: { forma_pagamento: forma } });
+      // Vale JA neste turno, senao a maquina de etapas continua achando que
+      // falta e o lembrete manda perguntar pela quinta vez.
+      montagemDoTurno = {
+        ...(montagemDoTurno ?? { itens: [], dados: {} }),
+        dados: { ...(montagemDoTurno?.dados ?? {}), forma_pagamento: forma },
+      } as MontagemAtual;
+      messages.push({
+        role: "system",
+        content:
+          "A forma de pagamento JA FOI ANOTADA como " + forma + ". NAO pergunte de novo: " +
+          "confirme numa frase curta e siga pro que falta.",
       });
     }
   }
