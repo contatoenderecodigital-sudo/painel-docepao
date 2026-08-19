@@ -12,9 +12,15 @@ const { readdirSync } = require("node:fs");
 const { execFileSync } = require("node:child_process");
 const { join } = require("node:path");
 
+// O medidor fica de fora de proposito: ele roda cada cenario cinco vezes
+// falando com a IA de verdade, gasta uns 25 minutos e centenas de mensagens do
+// teto da OpenAI. Serve pra DECIDIR, rodando na mao quando a gente quer saber
+// se melhorou. Quem trava commit e este arquivo aqui, que roda em segundos.
+const FORA = ["todos.cjs", "medidor.cjs"];
+
 const aqui = __dirname;
 const arquivos = readdirSync(aqui)
-  .filter((f) => f.endsWith(".cjs") && f !== "todos.cjs")
+  .filter((f) => f.endsWith(".cjs") && !FORA.includes(f))
   .sort();
 
 console.log("Rodando " + arquivos.length + " testes.");
