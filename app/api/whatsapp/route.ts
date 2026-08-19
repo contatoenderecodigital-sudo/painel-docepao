@@ -346,7 +346,12 @@ async function processar(corpo: WebhookPayload) {
       // Sem isto, a dona respondia e a IA respondia por cima dela — dois
       // atendentes falando com o mesmo cliente ao mesmo tempo.
       try {
-        if (await iaPausada(negocioId, clienteId)) continue;
+        if (await iaPausada(negocioId, clienteId)) {
+          // A equipe assumiu: a Dora nao responde, mas alguem precisa saber
+          // que o cliente escreveu, senao ele fica falando sozinho.
+          await definirHandoff(negocioId, clienteId, true).catch(() => {});
+          continue;
+        }
       } catch (e) {
         console.error("[whatsapp] falha ao checar pausa da IA (segue respondendo):", e);
       }
