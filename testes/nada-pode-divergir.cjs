@@ -54,13 +54,21 @@ const proibidas = [
   ['"Chodó" é o de calabresa', "chodó de calabresa (a casa faz presunto e queijo)"],
   ["bolo salgado (frango, calabresa", "bolo salgado de calabresa (a casa faz frango, presunto ou legumes)"],
   ["o empadão com palmito é mais caro e só de palmito", "empadão com palmito só de palmito (existe frango com palmito)"],
-  ["pizza de metro", "pizza de metro (a casa faz de forma 60x40 e redonda de 30 cm)"],
+  // "pizza de metro" pode e deve aparecer, mas so como APELIDO que ela entende.
+  // O que nao pode e virar produto oferecido: a casa faz de forma 60x40 e
+  // redonda de 30 cm.
+  ["docinho, bolo, pizza de metro", "pizza de metro na lista do que a casa oferece"],
 ];
 for (const [frase, oque] of proibidas) {
   conferir(!persona.includes(frase), "o prompt nao diz: " + oque);
 }
 
 // A lista de produtos no prompt tem que ser a GERADA, nao escrita a mao.
+// O apelido da regiao tem que estar ensinado: quem pede 'duas pizzas de
+// metro' esta pedindo a de forma, e sem isso a Dora trata como produto que
+// nao existe.
+conferir(/pizza de metro/i.test(persona), "a Dora entende 'pizza de metro', que e como a regiao chama a de forma");
+
 conferir(
   persona.includes("${catalogoEmTexto()}"),
   "a lista de produtos do prompt vem do catalogo, nao escrita a mao",
