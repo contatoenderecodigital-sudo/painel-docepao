@@ -92,8 +92,12 @@ function dataBR(iso: string | null): string | null {
 // Quebra na largura do papel em vez de deixar a impressora cortar no meio da
 // palavra: "esfirra de calabresa com catupiry" virava "...com catupi" e quem
 // está assando ficava adivinhando o resto.
-function quebrar(texto: string, recuo = ""): string {
-  const largura = LARGURA - recuo.length;
+function quebrar(texto: string, marca = ""): string {
+  // A marca ("  > ") vai SO na primeira linha. Repetida em todas, cada pedaco
+  // da quebra parecia uma observacao separada, e foi assim que "sem topo"
+  // virou "topo" no papel.
+  const recuo = " ".repeat(marca.length);
+  const largura = LARGURA - marca.length;
   const linhas: string[] = [];
   let atual = "";
   for (const p of semAcento(texto).split(/\s+/)) {
@@ -105,7 +109,29 @@ function quebrar(texto: string, recuo = ""): string {
     }
   }
   if (atual) linhas.push(atual.trim());
-  return linhas.map((l) => recuo + l + "\n").join("");
+  return linhas.map((l, i) => (i === 0 ? marca : recuo) + l + "\n").join("");
+}
+
+// CADA INFORMACAO DA OBSERVACAO NA SUA LINHA.
+//
+// A Dora escreve separando por virgula ("com morango, pao de lo de chocolate,
+// sem topo e sem papel de arroz"). Cortando ali, a producao le uma coisa por
+// linha e nenhuma negacao fica orfa da palavra que ela nega.
+function observacaoDoItem(obs: string, produto: string): string {
+  const chave = (t: string) => semAcento(t).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  const nome = chave(produto);
+  return String(obs)
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean)
+    // O que ja esta no nome do item nao se repete embaixo dele: saia
+    // "bolo brigadeiro com morango" e logo abaixo "> com morango".
+    .filter((x) => {
+      const f = chave(x);
+      return f.length > 2 && !nome.includes(f);
+    })
+    .map((x) => quebrar(x, "  > "))
+    .join("");
 }
 
 // O cabeçalho é igual em toda comanda: as quatro coisas que ela nomeou, mais o
@@ -135,7 +161,7 @@ function listaItens(itens: ItemCupom[]): string {
   let t = "";
   for (const i of itens) {
     t += NEGRITO_ON + qtdDoTicket(i).padEnd(8) + NEGRITO_OFF + semAcento(i.produto) + "\n";
-    if (i.obs) t += quebrar(i.obs, "  > ");
+    if (i.obs) t += observacaoDoItem(i.obs, i.produto);
   }
   return t;
 }

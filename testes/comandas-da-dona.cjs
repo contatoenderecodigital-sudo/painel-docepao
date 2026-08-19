@@ -199,6 +199,30 @@ const soDoce = montarCupons({ ...festa, itens: [pedidoDela.itens[1]] });
 conferir(soDoce.length === 2, "pedido de um segmento so sai com a comanda dele e o caixa");
 conferir(!limpo(soDoce[0]).includes("CLIENTE TAMBEM PEDIU"), "e sem referencia cruzada inventada");
 
+// ---------------------------------------------------------------------------
+// A OBSERVACAO NAO PODE MUDAR DE SENTIDO NA QUEBRA DE LINHA.
+//
+// Saiu impresso num bolo de verdade:
+//   > com morango, pao de lo de chocolate, sem
+//   > topo e sem papel de arroz
+// O "sem" terminou a linha e "topo" comecou a outra, as duas com ">". Batendo
+// o olho, le-se "topo": o contrario do combinado.
+// ---------------------------------------------------------------------------
+console.log("");
+console.log("== a observacao do papel ==");
+const bolo = montarCupons({
+  ...pedidoDela,
+  itens: [{ produto: "bolo brigadeiro com morango", categoria: "bolo_festa", qtd: 2.5,
+    obs: "com morango, pao de lo de chocolate, sem topo e sem papel de arroz",
+    unidade: "kg", unitCentavos: 4990, subtotalCentavos: 12475 }],
+});
+const papelDoBolo = limpo(bolo[0]);
+const linhasObs = papelDoBolo.split("\n").filter((l) => l.trim().startsWith(">"));
+conferir(linhasObs.some((l) => l.includes("sem topo e sem papel de arroz")), "a negacao fica inteira numa linha so");
+conferir(!linhasObs.some((l) => l.trim() === "> topo e sem papel de arroz"), "nenhuma linha comeca com topo, que inverteria o sentido");
+conferir(!papelDoBolo.includes("> com morango"), "a observacao nao repete o que ja esta no nome do item");
+conferir(papelDoBolo.includes("bolo brigadeiro com morango"), "e o nome do item continua completo");
+
 console.log("");
 console.log(erros === 0 ? "TODOS OS CASOS PASSARAM" : erros + " CASO(S) FALHARAM");
 process.exit(erros === 0 ? 0 : 1);
