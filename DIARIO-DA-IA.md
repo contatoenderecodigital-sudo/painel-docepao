@@ -68,6 +68,25 @@ caso real no commit.
 
 ---
 
+### Achados da manhã caótica e do teste brutal (19/08, madrugada)
+
+Oito clientes escalonados, depois três com mensagem em rajada e erro de
+digitação. Zero "tive um probleminha" e zero contaminação entre pedidos nas
+duas rodadas. O que quebrou:
+
+| Defeito | O que acontecia | Correção |
+|---|---|---|
+| Mensagem colando na outra | "dia 15/11" mais "salgado" virava "11 salgados": o teto do pedido virava onze e a festa inteira era recusada | Mensagens juntadas com quebra de linha |
+| "hoje" não virava data | Pedido gravado com a hora e sem dia. Amanhã esse "hoje" já é ontem | hoje, amanhã e depois de amanhã viram data no fuso da padaria |
+| Sabor sugerido e aceito | Ela indicou "mini bolha de carne", o cliente disse "pode ser", e entrou sem sabor | Aceitar indicação é escolher |
+| "meio quilo" | Não era entendido como peso e o item se perdia | Peso por extenso conta |
+| Erro de digitação no sabor | "calabreza" travou um pedido inteiro por um Z | Comparação tolerante: palavra curta aceita um erro, longa aceita dois |
+| Ela nunca dizia que não entendeu | Repetia a mesma pergunta até o cliente desistir | Na terceira, admite e pede pra repetir de outro jeito |
+| Pedido sumia da tela | Pedido não impresso desaparecia da conversa quando a data passava | Só sai da tela depois de aprovado e impresso |
+| IA não mexia no próprio pedido | Mandava pra equipe mudança de pedido que ainda nem foi aprovado | Ela altera até imprimir; depois disso chama gente |
+
+---
+
 ## Regras que não se quebram
 
 Cortar qualquer uma destas traz de volta um defeito que já custou pedido:
