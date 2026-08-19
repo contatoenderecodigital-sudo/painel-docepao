@@ -244,6 +244,9 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
   const [registrado, setRegistrado] = useState<Registrado | null>(null);
   const [sujo, setSujo] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  // Depois de corrigir, a equipe precisa saber que assumiu a conversa: sem
+  // isso ela salva, sai da tela e acha que a Dora continua fechando sozinha.
+  const [assumiuConversa, setAssumiuConversa] = useState(false);
   const [salvo, setSalvo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -362,7 +365,8 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
         throw new Error("falhou");
       }
       // O total muda quando a equipe mexe: a tela mostra o novo, nao o antigo.
-      const j = await r.json().catch(() => ({}) as { totalCentavos?: number });
+      const j = await r.json().catch(() => ({}) as { totalCentavos?: number; assumiu?: boolean });
+      if ((j as { assumiu?: boolean }).assumiu) setAssumiuConversa(true);
       if (registrado && typeof j.totalCentavos === "number") {
         setRegistrado({ ...registrado, totalCentavos: j.totalCentavos });
       }
@@ -1029,6 +1033,14 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                 {salvo ? <><Check size={15} /> Salvo</> : salvando ? "Salvando..." : "Salvar correções"}
               </button>
             </div>
+            {assumiuConversa && (
+              <div className="mt-2 text-[11.5px] leading-snug rounded-[10px] px-3 py-2.5" style={{ background: "rgba(231,207,148,0.12)", border: "1px solid rgba(231,207,148,0.30)", color: "#e7cf94" }}>
+                <span className="font-semibold">Pronto, agora a conversa é sua.</span>{" "}
+                O cliente já recebeu no WhatsApp o pedido como ficou. A Dora parou de responder
+                aqui, então quem fecha com ele daqui pra frente é você. Qualquer outra mudança no
+                pedido, faça por este painel do lado e salve de novo.
+              </div>
+            )}
             {erro && (
               <p className="text-[11px] leading-snug" style={{ color: "#f0a5a5" }}>
                 {erro}

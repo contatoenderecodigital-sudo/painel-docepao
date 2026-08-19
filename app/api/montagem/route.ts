@@ -95,7 +95,50 @@ export async function POST(req: NextRequest) {
         return Response.json({ erro: "sem_preco", produtos: semPreco }, { status: 400 });
       }
       const total = await salvarItensDoPedido(sessao.negocioId, corpo.pedidoId, precificados);
-      return Response.json({ ok: true, totalCentavos: total });
+
+      // O CLIENTE PRECISA SABER QUE MUDOU.
+      //
+      // Sem isso ele fica com o resumo antigo no WhatsApp, com outro total, e
+      // descobre na retirada, discutindo preco no balcao. A mensagem tambem
+      // entra no historico, pra equipe e a Dora lerem o mesmo que ele leu.
+      try {
+        const { carregarCredsWhatsapp } = await import("@/lib/banco/negocios");
+        const { enviarTexto } = await import("@/lib/whatsapp/api");
+        const { salvarMensagem } = await import("@/lib/banco/conversas");
+        const { telefoneDoCliente } = await import("@/lib/banco/atendimentos");
+        const creds = await carregarCredsWhatsapp(sessao.negocioId);
+        const telefone = await telefoneDoCliente(sessao.negocioId, corpo.clienteId);
+        if (telefone) {
+          const linhas = precificados.map(
+            (i) =>
+              (i.unidade === "kg" ? String(i.qtd).replace(".", ",") + " kg" : i.qtd + " un") +
+              " de " + i.produto + (i.obs ? " (" + i.obs + ")" : ""),
+          );
+          const texto =
+            "Passando pra confirmar: a equipe ajustou seu pedido aqui.\n\n" +
+            linhas.join("\n") +
+            "\n\nTotal: " + (total / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) +
+            "\n\nSe alguma coisa nao estiver certa, me avisa que a gente acerta.";
+          await enviarTexto(telefone, texto, { token: creds.token, phoneId: creds.phoneId }).catch((e) => console.error("[montagem] falha ao avisar o cliente:", e));
+          await salvarMensagem(sessao.negocioId, corpo.clienteId, "assistant", texto, {
+            autor: "equipe",
+          }).catch(() => {});
+        }
+      } catch (e) {
+        console.error("[montagem] nao consegui avisar o cliente da correcao:", e);
+      }
+
+      // A partir daqui quem fala com o cliente e a equipe: a Dora nao pode
+      // conversar por cima de uma correcao que ela nao fez.
+      let assumiu = false;
+      try {
+        const { definirPausaIA } = await import("@/lib/banco/atendimentos");
+        await definirPausaIA(sessao.negocioId, corpo.clienteId, true);
+        assumiu = true;
+      } catch (e) {
+        console.error("[montagem] nao consegui pausar a IA depois da correcao:", e);
+      }
+      return Response.json({ ok: true, totalCentavos: total, assumiu });
     }
     const { salvarMontagemInteira } = await import("@/lib/banco/montagem");
     await salvarMontagemInteira(sessao.negocioId, corpo.clienteId, {
