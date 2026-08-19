@@ -105,6 +105,12 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: true });
   } catch (e) {
     console.error("[montagem] POST", e);
+    // Pedido ja aprovado nao e falha de sistema: e regra. Sem dizer isso, a
+    // equipe le "tente de novo" e fica tentando o que nunca vai funcionar.
+    const msg = String((e as Error)?.message ?? "");
+    if (/ja aprovado|impresso/i.test(msg)) {
+      return Response.json({ erro: "ja_aprovado" }, { status: 409 });
+    }
     return Response.json({ erro: "falha" }, { status: 500 });
   }
 }

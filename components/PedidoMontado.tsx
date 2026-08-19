@@ -351,6 +351,11 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
             "Sem preço no cardápio: " + (e.produtos ?? []).join(", ") +
               ". Escolha o produto pela lista pra ele entrar no total.",
           );
+        } else if (e.erro === "ja_aprovado") {
+          setErro(
+            "Este pedido já foi aprovado e a comanda saiu na cozinha, então não dá mais pra corrigir por aqui. " +
+              "Fale com quem está na produção antes que ele seja montado.",
+          );
         } else {
           setErro("Não deu pra salvar agora. Tente de novo.");
         }
