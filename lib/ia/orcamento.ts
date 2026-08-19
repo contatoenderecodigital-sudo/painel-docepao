@@ -164,12 +164,16 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
         // que o pedido não tinha bolo nenhum, travando o fechamento.
         const ehBolo = /^bolo\b/.test(chave);
         const universo = ehBolo ? produtos.filter((p) => /^bolo\b/.test(norm(p.nome))) : produtos;
-        ref = universo.find((p) => {
+        // Todos os que casam, do nome mais completo pro mais curto: 'cuca
+        // recheada' tem que ganhar de 'cuca', senao a padaria cobra R$ 4 a
+        // menos por unidade sem ninguem perceber.
+        const candidatos = universo.filter((p) => {
           const pn = norm(p.nome);
           if (pn.includes(chave) || chave.includes(pn)) return true;
           const ultima = pn.split(" ").pop() || "";
           return ultima.length > 3 && chave.includes(ultima);
         });
+        ref = candidatos.sort((a, b) => norm(b.nome).length - norm(a.nome).length)[0];
       }
       // Ainda nao achou: tenta por aproximacao (plural e erro de digitacao ou de
       // transcricao de audio). So aceita quando ha UM candidato claro; empate

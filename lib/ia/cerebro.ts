@@ -3207,6 +3207,48 @@ async function rodarConversa(
         }
       }
 
+      // LISTA DE SABOR DITA POR ELA: TEM QUE SER A DO PRODUTO CITADO.
+      //
+      // "O empadão pode ser de palmito, frango, carne ou brócolis" e a lista da
+      // EMPADINHA. Empadao e frango ou frango com legumes; com palmito e outro
+      // produto, mais caro. Escolher pela lista errada faz a cozinha produzir
+      // outra coisa e a padaria cobrar a menos.
+      {
+        const semAcL = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const txt = semAcL(textoFinal);
+        // O produto que ela citou junto de uma oferta de sabor.
+        const ofertando = /pode ser de|tem (os sabores|de)|os sabores s[ãa]o|op[çc][õo]es s[ãa]o|qual (o )?sabor|que sabor|qual recheio/i.test(
+          textoFinal,
+        );
+        if (ofertando) {
+          for (const nome of Object.keys(SABORES)) {
+            const ops = SABORES[nome] ?? [];
+            if (ops.length < 2) continue;
+            if (!txt.includes(semAcL(nome))) continue;
+            // Sabor que ela citou e que NAO e desse produto.
+            const intrusos = Object.entries(SABORES)
+              .filter(([outro]) => outro !== nome)
+              .flatMap(([, lista]) => lista)
+              .filter((sab) => !ops.some((o) => semAcL(o) === semAcL(sab)))
+              .filter((sab) => txt.includes(semAcL(sab)));
+            if (!intrusos.length) continue;
+            // So corrige quando ela realmente listou o sabor errado perto do
+            // produto, e nao quando o cliente falou de duas coisas na mesma frase.
+            const faltamOsCertos = ops.filter((o) => !txt.includes(semAcL(o))).length;
+            if (faltamOsCertos === 0) continue;
+            console.warn("[ia] lista de sabor errada pra " + nome + ": " + intrusos.join(", ") + "; corrigida");
+            textoFinal =
+              "O " + nome + " a gente faz de " + ops.slice(0, -1).join(", ") +
+              (ops.length > 1 ? " ou " + ops[ops.length - 1] : String(ops[0])) + "." + "\n\n" +
+              textoFinal.replace(
+                new RegExp("[^.!?\\n]*(" + intrusos.map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\      // PERGUNTA DE SABOR TEM RESPOSTA NO CARDAPIO: ELA SAI DAQUI.")).join("|") + ")[^.!?\\n]*[.!?]", "gi"),
+                "",
+              ).trim();
+            break;
+          }
+        }
+      }
+
       // PERGUNTA DE SABOR TEM RESPOSTA NO CARDAPIO: ELA SAI DAQUI.
       //
       // "o risoles de que sabor vem?" virou "anotei 67 coxinhas, e o pastel, de
