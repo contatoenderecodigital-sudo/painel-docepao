@@ -31,9 +31,36 @@ export const MSG_PADRAO =
 const MAX_COBRANCAS = 2;
 // A Meta só aceita texto livre dentro de 24h da última mensagem do cliente.
 const JANELA_HORAS = 24;
-// Padaria não manda mensagem de madrugada.
-const HORA_INICIO = 8;
-const HORA_FIM = 20;
+// A QUE HORAS O ROBO PODE FALAR COM O CLIENTE.
+//
+// Começa às 9h e não às 7h: às 7h a pessoa está acordando, levando filho na
+// escola ou indo trabalhar. Mensagem comercial nessa hora incomoda e quase
+// não é respondida. A padaria abre 6h30, mas quem abre padaria às 6h30 não é
+// quem encomenda bolo de festa às 6h30.
+//
+// Termina às 19h e não às 22h: a cobrança é um convite pra responder. Saindo
+// às 22h, o cliente responde 22h15 com uma pergunta que a Dora não resolve e
+// não tem ninguém na padaria pra atender. Às 19h a loja ainda fica aberta uma
+// hora, e a resposta dele encontra gente.
+//
+// Ajusta em COBRANCA_INICIO e COBRANCA_FIM, no formato "09:00" ou "22:30".
+
+// Aceita 9, 09:00 ou 22:30. Valor sem sentido cai no padrão: errar a
+// digitação de uma variável não pode virar mensagem de madrugada pro cliente.
+function emMinutos(valor: string | undefined, padrao: number): number {
+  const m = String(valor ?? "").trim().match(/^(\d{1,2})(?::(\d{2}))?$/);
+  if (!m) return padrao;
+  const h = Number(m[1]);
+  const min = Number(m[2] ?? 0);
+  if (h > 23 || min > 59) return padrao;
+  return h * 60 + min;
+}
+const INICIO = emMinutos(process.env.COBRANCA_INICIO, 9 * 60);
+const FIM = emMinutos(process.env.COBRANCA_FIM, 19 * 60);
+
+function comoRelogio(minutos: number): string {
+  return String(Math.floor(minutos / 60)).padStart(2, "0") + "h" + String(minutos % 60).padStart(2, "0");
+}
 
 export type Resultado = {
   ligada: boolean;
@@ -51,13 +78,16 @@ export type Resultado = {
   }>;
 };
 
-function horaEmSaoPaulo(): number {
+// Em minutos desde a meia-noite, pra dar conta de horário quebrado (22h30).
+function agoraEmSaoPaulo(): number {
   const s = new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo",
     hour: "2-digit",
+    minute: "2-digit",
     hour12: false,
   }).format(new Date());
-  return Number(s);
+  const [h, m] = s.split(":").map(Number);
+  return h * 60 + m;
 }
 
 function montarTexto(modelo: string, nome: string, totalCentavos: number): string {
@@ -101,8 +131,8 @@ export async function rodarCobranca(
     };
   }
 
-  const hora = horaEmSaoPaulo();
-  const dentroDoHorario = hora >= HORA_INICIO && hora < HORA_FIM;
+  const agora = agoraEmSaoPaulo();
+  const dentroDoHorario = agora >= INICIO && agora < FIM;
   const modelo = (await carregarMsgCobranca(negocioId)) || MSG_PADRAO;
   const creds = await carregarCredsWhatsapp(negocioId);
   let enviados = 0;
@@ -142,7 +172,11 @@ export async function rodarCobranca(
     }
 
     if (!dentroDoHorario) {
-      detalhe.push({ ...base, acao: "pulada", porque: `fora do horário de contato (${hora}h)` });
+      detalhe.push({
+        ...base,
+        acao: "pulada",
+        porque: `fora do horário: agora é ${comoRelogio(agora)} e o robô fala das ${comoRelogio(INICIO)} às ${comoRelogio(FIM)}`,
+      });
       continue;
     }
 
