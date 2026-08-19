@@ -170,6 +170,11 @@ const cucasPaes = pagina({
 writeFileSync(join(SAIDA, "cucas-paes.html"), cucasPaes, "utf8");
 console.log("gerado: " + join(SAIDA, "cucas-paes.html"));
 console.log("");
-console.log("Pra virar imagem: abra o arquivo no navegador em 1080x1296 e capture,");
-console.log("ou rode a captura pelo Playwright (deviceScaleFactor 2 dá 2160x2592,");
-console.log("o mesmo tamanho das peças que já estão no ar).");
+console.log("COMO VIRAR IMAGEM (1 minuto):");
+console.log("  1. Abra .cardapios/cucas-paes.html no Chrome");
+console.log("  2. F12, botao de dispositivo, escolha tamanho 1080 x 1296");
+console.log("  3. Ctrl+Shift+P, digite screenshot, escolha Capture full size screenshot");
+console.log("  4. Salve como public/cardapios/cucas-paes.jpg");
+console.log("");
+console.log("O desenho e o mesmo das pecas que ja estao no ar. Mudou preco no");
+console.log("catalogo? Roda este script de novo e repete a captura.");
