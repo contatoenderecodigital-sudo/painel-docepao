@@ -543,7 +543,9 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         produto: mud.produto,
         categoria: mud.categoria,
         qtd: mud.qtd,
-        unidade: (mud.categoria === "bolo_festa" ? "kg" : "un") as "kg" | "un",
+        // A unidade sai do cardapio, igual ao preco: por categoria, 1,5 kg de
+        // empadao anotado neste turno virava "un" na leitura do proprio turno.
+        unidade: unidadeDoProduto(mud.produto, mud.categoria),
         obs: mud.obs ?? null,
       };
       if (i >= 0) base[i] = { ...base[i], ...novo };
@@ -1512,7 +1514,10 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // fechar era o que apagava item, trocava bolo por docinho e perdia o papel
     // de arroz. Agora o que está anotado manda; a lista que ela mandou só
     // acrescenta o que por acaso não foi anotado.
-    const anotados = (montagemAtual?.itens ?? []).map((i) => ({
+    // itensAgora() = o que estava anotado MAIS o que foi anotado neste turno.
+    // Com montagemAtual sozinho, o sabor que o cliente acabou de escolher
+    // ficava de fora do pedido que vai pra cozinha.
+    const anotados = itensAgora().map((i) => ({
       item: i.produto,
       qtd: Number(i.qtd) || 0,
       obs: i.obs ?? undefined,
