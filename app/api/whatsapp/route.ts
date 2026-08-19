@@ -16,7 +16,7 @@ import { NextRequest, after } from "next/server";
 import { responder, pecaDaEtapa, ehFestaNaFala, unidadeDoProduto, categoriaDoProduto } from "@/lib/ia/cerebro";
 import { carregarTenant } from "@/lib/ia/tenant";
 import { enviarTexto, enviarImagemPorLink, urlDoCardapio, RECADOS_CARDAPIO, baixarMidia, marcarLidaEDigitando, type CredsEnvio } from "@/lib/whatsapp/api";
-import { avisarDono } from "@/lib/alertas";
+import { avisarDono, avisarDona } from "@/lib/alertas";
 import { transcrever } from "@/lib/whatsapp/transcrever";
 import {
   acharOuCriarCliente,
@@ -706,6 +706,15 @@ async function processar(corpo: WebhookPayload) {
         } catch (e) {
           console.error("[whatsapp] falha ao marcar handoff:", e);
         }
+        // O painel acende, mas se ela estiver na cozinha ninguem ve. Um
+        // recado no WhatsApp dela e o que faz o cliente ser atendido hoje.
+        avisarDona(
+          "cliente-esperando:" + clienteId,
+          "Um cliente esta esperando falar com alguem da padaria." +
+            (resp.motivoEquipe ? " Motivo: " + resp.motivoEquipe : "") +
+            " O numero e " + telefone + ". A conversa esta marcada no painel.",
+          creds,
+        ).catch(() => {});
         // Se havia pedido esperando o aceite dele, a conversa travar aqui
         // significa que ele NAO aceitou. O pedido volta pra fila da dona em
         // vez de ficar preso em 'esperando o cliente' pra sempre.
