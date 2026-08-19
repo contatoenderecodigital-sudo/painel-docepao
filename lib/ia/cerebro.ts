@@ -48,13 +48,20 @@ export type Tenant = {
 };
 
 // As ferramentas que a IA pode chamar (formato OpenAI). Descrição prescritiva.
+//
+// AS DESCRIÇÕES SÃO CURTAS DE PROPÓSITO. Elas viajam em TODA chamada, então
+// parágrafo aqui é imposto por turno: em 18/08/2026 elas foram reduzidas a uma
+// ou duas frases porque a entrada estourava o limite de 200k tokens por minuto
+// da conta. O que saiu foi a repetição do que a persona já manda; o que ficou é
+// a regra que só existe aqui (o que a família separa, o que nunca vira item).
+// Nome de ferramenta e schema de campo não mudaram: o executor depende deles.
 const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
       name: "montar_orcamento",
       description:
-        "Calcula o preço de uma encomenda. USE SEMPRE que precisar de um valor ou quantidade, nunca calcule de cabeça. Dois modos: 'itens' (o cliente disse o que quer, ex: 100 salgados assados) ou 'pessoas' (o cliente disse 'pra 50 pessoas' e você sugere a quantidade).",
+        "Calcula o preço de uma encomenda. USE SEMPRE que precisar de um valor ou quantidade, nunca calcule de cabeça. Modo 'itens' (ele disse o que quer) ou 'pessoas' (ele disse 'pra 50 pessoas' e você sugere a quantidade).",
       parameters: {
         type: "object",
         properties: {
@@ -68,7 +75,7 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
                 item: {
                   type: "string",
                   description:
-                    "Nome do item como no cardápio: 'salgado assado', 'salgado frito', 'brigadeiro', 'trufa', 'bolo 4 leites', 'pizza inteira', etc.",
+                    "Nome como no cardápio: 'salgado assado', 'salgado frito', 'brigadeiro', 'trufa', 'bolo 4 leites', 'pizza inteira'.",
                 },
                 qtd: { type: "number" },
               },
@@ -95,7 +102,7 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: "chamar_humano",
       description:
-        "Passa a conversa pra equipe da padaria. USE quando: o cliente pede algo fora do cardápio ou muito específico (bolo de vários andares, decoração especial), está indeciso e precisa de conselho de verdade, ou você não sabe a resposta com certeza. Melhor passar do que inventar.",
+        "Passa a conversa pra equipe da padaria. USE quando o cliente pede algo fora do cardápio ou muito específico (bolo de vários andares, decoração especial), precisa de conselho de verdade, ou você não sabe a resposta com certeza. Melhor passar do que inventar.",
       parameters: {
         type: "object",
         properties: {
@@ -110,14 +117,14 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: "enviar_cardapio",
       description:
-        "Manda a FOTO do cardápio pro cliente. USE SEMPRE que ele pedir o cardápio, a lista de sabores, os tipos ou os preços de uma categoria inteira ('quais sabores de bolo?', 'me manda o cardápio', 'quanto custa os salgados?'). A imagem já tem todos os itens e preços: depois de chamar, NÃO escreva a lista em texto, só diga em uma linha que está mandando e pergunte o que a pessoa quer. Para preço de um item específico que o cliente já escolheu, use montar_orcamento em vez desta.",
+        "Manda a FOTO do cardápio pro cliente. USE SEMPRE que ele pedir o cardápio, os sabores, os tipos ou os preços de uma categoria inteira. A imagem já tem itens e preços: depois de chamar, NÃO escreva a lista em texto. Preço de item que ele já escolheu é montar_orcamento, não esta.",
       parameters: {
         type: "object",
         properties: {
           cardapios: {
             type: "array",
             description:
-              "Quais peças mandar. Mande só as que respondem a pergunta (uma na maioria das vezes).",
+              "Só as peças que respondem a pergunta, quase sempre uma.",
             items: { type: "string", enum: [...CARDAPIOS] },
           },
         },
@@ -130,7 +137,7 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: "cliente_aceitou_orcamento",
       description:
-        "USE quando o cliente CONCORDAR com o valor atualizado que você mandou depois que a equipe informou o preço de algo (o topo de bolo, por exemplo). Vale qualquer forma de concordar: 'sim', 'ok', 'pode ser', um joinha, um 'fechou', ou qualquer coisa que signifique que ele aceitou. NÃO use se ele discordar, pedir desconto, mudar de ideia ou fizer outra pergunta: aí é conversa normal. NÃO use pra confirmar item ou quantidade no meio do pedido, só pro aceite do valor.",
+        "USE quando o cliente CONCORDAR com o valor que você mandou depois que a equipe informou o preço de algo (o topo de bolo, por exemplo). Vale qualquer forma de concordar: 'sim', 'ok', 'pode ser', 'fechou', um joinha. NÃO use se ele discordar, pedir desconto, mudar de ideia ou fizer outra pergunta, nem pra confirmar item ou quantidade no meio do pedido: só pro aceite do valor.",
       parameters: { type: "object", properties: {}, additionalProperties: false },
       strict: true,
     },
@@ -140,31 +147,31 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: "anotar_item",
       description:
-        "Anota UM item no pedido que está sendo montado, assim que o cliente decidir. Chame a cada item, no momento em que ele fala, sem esperar o fim. Se o item já estiver anotado, esta chamada CORRIGE (quantidade, observação): não duplica. Você não precisa lembrar do resto do pedido, ele já está guardado.",
+        "Anota UM item no pedido em montagem, assim que o cliente decidir, sem esperar o fim. Item já anotado: esta chamada CORRIGE (quantidade, observação), não duplica.",
       parameters: {
         type: "object",
         properties: {
           produto: {
             type: "string",
             description:
-              "Nome do produto como está no cardápio: 'coxinha', 'pastel assado', 'brigadeiro', 'bolo brigadeiro', 'papel de arroz'.",
+              "Nome como no cardápio: 'coxinha', 'pastel assado', 'brigadeiro', 'bolo brigadeiro'.",
           },
           categoria: {
             type: "string",
             enum: ["bolo_festa", "bolo_caseiro", "docinho", "salgado_frito", "salgado_assado", "pizza", "por_quilo", "por_unidade", "cupcake", "papel_de_arroz", "outro"],
             description:
-              "A família REAL do produto. É ela que separa o que tem nome igual: brigadeiro DOCINHO custa por unidade, bolo brigadeiro é bolo_festa e custa por quilo. Sem isso o bolo vira docinho. Empadinha, esfirra, croissant, pastel assado e enroladinho são salgado_assado; coxinha, risoles, bolinha e pastel frito são salgado_frito. Use por_unidade e por_quilo SÓ pro que não cabe em nenhuma família (cuca, pão doce, torta, empadão): é a cozinha que lê isso.",
+              "A família REAL, que separa nome igual: brigadeiro DOCINHO é por unidade, bolo brigadeiro é bolo_festa e é por quilo. Empadinha, esfirra, croissant, pastel assado e enroladinho são salgado_assado; coxinha, risoles, bolinha e pastel frito são salgado_frito. por_unidade e por_quilo SÓ pro que não cabe em nenhuma (cuca, pão doce, torta, empadão).",
           },
-          qtd: { type: "number", description: "Quantidade. Em bolo_festa e por_quilo é o PESO em kg (ex 2 ou 1.5); no resto é o número de unidades." },
+          qtd: { type: "number", description: "Quantidade. Em bolo_festa e por_quilo é o PESO em kg (ex 2 ou 1.5); no resto, unidades." },
           dois_bolos: {
             type: ["boolean", "null"],
             description:
-              "Só pra bolo, e só depois de CONFIRMAR com o cliente que ele quer mais de um bolo na mesma festa. true acrescenta um segundo bolo em vez de corrigir o que já está anotado. Em qualquer outro caso mande null.",
+              "Só pra bolo, e só depois de CONFIRMAR que ele quer mais de um bolo na mesma festa: true acrescenta um segundo em vez de corrigir o que já está anotado. Nos outros casos, null.",
           },
           obs: {
             type: ["string", "null"],
             description:
-              "O que o cliente disse SOBRE ESTE item: recheio do assado, sabor da trufa, cor da forminha, e no bolo o pão de ló, tema, nome e idade do aniversariante. Use as palavras dele, nunca exemplo. Null se não houver.",
+              "O que o cliente disse SOBRE ESTE item: recheio, sabor da trufa, cor da forminha, e no bolo o pão de ló, tema, nome e idade do aniversariante. Palavras dele, nunca exemplo. Null se não houver.",
           },
         },
         required: ["produto", "categoria", "qtd", "obs", "dois_bolos"],
@@ -195,7 +202,7 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: "anotar_dados",
       description:
-        "Anota os dados do pedido conforme o cliente for dizendo: nome de quem pede, data e hora da retirada, forma de pagamento, observação geral. Mande só o que ele acabou de informar; o resto continua guardado. Nunca invente: só mande o que ele disse.",
+        "Anota os dados do pedido conforme o cliente for dizendo. Mande só o que ele acabou de informar; o resto continua guardado. Nunca invente: só o que ele disse.",
       parameters: {
         type: "object",
         properties: {
@@ -207,7 +214,7 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           nao_quer: {
             type: ["string", "null"],
             description:
-              "O que o cliente disse que NAO quer nesta festa: salgado, docinho ou bolo (pode ser mais de um, separado por virgula). Use quando ele dispensar: \"nao quero salgado\", \"so docinho\", \"sem bolo\". Assim eu paro de cobrar essa parte. null quando ele nao dispensou nada.",
+              "O que ele dispensou nesta festa: salgado, docinho ou bolo (mais de um, separado por virgula). Ex: \"nao quero salgado\", \"so docinho\", \"sem bolo\". null quando ele nao dispensou nada.",
           },
         },
         required: ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento", "observacoes", "nao_quer"],
@@ -234,7 +241,7 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
                 item: {
                   type: "string",
                   description:
-                    "Nome ESPECÍFICO do item na tabela, nunca genérico. Use 'pastel assado', 'esfirra', 'coxinha', 'brigadeiro', 'trufa', 'bolo brigadeiro', 'papel de arroz'. NUNCA 'salgado assado', 'salgado frito' ou 'docinho' quando já sabe o tipo. Bolo e itens por quilo: qtd é o PESO em kg (ex 2 ou 1.5). NUNCA registre 'topo de bolo' como item (valor variável, vai só na obs + precisa_confirmacao).",
+                    "Nome ESPECÍFICO na tabela, nunca genérico: 'pastel assado', 'esfirra', 'coxinha', 'brigadeiro', 'trufa', 'bolo brigadeiro'. NUNCA 'salgado assado', 'salgado frito' ou 'docinho' quando já sabe o tipo. Bolo e itens por quilo: qtd é o PESO em kg. NUNCA registre 'topo de bolo' como item (vai só na obs + precisa_confirmacao).",
                 },
                 categoria: {
                   type: ["string", "null"],
@@ -252,13 +259,13 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
                     null,
                   ],
                   description:
-                    "A FAMÍLIA do item, obrigatória. É ela que desfaz a ambiguidade: 'brigadeiro' com categoria bolo_festa é bolo por quilo; com categoria docinho é o docinho de unidade. bolo_festa e por_quilo têm qtd em KG; o resto em unidades.",
+                    "A FAMÍLIA do item, obrigatória, que desfaz a ambiguidade: 'brigadeiro' com bolo_festa é bolo por quilo; com docinho é o docinho de unidade. bolo_festa e por_quilo têm qtd em KG; o resto em unidades.",
                 },
                 qtd: { type: "number" },
                 obs: {
                   type: ["string", "null"],
                   description:
-                    "Observação SÓ deste item, com o que O CLIENTE disse, nunca com exemplo. Formato do que costuma entrar: recheio do assado, sabor da trufa, cor da forminha do docinho, e no bolo o pão de ló, o tema, o nome e a idade do aniversariante e se tem foto. NUNCA copie tema ou nome de exemplo nenhum: já saiu pedido com 'topo da Moana, nome Vinicius, tema Toy Story' misturando exemplo com dado real, e a cozinha não sabe qual peça fazer. Cada observação no seu item.",
+                    "Observação SÓ deste item, com o que O CLIENTE disse, NUNCA exemplo: recheio, sabor da trufa, cor da forminha, e no bolo o pão de ló, o tema, o nome e a idade do aniversariante e se tem foto. Copiar tema ou nome de exemplo deixa a cozinha sem saber qual peça fazer.",
                 },
               },
               required: ["item", "qtd", "obs", "categoria"],
@@ -269,19 +276,19 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           forma_pagamento: {
             type: ["string", "null"],
             description:
-              "Como o cliente disse que vai pagar: 'pix', 'cartao' ou 'dinheiro'. NUNCA invente nem assuma: se ele não falou, PERGUNTE antes de fechar.",
+              "Como ele disse que vai pagar: 'pix', 'cartao' ou 'dinheiro'. NUNCA invente: se ele não falou, PERGUNTE antes de fechar.",
           },
           retirada_hora: { type: "string", description: "Hora, ex: '14:00'." },
           observacoes: { type: ["string", "null"] },
           precisa_confirmacao: {
             type: "boolean",
             description:
-              "true quando o pedido está montado mas a EQUIPE precisa confirmar algo antes (pedido pra hoje/amanhã, valor de topo de bolo, item fora da tabela, bolo de vários andares). O pedido é registrado do mesmo jeito, só entra na fila com um aviso pra dona revisar.",
+              "true quando o pedido está montado mas a EQUIPE precisa confirmar algo antes (pedido pra hoje/amanhã, valor de topo de bolo, item fora da tabela, bolo de vários andares). Entra na fila do mesmo jeito, com aviso pra dona revisar.",
           },
           motivo_humano: {
             type: ["string", "null"],
             description:
-              "Quando precisa_confirmacao=true, explique curto o que a equipe precisa confirmar. Ex: 'confirmar valor do topo de bolo', 'pedido pra amanhã, confirmar capacidade', 'item fora da tabela: bolo 3 andares'. Use null quando não houver.",
+              "Com precisa_confirmacao=true, o que a equipe precisa confirmar, curto. Ex: 'confirmar valor do topo de bolo', 'pedido pra amanhã, confirmar capacidade'. null quando não houver.",
           },
         },
         // strict exige TODOS os campos em `required`; o que é opcional vira
@@ -2094,17 +2101,17 @@ function etapasDaFesta(
         : []),
       ...(festa && !dispensou("salgado") && salgados.length === 0 && falouSalgado
         ? [
+            // A ordem de INDICAR quando ele nao entende ja sai em todo turno no
+            // bloco fixo do pedido em montagem, entao nao se repete aqui. A
+            // frase tambem estava quebrada ao meio ("...(enviar_cardapio) e Se
+            // ele disser..."), com o "pergunte em cima dela" orfao la embaixo.
             "- o cliente ainda nao escolheu NENHUM salgado. MANDE a peca do cardapio de salgados (enviar_cardapio) e " +
-              "Se ele disser que nao entende ou pedir a sua indicacao, INDIQUE: monte um sortido dos mais pedidos com " +
-              "quantidade (ex: 100 coxinha, 100 mini bolha de carne e 100 esfirra de calabresa) e pergunte se pode ser " +
-              "assim. Nao devolva a pergunta pra ele. " +
+              "pergunte em cima dela: ninguem decora cardapio. Se a peca ja foi mandada nesta conversa, o sistema nao " +
+              "repete, entao pode pedir de novo sem medo. " +
               "Se ele ja disse quantas pessoas e voce ainda NAO passou a base da festa, chame montar_orcamento por " +
-              "pessoas primeiro: ninguem sabe quanto salgado pedir pra 30 convidados, e sem a base ele chuta ou voce " +
-              "chuta por ele. " +
-              "pergunte em cima dela: ninguem decora cardapio, nem quem ja comprou dez vezes. Se a peca ja foi mandada " +
-              "nesta conversa, o sistema nao repete, entao pode pedir de novo sem medo. Depois pergunte quais ele quer e " +
-              "quantos de cada, antes de falar de docinho ou de bolo. Se ele disser que NAO quer salgado, chame " +
-              "anotar_dados com nao_quer=\"salgado\" e siga, que eu paro de cobrar.",
+              "pessoas primeiro: ninguem sabe quanto salgado pedir pra 30 convidados. " +
+              "Depois pergunte quais ele quer e quantos de cada, antes de falar de docinho ou de bolo. Se ele disser " +
+              "que NAO quer salgado, chame anotar_dados com nao_quer=\"salgado\" e siga, que eu paro de cobrar.",
           ]
         : []),
       ...(salgados.map(faltaNoItem).filter(Boolean) as string[]),
@@ -2437,15 +2444,14 @@ function descreverMontagem(
       ". NAO escreva esse sabor de novo, NAO anote e NAO confirme pedido com ele. Trate como se ele ainda nao tivesse escolhido."
     : "";
 
+  // Este texto viaja em TODO turno e nao pega o cache de prefixo, entao cada
+  // palavra aqui e paga inteira. "Nao pergunte de novo" e "corrigir nao
+  // duplica" saem: a linha do rodape e a descricao de anotar_item ja dizem.
   const ordem =
-    "NAO pergunte sabor nem recheio de item que ja aparece com sabor na lista acima: ele ja escolheu, e perguntar de " +
-    "novo faz o cliente repetir o que acabou de dizer. " +
     "ANTES de escrever a resposta, chame anotar_item pra cada produto que o cliente decidiu agora e anotar_dados pro que ele informou agora " +
-    "(nome, data, hora, pagamento). Quantidade nova do mesmo produto e recheio escolhido depois entram com anotar_item de novo: corrigir nao duplica. " +
-    "O que voce nao anotar se perde, e o pedido registrado no fim sai DESTA lista, nao da sua lembranca da conversa. " +
+    "(nome, data, hora, pagamento). O que voce nao anotar se perde: o pedido registrado no fim sai DESTA lista, nao da sua lembranca da conversa. " +
     "E quando o cliente disser que NAO ENTENDE ou pedir a sua indicacao, INDIQUE: monte a festa inteira com tipos e " +
-    "quantidades (salgados, docinhos e bolo, na base do numero de pessoas) e pergunte se pode ser assim. Devolver a " +
-    "pergunta pra quem acabou de dizer que nao entende deixa a pessoa travada.";
+    "quantidades (salgados, docinhos e bolo, na base do numero de pessoas) e pergunte se pode ser assim, em vez de devolver a pergunta pra ele.";
 
   if (linhas.length === 0 && dados.length === 0) {
     return (
@@ -2462,16 +2468,12 @@ function descreverMontagem(
   const cobrar = pend.length
     ? `\n\nETAPA DE AGORA: ${atual?.titulo}. Fora a resposta a pergunta dele, fale SO desta etapa nesta mensagem.\n` +
       "SE A ULTIMA MENSAGEM DO CLIENTE FOR UMA PERGUNTA, RESPONDA ELA PRIMEIRO, com a informacao concreta " +
-      "(preco, peso, sabor, como se vende), e so depois siga a etapa. Ja aconteceu de ele perguntar o preco do " +
-      "cento e receber de volta a mesma pergunta da etapa tres vezes seguidas.\n" +
+      "(preco, peso, sabor, como se vende), e so depois siga a etapa.\n" +
       pend.join(String.fromCharCode(10)) +
       String.fromCharCode(10, 10) +
       "ANOTAR O QUE ELE ACABOU DE INFORMAR VALE SEMPRE, mesmo que nao seja desta etapa: data, hora, nome e " +
-      "pagamento entram com anotar_dados na hora em que ele fala. Ele disse a data e a hora e voce repetiu a " +
-      "mesma pergunta duas vezes, como se ninguem tivesse escrito nada." +
-      "\n\nSe o cliente JA respondeu alguma dessas coisas na conversa, nao pergunte de novo: chame anotar_item agora " +
-      "com o que ele disse. Perguntar duas vezes a mesma coisa faz ele achar que ninguem anotou nada. Pergunte so o que " +
-      "sobrou desta etapa, de uma vez so." +
+      "pagamento entram com anotar_dados na hora em que ele fala, e o que ele ja escolheu entra com anotar_item " +
+      "agora, sem perguntar de novo. Pergunte so o que sobrou desta etapa, de uma vez so." +
       (faltaDepois > 0 ? ` Depois desta ainda faltam ${faltaDepois} etapas, mas NAO fale delas agora.` : "")
     : "";
 
@@ -2498,7 +2500,7 @@ function descreverMontagem(
       "deixa o cliente achando que encomendou sem existir pedido nenhum. " +
       "Valor que voce nao sabe (o topo de bolo, por exemplo) NAO e motivo pra chamar_humano: registre o pedido com " +
       "precisa_confirmacao=true e o motivo, que a equipe informa o valor depois. Chamar a equipe em vez de registrar " +
-      "deixa o pedido fora da fila e a festa sem producao."
+      "deixa o pedido fora da fila."
     : "";
 
   return (
@@ -2506,8 +2508,8 @@ function descreverMontagem(
     "Isto esta guardado e a equipe ja pode ter corrigido na tela. Vale mais que a sua lembranca da conversa." + "\n\n" +
     (linhas.length ? "Itens:" + "\n" + linhas.join("\n") + "\n\n" : "Nenhum item anotado ainda." + "\n\n") +
     (dados.length ? "Dados:" + "\n" + dados.join("\n") + "\n\n" : "") +
-    (totais.length ? "Somando o que esta anotado: " + totais.join(" e ") + ". Confira se bate com o tamanho da festa. Quando o cliente fala um total (ex: 200 fritos) e escolhe varios tipos, esse total e pra DIVIDIR entre os tipos, nunca pra repetir em cada um: repetir triplicou o pedido de um cliente." + "\n\n" : "") +
-    "Nao pergunte de novo nada que ja esta aqui em cima: o cliente ja respondeu e vai achar que voce nao anotou. Falta so o que NAO aparece nesta lista." + "\n\n" +
+    (totais.length ? "Somando o que esta anotado: " + totais.join(" e ") + ". Confira se bate com o tamanho da festa. Total que o cliente falou (ex: 200 fritos) com varios tipos escolhidos e pra DIVIDIR entre os tipos, nunca pra repetir em cada um." + "\n\n" : "") +
+    "Nao pergunte de novo nada que ja esta aqui em cima, sabor e recheio inclusive: o cliente ja respondeu. Falta so o que NAO aparece nesta lista." + "\n\n" +
     ordem +
     linhaRecusados +
     cobrar +
