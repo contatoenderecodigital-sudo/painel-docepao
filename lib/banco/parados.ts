@@ -168,6 +168,21 @@ export async function listarParados(negocioId: string, horas = HORAS_PARA_LISTAR
         )
         -- Ainda está conversando: cobrar agora é atropelar o cliente.
         and m.atualizado_em < now() - ($2 || ' hours')::interval
+        -- A BOLA TEM QUE ESTAR COM O CLIENTE.
+        --
+        -- A última palavra foi nossa e ele não respondeu: aí sim é orçamento
+        -- parado. Se a última foi dele, quem deve uma resposta é a padaria, e
+        -- esse caso é da fila de 'precisa de você', não de cobrança. Mandar
+        -- 'seu orçamento ainda está de pé' pra quem fez uma pergunta sem
+        -- resposta é o pior que esta tela pode fazer.
+        and coalesce((
+          select x.papel from mensagens x
+           where x.negocio_id = m.negocio_id and x.cliente_id = m.cliente_id
+           order by x.criado_em desc limit 1
+        ), 'user') <> 'user'
+        -- Equipe assumiu a conversa: quem fala com ele agora é gente, e
+        -- cobrança automática por cima disso atropela quem está atendendo.
+        and coalesce(c.ia_pausada, false) = false
       order by m.atualizado_em asc`,
     [negocioId, String(horas), AUTOR_COBRANCA],
   );

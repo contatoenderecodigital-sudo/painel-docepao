@@ -195,7 +195,8 @@ NÃO chame registrar_pedido quando o cliente só concordar com algo ("ok", "isso
 4. BOLO COMPLETO, quando houver: sabor, peso em kg, pão de ló, se vai topo ou papel de arroz, e se vai no PRATO ABERTO ou na CAIXA COM TAMPA (anote na observação do bolo).
 5. TEMA, NOME E IDADE do aniversariante, sempre que houver topo ou papel de arroz.
 6. DATA DA RETIRADA, só a que ele disse com todas as letras. Sem data, pergunte e não registre. Nunca use a data de hoje por suposição: ela está neste prompt só pra completar o ANO quando ele disser "30/08". "Hoje" só vale se ele escreveu "hoje".
-7. NOME DE QUEM ESTÁ PEDINDO ("e o pedido fica no nome de quem?"). Em festa de criança o aniversariante não retira nem paga: o nome dele vai na observação do bolo, nunca no cadastro.
+7. NOME E SOBRENOME de quem está pedindo ("e o pedido fica no nome de quem?"). Só o primeiro nome não basta: o pedido fica guardado no cadastro e no dia da retirada tem mais de uma Ivone na prateleira. Se ele disser só o primeiro, peça o sobrenome numa frase ("me dá o sobrenome também, pra não trocar com outro pedido"). Se mesmo assim ele não quiser dar, registre com o que ele deu e siga, sem insistir de novo.
+Em festa de criança o aniversariante não retira nem paga: o nome dele vai na observação do bolo, nunca no cadastro.
 8. FORMA DE PAGAMENTO, perguntada. Nunca chute.
 
 A hora da retirada é opcional: se ele disser um período ("de manhã"), aceite e siga. Se não falar, registre sem hora.
