@@ -1098,6 +1098,24 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       }
     }
 
+    // QUANTIDADE DE PECA EM PRODUTO DE QUILO NAO VIRA QUILO.
+    if (unidadeDoProduto(produto, categoria) === "kg") {
+      const falaAgora = String(ultimaFala ?? "");
+      const temPeso = /[0-9]+([.,][0-9]+)? *(kg|quilos?|k)\b|meio quilo|meia duzia de quilo/i.test(falaAgora);
+      // "3 cucas", "duas cucas", "uma torta": contagem de peca, nao peso.
+      const nomeCurto = produto.split(" ")[0];
+      const contando = new RegExp(
+        "(^|[^0-9])([0-9]{1,3}|uma?|dois|duas|tres|três|quatro|cinco|meia|meio) *" + nomeCurto,
+        "i",
+      ).test(falaAgora);
+      if (!temPeso && contando) {
+        console.warn("[ia] " + produto + " pedido por quantidade; e vendido por quilo");
+        return (
+          "NAO anotei: " + produto + " e vendido POR QUILO, e ele falou em quantidade de peca. Numero de peca virando quilo cobra o valor errado nos dois sentidos. Explique numa frase que " + produto + " sai por quilo, diga quanto e o quilo, e pergunte quantos quilos ele quer. Anote so depois que ele disser o peso."
+        );
+      }
+    }
+
     // O SABOR QUE ELE ESCREVEU COLADO NO PRODUTO NAO SE PERDE.
     //
     // Vale tambem quando a observacao veio preenchida com outra coisa (tema,
