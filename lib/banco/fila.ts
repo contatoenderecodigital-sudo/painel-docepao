@@ -125,12 +125,20 @@ export async function jobsPendentes(negocioId: string): Promise<JobImpressao[]> 
     // O cupom sai pronto daqui. Se montar falhar por causa de um pedido
     // estranho, a ponte ainda tem o pedido inteiro pra se virar: melhor um
     // papel no formato antigo do que nenhum papel.
-    let cupons: string[] = [];
-    try {
-      cupons = montarCupons(pedido);
-    } catch (e) {
-      console.error("[fila] falha ao montar o cupom do pedido " + pedido.id + ":", e);
-    }
+    // DESLIGADO ATE O SERVIDOR APRENDER AS COMANDAS DA DONA.
+    //
+    // O cupom do servidor foi escrito com tres bancadas (salgados, docinhos,
+    // bolo festa), copiando a tela. Os audios da dona dizem outra coisa: cada
+    // SEGMENTO tem a propria comanda, porque cada um e produzido em momento e
+    // mesa diferentes. Nas palavras dela, "empadao e uma coisa, torta doce e
+    // outra coisa, torta recheada e outra coisa, e tudo separado", e o motivo
+    // e producao: "o docinho eu posso fazer cinco horas antes, mas o salgado eu
+    // tenho que preparar 15 minutos antes da pessoa chegar".
+    //
+    // Mandando a minha versao, pizza e empadao iriam parar na comanda dos
+    // salgados e a cozinha perderia a separacao que ela usa pra se organizar.
+    // Vazio faz a ponte usar a regra dela, que ja esta certa la.
+    const cupons: string[] = [];
     return { filaId: l.fila_id, pedido, cupons };
   });
 }
