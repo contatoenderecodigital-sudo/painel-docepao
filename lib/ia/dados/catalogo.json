@@ -423,8 +423,10 @@
       "categoria": "empadao",
       "unidade": "kg",
       "sabores": [
-        "palmito"
-      ]
+        "palmito",
+        "frango com palmito"
+      ],
+      "_nota": "Existe frango com palmito, igual a torta fria. A dona disse: se ACRESCENTAR o palmito, vai ficar tambem R$ 39,90 (audio DOCEPAORESPOSTASDONA (5)). So palmito na lista fazia o guard de sabor recusar a venda de um dos produtos mais caros por quilo."
     },
     {
       "nome": "torta doce",

@@ -1283,8 +1283,19 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     let produtoPizza = produto;
     let obsPizza = obsItem;
     if (categoria === "pizza" || /^pizza/i.test(produto)) {
+      // A REDONDA E OUTRO PRODUTO, NAO UM ADJETIVO.
+      //
+      // Ela e de 30 cm e vendida por QUILO a R$ 41,90; a de forma e vendida
+      // por unidade. Apagar a palavra "redonda" e renomear pra "pizza
+      // inteira" fazia 2 kg de redonda sairem por R$ 240,00 em vez de
+      // R$ 83,80, e justamente com o cliente que respondeu certo a pergunta
+      // "de forma ou redonda?".
+      const ehRedonda =
+        /redonda/i.test(produto) ||
+        /redonda/i.test(String(obsItem ?? "")) ||
+        /pizza[s]? redonda/i.test(String(falaDoCliente));
       const meia = /meia|metade/i.test(produto) || /meia|metade/i.test(String(falaDoCliente));
-      const base = meia ? "pizza meia" : "pizza inteira";
+      const base = ehRedonda ? "pizza redonda" : meia ? "pizza meia" : "pizza inteira";
       const sabor = produto
         .replace(/^pizza/i, "")
         .replace(/inteira|meia|de forma|forma|redonda/gi, "")
@@ -2269,7 +2280,7 @@ function etapasDaFesta(
     pendencias: [
       ...(festa && !dispensou("docinho|doce") && docinhos.length === 0 && !falouDocinho
         ? [
-            "- o cliente NAO falou em docinho ainda. E festa: PERGUNTE se ele vai querer docinho tambem, e aproveite pra citar o resto que serve festa numa frase so (docinho, bolo, pizza de metro, torta, empadao): tem gente que so lembra da pizza quando alguem fala nela. " +
+            "- o cliente NAO falou em docinho ainda. E festa: PERGUNTE se ele vai querer docinho tambem, e aproveite pra citar o resto que serve festa numa frase so (docinho, bolo, pizza, torta, empadao): tem gente que so lembra da pizza quando alguem fala nela. " +
               "Se ele disser que nao, chame anotar_dados com nao_quer=\"docinho\".",
           ]
         : []),
