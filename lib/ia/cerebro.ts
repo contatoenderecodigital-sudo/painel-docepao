@@ -2523,13 +2523,24 @@ type Provedor = { nome: string; apiKey?: string; baseURL?: string; modelo: strin
 // Cadeia GLOBAL de fallback (independente de tenant). Ordem: OpenAI, Gemini, reserva.
 function cadeiaGlobal(): Provedor[] {
   const lista: Provedor[] = [];
-  if (process.env.OPENAI_API_KEY || (!process.env.GEMINI_API_KEY && !process.env.IA_RESERVA_API_KEY)) {
-    lista.push({
-      nome: "openai",
-      apiKey: process.env.OPENAI_API_KEY,
-      baseURL: process.env.OPENAI_BASE_URL || undefined,
-      modelo: MODELO,
-    });
+  // Uma entrada por chave. Chaves de CONTAS diferentes multiplicam o teto de
+  // tokens por minuto; chaves da mesma conta, nao (o limite e da organizacao).
+  const chaves = [
+    process.env.OPENAI_API_KEY,
+    process.env.OPENAI_API_KEY_2,
+    process.env.OPENAI_API_KEY_3,
+    process.env.OPENAI_API_KEY_4,
+  ].filter((k) => !!k && String(k).trim() !== "");
+  if (chaves.length || (!process.env.GEMINI_API_KEY && !process.env.IA_RESERVA_API_KEY)) {
+    if (!chaves.length) chaves.push(process.env.OPENAI_API_KEY);
+    for (let i = 0; i < chaves.length; i++) {
+      lista.push({
+        nome: chaves.length > 1 ? "openai-" + (i + 1) : "openai",
+        apiKey: chaves[i],
+        baseURL: process.env.OPENAI_BASE_URL || undefined,
+        modelo: MODELO,
+      });
+    }
   }
   if (process.env.GEMINI_API_KEY && process.env.GEMINI_ATIVO === "1") {
     lista.push({
@@ -2588,8 +2599,20 @@ function provedorEscolhido(tenant: Tenant): Provedor | null {
 
 // Cadeia final: o provedor DO TENANT primeiro, depois a global de fallback (sem
 // repetir o mesmo). Se o provedor do tenant cair, ainda tenta os outros.
+// Gira a vez entre as chaves da OpenAI. Sem isto, a primeira chave leva toda
+// a carga e bate no limite sozinha enquanto a segunda fica parada.
+let vezDaChave = 0;
+
 function provedores(tenant?: Tenant): Provedor[] {
   const global = cadeiaGlobal();
+  const daOpenai = global.filter((p) => p.nome.startsWith("openai"));
+  const resto = global.filter((p) => !p.nome.startsWith("openai"));
+  if (daOpenai.length > 1) {
+    const comeco = vezDaChave++ % daOpenai.length;
+    const girado = [...daOpenai.slice(comeco), ...daOpenai.slice(0, comeco)];
+    global.length = 0;
+    global.push(...girado, ...resto);
+  }
   const escolhido = tenant ? provedorEscolhido(tenant) : null;
   if (!escolhido) return global;
   return [escolhido, ...global.filter((p) => p.nome !== escolhido.nome)];
@@ -3906,6 +3929,10 @@ export async function responder(
         const msg = (e as Error)?.message ?? String(e);
         console.error(`[ia] provedor ${prov.nome} falhou (tentativa ${tentativa}/${teto}):`, msg);
         const noLimite = /429|rate limit|quota/i.test(msg);
+        // Tem outra chave livre? Entao nao espera: passa a vez agora. Esperar
+        // com uma chave parada do lado e deixar o cliente no vacuo de graca.
+        const temOutraChave = lista.filter((x) => x.nome.startsWith("openai")).length > 1;
+        if (noLimite && temOutraChave) break;
         if (noLimite) teto = TENTATIVAS_LIMITE;
         if (tentativa >= teto) break;
         // A propria mensagem traz o tempo: "try again in 1.54s" ou "in 200ms".

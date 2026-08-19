@@ -16,6 +16,7 @@ import { NextRequest, after } from "next/server";
 import { responder, pecaDaEtapa, ehFestaNaFala, unidadeDoProduto } from "@/lib/ia/cerebro";
 import { carregarTenant } from "@/lib/ia/tenant";
 import { enviarTexto, enviarImagemPorLink, urlDoCardapio, RECADOS_CARDAPIO, baixarMidia, marcarLidaEDigitando, type CredsEnvio } from "@/lib/whatsapp/api";
+import { avisarDono } from "@/lib/alertas";
 import { transcrever } from "@/lib/whatsapp/transcrever";
 import {
   acharOuCriarCliente,
@@ -178,6 +179,13 @@ async function processar(corpo: WebhookPayload) {
           if (situacao === "failed") {
             const erro = st.errors?.[0]?.title || st.errors?.[0]?.message || "falha no envio";
             console.error("[whatsapp] mensagem falhou:", id, erro);
+            // Mensagem que nao chega e pior que mensagem nao enviada: a equipe
+            // segue achando que avisou o cliente.
+            avisarDono(
+              "envio-falhou",
+              "Uma mensagem nao chegou no cliente pelo WhatsApp. Motivo: " + String(erro).slice(0, 160) +
+                ". Vale conferir no painel e falar com ele por outro caminho.",
+            ).catch(() => {});
             await marcarStatusMensagem(id, "failed", erro).catch(() => {});
           } else if (situacao === "delivered" || situacao === "read") {
             await marcarStatusMensagem(id, situacao).catch(() => {});
@@ -401,6 +409,13 @@ async function processar(corpo: WebhookPayload) {
         resp = await responder(historico, tenant, "whatsapp", clienteId, montado, aguardando, pedidoAnterior, emAberto);
       } catch (e) {
         console.error("[whatsapp] IA falhou (todos os provedores):", e);
+        // O dono precisa saber na hora: sem isto, quem descobre e o cliente.
+        avisarDono(
+          "ia-caiu",
+          "A Dora nao conseguiu responder um cliente agora e pediu ajuda da equipe. " +
+            "Motivo: " + String((e as Error)?.message ?? e).slice(0, 160),
+          creds,
+        ).catch(() => {});
         // A DESCULPA TAMBEM PODE CHEGAR POR CIMA DELE.
         //
         // A IA leva ate 30s pra desistir, e nesse tempo o cliente completa o
