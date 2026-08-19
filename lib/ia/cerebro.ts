@@ -803,7 +803,21 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       );
     }
     estado.aceitouOrcamento = true;
-    return "Anotado: o cliente aceitou o valor. Responda com uma frase curta confirmando que voce ja passou pra equipe, e NAO chame registrar_pedido: o pedido ja esta montado e a equipe ja ajustou.";
+    // A FRASE DO ACEITE E ESCRITA PELO CODIGO, NAO POR ELA.
+    //
+    // Este e o momento em que o cliente mais precisa entender que o pedido
+    // AINDA NAO esta confirmado: ele acabou de dizer "ok" e e natural achar
+    // que fechou. Deixar ela redigir aqui e deixar em aberto a chance de sair
+    // "confirmado" ou "garantido", e a padaria fica presa a um pedido que a
+    // equipe ainda nem olhou. A regra do prompt ja proibia essas palavras, mas
+    // prompt e sugestao: aqui vira texto fixo.
+    //
+    // Nao usa nome nem valor de proposito: o total e o resumo ja foram ditos
+    // na mensagem anterior, e repetir aqui e mais uma chance de divergir.
+    estado.resumo =
+      "Boa! Ja passei pro pessoal da padaria.\n\n" +
+      "Eles vao analisar seu pedido e confirmar. Assim que estiver tudo certo eu te aviso por aqui.";
+    return "Anotado: o cliente aceitou. A resposta pra ele JA ESTA PRONTA, escrita pelo sistema, e deixa claro que a equipe ainda vai analisar e confirmar. Nao escreva outra e NAO chame registrar_pedido: o pedido ja esta montado.";
   }
 
   // O pedido como esta AGORA: o que veio do banco mais o que ja foi anotado
