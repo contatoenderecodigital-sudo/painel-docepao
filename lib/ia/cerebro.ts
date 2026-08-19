@@ -1092,9 +1092,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     }
 
     // O SABOR QUE ELE ESCREVEU COLADO NO PRODUTO NAO SE PERDE.
-    if (!obsItem || !String(obsItem).trim()) {
+    //
+    // Vale tambem quando a observacao veio preenchida com outra coisa (tema,
+    // "a definir", o pedido inteiro repetido): o que conta e ter um sabor da
+    // lista do produto. Olhando so a observacao vazia, esta regra disparou zero
+    // vezes numa bateria inteira.
+    {
       const opsDele = opcoesDeSabor(produto);
-      if (opsDele.length) {
+      const semAcJa = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const jaTemSabor = opsDele.some((o) => semAcJa(obsItem ?? "").includes(semAcJa(o)));
+      if (opsDele.length && !jaTemSabor) {
         const semAcF = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         const falaLimpa = semAcF(falaDoCliente);
         const alvoNome = semAcF(produto);
@@ -1106,7 +1113,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         });
         if (achado) {
           console.warn("[ia] sabor " + achado + " estava na fala do cliente pra " + produto + "; anotado pelo codigo");
-          obsItem = achado;
+          obsItem = [String(obsItem ?? "").trim(), achado].filter(Boolean).join(", ");
         }
       }
     }
