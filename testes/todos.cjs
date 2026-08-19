@@ -20,7 +20,9 @@ const FORA = ["todos.cjs", "medidor.cjs"];
 
 const aqui = __dirname;
 const arquivos = readdirSync(aqui)
-  .filter((f) => f.endsWith(".cjs") && !FORA.includes(f))
+  // Arquivo com "_" na frente e utilitario dos testes, nao teste. Sem isto o
+  // portao tentaria rodar o _guardas.cjs e contaria como falha.
+  .filter((f) => f.endsWith(".cjs") && !f.startsWith("_") && !FORA.includes(f))
   .sort();
 
 console.log("Rodando " + arquivos.length + " testes.");

@@ -14,40 +14,8 @@
 // As frases deste teste sao as REAIS das conversas, nao inventadas aqui.
 //
 // Roda com: node testes/pergunta-nao-e-pedido.cjs
-const fs = require("fs");
-const fonte = fs.readFileSync("lib/ia/cerebro.ts", "utf8");
-
-function extrair(assinatura, ate) {
-  const ini = fonte.indexOf(assinatura);
-  const fim = fonte.indexOf(ate, ini);
-  if (ini < 0 || fim < 0) throw new Error("nao achei no arquivo: " + assinatura);
-  return fonte.slice(ini, fim);
-}
-
-const semTipos = (t) =>
-  t
-    .replace(/export function /g, "function ")
-    .replace(/export const /g, "const ")
-    .replace(/\(([a-zA-Z]+): [A-Za-z<>[\]| ]+, ([a-zA-Z]+): [A-Za-z<>[\]| ]+\)/g, "($1, $2)")
-    .replace(/\(([a-zA-Z]+): [A-Za-z<>[\]| ]+\)/g, "($1)")
-    .replace(/(const [a-zA-Z]+): [A-Za-z<>[\]| ]+ =/g, "$1 =")
-    .replace(/\): [A-Za-z<>[\]| ]+ =>/g, ") =>")
-    .replace(/\): [A-Za-z<>[\]| ]+ \{/g, ") {");
-
-const corpo =
-  semTipos(extrair("const semAcMin =", "// O cliente disse explicitamente")) +
-  semTipos(extrair("export function clienteProibiuAnotar(", "// A fala do cliente e SO uma pergunta")) +
-  semTipos(extrair("export function soPerguntouSemPedir(", "// Pedacos da observacao")) +
-  semTipos(extrair("export function obsQueOClienteNaoDisse(", "//  O RESUMO QUE ELA FALA TEM QUE SER O PEDIDO QUE ESTA GRAVADO.")) +
-  semTipos(
-    extrair("export function produtoQueNinguemCitou(", "// ENDERECO DITO QUE NAO E O DA PADARIA")
-      .replace(/\(\s*produto: string,\s*falasDoCliente: string\[\],\s*propostaDela: string,\s*\): boolean/, "(produto, falasDoCliente, propostaDela)"),
-  );
-
-const criar = new Function(
-  corpo + "\nreturn { clienteProibiuAnotar, soPerguntouSemPedir, obsQueOClienteNaoDisse, produtoQueNinguemCitou };",
-);
-const { clienteProibiuAnotar, soPerguntouSemPedir, obsQueOClienteNaoDisse, produtoQueNinguemCitou } = criar();
+// Importa as guardas de verdade, em vez de recortar texto do cerebro.ts.
+const { clienteProibiuAnotar, soPerguntouSemPedir, obsQueOClienteNaoDisse, produtoQueNinguemCitou } = require("./_guardas.cjs")();
 
 let erros = 0;
 function conferir(ok, oque, detalhe) {

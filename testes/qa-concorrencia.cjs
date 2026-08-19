@@ -54,8 +54,22 @@ const psql = (sql) =>
 async function main() {
   console.log("limpando o banco de teste...");
   await psql(
-    "delete from docepao.pedido_itens; delete from docepao.pedidos; " +
-      "delete from docepao.pedido_montagem; delete from docepao.mensagens; delete from docepao.clientes;",
+    // SO os telefones deste teste. Apagar o banco inteiro ja destruiu uma
+    // medicao ao vivo que estava rodando em paralelo.
+    "with meus as (select id from docepao.clientes where telefone in (" + CLIENTES.map((c) => "'" + c.fone + "'").join(',') + ")) " +
+      "delete from docepao.pedido_itens where pedido_id in (select id from docepao.pedidos where cliente_id in (select id from meus));",
+  );
+  await psql(
+    "delete from docepao.pedidos where cliente_id in (select id from docepao.clientes where telefone in (" + CLIENTES.map((c) => "'" + c.fone + "'").join(',') + "));",
+  );
+  await psql(
+    "delete from docepao.pedido_montagem where cliente_id in (select id from docepao.clientes where telefone in (" + CLIENTES.map((c) => "'" + c.fone + "'").join(',') + "));",
+  );
+  await psql(
+    "delete from docepao.mensagens where cliente_id in (select id from docepao.clientes where telefone in (" + CLIENTES.map((c) => "'" + c.fone + "'").join(',') + "));",
+  );
+  await psql(
+    "delete from docepao.clientes where telefone in (" + CLIENTES.map((c) => "'" + c.fone + "'").join(',') + ");",
   );
 
   console.log("mandando as " + CLIENTES.length + " mensagens ao mesmo tempo...");

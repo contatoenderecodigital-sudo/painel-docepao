@@ -14,42 +14,11 @@
 // digitada aqui que poderia divergir sem ninguem notar.
 //
 // Roda com: node testes/nao-inventa-preco.cjs
-const fs = require("fs");
+// Importa as guardas de verdade, em vez de recortar texto do cerebro.ts.
+const { precosInventados, corrigirEndereco } = require("./_guardas.cjs")();
+// Os precos esperados saem do catalogo, nao digitados aqui: se a dona mudar um
+// preco, o teste acompanha sozinho em vez de comecar a mentir.
 const catalogo = require("../lib/ia/dados/catalogo.json");
-const fonte = fs.readFileSync("lib/ia/cerebro.ts", "utf8");
-
-function extrair(assinatura, ate) {
-  const ini = fonte.indexOf(assinatura);
-  const fim = fonte.indexOf(ate, ini);
-  if (ini < 0 || fim < 0) throw new Error("nao achei no arquivo: " + assinatura);
-  return fonte.slice(ini, fim);
-}
-
-// Tira as anotacoes de tipo pra rodar como JavaScript puro. Generico de
-// proposito: lista de casos especiais quebra toda vez que o codigo muda.
-const semTipos = (t) =>
-  t
-    .replace(/export function /g, "function ")
-    // (x as { ... }) vira x, e ... as { ... }[] some
-    .replace(/\((\w+) as \{[^}]*\}\[?\]?\)/g, "$1")
-    .replace(/ as \{[^}]*\}\[?\]?/g, "")
-    // generico<...> vira generico
-    .replace(/Set<[^>]*>/g, "Set")
-    // parametros anotados, um ou dois
-    .replace(/\(([a-zA-Z]+): [A-Za-z<>[\]| ]+, ([a-zA-Z]+): [A-Za-z<>[\]| ]+\)/g, "($1, $2)")
-    .replace(/\(([a-zA-Z]+): [A-Za-z<>[\]| ]+\)/g, "($1)")
-    // const x: tipo =
-    .replace(/(const [a-zA-Z]+): [A-Za-z<>[\]| ]+ =/g, "$1 =")
-    // retorno anotado da funcao
-    .replace(/\): [A-Za-z<>[\]| ]+ \{/g, ") {");
-
-const corpo =
-  semTipos(extrair("function precosDaCasa()", "// PRECOS UNITARIOS QUE ELA ESCREVEU")) +
-  semTipos(extrair("export function precosInventados(", "//  PORTAO DE ESCRITA: PERGUNTA NAO E PEDIDO.")) +
-  semTipos(extrair("export function corrigirEndereco(", "const MODELO = process.env"));
-
-const criar = new Function("catalogo", corpo + "\nreturn { precosInventados, corrigirEndereco };");
-const { precosInventados, corrigirEndereco } = criar(catalogo);
 
 let erros = 0;
 function conferir(ok, oque, detalhe) {

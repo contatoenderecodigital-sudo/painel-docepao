@@ -14,34 +14,8 @@
 // linha de TOTAL, e o teste cobra os dois lados.
 //
 // Roda com: node testes/resumo-bate-com-o-pedido.cjs
-const fs = require("fs");
-const fonte = fs.readFileSync("lib/ia/cerebro.ts", "utf8");
-
-function extrair(assinatura, ate) {
-  const ini = fonte.indexOf(assinatura);
-  const fim = fonte.indexOf(ate, ini);
-  if (ini < 0 || fim < 0) throw new Error("nao achei no arquivo: " + assinatura);
-  return fonte.slice(ini, fim);
-}
-
-const semTipos = (t) =>
-  t
-    .replace(/export function /g, "function ")
-    .replace(/export const /g, "const ")
-    .replace(/\(texto: string, itens: \{ produto\?: string \}\[\]\)/g, "(texto, itens)")
-    .replace(/\(([a-zA-Z]+): [A-Za-z<>[\]| ]+\)/g, "($1)")
-    .replace(/(const [a-zA-Z]+): [A-Za-z<>[\]| ]+ =/g, "$1 =")
-    .replace(/\): [A-Za-z<>[\]| ]+ =>/g, ") =>")
-    .replace(/\): [A-Za-z<>[\]| ]+ \{/g, ") {");
-
-const corpo =
-  semTipos(extrair("const semAcMin =", "// O cliente disse explicitamente")) +
-  semTipos(extrair("export function ehResumoDePedido(", "// PRODUTO QUE NINGUEM CITOU NAO ENTRA NO PEDIDO."));
-
-const criar = new Function(
-  corpo + "\nreturn { ehResumoDePedido, citadosForaDoPedido, faltandoNoResumo };",
-);
-const { ehResumoDePedido, citadosForaDoPedido, faltandoNoResumo } = criar();
+// Importa as guardas de verdade, em vez de recortar texto do cerebro.ts.
+const { ehResumoDePedido, citadosForaDoPedido, faltandoNoResumo } = require("./_guardas.cjs")();
 
 let erros = 0;
 function conferir(ok, oque, detalhe) {
