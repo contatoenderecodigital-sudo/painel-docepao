@@ -366,7 +366,9 @@ export async function pedidoEmAberto(
        from pedidos p left join clientes c on c.id = p.cliente_id
       where p.negocio_id = $1 and p.cliente_id = $2
         and p.status in ('confirmado', 'aprovado', 'impresso')
-        and (p.retirada_data is null or p.retirada_data >= current_date)
+        -- O dia que vale e o da padaria: com current_date (UTC), pedido pra
+        -- hoje sumia depois das 21h de Brasilia.
+        and (p.retirada_data is null or p.retirada_data >= (now() at time zone 'America/Sao_Paulo')::date)
       order by p.criado_em desc
       limit 1`,
     [negocioId, clienteId],
@@ -433,7 +435,9 @@ export async function pedidoRegistradoDoCliente(
        left join clientes c on c.id = p.cliente_id
       where p.negocio_id = $1 and p.cliente_id = $2
         and p.status in ('confirmado', 'aprovado', 'impresso')
-        and (p.retirada_data is null or p.retirada_data >= current_date)
+        -- O dia que vale e o da padaria: com current_date (UTC), pedido pra
+        -- hoje sumia depois das 21h de Brasilia.
+        and (p.retirada_data is null or p.retirada_data >= (now() at time zone 'America/Sao_Paulo')::date)
       order by p.criado_em desc
       limit 1`,
     [negocioId, clienteId],
