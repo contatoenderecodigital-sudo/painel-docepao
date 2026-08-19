@@ -37,8 +37,16 @@ function criarPool(): Pool {
     : {}; // pega PGHOST/PGPORT/... do ambiente automaticamente
   // Supabase exige SSL. PGSSL=0 desliga (só pra Postgres local sem SSL).
   const ssl = process.env.PGSSL === "0" ? undefined : { rejectUnauthorized: false };
-  // No serverless, poucas conexões por instância (o pooler do Supabase agrega).
-  const max = Number(process.env.PG_POOL_MAX || 3);
+  // Quantas conexões este container pode abrir.
+  //
+  // Eram 3, herdado de quando isso rodava serverless: lá cada instância tem o
+  // próprio pool e quem agrega é o pooler do provedor. Aqui é um container só
+  // numa VPS dedicada, e a tela da dona chama quatro rotas em ciclo (aprovação
+  // a cada 5s, contagem a cada 7s, dia e aguardando a cada 8s), cada uma com
+  // várias subconsultas. Duas abas abertas já pediam mais de três conexões ao
+  // mesmo tempo: a requisição ficava na fila, o proxy cansava antes e devolvia
+  // 504, que na tela vira a fila piscando erro sozinha.
+  const max = Number(process.env.PG_POOL_MAX || 10);
   const p = new Pool({
     ...cfg,
     ssl,
