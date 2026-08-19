@@ -70,7 +70,11 @@ export default function AguardandoConfirmacao({ pedidos }: { pedidos: Pedido[] }
 }
 
 function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void }) {
-  const [produto, setProduto] = useState("topo de bolo");
+  // O que a equipe vai lancar sai da PENDENCIA do pedido. Abrir com 'topo de
+  // bolo' em pedido de torta fria e convite pra lancar item errado.
+  const pendencia = String(pedido.motivoHumano ?? "").toLowerCase();
+  const ehTopo = /topo|papel de arroz/.test(pendencia);
+  const [produto, setProduto] = useState(ehTopo ? "topo de bolo" : "");
   const [qtd, setQtd] = useState("1");
   const [valor, setValor] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -206,7 +210,7 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
           </div>
         )}
         <div className="text-[12px] text-cream/65 mb-2" hidden={pedido.aguardandoCliente}>
-          Digite o valor que você acertou com o cliente. A Dora avisa ele com o total novo.
+          {ehTopo ? "Digite o valor do topo que você acertou com o cliente. A Dora avisa ele com o total novo." : "Se houver valor a cobrar por isso, lance aqui e a Dora avisa o cliente com o total novo."}
         </div>
         <div className="flex flex-wrap gap-2" hidden={pedido.aguardandoCliente}>
           <input

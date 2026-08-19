@@ -3760,6 +3760,31 @@ async function rodarConversa(
         }
       }
 
+      // SABOR DITO PELO CLIENTE ENTRA, MESMO QUE ELA SO TENHA PERGUNTADO.
+      try {
+        // O pedido como ficou depois deste turno.
+        for (const it of montagemDoTurno?.itens ?? []) {
+          const ops = opcoesDeSabor(String(it.produto));
+          if (!ops.length) continue;
+          const obsAtual = String(it.obs ?? "");
+          if (ops.some((o) => pareceSabor(obsAtual, o))) continue;
+          // As palavras que ELE escreveu neste turno, uma a uma.
+          const palavras = String(falaDoCliente2 ?? "").split(/[^a-zA-Zà-úÀ-Ú0-9]+/).filter((w) => w.length > 2);
+          const achou = ops.find((o) => palavras.some((w) => pareceSabor(w, o)));
+          if (!achou) continue;
+          console.warn("[ia] sabor " + achou + " estava na fala; completando " + it.produto + " no fim do turno");
+          estado.montagem.push({
+            tipo: "item",
+            produto: it.produto,
+            categoria: it.categoria,
+            qtd: Number(it.qtd) || 0,
+            obs: [obsAtual.trim(), achou].filter(Boolean).join(", "),
+          });
+        }
+      } catch (e) {
+        console.error("[ia] falha ao completar sabor no fim do turno:", e);
+      }
+
       // Lista de produtos digitada vira peca do cardapio: a imagem tem tudo e o
       // preco, e ninguem escolhe festa lendo nove nomes num paragrafo.
       // Peca que ja foi pro cliente ha pouco nao volta: repetir cardapio no meio
