@@ -145,12 +145,16 @@ export async function listarParados(negocioId: string, horas = HORAS_PARA_LISTAR
             (select max(x.criado_em) from mensagens x
               where x.negocio_id = m.negocio_id and x.cliente_id = m.cliente_id
                 and x.autor = $3) as cobrado_em,
+            -- Só existe 'o cliente viu a cobrança' se cobrança existir. Com o
+            -- começo dos tempos como referência, qualquer cliente que já tinha
+            -- falado alguma vez virava 'visualizou', e a tela mostrava dez
+            -- clientes avisados sem uma única mensagem ter saído.
             (select max(x.criado_em) from mensagens x
               where x.negocio_id = m.negocio_id and x.cliente_id = m.cliente_id
                 and x.papel = 'user'
-                and x.criado_em > coalesce((select max(y.criado_em) from mensagens y
+                and x.criado_em > (select max(y.criado_em) from mensagens y
                      where y.negocio_id = m.negocio_id and y.cliente_id = m.cliente_id
-                       and y.autor = $3), 'epoch'::timestamptz)) as cliente_viu_em
+                       and y.autor = $3)) as cliente_viu_em
        from pedido_montagem m
        join clientes c on c.id = m.cliente_id
       where m.negocio_id = $1

@@ -176,8 +176,14 @@ export default function Recuperar({
         if (statusF === "cobrado" && !cobrado) return false;
         if (statusF === "naocobrado" && cobrado) return false;
         if (termo) {
+          // Quem copia o número de outro lugar cola com máscara. Comparando só
+          // os dígitos, "9000-0002" e "(11) 99000-0002" acham a mesma pessoa.
           const alvo = (p.clienteNome + " " + p.clienteTelefone).toLowerCase();
-          if (!alvo.includes(termo)) return false;
+          const digitos = termo.replace(/\D/g, "");
+          const achou =
+            alvo.includes(termo) ||
+            (digitos.length >= 4 && p.clienteTelefone.replace(/\D/g, "").includes(digitos));
+          if (!achou) return false;
         }
         return true;
       })
@@ -280,7 +286,10 @@ export default function Recuperar({
             </div>
             <div className="text-[12px] text-cream/55 mt-0.5">
               {autoOn
-                ? "Envia sozinha: " + template.replace("{nome}", "").replace(/\s+/g, " ").trim()
+                ? // O nome era apagado e sobrava "Oi ! Seu orçamento...". É o texto
+                  // que a dona lê pra decidir se liga a cobrança: tem que mostrar
+                  // como a mensagem realmente chega.
+                  "Envia sozinha: " + template.replaceAll("{nome}", "Maria").replace(/\s+/g, " ").trim()
                 : "Desligada, ninguém é cobrado sozinho. Você continua podendo cobrar no toque."}
             </div>
           </div>
@@ -303,7 +312,7 @@ export default function Recuperar({
             aria-checked={autoOn}
             onClick={alternarAuto}
             disabled={salvandoAuto}
-            className="relative h-6 w-11 rounded-full transition-colors shrink-0 press"
+            className="relative h-6 w-11 my-2.5 sm:my-0 rounded-full transition-colors shrink-0 press"
             style={{ background: autoOn ? "linear-gradient(135deg,#1fae54,#128c3e)" : "rgba(255,255,255,0.16)" }}
           >
             <span
@@ -401,7 +410,9 @@ export default function Recuperar({
                       {formatarTelefoneBR(p.clienteTelefone)}
                     </a>
                     <div className="text-sm text-cream/70 mt-2">
-                      {p.itens.map((i) => `${i.qtd}× ${i.produto}`).join(" · ")}
+                      {/* 2 kg de cuca virava "2× cuca" na leitura rápida, como se
+                          fossem duas cucas. O detalhe já mostrava certo. */}
+                      {p.itens.map((i) => `${i.qtd}${i.unidade === "kg" ? " kg" : "×"} ${i.produto}`).join(" · ")}
                     </div>
                     {p.observacoes && (
                       <div className="text-xs text-cream/55 italic mt-1">"{p.observacoes}"</div>
@@ -442,7 +453,10 @@ export default function Recuperar({
                       </button>
                     )}
                     <Link
-                      href="/atendimentos"
+                      /* Ia pra lista geral e a dona tinha que procurar a pessoa
+                         na mão. Na tela de Aprovação o mesmo botão já levava
+                         direto pra conversa certa. */
+                      href={`/atendimentos?cliente=${encodeURIComponent(p.clienteTelefone)}`}
                       className="press px-3.5 py-2 text-sm rounded-lg text-cream/80 border border-white/12 hover:bg-white/[0.06] inline-flex items-center gap-1.5 transition-colors"
                     >
                       <MessageCircle size={14} /> Abrir conversa
@@ -606,7 +620,7 @@ function Segmento<T extends string>({
           key={v}
           onClick={() => set(v)}
           className={
-            "press px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors " +
+            "press px-3.5 h-10 sm:h-auto sm:py-1.5 rounded-md text-[13px] font-medium transition-colors " +
             (valor === v ? "bg-white/15 text-cream" : "text-cream/55 hover:text-cream")
           }
         >
@@ -652,7 +666,8 @@ function Overlay({ onClose, children }: { onClose: () => void; children: React.R
       >
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 text-cream/50 hover:text-cream transition-colors"
+          /* 18px de altura num modal de celular e alvo de sorte, nao de dedo. */
+          className="absolute right-2 top-2 w-11 h-11 grid place-items-center rounded-full text-cream/50 hover:text-cream hover:bg-white/10 transition-colors"
           aria-label="Fechar"
         >
           <X size={18} />
