@@ -182,11 +182,20 @@ function referenciaCruzada(outras: DeptoId[]): string {
 }
 
 function comanda(p: PedidoCupom, id: DeptoId, itens: ItemCupom[], outras: DeptoId[]): string {
-  // PRECO NAO VAI PRA COZINHA: quem esta fritando nao precisa saber quanto
-  // custou, e numero a mais na correria e numero pra ler errado. O valor sai
-  // so na via do caixa.
   let t = cabecalho("== " + nomeDaComanda(id) + " ==", p);
   t += listaItens(itens);
+  // O RESUMO POR FAIXA E O MECANISMO DE CONFERENCIA DELA.
+  //
+  // "Queria que estivesse especificado a quantidade total de R$ 1,00, de
+  //  R$ 1,25 tambem, pra ficar mais facil a gente somar dai com a caixa."
+  //
+  // As comandas chegam na frente por etapa, e ela vai somando conforme cada
+  // uma fica pronta. Preco POR ITEM continua fora: o que ela usa e a linha
+  // agrupada e o subtotal.
+  t += risco("-");
+  const r = resumoPorFaixa(itens);
+  t += r.texto;
+  t += NEGRITO_ON + "Subtotal" + (r.temKg ? " (aprox)" : "") + ": " + dinheiro(r.total) + "\n" + NEGRITO_OFF;
   t += observacaoDoPedido(p);
   t += referenciaCruzada(outras);
   return t + "\n\n\n" + CORTAR;

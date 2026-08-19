@@ -160,8 +160,14 @@ conferir(!/SALGADEIRO|PADEIRO|CONFEITEIR/i.test(tudo), "o papel nao escreve nome
 conferir(!tudo.includes("EXTRAS"), "nada cai numa comanda generica");
 
 // A comanda da cozinha nao leva preco unitario, so o subtotal pra conferencia.
-conferir(!salg.includes(" x R$"), "a comanda da cozinha nao lista preco por item");
-conferir(!/R\$/.test(salg), "a comanda da cozinha nao mostra preco nenhum");
+// A lista de itens vai do cabecalho ate o primeiro tracejado; do tracejado
+// pra baixo e o resumo, que PODE ter preco.
+const listaDoSalgado = salg.split("-".repeat(48))[0];
+conferir(!listaDoSalgado.includes("R$"), "os itens da comanda saem sem preco colado neles");
+// "Queria que estivesse especificado a quantidade total de R$ 1,00, de R$ 1,25
+//  tambem, pra ficar mais facil a gente somar dai com a caixa."
+conferir(/un x R\$/.test(salg), "a comanda traz o resumo por faixa de preco, como ela pediu");
+conferir(salg.includes("Subtotal"), "e o subtotal da comanda, pra somar com o caixa");
 
 // ---------------------------------------------------------------------------
 // O caixa: tudo junto, com valores e a forma de pagamento.
@@ -170,7 +176,7 @@ console.log("");
 console.log("== o papel do caixa ==");
 const cx = limpo(cf.find((c) => limpo(c).includes("== CAIXA ==")) || "");
 conferir(tem(cx, "coxinha") && tem(cx, "torta fria") && tem(cx, "bolo laka"), "o caixa tem TODOS os itens");
-conferir(/R\$/.test(cx), "o preco sai so no papel do caixa");
+conferir(!salg.includes("TOTAL:") && cx.includes("TOTAL:"), "o TOTAL do pedido sai so no caixa, nao nas comandas");
 conferir(cx.includes("TOTAL: R$ 523,50"), "o caixa mostra o total certo");
 conferir(cx.includes("Pagamento: PIX"), "o caixa mostra a forma de pagamento");
 conferir(cx.includes(" x R$"), "o caixa mostra o valor de cada item");
