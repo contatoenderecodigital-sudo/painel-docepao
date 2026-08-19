@@ -190,3 +190,54 @@ memória), subir pra reler puxava de volta pro fim a cada mensagem nova, e
 conversa esperando a equipe não chamava atenção de longe. As duas primeiras
 estão corrigidas; a terceira virou uma pulsação lenta de 2,4s, lenta de
 propósito, porque alarme rápido a pessoa aprende a ignorar em dois dias.
+
+## 19/08: a tela que prometia cobrar e não cobrava
+
+A tela de Recuperar orçamento abria dizendo, com todas as letras, que "o
+sistema cobra sozinho na hora certa", e mostrava um selo verde escrito
+Ativada. As duas coisas eram mentira, e a mentira tinha três camadas:
+
+1. Nenhum caminho do código jamais marcou um pedido como `orcado`, que era
+   exatamente o status que a consulta da tela procurava. No banco real: zero.
+   A tela ficava vazia pra sempre, e cheia de exemplos quando não havia banco,
+   que é o pior dos mundos porque em demonstração ela parecia funcionar.
+2. Nada no sistema mandava a mensagem de cobrança. A coluna `cobrancas` nunca
+   foi incrementada e `cobrado_em` nunca foi escrita, então o card de
+   "recuperado este mês" também ficava em R$ 0,00 pra sempre.
+3. O interruptor de ligar e desligar era estado da própria tela. Nascia
+   ligado, e desligar não desligava nada porque não havia nada rodando.
+
+O erro de origem foi procurar o orçamento parado no lugar errado. Ele não
+mora na tabela de pedidos: mora em `pedido_montagem`, onde a Dora anota item
+por item enquanto conversa. Cliente que montou e sumiu tem itens ali e nenhuma
+linha em pedidos. Confirmado no banco: 11 conversas nessa situação, contra 14
+que fecharam, e nenhuma das 14 aparece na lista.
+
+O preço vem do mesmo motor de orçamento que a Dora usa na conversa. Não é
+elegância: é pra o valor da tela bater com o que ela falou pro cliente, até
+no arredondamento do centavo.
+
+A cobrança enviada fica guardada como mensagem da conversa, com autor próprio
+e rótulo "Cobrança automática" no chat. A dona precisa ver o que saiu em nome
+dela, e um histórico que vive na conversa não se perde quando a montagem é
+reescrita pela mensagem seguinte.
+
+**Dois relógios.** A lista mostra quem parou faz 1 hora; a cobrança automática
+só entra depois de 6. Quem age na lista é gente, e gente escolhe a hora de dar
+um alô. Quem escreve na cobrança é um robô, e robô não lê a situação.
+
+**Duas travas, e as duas precisam estar abertas** pra qualquer mensagem sair:
+a do ambiente (`COBRANCA_AUTOMATICA=1`), que é nossa enquanto testamos, e a do
+negócio, que é da dona. A rodada simula por padrão: mostra quem seria cobrado,
+com que texto e por quê, sem escrever pra ninguém.
+
+**A janela de 24 horas da Meta.** Texto livre só é aceito até 24h depois da
+última mensagem do cliente. Passou disso, só template aprovado, e não temos um
+configurado. Então a cobrança não tenta e diz que precisaria de template, em
+vez de falhar calada. Isso limita bastante o alcance: quem sumiu ontem à noite
+só pode ser alcançado com template. É a pendência real dessa funcionalidade.
+
+**O que falta pra ela rodar sozinha:** um relógio no servidor chamando
+`/api/cobranca/rodar` com o segredo no cabeçalho. Enquanto isso não existe, a
+tela serve pra dona ver quem cobrar e cobrar na mão, que já é a maior parte do
+valor.
