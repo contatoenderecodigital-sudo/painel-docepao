@@ -9,9 +9,10 @@
   },
 
   "salgados": {
-    "_regra_sabor": "FRITO = sabor fixo, a IA NAO pergunta recheio (o recheio ja esta no campo 'recheio'). ASSADO = se tiver 'recheios', a IA PERGUNTA qual o cliente quer; sem 'recheios' e fixo. Frito com 'recheios' (risolis, mini bolha) a IA PERGUNTA igual ao assado. Chodo segue sem recheio confirmado pela dona.",
+    "_regra_sabor": "FRITO = sabor fixo, a IA NAO pergunta recheio (o recheio ja esta no campo 'recheio'). ASSADO = se tiver 'recheios', a IA PERGUNTA qual o cliente quer; sem 'recheios' e fixo. Frito com 'recheios' (risolis, mini bolha) a IA PERGUNTA igual ao assado. Chodo tem padrao presunto e queijo (a dona confirmou); frango, calabresa ou bacon so se o cliente pedir.",
     "frito": {
       "preco": 1.00,
+      "preco_cento": 100.00,
       "itens": [
         { "nome": "coxinha", "recheio": "frango" },
         { "nome": "bolinha de queijo", "recheio": "queijo" },
@@ -19,13 +20,14 @@
         { "nome": "croquete", "recheio": "carne com catupiry" },
         { "nome": "mini pão de queijo", "recheio": "queijo" },
         { "nome": "salsicha frita", "recheio": "salsicha" },
-        { "nome": "chodó", "recheio": "calabresa" },
+        { "nome": "chodó", "recheio": "presunto e queijo", "_nota": "Padrao presunto e queijo. Frango, calabresa ou bacon so sob pedido." },
         { "nome": "mini bolha", "recheios": ["carne","queijo","presunto","frango"] },
         { "nome": "risólis", "recheios": ["carne","frango"] }
       ]
     },
     "assado": {
       "preco": 1.25,
+      "preco_cento": 125.00,
       "itens": [
         { "nome": "pastel assado", "recheios": ["carne","frango","calabresa","bacon","brócolis"] },
         { "nome": "esfirra", "recheios": ["carne","frango","calabresa","brócolis","bacon"] },
@@ -61,7 +63,8 @@
   },
 
   "bolos_recheados": {
-    "_nota": "3 faixas de preço. serve = nº de pessoas por bolo (ESTIMATIVA parametrizada em rendimento.json, confirmar com a dona).",
+    "_nota": "3 faixas de preço POR QUILO: o valor da faixa é o preço do quilo e a quantidade registrada é o peso (ex: 1,5 kg = 1,5 x o valor). 1 quilo serve 10 pessoas (100 g por pessoa), confirmado pela dona. Tamanhos: redondo de 300 g a 5,5 kg, quadrado de 2,5 kg a 6 kg. Bolo misto vale o sabor mais caro.",
+    "unidade": "kg",
     "faixas": [
       { "faixa": "A", "preco": 46.90, "sabores": ["4 leites","brigadeiro","dois amores","frutas (pêssego e abacaxi)","laka","mineira","prestígio","porto alegre","brigadeiro com maracujá"] },
       { "faixa": "B", "preco": 49.90, "sabores": ["bombom","biz","morango","marta rocha"] },
@@ -72,7 +75,7 @@
   "bolos_caseiros": {
     "_nota": "Preço por unidade (bolo inteiro caseiro).",
     "itens": [
-      { "nome": "apim",                          "preco": 30.90 },
+      { "nome": "aipim",                         "preco": 30.90 },
       { "nome": "banana caramelizada",           "preco": 30.90 },
       { "nome": "chocolate preto com leite ninho","preco": 30.90 },
       { "nome": "floresta negra",                "preco": 30.90 },
@@ -98,7 +101,7 @@
     "sabores_doces": ["abacaxi com coco","brigadeiro","prestígio","crocante","califórnia","banana","chocolate preto com morango","chocolate branco com morango","chocolate com confete","banana com suspiro"]
   },
 
-  "_por_quilo": "Bolos recheados, tortas, empadão, bolo salgado, pão francês, calzone, cachorro-quente, pão de X e pizza redonda são POR QUILO: a qtd registrada é o PESO em kg (ex: 1.5) e o preço aqui é por kg. Cupcake, franciscano, pizza de forma, cuca e pão doce são por unidade (confirmado pela dona).",
+  "_por_quilo": "Bolos recheados, tortas, empadão, bolo salgado, pão francês, calzone, cachorro-quente, pão de X e pizza redonda são POR QUILO: a qtd registrada é o PESO em kg (ex: 1.5) e o preço aqui é por kg. Cupcake, franciscano e pizza de forma são por unidade. Cuca e pão doce seguem por unidade aqui, mas a unidade de venda esta A CONFIRMAR com a dona (o cardapio impresso traz por unidade e a dona falou em quilo).",
   "outros_produtos": [
     { "nome": "torta fria", "preco": 36.90, "categoria": "torta_fria", "unidade": "kg", "sabores": ["frango","legumes"] },
     { "nome": "torta fria com palmito", "preco": 39.90, "categoria": "torta_fria", "unidade": "kg", "sabores": ["palmito","frango com palmito"] },
@@ -119,7 +122,7 @@
     { "nome": "cachorro-quente", "preco": 19.90, "categoria": "padaria", "unidade": "kg", "_nota": "medio e grande" },
     { "nome": "pao de x", "preco": 19.90, "categoria": "padaria", "unidade": "kg" },
     { "nome": "cuca recheada", "preco": 26.90, "categoria": "padaria", "unidade": "un", "sabores": ["chocolate","doce de leite","abacaxi","vinho","goiaba","frutas vermelhas","limao"] },
-    { "nome": "cuca", "preco": 22.90, "categoria": "padaria", "unidade": "un", "_nota": "sem recheio, por unidade (confirmado pela dona)" },
+    { "nome": "cuca", "preco": 22.90, "categoria": "padaria", "unidade": "un", "_nota": "sem recheio. Unidade de venda A CONFIRMAR: cardapio impresso diz unidade, a dona falou quilo." },
     { "nome": "pao doce", "preco": 22.90, "categoria": "padaria", "unidade": "un" },
     { "nome": "papel de arroz", "preco": 12.00, "categoria": "adicional_bolo", "unidade": "un", "_nota": "Adicional do bolo decorado, valor fixo. Topo de bolo NAO entra aqui: valor varia, vai por precisa_confirmacao." }
   ]

@@ -6,7 +6,7 @@
   "salgado_por_pessoa": {
     "valor": 10,
     "confirmar": false,
-    "nota": "Media de mercado de buffet BR: 8 a 12 salgados/pessoa numa festa. 10 e o meio-termo classico. Da pra ajustar se a dona trabalhar com outra conta."
+    "nota": "Confirmado pela dona (audio 2026-07-30, cerebro-docepao-CONFIRMAR-DONA secao 4): 10 salgados por pessoa. Ex: 10 pessoas = 100 salgados + 50 docinhos."
   },
 
   "doce_por_pessoa": {
@@ -34,21 +34,27 @@
   },
 
   "regras_encomenda": {
-    "_nota": "Regras da operação de encomenda. Tudo 'confirmar:true' até a dona falar.",
-    "salgado_vende_por_cento": { "valor": true, "confirmar": true, "nota": "Padrão de padaria é vender salgado por cento (100 un). Confirmar se tem mínimo." },
-    "quantidade_minima_salgado": { "valor": 100, "confirmar": true, "nota": "Mínimo de salgado por encomenda. Chute: 1 cento." },
-    "antecedencia_minima_dias": { "valor": 2, "confirmar": true, "nota": "Com quantos dias de antecedência precisa encomendar. Chute: 2 dias." },
-    "prazo_alteracao_horas": { "valor": 24, "confirmar": true, "nota": "Até quantas horas antes o cliente pode alterar/cancelar. Chute: 24h antes." },
-    "cobra_sinal": { "valor": false, "confirmar": true, "nota": "Se cobra sinal/entrada em encomenda grande. Chute: não." },
-    "percentual_sinal": { "valor": 0, "confirmar": true, "nota": "% do sinal, se cobrar." }
+    "_nota": "Regras da operação de encomenda. O que está com 'confirmar:true' segue sem resposta da dona; o resto veio dela ou do cardápio oficial.",
+    "salgado_vende_por_cento": { "valor": true, "confirmar": false, "nota": "Confirmado pelo cardapio oficial: cento frito R$ 100,00, cento assado R$ 125,00. No cento da pra escolher ate 5 sabores, 20 de cada. O motor trabalha em UNIDADES, nunca multiplica preco por cento." },
+    "quantidade_minima_salgado": { "valor": 100, "confirmar": true, "nota": "Minimo de salgado por encomenda. AINDA E CHUTE (1 cento): nenhum documento traz esse minimo, e este numero ja empurra o pedido pra cima no orcamento. Perguntar pra dona." },
+    "quantidade_minima_docinho_por_sabor": { "valor": 20, "confirmar": false, "nota": "Confirmado pela dona: docinho tem minimo de 20 de cada sabor." },
+    "antecedencia_minima_dias": { "valor": 2, "confirmar": true, "nota": "Confirmado SO pro bolo decorado (topo de bolo ou papel de arroz): 2 dias e no maximo ate sexta-feira, porque a peca vem de fora. Antecedencia das demais encomendas continua sem resposta da dona." },
+    "prazo_alteracao_horas": { "valor": 24, "confirmar": true, "nota": "Ate quantas horas antes o cliente pode alterar/cancelar. Chute: 24h antes. Nenhum documento responde." },
+    "cobra_sinal": { "valor": false, "confirmar": false, "nota": "Confirmado pela dona: nao cobra entrada. Se o cliente quiser adiantar, pode; pagamento em pix, cartao (ate 3x) ou dinheiro na retirada." },
+    "percentual_sinal": { "valor": 0, "confirmar": false, "nota": "Nao se aplica: a padaria nao cobra sinal." }
   },
 
   "funcionamento": {
-    "_nota": "Horário de funcionamento — NÃO temos. Perguntar. Formato: dia -> [abre, fecha] em HH:MM, ou null se fechado.",
-    "confirmar": true,
+    "_nota": "Confirmado pelo cardapio oficial e pelo cerebro da dona. Formato: dia -> lista de faixas [abre, fecha] em HH:MM (domingo tem duas), ou null se fechado. Feriado segue o domingo.",
+    "confirmar": false,
     "horarios": {
-      "seg": null, "ter": null, "qua": null, "qui": null,
-      "sex": null, "sab": null, "dom": null
+      "seg": [["06:30", "20:00"]],
+      "ter": [["06:30", "20:00"]],
+      "qua": [["06:30", "20:00"]],
+      "qui": [["06:30", "20:00"]],
+      "sex": [["06:30", "20:00"]],
+      "sab": [["06:30", "20:00"]],
+      "dom": [["06:30", "12:00"], ["16:00", "20:00"]]
     }
   }
 }
