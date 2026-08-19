@@ -228,7 +228,7 @@ function CardPedido({
       </div>
 
       {/* Rodapé: total + ações */}
-      <div className="px-6 py-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+      <div className="px-4 sm:px-6 py-4 border-t border-white/10 flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-x-4 gap-y-3">
         <div className="shrink-0">
           <div className="t-label text-cream/45">Total</div>
           <div className="t-money text-[26px] leading-none mt-1 text-grad-dourado">
@@ -238,30 +238,30 @@ function CardPedido({
             <PagamentoBadge forma={pedido.formaPagamento} />
           </div>
         </div>
-        <div className="flex gap-2 flex-wrap shrink-0 items-center">
+        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:flex-wrap sm:items-center">
           {/* Antes de aprovar, a duvida e sempre o que ele pediu na conversa. */}
           <Link
             href={`/atendimentos?cliente=${encodeURIComponent(pedido.clienteTelefone)}`}
-            className="press toque inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-[10px] text-cream"
+            className="press toque inline-flex items-center justify-center gap-1.5 px-3.5 h-11 sm:h-auto sm:py-2 text-sm font-semibold rounded-[10px] text-cream"
             style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.16)" }}
           >
             <MessageSquare size={15} /> Ver conversa
           </Link>
           <button
             onClick={() => onVerCupom(pedido)}
-            className="btn-cobre press px-3.5 py-2 text-sm font-semibold"
+            className="btn-cobre press px-3.5 h-11 sm:h-auto sm:py-2 text-sm font-semibold"
           >
             Ver cupom
           </button>
           <button
             onClick={() => onRecusar(pedido.id)}
-            className="btn-vermelho press px-3.5 py-2 text-sm font-semibold"
+            className="btn-vermelho press px-3.5 h-11 sm:h-auto sm:py-2 text-sm font-semibold"
           >
             Recusar
           </button>
           <button
             onClick={() => onAprovar(pedido.id)}
-            className="btn-verde press px-4 py-2 text-sm font-semibold"
+            className="btn-verde press col-span-2 sm:col-span-1 px-4 h-11 sm:h-auto sm:py-2 text-sm font-semibold"
           >
             Aprovar e imprimir
           </button>

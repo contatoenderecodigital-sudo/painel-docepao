@@ -147,9 +147,9 @@ export default function Clientes({
       </div>
 
       {/* dois painéis */}
-      <div className="grid lg:grid-cols-[360px_1fr] gap-4 h-[calc(100vh-300px)] min-h-[440px]">
+      <div className="grid lg:grid-cols-[360px_1fr] gap-4 lg:h-[calc(100vh-300px)] lg:min-h-[440px]">
         {/* lista */}
-        <div className="glass rounded-2xl flex flex-col overflow-hidden">
+        <div className="glass rounded-2xl flex flex-col overflow-hidden max-h-[60vh] lg:max-h-none">
           <div className="p-3 border-b border-white/10">
             <div className="relative">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-cream/40" />
@@ -248,9 +248,9 @@ function Ficha({ c }: { c: ClienteCRM }) {
   }
 
   return (
-    <div className="glass rounded-2xl overflow-y-auto p-6">
+    <div className="glass rounded-2xl lg:overflow-y-auto p-4 sm:p-6">
       {/* cabeçalho */}
-      <div className="flex items-start gap-4">
+      <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
         <span
           className="shrink-0 w-14 h-14 rounded-2xl grid place-items-center font-title font-bold text-white text-lg"
           style={{ background: "linear-gradient(135deg,#96741a,#bb921f)" }}
@@ -279,7 +279,7 @@ function Ficha({ c }: { c: ClienteCRM }) {
         </div>
         <Link
           href={`/atendimentos?cliente=${encodeURIComponent(c.telefone)}`}
-          className="press btn-cobre px-3.5 py-2 rounded-lg text-sm font-semibold inline-flex items-center gap-2 shrink-0"
+          className="press btn-cobre px-3.5 h-11 sm:h-auto sm:py-2 rounded-lg text-sm font-semibold inline-flex items-center justify-center gap-2 shrink-0 w-full sm:w-auto"
         >
           <MessageCircle size={15} /> Abrir conversa
         </Link>

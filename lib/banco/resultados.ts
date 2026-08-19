@@ -317,7 +317,7 @@ export async function agregar(
         `Esse valor só entra no faturado depois que a equipe aprovar.`,
     produtosTop[0] &&
       `Seu produto campeão é o ${produtosTop[0].produto} (${money(produtosTop[0].centavos)} em vendas).`,
-    diaForte && diaForte.pedidos > 0 && `${diaForte.dia} é o seu dia mais forte.`,
+    diaForte && diaForte.pedidos > 0 && `${porExtenso(diaForte.dia)} é o seu dia mais forte.`,
     pctFora > 0 && `${pctFora}% dos atendimentos começaram fora do horário comercial. A IA cobriu.`,
     horaForte && `O pico de mensagens é por volta das ${horaForte.hora}. Vale reforçar a produção antes.`,
     kpis.recuperadoCentavos.valor > 0 &&
@@ -337,4 +337,14 @@ export async function agregar(
       ? insights
       : ["Ainda sem movimento neste período. Os números aparecem conforme os pedidos entram pelo WhatsApp."],
   };
+}
+
+// A sigla serve pro eixo do grafico, onde o espaco e curto. No meio de uma
+// frase ela vira "Qua e o seu dia mais forte", que ninguem fala.
+function porExtenso(sigla: string): string {
+  const dias: Record<string, string> = {
+    Seg: "Segunda", Ter: "Terça", Qua: "Quarta", Qui: "Quinta",
+    Sex: "Sexta", "Sáb": "Sábado", Dom: "Domingo",
+  };
+  return dias[sigla] ?? sigla;
 }

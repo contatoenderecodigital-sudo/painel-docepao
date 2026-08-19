@@ -465,6 +465,16 @@ export default function Atendimentos({
       : ativa.janelaExpiraMs != null && Date.now() < ativa.janelaExpiraMs
     : false;
 
+  // Voltar pra lista limpa o endereco, senao recarregar a pagina joga a dona
+  // de volta pra dentro do chat que ela acabou de fechar.
+  function fecharConversa() {
+    setVista("lista");
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("cliente");
+    window.history.replaceState(null, "", url.pathname + url.search);
+  }
+
   function abrir(id: string) {
     setAtivaId(id);
     setVista("chat");
@@ -602,7 +612,7 @@ export default function Atendimentos({
                   <button
                     key={id}
                     onClick={() => setAba(id)}
-                    className={"shrink-0 h-7 px-3 rounded-full text-[12px] font-medium transition-colors " + (on ? "text-vinho-d" : "text-cream/70 hover:text-cream")}
+                    className={"shrink-0 h-10 md:h-7 px-3.5 md:px-3 rounded-full text-[12px] font-medium transition-colors " + (on ? "text-vinho-d" : "text-cream/70 hover:text-cream")}
                     style={on ? { background: "linear-gradient(135deg,#96741a,#e7cf94)" } : { background: "rgba(255,255,255,0.07)" }}
                   >
                     {rotulo}{n > 0 && <span className={on ? "opacity-70" : "opacity-50"}> {n}</span>}
@@ -668,9 +678,9 @@ export default function Atendimentos({
             ) : (
               <>
                 {/* cabeçalho */}
-                <div className="px-3 md:px-4 h-[58px] border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
+                <div className="px-3 md:px-4 h-[52px] md:h-[58px] border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    <button onClick={() => setVista("lista")} className="md:hidden w-11 h-11 grid place-items-center rounded-full text-cream/80 hover:bg-white/10 active:bg-white/15 -ml-1.5 shrink-0" aria-label="Voltar">
+                    <button onClick={fecharConversa} className="md:hidden w-11 h-11 grid place-items-center rounded-full text-cream/80 hover:bg-white/10 active:bg-white/15 -ml-1.5 shrink-0" aria-label="Voltar">
                       <ArrowLeft size={20} />
                     </button>
                     <Avatar nome={ativa.clienteNome} tam={38} raio={11} />
@@ -679,8 +689,8 @@ export default function Atendimentos({
                       <div className="text-[11px] truncate flex items-center gap-1.5" style={{ color: quemAtende(ativa.estado).cor }}>
                         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "currentColor" }} />
                         <span className="truncate">{quemAtende(ativa.estado).cabecalho}</span>
-                        <span className="text-cream/45 shrink-0">·</span>
-                        <span className="truncate text-cream/55">{formatarTelefoneBR(ativa.clienteTelefone)}</span>
+                        <span className="hidden sm:inline text-cream/45 shrink-0">·</span>
+                        <span className="hidden sm:inline truncate text-cream/55">{formatarTelefoneBR(ativa.clienteTelefone)}</span>
                         {ativa.custoCentavos != null && ativa.custoCentavos > 0 && (
                           <span className="text-cream/35 shrink-0" title="Custo estimado de IA nesta conversa">
                             · {brl(ativa.custoCentavos)}

@@ -134,7 +134,7 @@ export default function Resultados({
               key={p}
               onClick={() => trocar(p)}
               className={
-                "press px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors " +
+                "press px-3.5 h-10 sm:h-auto sm:py-1.5 rounded-md text-[13px] font-medium transition-colors " +
                 (dados.periodo === p ? "bg-white/15 text-cream" : "text-cream/55 hover:text-cream")
               }
             >
