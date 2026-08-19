@@ -289,11 +289,23 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
   );
 }
 
-export default function Atendimentos({ conversas: conversasIniciais }: { conversas: Conversa[] }) {
+export default function Atendimentos({
+  conversas: conversasIniciais,
+  telefoneInicial,
+}: {
+  conversas: Conversa[];
+  telefoneInicial?: string;
+}) {
+  // Quem chegou por 'Abrir conversa' quer ESTA conversa, nao a lista. So os
+  // digitos importam: a fila manda o telefone cru e a lista guarda com mascara.
+  const soDigitos = (t?: string) => String(t ?? "").replace(/\D/g, "");
+  const daUrl = telefoneInicial
+    ? conversasIniciais.find((c) => soDigitos(c.clienteTelefone) === soDigitos(telefoneInicial))
+    : undefined;
   const [conversas, setConversas] = useState<Conversa[]>(conversasIniciais);
   const [busca, setBusca] = useState("");
-  const [ativaId, setAtivaId] = useState<string | undefined>(undefined);
-  const [vista, setVista] = useState<"lista" | "chat">("lista");
+  const [ativaId, setAtivaId] = useState<string | undefined>(daUrl?.id);
+  const [vista, setVista] = useState<"lista" | "chat">(daUrl ? "chat" : "lista");
   const [texto, setTexto] = useState("");
   const [pendentes, setPendentes] = useState<Record<string, Pend[]>>({});
   const [naoLidasLocal, setNaoLidasLocal] = useState<Record<string, number>>({});

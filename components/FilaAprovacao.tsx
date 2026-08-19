@@ -7,9 +7,10 @@
 // Anima otimista (some na hora) e grava no banco por trás via Server Action.
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import type { Pedido, FormaPagamento, HistoricoCliente } from "@/lib/tipos";
 import { brl, formatarTelefoneBR, linkWhatsapp, mesAno } from "@/lib/tipos";
-import { Repeat, UserPlus, Wallet, CalendarDays, AlertTriangle, CreditCard, Banknote, Zap, CheckCircle2, Clock, Image as ImageIcon } from "lucide-react";
+import { MessageSquare, Repeat, UserPlus, Wallet, CalendarDays, AlertTriangle, CreditCard, Banknote, Zap, CheckCircle2, Clock, Image as ImageIcon } from "lucide-react";
 import CupomPreview from "./CupomPreview";
 import StatusImpressora from "./StatusImpressora";
 import AjudaInfo from "./AjudaInfo";
@@ -238,6 +239,14 @@ function CardPedido({
           </div>
         </div>
         <div className="flex gap-2 flex-wrap shrink-0 items-center">
+          {/* Antes de aprovar, a duvida e sempre o que ele pediu na conversa. */}
+          <Link
+            href={`/atendimentos?cliente=${encodeURIComponent(pedido.clienteTelefone)}`}
+            className="press toque inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-[10px] text-cream"
+            style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.16)" }}
+          >
+            <MessageSquare size={15} /> Ver conversa
+          </Link>
           <button
             onClick={() => onVerCupom(pedido)}
             className="btn-cobre press px-3.5 py-2 text-sm font-semibold"

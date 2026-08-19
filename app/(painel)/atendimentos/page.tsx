@@ -4,8 +4,16 @@ import { lerSessao } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export default async function Page() {
+// O telefone vem de quem clicou em 'Abrir conversa' na fila de aprovacao ou
+// em aguardando confirmacao: sem ele, a equipe caia na lista inteira e tinha
+// que procurar o cliente na mao.
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ cliente?: string }>;
+}) {
   const sessao = await lerSessao();
   const conversas = await carregarConversas(sessao?.negocioId);
-  return <Atendimentos conversas={conversas} />;
+  const { cliente } = await searchParams;
+  return <Atendimentos conversas={conversas} telefoneInicial={cliente} />;
 }
