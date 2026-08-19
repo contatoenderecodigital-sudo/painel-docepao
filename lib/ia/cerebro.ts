@@ -717,6 +717,28 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       }
     }
 
+    // O NOME NO TOPO E DE QUEM FAZ ANIVERSARIO, NAO DE QUEM COMPRA.
+    if (/nome do aniversariante/i.test(String(obsItem ?? ""))) {
+      const semAcA = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const escrito = (String(obsItem ?? "").match(/nome do aniversariante ([^,;.]+)/i) ?? [])[1] ?? "";
+      // Quem esta comprando: o que ele mesmo disse ser o nome dele.
+      const dele = (String(falaDoCliente).match(/meu nome (?:e|eh|é) ([a-zà-ú]+)/i) ?? [])[1] ?? "";
+      const doCadastro = String(montagemAtual?.dados?.cliente_nome ?? "");
+      const eDeOutro = /minha filha|meu filho|minha neta|meu neto|minha sobrinha|meu sobrinho|minha esposa|meu marido|minha mae|meu pai|de um amigo|da minha amiga/i.test(
+        falaDoCliente,
+      );
+      const propria = /meu anivers|faco anos|é meu anivers|e meu anivers/i.test(falaDoCliente);
+      const igualAoComprador =
+        !!escrito &&
+        ((!!dele && semAcA(escrito) === semAcA(dele)) || (!!doCadastro && semAcA(escrito) === semAcA(doCadastro)));
+      if (igualAoComprador && eDeOutro && !propria) {
+        console.warn("[ia] nome do comprador virando aniversariante: " + escrito + "; recusado");
+        return (
+          "NAO anotei: \"" + escrito.trim() + "\" e o nome de quem esta PEDINDO, e a festa e de outra pessoa. O nome do topo e o de quem faz aniversario, e o topo e fabricado com ele: sai errado e so aparece na festa. Pergunte o nome de quem faz aniversario e anote o que ele responder."
+        );
+      }
+    }
+
     // TEMA DE TOPO NAO E SABOR: quem pediu topo de unicornio nao pediu bolo de
     // unicornio, e dizer que a casa nao faz esse bolo trava a conversa.
     const temaDeTopo = String(falaDoCliente).match(/(?:topo|papel de arroz|tema)\s+(?:de\s+|do\s+|da\s+)?([\wáàâãéêíóôõúç -]{3,30})/i);
