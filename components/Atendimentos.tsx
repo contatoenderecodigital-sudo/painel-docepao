@@ -678,7 +678,7 @@ export default function Atendimentos({
             ) : (
               <>
                 {/* cabeçalho */}
-                <div className="px-3 md:px-4 h-[52px] md:h-[58px] border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
+                <div className="chat-cabecalho px-3 md:px-4 h-[52px] md:h-[58px] border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
                   <div className="flex items-center gap-2 min-w-0">
                     <button onClick={fecharConversa} className="md:hidden w-11 h-11 grid place-items-center rounded-full text-cream/80 hover:bg-white/10 active:bg-white/15 -ml-1.5 shrink-0" aria-label="Voltar">
                       <ArrowLeft size={20} />
@@ -690,7 +690,7 @@ export default function Atendimentos({
                         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "currentColor" }} />
                         <span className="truncate">{quemAtende(ativa.estado).cabecalho}</span>
                         <span className="hidden sm:inline text-cream/45 shrink-0">·</span>
-                        <span className="hidden sm:inline truncate text-cream/55">{formatarTelefoneBR(ativa.clienteTelefone)}</span>
+                        <span className="hidden sm:inline shrink-0 text-cream/55">{formatarTelefoneBR(ativa.clienteTelefone)}</span>
                         {ativa.custoCentavos != null && ativa.custoCentavos > 0 && (
                           <span className="text-cream/35 shrink-0" title="Custo estimado de IA nesta conversa">
                             · {brl(ativa.custoCentavos)}
@@ -750,10 +750,10 @@ export default function Atendimentos({
                 {/* Quem está respondendo, logo acima de onde se digita. É o lugar
                     certo pra isso: a decisão de assumir acontece na hora de
                     escrever, não no topo da tela. */}
-                <div className="px-3 py-2 border-t border-white/10 shrink-0 flex items-center justify-between gap-2" style={{ background: "rgba(0,0,0,0.14)" }}>
-                  <span className="inline-flex items-center gap-2 text-[12.5px] min-w-0" style={{ color: quemAtende(ativa.estado).cor }}>
+                <div className="barra-estado px-3 py-2 border-t border-white/10 shrink-0 flex items-center justify-between gap-2" style={{ background: "rgba(0,0,0,0.14)" }}>
+                  <span className="estado-texto inline-flex items-center gap-2 text-[12.5px] min-w-0" style={{ color: quemAtende(ativa.estado).cor }}>
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "currentColor" }} />
-                    <span className="truncate">{quemAtende(ativa.estado).rodape}</span>
+                    <span className="leading-snug">{quemAtende(ativa.estado).rodape}</span>
                   </span>
                   <button
                     onClick={() => alternarAssumir(ativa.id, ativa.estado !== "humano")}

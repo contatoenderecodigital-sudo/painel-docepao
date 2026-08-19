@@ -270,3 +270,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 @media (prefers-reduced-motion: reduce) {
   .chama-equipe { animation: none; box-shadow: inset 3px 0 0 #e7cf94; }
 }
+
+/* Teclado aberto no celular: a altura cai pela metade e o que importa e a
+   conversa. O enfeite recolhe, ninguem perde funcao. */
+@media (max-height: 560px) and (max-width: 767px) {
+  .chat-cabecalho { height: 44px; }
+  .barra-estado { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+  .barra-estado .estado-texto { display: none; }
+  .barra-estado button { height: 2rem; }
+}

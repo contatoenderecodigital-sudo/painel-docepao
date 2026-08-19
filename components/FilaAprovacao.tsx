@@ -242,26 +242,26 @@ function CardPedido({
           {/* Antes de aprovar, a duvida e sempre o que ele pediu na conversa. */}
           <Link
             href={`/atendimentos?cliente=${encodeURIComponent(pedido.clienteTelefone)}`}
-            className="press toque inline-flex items-center justify-center gap-1.5 px-3.5 h-11 sm:h-auto sm:py-2 text-sm font-semibold rounded-[10px] text-cream"
+            className="press toque inline-flex items-center justify-center gap-1.5 px-3.5 h-11 sm:h-9 text-sm font-semibold rounded-[10px] text-cream"
             style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.16)" }}
           >
             <MessageSquare size={15} /> Ver conversa
           </Link>
           <button
             onClick={() => onVerCupom(pedido)}
-            className="btn-cobre press px-3.5 h-11 sm:h-auto sm:py-2 text-sm font-semibold"
+            className="btn-cobre press px-3.5 h-11 sm:h-9 text-sm font-semibold"
           >
             Ver cupom
           </button>
           <button
             onClick={() => onRecusar(pedido.id)}
-            className="btn-vermelho press px-3.5 h-11 sm:h-auto sm:py-2 text-sm font-semibold"
+            className="btn-vermelho press col-span-2 sm:col-span-1 px-3.5 h-11 sm:h-9 text-sm font-semibold"
           >
             Recusar
           </button>
           <button
             onClick={() => onAprovar(pedido.id)}
-            className="btn-verde press col-span-2 sm:col-span-1 px-4 h-11 sm:h-auto sm:py-2 text-sm font-semibold"
+            className="btn-verde press col-span-2 sm:col-span-1 mt-1 sm:mt-0 px-4 h-11 sm:h-9 text-sm font-semibold"
           >
             Aprovar e imprimir
           </button>
