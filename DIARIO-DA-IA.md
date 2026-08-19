@@ -320,3 +320,49 @@ isso apareceu.
    testes anteriores davam a data, porque eu escrevia clientes que colaboram.
 4. **Regra no prompt não é regra.** Duas vezes nesta noite o modelo ignorou uma
    instrução explícita e só o código resolveu.
+
+## EM ABERTO: a conversa de festa não é consistente
+
+Este é o item honesto que fica para a próxima sessão, com prova.
+
+Rodei a MESMA conversa de festa três vezes, palavra por palavra igual:
+
+```
+festa de 25 pessoas dia 12/09
+salgado e docinho, o que voce indicar
+pode ser
+e um bolo de 2 kg de ninho
+pao de lo branco, com topo tema princesa
+a menina eh a Alice, faz 5 anos
+as 16h, nome Fernanda, cartao
+```
+
+Três resultados diferentes:
+
+1. **Primeira vez:** sugeriu salgados, docinhos e bolo. Travou pedindo a cor da
+   forminha e terminou com uma desculpa falsa de não ter entendido.
+2. **Segunda vez:** mesma trava na forminha, e a desculpa falsa saiu DUAS vezes
+   seguidas, palavra por palavra igual.
+3. **Terceira vez:** sugeriu só os salgados, esqueceu de sugerir os docinhos, e
+   ficou pedindo os docinhos até o fim. Guardou o bolo certo (pão de ló branco,
+   topo tema princesa, Alice 5 anos), o que as outras duas não fizeram.
+
+Nenhuma das três fechou o pedido. As duas desculpas falsas já estão
+corrigidas, e a segunda vez virou chamada pra equipe em vez de parede. Mas a
+instabilidade em si continua: a festa é o pedido mais caro da padaria
+(R$ 523,50 neste roteiro) e é justamente o caminho mais longo, com mais coisas
+pra ela lembrar de perguntar.
+
+Os outros caminhos fecham de forma consistente, conferidos no banco na mesma
+bateria: dia da semana (sábado virou 22/08 às 10:00, R$ 162,50), por quilo
+(2 kg de cuca de chocolate, R$ 53,80, unidade kg correta), salgado simples
+(30 esfirras de carne, R$ 37,50) e o cliente que só pergunta, que corretamente
+não virou pedido.
+
+**A hipótese pra investigar:** a sugestão de festa entrega salgado, docinho e
+bolo numa tacada só, e depois disso a Dora precisa segurar muita coisa em
+aberto ao mesmo tempo (sabor de três salgados, cor de forminha, sabor e
+detalhes do bolo, tema, aniversariante, nome, hora, pagamento). Quando ela
+perde um desses, entra em laço pedindo o mesmo item. Vale testar quebrar o
+fechamento da festa em etapas com estado explícito, do jeito que o dia da
+retirada foi resolvido: no código, não no prompt.
