@@ -23,7 +23,7 @@ import AudioBolha from "@/components/AudioBolha";
 import { Check,
   Search, Plus, Paperclip, SendHorizontal, ArrowLeft, Bot, X,
   MessageSquare, Info, FileText, Download, CheckCheck, AlertCircle,
-  Clock, ShieldAlert, Hand, ShoppingBag, Zap,
+  Clock, ShieldAlert, Hand, ShoppingBag, Zap, TriangleAlert,
 } from "lucide-react";
 
 const CORES = ["#5b8c7b", "#c58a3d", "#7a6cae", "#4a7ba6", "#a85b52", "#6f9b52", "#b0713e", "#8a5a86"];
@@ -315,6 +315,7 @@ export default function Atendimentos({
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [tplAberto, setTplAberto] = useState(false);
   const [assumindo, setAssumindo] = useState<string | null>(null);
+  const [reportando, setReportando] = useState<string | null>(null);
   const [zoom, setZoom] = useState(false);
   const [aba, setAba] = useState<"todas" | "ia" | "humano" | "atencao">("todas");
   const [novaAberto, setNovaAberto] = useState(false);
@@ -349,6 +350,31 @@ export default function Atendimentos({
       mostrarToast("Não consegui mudar quem atende. Tente de novo.");
     } finally {
       setAssumindo(null);
+    }
+  }, [mostrarToast]);
+
+  // REPORTAR: o caminho do erro até quem conserta.
+  //
+  // Pede o que aconteceu numa frase. Sem texto não manda: reporte vazio é
+  // ruído, e a gente não descobre nada com "deu errado".
+  const reportar = useCallback(async (clienteId: string) => {
+    const oQue = window.prompt(
+      "O que a Dora fez de errado nesta conversa?\n\nEscreva com suas palavras. Quanto mais específico, mais rápido a gente arruma.",
+    );
+    if (!oQue || !oQue.trim()) return;
+    setReportando(clienteId);
+    try {
+      const r = await fetch("/api/reporte", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clienteId, oQue: oQue.trim() }),
+      });
+      if (!r.ok) throw new Error("falha");
+      mostrarToast("Reportado. A gente já recebeu e vai olhar.");
+    } catch {
+      mostrarToast("Não consegui enviar o reporte. Tente de novo.");
+    } finally {
+      setReportando(null);
     }
   }, [mostrarToast]);
 
@@ -768,16 +794,32 @@ export default function Atendimentos({
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "currentColor" }} />
                     <span className="leading-snug">{quemAtende(ativa.estado).rodape}</span>
                   </span>
-                  <button
-                    onClick={() => alternarAssumir(ativa.id, ativa.estado !== "humano")}
-                    disabled={assumindo === ativa.id}
-                    className="press toque inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12.5px] font-semibold shrink-0 disabled:opacity-60"
-                    style={ativa.estado === "humano"
-                      ? { background: "rgba(255,255,255,0.09)", color: "rgba(255,247,235,0.88)", border: "1px solid rgba(255,255,255,0.16)" }
-                      : { background: "linear-gradient(135deg,#96741a,#e7cf94)", color: "#3d1219" }}
-                  >
-                    {ativa.estado === "humano" ? <><Bot size={14} /> Devolver pra IA</> : <><Hand size={14} /> Assumir conversa</>}
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* A DORA FALOU BESTEIRA AQUI.
+                        A IA não fica mais esperta sozinha atendendo: ela só
+                        melhora quando alguém conserta. Sem um lugar pra avisar,
+                        a equipe vê o erro, releva esperando que passe, e ele
+                        fica. Este botão é o caminho do erro até quem arruma. */}
+                    <button
+                      onClick={() => reportar(ativa.id)}
+                      disabled={reportando === ativa.id}
+                      title="Avisar a gente que a Dora respondeu errado nesta conversa"
+                      className="press toque inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12.5px] font-semibold disabled:opacity-60"
+                      style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,247,235,0.72)", border: "1px solid rgba(255,255,255,0.14)" }}
+                    >
+                      <TriangleAlert size={14} /> Reportar
+                    </button>
+                    <button
+                      onClick={() => alternarAssumir(ativa.id, ativa.estado !== "humano")}
+                      disabled={assumindo === ativa.id}
+                      className="press toque inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12.5px] font-semibold disabled:opacity-60"
+                      style={ativa.estado === "humano"
+                        ? { background: "rgba(255,255,255,0.09)", color: "rgba(255,247,235,0.88)", border: "1px solid rgba(255,255,255,0.16)" }
+                        : { background: "linear-gradient(135deg,#96741a,#e7cf94)", color: "#3d1219" }}
+                    >
+                      {ativa.estado === "humano" ? <><Bot size={14} /> Devolver pra IA</> : <><Hand size={14} /> Assumir conversa</>}
+                    </button>
+                  </div>
                 </div>
 
                 {/* composer / aviso de janela */}
