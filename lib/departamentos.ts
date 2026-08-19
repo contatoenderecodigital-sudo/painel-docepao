@@ -1,15 +1,43 @@
 // ============================================================================
-//  ESTACOES de producao da padaria. Cada equipe produz separado e so quer ver
-//  o que ELA precisa fazer. Mapeia item -> estacao, define a unidade que sai
-//  escrita no ticket e agrega o dia.
+//  COMANDAS DA PRODUÇÃO.
 //
-//  As estacoes sao as que o dono usa na bancada: BOLO FESTA, DOCINHOS,
-//  SALGADOS. O ticket do CAIXA (com o total) e montado no cupom, nao aqui.
+//  A regra é da dona, e ela explicou nos áudios por que é assim:
+//
+//    "Tudo vai ficar separado por segmentos. Empadão é uma coisa, torta doce é
+//     outra coisa, torta recheada é outra coisa. É tudo separado."
+//
+//  O motivo não é organização, é PRODUÇÃO em etapas:
+//
+//    "Os docinhos é uma coisa que eu posso fazer cinco horas antes, não vai ter
+//     problema. Mas daí o salgado eu tenho que preparar no momento, tipo 15
+//     minutos antes da pessoa chegar."
+//
+//  E cada comanda avisa o que mais o cliente pediu, porque já deu errado:
+//
+//    "A Apoliana pegou um pedido que tinha tudo junto, e daí a outra não viu no
+//     mural que tinha um pedaço de torta."
+//
+//  Por isso NÃO são três bancadas. São treze segmentos, um por tipo de produto.
+//  Também não é pra escrever o nome do setor no papel: "não precisa colocar
+//  salgadeiro, padeiro, confeiteiro, porque vai tudo pra mesma sala".
 // ============================================================================
 
 import type { Pedido } from "./tipos";
 
-export type DeptoId = "salgados" | "confeitaria" | "bolos";
+export type DeptoId =
+  | "salgados"
+  | "docinhos"
+  | "bolo_festa"
+  | "bolo_caseiro"
+  | "bolo_salgado"
+  | "torta_fria"
+  | "torta_doce"
+  | "empadao"
+  | "pizza"
+  | "calzone"
+  | "cupcake"
+  | "franciscano"
+  | "padaria";
 
 export type Departamento = {
   id: DeptoId;
@@ -18,93 +46,134 @@ export type Departamento = {
   corClara: string; // tom claro pra TEXTO/icone sobre fundo escuro (legivel)
 };
 
+// A ordem é a da produção: o que se faz com antecedência primeiro, o que sai na
+// hora por último. É a ordem em que a equipe olha o mural.
 export const DEPARTAMENTOS: Departamento[] = [
+  { id: "docinhos", nome: "Docinhos", cor: "#c65f7a", corClara: "#e58fa6" },
+  { id: "bolo_festa", nome: "Bolo Festa", cor: "#a06a3c", corClara: "#cf9a68" },
+  { id: "bolo_caseiro", nome: "Bolo Caseiro", cor: "#8a6a45", corClara: "#c2a077" },
+  { id: "cupcake", nome: "Cupcake", cor: "#b06590", corClara: "#d69cbc" },
+  { id: "torta_doce", nome: "Torta Doce", cor: "#a85b85", corClara: "#d093b2" },
+  { id: "torta_fria", nome: "Torta Fria", cor: "#5f8c9e", corClara: "#93bccd" },
+  { id: "empadao", nome: "Empadão", cor: "#8a7c33", corClara: "#c2b56b" },
+  { id: "bolo_salgado", nome: "Bolo Salgado", cor: "#7d7a4a", corClara: "#b6b285" },
+  { id: "pizza", nome: "Pizza", cor: "#b2472f", corClara: "#dd8871" },
+  { id: "calzone", nome: "Calzone", cor: "#9c5a3c", corClara: "#cf9276" },
+  { id: "franciscano", nome: "Franciscano", cor: "#6f7a52", corClara: "#a7b28c" },
+  { id: "padaria", nome: "Pães e Cucas", cor: "#8a6f2f", corClara: "#c4a869" },
   { id: "salgados", nome: "Salgados", cor: "#c46a1e", corClara: "#e59355" },
-  { id: "confeitaria", nome: "Docinhos", cor: "#c65f7a", corClara: "#e58fa6" },
-  { id: "bolos", nome: "Bolo Festa", cor: "#a06a3c", corClara: "#cf9a68" },
 ];
 
 export function deptoInfo(id: DeptoId): Departamento {
-  return DEPARTAMENTOS.find((d) => d.id === id) ?? DEPARTAMENTOS[0];
+  return DEPARTAMENTOS.find((d) => d.id === id) ?? DEPARTAMENTOS[DEPARTAMENTOS.length - 1];
+}
+
+export function nomeDaComanda(id: DeptoId): string {
+  return deptoInfo(id).nome.toUpperCase();
 }
 
 // Sem acento e em minuscula. O mesmo produto chega escrito de tres jeitos
-// ("risoles", "risóles", "Pão Francês") e a estacao nao pode mudar por causa
+// ("risoles", "risóles", "Pão Francês") e a comanda nao pode mudar por causa
 // do acento.
 function norm(s: string | null | undefined): string {
   return String(s ?? "")
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .trim();
 }
 
-// SALGADO E SALGADO, VENHA POR UNIDADE OU POR QUILO.
-//
-// A categoria gravada em pedido_itens e a do catalogo (lib/ia/orcamento.ts):
-// "salgado", "pizza", "calzone", "empadao", "torta_fria", "bolo_salgado",
-// "franciscano", "padaria". A torta fria com palmito de 2 kg caia nos docinhos
-// porque o nome tem "torta", e o bolo salgado caia no bolo de festa porque o
-// nome comeca com "bolo": duas encomendas salgadas indo pra bancada do acucar.
-const SALGADO_CATEGORIA = new Set([
-  "salgado",
-  "salgado_frito",
-  "salgado_assado",
-  "pizza",
-  "calzone",
-  "empadao",
-  "torta_fria",
-  "bolo_salgado",
-  "franciscano",
-]);
-// Pelo nome, pra quando a categoria vier vazia ou fora do catalogo. "pao
-// frances", "pao de x" e "cachorro" sao a parte SALGADA da categoria "padaria",
-// que tambem guarda cuca e pao doce (esses sao doce, caem no fallback).
-const SALGADO_NOME =
-  /coxinha|risol|pastel|esfir|esfih|empad|croissant|croquete|enroladinho|bolinha|mini bolha|kibe|quibe|salgad|pizza|calzone|cachorro|pao frances|pao de x|pao de queijo|torta fria|torta salgada|franciscano|cento/;
+// A categoria gravada em pedido_itens vem de dois vocabularios: o do catalogo
+// (lib/ia/orcamento.ts) e o da ferramenta da IA e da tela. Sao os mesmos
+// produtos escritos de outro jeito, e sem as duas listas todo pedido corrigido
+// pela equipe caia numa comanda generica.
+const POR_CATEGORIA: Record<string, DeptoId> = {
+  // vocabulario do catalogo
+  salgado: "salgados",
+  doce: "docinhos",
+  bolo_recheado: "bolo_festa",
+  bolo_caseiro: "bolo_caseiro",
+  pizza: "pizza",
+  torta_fria: "torta_fria",
+  empadao: "empadao",
+  torta_recheada: "torta_doce",
+  bolo_salgado: "bolo_salgado",
+  cupcake: "cupcake",
+  franciscano: "franciscano",
+  calzone: "calzone",
+  padaria: "padaria",
+  adicional_bolo: "bolo_festa",
+  // vocabulario da ferramenta da IA e da tela
+  salgado_frito: "salgados",
+  salgado_assado: "salgados",
+  docinho: "docinhos",
+  bolo_festa: "bolo_festa",
+  papel_de_arroz: "bolo_festa",
+  // "por_quilo" e "por_unidade" nao dizem QUAL produto e: quem decide ali e o
+  // nome, na lista abaixo.
+};
 
-// De qual estacao um item sai (usa a categoria; cai pro nome do produto).
+// Acompanhamento de bolo sai NA COMANDA DO BOLO, nunca solto: topo, papel de
+// arroz, vela, prato e caixa sao coisas que quem monta o bolo le junto com ele.
+const ACESSORIO_DE_BOLO = /topo de bolo|topo|papel de arroz|vela|prato aberto|caixa com tampa|andar/;
+
+// Quando a categoria e generica, quem diz a comanda e o nome do produto: torta
+// fria e empadao sao produzidos em mesas diferentes, mesmo os dois sendo
+// vendidos por quilo.
+const POR_NOME: [RegExp, DeptoId][] = [
+  [/torta fria|torta salgada/, "torta_fria"],
+  [/empad[ao]o/, "empadao"],
+  [/torta (doce|especial)/, "torta_doce"],
+  [/bolo salgado/, "bolo_salgado"],
+  [/calzone/, "calzone"],
+  [/pizza/, "pizza"],
+  [/cupcake/, "cupcake"],
+  [/franciscano/, "franciscano"],
+  [/cuca|pao doce|pao frances|pao de x|cachorro-?quente|bisnaguinha/, "padaria"],
+  [/^bolo (caseiro|de cenoura|de fuba|simples|seco)/, "bolo_caseiro"],
+  [/^bolo/, "bolo_festa"],
+  // Salgadinho de festa por ultimo: e a lista mais generica e sequestraria
+  // "torta fria" e "bolo salgado" se viesse antes.
+  [
+    /coxinha|risol|pastel|esfir|esfih|empadinha|croissant|croquete|enroladinho|bolinha|mini bolha|kibe|quibe|salgad|almofadinha|xodo|quiche|mini x|mini sandu|pao de batata|salsicha/,
+    "salgados",
+  ],
+];
+
+// De qual comanda um item sai.
 export function deptoDe(item: { categoria?: string | null; produto: string }): DeptoId {
   const c = norm(item.categoria);
   const p = norm(item.produto);
-  // Salgado PRIMEIRO: e o unico jeito de "bolo salgado" e "torta fria" nao
-  // serem sequestrados pelas regras de bolo e de doce logo abaixo.
-  if (SALGADO_CATEGORIA.has(c) || SALGADO_NOME.test(p)) return "salgados";
-  // Acessorio de bolo e da estacao de BOLO FESTA. O papel de arroz tem
-  // categoria "adicional_bolo", que nao comeca com "bolo", e por isso caia na
-  // padaria: saia um cupom inteiro so pro papel de arroz, na estacao errada, e
-  // quem faz o bolo nao via que tinha papel de arroz nele.
-  if (
-    c.includes("bolo") ||
-    c === "extra" ||
-    /^bolo\b/.test(p) ||
-    p.includes("papel de arroz") ||
-    p.includes("topo de bolo")
-  )
-    return "bolos";
-  // Sobrou doce: docinho, cupcake, torta doce, cuca, pao doce. Tudo dos
-  // DOCINHOS, que e a bancada da confeitaria.
-  return "confeitaria";
+  const porCategoria = POR_CATEGORIA[c];
+  if (porCategoria) return porCategoria;
+  for (const [rx, id] of POR_NOME) if (rx.test(p)) return id;
+  if (ACESSORIO_DE_BOLO.test(p)) return "bolo_festa";
+  // Sobrou doce sem categoria conhecida: vai pros docinhos, que e a bancada que
+  // mais recebe item novo.
+  return "docinhos";
 }
 
 // PESO NAO E PECA.
 //
 // O bolo de 3 kg gravado sem unidade saia no ticket como "3x BOLO BRIGADEIRO" e
 // a cozinha assava TRES bolos. A coluna `unidade` pode vir nula (linha antiga,
-// pedido editado na mao) e o painel a lia como "un", entao aqui o peso e
-// reconstituido: pela familia do produto, que e por quilo por definicao, e pela
-// quantidade quebrada, porque 1,5 coxinha nao existe.
+// pedido editado na mao), entao aqui o peso e reconstituido: pela familia do
+// produto, que e por quilo por definicao, e pela quantidade quebrada, porque
+// 1,5 coxinha nao existe.
 const KG_POR_NATUREZA = new Set([
   "bolo_recheado",
   "bolo_festa",
+  "bolo_caseiro",
   "por_quilo",
   "torta_fria",
   "torta_recheada",
   "empadao",
   "calzone",
   "bolo_salgado",
+  "pizza",
+  "padaria",
 ]);
-const KG_POR_NOME = /cachorro|pao frances|pao de x|pizza redonda|torta fria|torta salgada|empadao/;
+const KG_POR_NOME = /cachorro|pao frances|pao de x|pizza redonda|torta fria|torta salgada|empadao|cuca|pao doce/;
 
 export function unidadeDoItem(item: {
   categoria?: string | null;
@@ -113,6 +182,7 @@ export function unidadeDoItem(item: {
   unidade?: string | null;
 }): "un" | "kg" {
   if (item.unidade === "kg") return "kg";
+  if (item.unidade === "un") return "un";
   const c = norm(item.categoria);
   if (KG_POR_NATUREZA.has(c)) return "kg";
   if (KG_POR_NOME.test(norm(item.produto))) return "kg";
@@ -134,18 +204,13 @@ export function qtdDoTicket(item: {
 
 export type ItemAgregado = { produto: string; qtd: number; unidade?: string; horas?: string[] };
 
-// Soma consolidada de todos os itens do dia, por departamento.
+// Soma consolidada de todos os itens do dia, por comanda.
 export function agregarPorDepto(pedidos: Pedido[]): Record<DeptoId, ItemAgregado[]> {
-  // Guarda a unidade junto: bolo e por quilo, e a cozinha lendo "3 bolo" entende
-  // tres bolos em vez de um de tres quilos.
   const unidades = new Map<string, string>();
-  // As horas de retirada de cada produto: e o que diz o que sai do forno primeiro.
   const horas = new Map<string, Set<string>>();
-  const mapas: Record<DeptoId, Map<string, number>> = {
-    salgados: new Map(),
-    confeitaria: new Map(),
-    bolos: new Map(),
-  };
+  const mapas = {} as Record<DeptoId, Map<string, number>>;
+  for (const d of DEPARTAMENTOS) mapas[d.id] = new Map();
+
   for (const ped of pedidos) {
     for (const it of ped.itens) {
       const d = deptoDe(it);
@@ -159,9 +224,10 @@ export function agregarPorDepto(pedidos: Pedido[]): Record<DeptoId, ItemAgregado
       }
     }
   }
+
   const out = {} as Record<DeptoId, ItemAgregado[]>;
-  for (const id of Object.keys(mapas) as DeptoId[]) {
-    out[id] = [...mapas[id].entries()]
+  for (const d of DEPARTAMENTOS) {
+    out[d.id] = [...mapas[d.id].entries()]
       .map(([produto, qtd]) => ({
         produto,
         qtd,
@@ -173,7 +239,7 @@ export function agregarPorDepto(pedidos: Pedido[]): Record<DeptoId, ItemAgregado
   return out;
 }
 
-// Quais departamentos um pedido envolve (pra tags no card).
+// Quais comandas um pedido gera (pra tags no card e pra referencia cruzada).
 export function deptosDoPedido(ped: Pedido): DeptoId[] {
   const s = new Set<DeptoId>();
   for (const it of ped.itens) s.add(deptoDe(it));
