@@ -774,6 +774,23 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       // o nome precisa trazer os dois, senao a padaria cobra a menos e a
       // cozinha faz um sabor so.
       const ditos = SABORES_DE_BOLO.filter((sab) => new RegExp(sab, "i").test(ultimaFala));
+      // A mistura pode ter sido dita turnos atras: procura o par colado por
+      // "com" na conversa inteira ("bombom com morango").
+      if (ditos.length < 2) {
+        const semAcB = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const tudo = semAcB(falaDoCliente);
+        for (const a of SABORES_DE_BOLO) {
+          for (const b of SABORES_DE_BOLO) {
+            if (semAcB(a) === semAcB(b)) continue;
+            if (tudo.includes(semAcB(a) + " com " + semAcB(b))) {
+              ditos.length = 0;
+              ditos.push(a, b);
+              break;
+            }
+          }
+          if (ditos.length >= 2) break;
+        }
+      }
       const noNome = ditos.filter((sab) => new RegExp(sab, "i").test(produto));
       if (ditos.length >= 2 && noNome.length < 2) {
         return (
@@ -3858,7 +3875,8 @@ const NOMES_DA_FAMILIA: [CardapioId, string[]][] = [
 // Enumerou a familia inteira em texto? Manda a peca e corta a lista da frase.
 // Frase que confirma o que o cliente acabou de escolher nao e lista de
 // cardapio, mesmo citando varios produtos.
-const CONFIRMANDO = /anotei|anotado|anotamos|fechando|fechamos|somando|no seu pedido|ficou assim/i;
+const CONFIRMANDO =
+  /anotei|anotado|anotamos|fechando|fechamos|somando|no seu pedido|ficou assim|pedido recebido|\*total|total:|passei pra nossa equipe|forma de pagamento/i;
 
 function listaViraCardapio(
   texto: string,
