@@ -144,6 +144,28 @@ export async function registrarAceiteCliente(negocioId: string, clienteId: strin
   return r.length > 0;
 }
 
+// O cliente NÃO aceitou o valor que a equipe lançou (ou complicou de outro
+// jeito): o pedido volta pra fila de pendência da dona, com o motivo.
+//
+// Sem isto, recusa deixava o pedido preso em 'esperando o cliente' pra
+// sempre: sumia da fila de pendência e nunca chegava na aprovação. A IA
+// marcava a conversa como 'precisa de você', mas o pedido ficava num limbo
+// que ninguém olha.
+export async function devolverPedidoParaEquipe(
+  negocioId: string,
+  clienteId: string,
+  motivo: string,
+): Promise<boolean> {
+  const r = await query<{ id: string }>(
+    `update pedidos set aguardando_cliente = false, precisa_confirmacao = true, motivo_humano = $3
+      where negocio_id = $1 and cliente_id = $2 and status = 'confirmado'
+        and coalesce(aguardando_cliente, false) = true
+      returning id`,
+    [negocioId, clienteId, motivo.slice(0, 300)],
+  );
+  return r.length > 0;
+}
+
 // Existe pedido esperando o aceite deste cliente? (o cérebro pergunta antes de
 // gastar uma ferramenta com isso)
 export async function temPedidoAguardandoCliente(negocioId: string, clienteId: string): Promise<boolean> {

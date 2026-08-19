@@ -219,7 +219,12 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
           </div>
         )}
         <div className="text-[12px] text-cream/65 mb-2" hidden={pedido.aguardandoCliente}>
-          {ehTopo ? "Digite o valor do topo que você acertou com o cliente. A Dora avisa ele com o total novo." : "Se houver valor a cobrar por isso, lance aqui e a Dora avisa o cliente com o total novo."}
+          {ehTopo
+            ? "Digite o valor do topo que você acertou com o cliente."
+            : "Se houver valor a cobrar por isso, lance aqui."}{" "}
+          A Dora manda o total novo pra ele. Se ele aceitar, o pedido entra na
+          fila de aprovação sozinho. Se ele não aceitar, volta pra cá com o
+          motivo.
         </div>
         <div className="flex flex-wrap gap-2" hidden={pedido.aguardandoCliente}>
           <input

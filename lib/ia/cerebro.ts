@@ -341,6 +341,9 @@ export type RespostaIA = {
   // O cliente concordou com o valor atualizado (quem decide isso e a IA, que
   // entende "joinha", "fechou" e o que mais ele inventar).
   aceitouOrcamento?: boolean;
+  // Por que ela chamou a equipe. Vira o texto que a dona le no painel
+  // quando o pedido volta pra fila de pendencia.
+  motivoEquipe?: string;
   pedidoRegistrado: null | {
     itens: { item: string; qtd: number; obs?: string }[];
     linhas: LinhaCotacao[]; // já calculado pelo motor do tenant (pro banco não recalcular)
@@ -444,7 +447,7 @@ const marca = (t?: string | null) => String(t ?? "").trim().toLowerCase();
 function executarFerramenta(
   nome: string,
   input: Record<string, unknown>,
-  estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"]; cardapios: CardapioId[]; resumo?: string; sugestao?: string; aceitouOrcamento?: boolean; montagem: MudancaMontagem[] },
+  estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"]; cardapios: CardapioId[]; resumo?: string; sugestao?: string; aceitouOrcamento?: boolean; motivoEquipe?: string; montagem: MudancaMontagem[] },
   motor: Motor,
   falaDoCliente = "",
   montagemAtual?: MontagemAtual | null,
@@ -1461,6 +1464,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       );
     }
     estado.precisaHumano = true;
+    estado.motivoEquipe = String(input?.motivo ?? '').trim() || undefined;
     // Ela registrou um pedido de R$ 904 e respondeu ao cliente so "deixa eu
     // chamar alguem da equipe": ele saiu da conversa sem saber que tinha
     // encomendado. Avisar a equipe nao substitui confirmar o pedido.
@@ -2890,7 +2894,7 @@ async function rodarConversa(
     timeout: 30_000,
     maxRetries: 0, // a cadeia de provedores já é a nossa retentativa
   });
-  const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"], cardapios: [] as CardapioId[], resumo: undefined as string | undefined, sugestao: undefined as string | undefined, aceitouOrcamento: false, montagem: [] as MudancaMontagem[] };
+  const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"], cardapios: [] as CardapioId[], resumo: undefined as string | undefined, sugestao: undefined as string | undefined, aceitouOrcamento: false, motivoEquipe: undefined as string | undefined, montagem: [] as MudancaMontagem[] };
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: system },
     ...historico.map((m) => ({ role: m.role, content: m.content })),
@@ -4004,6 +4008,7 @@ async function rodarConversa(
         precisaHumano: estado.precisaHumano,
         pedidoRegistrado: estado.pedido,
         aceitouOrcamento: estado.aceitouOrcamento,
+        motivoEquipe: estado.motivoEquipe,
         montagem: estado.montagem,
         cardapiosParaEnviar: pecasPermitidas(
           honrarCardapioPrometido(semLista.texto, pecasFinais, mandadasAgora),

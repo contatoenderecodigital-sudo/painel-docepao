@@ -31,7 +31,7 @@ import {
   guardarOrigemAnuncio,
 } from "@/lib/banco/conversas";
 import { definirHandoff, iaPausada, ultimaMsgClienteMs } from "@/lib/banco/atendimentos";
-import { registrarAceiteCliente, temPedidoAguardandoCliente, pedidoEmAberto } from "@/lib/banco/pedidos";
+import { registrarAceiteCliente, temPedidoAguardandoCliente, devolverPedidoParaEquipe, pedidoEmAberto } from "@/lib/banco/pedidos";
 import { anotarItem, removerItem, anotarDados, limparMontagem, lerMontagem } from "@/lib/banco/montagem";
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
@@ -705,6 +705,19 @@ async function processar(corpo: WebhookPayload) {
           await definirHandoff(negocioId, clienteId, true);
         } catch (e) {
           console.error("[whatsapp] falha ao marcar handoff:", e);
+        }
+        // Se havia pedido esperando o aceite dele, a conversa travar aqui
+        // significa que ele NAO aceitou. O pedido volta pra fila da dona em
+        // vez de ficar preso em 'esperando o cliente' pra sempre.
+        if (aguardando) {
+          try {
+            const motivo = (resp.motivoEquipe || '').trim() || 'o cliente nao aceitou o valor que voce lancou';
+            if (await devolverPedidoParaEquipe(negocioId, clienteId, motivo)) {
+              console.log("[whatsapp] cliente nao aceitou o valor; pedido devolvido pra fila da equipe");
+            }
+          } catch (e) {
+            console.error("[whatsapp] falha ao devolver o pedido pra equipe:", e);
+          }
         }
       }
     }
