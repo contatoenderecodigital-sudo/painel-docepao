@@ -78,6 +78,62 @@ function semAcento(t: string) {
   return String(t ?? "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
+// QUEM ESTA ATENDENDO, ESCRITO NUM LUGAR SO.
+// Na conversa do Paulo (55 11 96000-9999) o selo "Precisa de você" estava aceso
+// e a API devolvia estado "precisa_humano", mas o cabecalho, o bloco Atendimento
+// e o rodape diziam "IA atendendo" e "A IA está respondendo". Os tres so
+// perguntavam se o estado era "humano", entao handoff caia no galho da IA. E
+// mentira: quando a IA pede a equipe ela PARA de responder aquele cliente. Quem
+// lia aquilo achava que a conversa seguia sozinha e deixava o Paulo esperando.
+type QuemAtende = {
+  cor: string;
+  cabecalho: string;
+  painel: string;
+  rodape: string;
+  icone: "voce" | "ia" | "espera";
+};
+function quemAtende(estado: Conversa["estado"]): QuemAtende {
+  if (estado === "humano") {
+    return { cor: "#e7cf94", cabecalho: "Você atendendo", painel: "Você está atendendo", rodape: "Você está atendendo", icone: "voce" };
+  }
+  if (estado === "precisa_humano") {
+    return {
+      cor: "#e7cf94",
+      cabecalho: "Esperando você",
+      painel: "IA parada, esperando a equipe",
+      rodape: "A IA parou e está esperando você",
+      icone: "espera",
+    };
+  }
+  return { cor: "#7fd1a4", cabecalho: "IA atendendo", painel: "IA atendendo", rodape: "A IA está respondendo", icone: "ia" };
+}
+
+// NEGRITO DO WHATSAPP, RENDERIZADO DE VERDADE.
+// A mensagem de confirmacao sai daqui com *asterisco*: no celular do cliente
+// isso vira negrito, e no painel aparecia cru ("*Pedido recebido*", "*Nome:*",
+// "*Total: R$ 225,00*"), sujando o balao inteiro. Aqui o trecho entre asteriscos
+// vira <strong> e o resto do texto continua igual.
+// Sai SEMPRE em pedacos de texto, nunca HTML: o que o cliente escrever no
+// WhatsApp e conteudo, e o React escapa cada pedaco; nada que ele mande vira
+// marcacao da pagina.
+// O par tem que abrir e fechar sem espaco colado no asterisco (regra do proprio
+// WhatsApp), senao "1 kg * 3" viraria negrito no meio da conta do pedido.
+const NEGRITO_WPP = /\*([^\s*][^*\n]*[^\s*]|[^\s*])\*/g;
+function comNegrito(texto: string): React.ReactNode {
+  const t = texto ?? "";
+  if (!t.includes("*")) return t;
+  const partes: React.ReactNode[] = [];
+  let fim = 0;
+  for (const m of t.matchAll(NEGRITO_WPP)) {
+    const i = m.index ?? 0;
+    if (i > fim) partes.push(t.slice(fim, i));
+    partes.push(<strong key={i} className="font-semibold">{m[1]}</strong>);
+    fim = i + m[0].length;
+  }
+  if (fim < t.length) partes.push(t.slice(fim));
+  return partes;
+}
+
 function Avatar({ nome, tam = 44, raio = 12 }: { nome: string; tam?: number; raio?: number }) {
   return (
     <div
@@ -205,7 +261,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
           {/* TEXTO puro */}
           {!isMidia && (
             <div className="px-3.5 py-2">
-              {m.texto}
+              {comNegrito(m.texto)}
               <span className="ml-2">
                 <HoraSelo />
               </span>
@@ -214,7 +270,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
           {/* LEGENDA da mídia (quando há uma real) */}
           {isMidia && legenda && (
             <div className="px-3.5 pb-2 pt-1">
-              {legenda}
+              {comNegrito(legenda)}
               <span className="ml-2">
                 <HoraSelo />
               </span>
@@ -327,13 +383,29 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
     return () => { clearInterval(id); clearInterval(jan); };
   }, [atualizar]);
 
-  const filtradas = useMemo(() => {
+  // A BUSCA VEM ANTES DA ABA, E OS CHIPS CONTAM O QUE SOBROU DELA.
+  // Com "cristina" digitado a lista mostrava uma conversa e os chips seguiam
+  // dizendo "Todas 8" e "IA 7", porque o numero era contado sobre a lista
+  // inteira. A equipe lia aquilo como conversa escondida por filtro e ficava
+  // clicando nas abas atras de gente que a busca ja tinha tirado.
+  const buscadas = useMemo(() => {
     const q = semAcento(busca);
+    if (!q) return conversas;
     // Só compara telefone quando o que foi digitado TEM número. Digitando
     // "Renata" os dígitos da busca davam string vazia, e telefone.includes("")
     // é sempre verdadeiro: a lista continuava com as cinco conversas e parecia
     // que a busca estava morta.
     const qDigitos = busca.replace(/\D/g, "");
+    return conversas.filter(
+      (c) =>
+        semAcento(c.clienteNome).includes(q) ||
+        (qDigitos !== "" && c.clienteTelefone.replace(/\D/g, "").includes(qDigitos)) ||
+        semAcento(c.previa).includes(q) ||
+        c.mensagens.some((m) => semAcento(m.texto).includes(q)),
+    );
+  }, [busca, conversas]);
+
+  const filtradas = useMemo(() => {
     // A aba filtra por QUEM está respondendo: é a pergunta que a equipe faz ao
     // abrir a tela ("o que precisa de mim?"), não "quem mandou mensagem".
     const porAba = (c: Conversa) =>
@@ -341,23 +413,13 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
       : aba === "humano" ? c.estado === "humano"
       : aba === "atencao" ? c.estado === "precisa_humano"
       : c.estado === "ia";
-    const conversas2 = conversas.filter(porAba);
-    const base = q
-      ? conversas2.filter(
-          (c) =>
-            semAcento(c.clienteNome).includes(q) ||
-            (qDigitos !== "" && c.clienteTelefone.replace(/\D/g, "").includes(qDigitos)) ||
-            semAcento(c.previa).includes(q) ||
-            c.mensagens.some((m) => semAcento(m.texto).includes(q)),
-        )
-      : conversas2;
     // handoff ("precisa de você") primeiro; resto pela mais recente (já vem ordenado).
-    return [...base].sort((a, b) => {
+    return buscadas.filter(porAba).sort((a, b) => {
       const ha = a.estado === "precisa_humano" ? 1 : 0;
       const hb = b.estado === "precisa_humano" ? 1 : 0;
       return hb - ha;
     });
-  }, [busca, conversas, aba]);
+  }, [buscadas, aba]);
 
   const ativa = conversas.find((c) => c.id === ativaId);
   const mensagens: Pend[] = useMemo(
@@ -498,7 +560,10 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
             <div className="px-3 pb-2 flex items-center gap-1.5 flex-wrap">
               {([["todas", "Todas"], ["ia", "IA"], ["humano", "Humano"], ["atencao", "Precisa de você"]] as const).map(([id, rotulo]) => {
                 const on = aba === id;
-                const n = id === "todas" ? conversas.length : conversas.filter((c) => (id === "humano" ? c.estado === "humano" : id === "atencao" ? c.estado === "precisa_humano" : c.estado === "ia")).length;
+                // Conta sobre o resultado da busca, nunca sobre a lista inteira:
+                // o numero do chip tem que bater com o que a tela mostra ao
+                // clicar nele.
+                const n = id === "todas" ? buscadas.length : buscadas.filter((c) => (id === "humano" ? c.estado === "humano" : id === "atencao" ? c.estado === "precisa_humano" : c.estado === "ia")).length;
                 return (
                   <button
                     key={id}
@@ -577,9 +642,9 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                     <Avatar nome={ativa.clienteNome} tam={38} raio={11} />
                     <div className="min-w-0">
                       <div className="font-semibold text-cream text-[14.5px] truncate">{ativa.clienteNome}</div>
-                      <div className="text-[11px] truncate flex items-center gap-1.5" style={{ color: ativa.estado === "humano" ? "#e7cf94" : "#7fd1a4" }}>
+                      <div className="text-[11px] truncate flex items-center gap-1.5" style={{ color: quemAtende(ativa.estado).cor }}>
                         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "currentColor" }} />
-                        <span className="truncate">{ativa.estado === "humano" ? "Você atendendo" : "IA atendendo"}</span>
+                        <span className="truncate">{quemAtende(ativa.estado).cabecalho}</span>
                         <span className="text-cream/45 shrink-0">·</span>
                         <span className="truncate text-cream/55">{formatarTelefoneBR(ativa.clienteTelefone)}</span>
                         {ativa.custoCentavos != null && ativa.custoCentavos > 0 && (
@@ -642,9 +707,9 @@ export default function Atendimentos({ conversas: conversasIniciais }: { convers
                     certo pra isso: a decisão de assumir acontece na hora de
                     escrever, não no topo da tela. */}
                 <div className="px-3 py-2 border-t border-white/10 shrink-0 flex items-center justify-between gap-2" style={{ background: "rgba(0,0,0,0.14)" }}>
-                  <span className="inline-flex items-center gap-2 text-[12.5px] min-w-0" style={{ color: ativa.estado === "humano" ? "#e7cf94" : "#7fd1a4" }}>
+                  <span className="inline-flex items-center gap-2 text-[12.5px] min-w-0" style={{ color: quemAtende(ativa.estado).cor }}>
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "currentColor" }} />
-                    <span className="truncate">{ativa.estado === "humano" ? "Você está atendendo" : "A IA está respondendo"}</span>
+                    <span className="truncate">{quemAtende(ativa.estado).rodape}</span>
                   </span>
                   <button
                     onClick={() => alternarAssumir(ativa.id, ativa.estado !== "humano")}
@@ -828,7 +893,7 @@ function PainelContato({ conversa, qtdMensagens, onToast }: { conversa: Conversa
   }
   const ultima = conversa.mensagens[conversa.mensagens.length - 1];
   const aguardando = ultima ? ultima.de !== "cliente" : false;
-  const assumida = conversa.estado === "humano";
+  const atendimento = quemAtende(conversa.estado);
   return (
         <div className="p-5">
           <div className="flex flex-col items-center text-center pb-4">
@@ -861,9 +926,11 @@ function PainelContato({ conversa, qtdMensagens, onToast }: { conversa: Conversa
           <div className="border-t border-white/10 pt-4">
             <span className="t-label text-cream/45">Atendimento</span>
             <div className="mt-2.5 space-y-2.5 text-[13px]">
-              <div className="flex items-center gap-2.5" style={{ color: assumida ? "#e7cf94" : "#7fd1a4" }}>
-                {assumida ? <Hand size={14} className="shrink-0" /> : <Bot size={14} className="shrink-0" />}
-                <span>{assumida ? "Você está atendendo" : "IA atendendo"}</span>
+              <div className="flex items-center gap-2.5" style={{ color: atendimento.cor }}>
+                {atendimento.icone === "voce" ? <Hand size={14} className="shrink-0" />
+                  : atendimento.icone === "espera" ? <ShieldAlert size={14} className="shrink-0" />
+                  : <Bot size={14} className="shrink-0" />}
+                <span>{atendimento.painel}</span>
               </div>
               <div className="flex items-center gap-2.5 text-cream/75">
                 <Clock size={14} className="shrink-0 text-cream/45" />

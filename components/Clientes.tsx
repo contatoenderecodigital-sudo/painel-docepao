@@ -40,15 +40,56 @@ function iniciais(nome: string) {
   const p = nome.trim().split(/\s+/);
   return ((p[0]?.[0] ?? "") + (p[1]?.[0] ?? "")).toUpperCase() || "?";
 }
+// O servidor roda em UTC e o banco guarda timestamptz. Às 22h35 do dia 18 na
+// padaria o carimbo já é 19/08 em UTC (o banco confirmou "servidor 2026-08-19,
+// padaria 2026-08-18"), e o histórico do cliente mostrava "19/08/26" num pedido
+// feito hoje: toda noite, depois das 21h, a dona via pedido de hoje datado de
+// amanhã. Então: se o valor vem com fuso (o "Z" do ISO ou o "+00" do Postgres),
+// convertemos pra hora da padaria antes de cortar o dia. Se vem sem fuso, já é
+// data da padaria (coluna date ou to_char no fuso) e basta ler os dígitos.
+const TZ_PADARIA = "America/Sao_Paulo";
+const ISO_PADARIA = new Intl.DateTimeFormat("en-CA", {
+  timeZone: TZ_PADARIA,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+// Exige hora antes do fuso, senão o "-18" de "2026-08-18" passaria por offset.
+const COM_FUSO = /\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?\s*(?:Z|z|[+-]\d{2}(?::?\d{2})?)$/;
+
+function isoNaPadaria(valor: string | null): string | null {
+  if (!valor) return null;
+  const texto = String(valor).trim();
+  if (!COM_FUSO.test(texto)) return texto.slice(0, 10);
+  // O Postgres escreve o fuso como "+00" e o JS só entende "+00:00". Sem
+  // normalizar, o new Date desiste do fuso, lê como hora local e a conversão
+  // simplesmente não acontece (o pedido das 22h35 continuava caindo em 19/08).
+  const normalizado = texto
+    .replace(" ", "T")
+    .replace(/([+-]\d{2})$/, "$1:00")
+    .replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+  const d = new Date(normalizado);
+  if (Number.isNaN(d.getTime())) return texto.slice(0, 10);
+  return ISO_PADARIA.format(d);
+}
+
 function dataCurta(iso: string | null) {
-  if (!iso) return null;
-  const [a, m, d] = iso.slice(0, 10).split("-");
+  const base = isoNaPadaria(iso);
+  if (!base) return null;
+  const [a, m, d] = base.split("-");
   return `${d}/${m}/${a.slice(2)}`;
 }
 function diaMes(iso: string | null) {
-  if (!iso) return null;
-  const [, m, d] = iso.slice(0, 10).split("-");
+  const base = isoNaPadaria(iso);
+  if (!base) return null;
+  const [, m, d] = base.split("-");
   return `${d}/${m}`;
+}
+// "ago/2026" no fuso da padaria. O "cliente desde" também é timestamptz, e no
+// dia 1 de madrugada ele pularia o mês inteiro pra frente.
+function mesAnoPadaria(iso: string | null) {
+  const base = isoNaPadaria(iso);
+  return base ? mesAno(base) : null;
 }
 
 export default function Clientes({
@@ -95,7 +136,10 @@ export default function Clientes({
           <NumberTicker value={totalClientes} className="font-title text-2xl font-bold text-cream" />
         </MiniKpi>
         <MiniKpi icon={<Banknote size={16} />} rotulo="Já compraram">
-          <NumberTicker value={faturamento / 100} prefix="R$ " className="font-title text-2xl font-bold text-grad-dourado" />
+          {/* decimals=2: sem isso o KPI mostrava "R$ 0" enquanto Resultados
+              mostrava "R$ 0,00" pro mesmo dinheiro, e as duas telas pareciam
+              contar coisas diferentes. */}
+          <NumberTicker value={faturamento / 100} prefix="R$ " decimals={2} className="font-title text-2xl font-bold text-grad-dourado" />
         </MiniKpi>
         <MiniKpi icon={<Cake size={16} />} rotulo="Aniversários no mês">
           <NumberTicker value={aniversariantes} className="font-title text-2xl font-bold text-cream" />
@@ -245,7 +289,7 @@ function Ficha({ c }: { c: ClienteCRM }) {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
         <FichaKpi icon={<ShoppingBag size={15} />} rotulo="Pedidos" valor={String(c.qtdPedidos)} />
         <FichaKpi icon={<Banknote size={15} />} rotulo="Total gasto" valor={brl(c.totalGastoCentavos)} dourado />
-        <FichaKpi icon={<CalendarClock size={15} />} rotulo="Cliente desde" valor={c.clienteDesde ? mesAno(c.clienteDesde) : "-"} />
+        <FichaKpi icon={<CalendarClock size={15} />} rotulo="Cliente desde" valor={mesAnoPadaria(c.clienteDesde) ?? "sem registro"} />
       </div>
 
       {/* preferências */}

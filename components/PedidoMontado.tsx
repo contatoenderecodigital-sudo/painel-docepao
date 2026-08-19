@@ -21,6 +21,17 @@ import { brl } from "@/lib/tipos";
 // parecia dois na hora de conferir.
 const qtdBR = (n: number) => String(Number(n) || 0).replace(".", ",");
 
+// O resumo recolhido mora numa coluna estreita, e pedido de festa tem oito
+// linhas. Corta no fim, na ultima palavra que coube, e marca com reticencias que
+// ainda tem item. O corte e sempre no FIM: a unidade vem logo depois da
+// quantidade, no comeco de cada item, entao ela nunca e o que sobra de fora.
+function cortarResumo(t: string, max: number) {
+  if (t.length <= max) return t;
+  const corte = t.slice(0, max);
+  const espaco = corte.lastIndexOf(" ");
+  return (espaco > max * 0.6 ? corte.slice(0, espaco) : corte).replace(/[\s,]+$/, "") + "...";
+}
+
 // O pedido ja fechado deste cliente, esperando a aprovacao.
 type Registrado = {
   id: string;
@@ -188,11 +199,47 @@ function categoriaDaTela(produto: string, doMotor: string, cardapio: OpcaoCardap
   return DO_MOTOR[doMotor] ?? "outro";
 }
 
+// Como vem gravado o item, antes de virar linha da tela. A categoria aqui e a
+// familia que o motor escreveu no pedido ("padaria", "calzone"), que nao e a
+// mesma lista de rotulos que a equipe ve.
+type ItemGravado = {
+  produto: string;
+  categoria: string;
+  qtd: number | string;
+  unidade?: string | null;
+  obs?: string | null;
+};
+
+// A CATEGORIA E A UNIDADE TEM QUE SAIR DA MESMA FONTE.
+// A cuca recheada do pedido da Cristina estava gravada como categoria "padaria"
+// com unidade "un". A tela pegava a categoria pelo cardapio (onde a cuca virou
+// POR QUILO em 16/08/2026) e a unidade pelo banco: o seletor dizia "Por quilo" e
+// a linha de baixo, do mesmo item, dizia "unidades". Mesmo desencontro no
+// cachorro-quente e no calzone, os dois por quilo no cardapio. Aqui o cardapio
+// manda nas duas coisas, entao rotulo e unidade nunca mais se contradizem; so o
+// que nao existe no cardapio (lancado na mao) mantem a unidade gravada, e mesmo
+// assim so se a familia aceitar ela.
+function itemDaTela(x: ItemGravado, cardapio: OpcaoCardapio[]): Item {
+  const achado = doCardapio(cardapio, x.produto);
+  const categoria = categoriaDaTela(x.produto, x.categoria, cardapio);
+  const gravada: Unidade = x.unidade === "kg" ? "kg" : "un";
+  const permitidas = unidadesDe(categoria);
+  const unidade = achado ? achado.unidade : permitidas.includes(gravada) ? gravada : permitidas[0];
+  return {
+    produto: x.produto,
+    categoria,
+    qtd: Number(x.qtd) || 0,
+    unidade,
+    obs: x.obs ?? null,
+  };
+}
+
 export default function PedidoMontado({ clienteId, versao }: { clienteId: string; versao: number }) {
   const [aberto, setAberto] = useState(false);
   const [cardapio, setCardapio] = useState<OpcaoCardapio[]>([]);
   const [foto, setFoto] = useState<string | null>(null);
   const [itens, setItens] = useState<Item[]>([]);
+  const [brutos, setBrutos] = useState<ItemGravado[]>([]);
   const [dados, setDados] = useState<Dados>({});
   const [registrado, setRegistrado] = useState<Registrado | null>(null);
   const [sujo, setSujo] = useState(false);
@@ -206,9 +253,13 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       if (!r.ok) return;
       const j = await r.json();
       const reg: Registrado | null = j.registrado ?? null;
-      const daMontagem: Item[] = Array.isArray(j.itens) ? j.itens : [];
+      const daMontagem: ItemGravado[] = Array.isArray(j.itens) ? j.itens : [];
       setRegistrado(reg);
-      setItens(daMontagem);
+      // Guarda como veio: quem traduz pra linha da tela e o efeito abaixo, que
+      // depende do cardapio. O cardapio chega por outra requisicao, e a montagem
+      // costuma chegar primeiro; normalizando aqui, a cuca ficava com a unidade
+      // do banco pra sempre porque nada reprocessava quando o cardapio chegasse.
+      setBrutos(daMontagem);
       setDados(j.dados ?? {});
       // A foto de referencia do tema, pra dona conferir o bolo olhando pra ela.
       fetch(`/api/montagem/foto?cliente=${encodeURIComponent(clienteId)}`)
@@ -235,6 +286,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
     setSujo(false);
     setSalvo(false);
     setItens([]);
+    setBrutos([]);
     setDados({});
     setRegistrado(null);
     carregar();
@@ -243,6 +295,14 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
   useEffect(() => {
     if (!sujo) carregar();
   }, [versao, sujo, carregar]);
+
+  // A montagem gravada vira linha de tela aqui, e nao na hora de buscar, porque
+  // depende do cardapio: e ele que diz a categoria e a unidade de cada produto.
+  // Enquanto a equipe esta editando, nada entra por cima do que ela digitou.
+  useEffect(() => {
+    if (sujo) return;
+    setItens(brutos.map((x) => itemDaTela(x, cardapio)));
+  }, [brutos, cardapio, sujo]);
 
   // O pedido ja fechado preenche o mesmo editor. Depende do cardapio porque e
   // ele que diz a categoria de cada produto, e ele chega por outra requisicao.
@@ -257,15 +317,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       forma_pagamento: d.forma_pagamento || registrado.formaPagamento || null,
       observacoes: d.observacoes || registrado.observacoes || null,
     }));
-    setItens(
-      registrado.itens.map((x) => ({
-        produto: x.produto,
-        categoria: categoriaDaTela(x.produto, x.categoria, cardapio),
-        qtd: Number(x.qtd) || 0,
-        unidade: x.unidade === "kg" ? "kg" : "un",
-        obs: x.obs,
-      })),
-    );
+    setItens(registrado.itens.map((x) => itemDaTela(x, cardapio)));
   }, [registrado, cardapio, sujo]);
 
   function mexerItem(i: number, patch: Partial<Item>) {
@@ -309,7 +361,12 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       if (registrado && typeof j.totalCentavos === "number") {
         setRegistrado({ ...registrado, totalCentavos: j.totalCentavos });
       }
+      // O gravado passa a ser o que acabou de sair daqui. Sem isso, largar o
+      // "não salvo" fazia o efeito acima remontar a lista a partir do que o
+      // servidor tinha ANTES da correcao, e a tela piscava o pedido velho ate a
+      // releitura chegar.
       setItens(limpos);
+      setBrutos(limpos);
       setSujo(false);
       setSalvo(true);
       // A gravacao pode mudar a lista (papel de arroz da observacao entra como
@@ -336,8 +393,24 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
     (x) => x.produto.trim() !== "" && semSaborEscolhido(cardapio, x),
   ).length;
 
+  // RESUMO RECOLHIDO: e o que a Cristina le sem abrir o painel.
+  // Saia "100 coxinha, 100 esfirra" e "3 cuca recheada". A unidade so aparecia
+  // no item por quilo ("1,5 kg cachorro-quente"), entao ela nao sabia se eram 3
+  // unidades ou 3 quilos de cuca, e o sabor nao aparecia nunca: a cuca de
+  // chocolate ficava igualzinha a de abacaxi ali na linha. Agora todo item leva
+  // unidade e sabor.
+  const linhaResumo = (x: Item) => {
+    const obs = semAcento(x.obs ?? "");
+    const nome = semAcento(x.produto);
+    // Sabor que ja esta no nome ("cuca recheada de banana") nao repete, senao a
+    // linha saia "cuca recheada de banana de banana".
+    const sabores = saboresDe(cardapio, x.produto).filter(
+      (s) => obs.includes(semAcento(s)) && !nome.includes(semAcento(s)),
+    );
+    return `${qtdBR(x.qtd)} ${x.unidade} ${x.produto}${sabores.length ? " de " + sabores.join(" e ") : ""}`;
+  };
   const resumo = itens.length
-    ? itens.map((x) => `${qtdBR(x.qtd)}${x.unidade === "kg" ? " kg" : ""} ${x.produto}`).join(", ")
+    ? cortarResumo(itens.map(linhaResumo).join(", "), 96)
     : "só os dados por enquanto";
 
   // Quando retira e quanto deu: é o que a equipe procura de relance, e antes só

@@ -29,6 +29,18 @@ const DOW = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 function iso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+// "Hoje" é o hoje DA PADARIA, não o do servidor. Este componente renderiza
+// primeiro no servidor, que roda em UTC: das 21h em diante ele abria a tela já
+// no dia seguinte e a cozinha via a produção de amanhã achando que era de hoje.
+const ISO_PADARIA = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+function hojeNaPadaria() {
+  return ISO_PADARIA.format(new Date());
+}
 function addDias(base: string, n: number) {
   const [a, m, d] = base.split("-").map(Number);
   const dt = new Date(a, m - 1, d + n);
@@ -101,11 +113,11 @@ export default function PedidosDoDia({
     return () => clearInterval(t);
   }, []);
 
-  const hoje = useMemo(() => iso(new Date()), []);
+  const hoje = useMemo(() => hojeNaPadaria(), []);
   const [sel, setSel] = useState(() => {
     const m: Record<string, number> = {};
     for (const p of pedidos) if (p.retiradaData) m[p.retiradaData] = (m[p.retiradaData] || 0) + 1;
-    const h = iso(new Date());
+    const h = hojeNaPadaria();
     if (m[h]) return h;
     return Object.keys(m).sort()[0] ?? h;
   });
@@ -145,7 +157,10 @@ export default function PedidosDoDia({
     );
     const fat = doDia.reduce((s, p) => s + p.totalCentavos, 0);
     const horas = doDia.map((p) => p.retiradaHora).filter(Boolean).sort() as string[];
-    return { pedidos: doDia.length, fat, totalItens, proxima: horas[0] ?? "-" };
+    // Sem hora marcada o card mostrava um traço solto, que não diz nada e ainda
+    // é travessão (proibido no painel). Escrito por extenso, quem lê sabe que
+    // não é dado faltando: é dia sem retirada marcada.
+    return { pedidos: doDia.length, fat, totalItens, proxima: horas[0] ?? null };
   }, [doDia]);
 
   const grandes = doDia.filter((p) => p.pessoas && p.pessoas >= 20);
@@ -181,7 +196,10 @@ export default function PedidosDoDia({
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m15 6-6 6 6 6" /></svg>
           </button>
           <div className="px-3 text-center min-w-[150px]">
-            <div className="text-[13px] font-semibold text-cream capitalize">{fmtLongo(sel)}</div>
+            {/* first-letter e não capitalize: com capitalize o CSS subia TODA
+                palavra e o cabeçalho saía "Ter, 18 De Ago", com o "de" no meio
+                em maiúscula. Só a primeira letra da frase sobe. */}
+            <div className="text-[13px] font-semibold text-cream first-letter:uppercase">{fmtLongo(sel)}</div>
             {relacao && <div className="text-[10px] uppercase tracking-wider text-dourado">{relacao}</div>}
           </div>
           <button onClick={() => setSel(addDias(sel, 1))} className="press w-11 h-11 md:w-8 md:h-8 grid place-items-center rounded-lg bg-white/[0.06] hover:bg-white/10 text-cream/80" aria-label="Proximo dia">
@@ -211,7 +229,14 @@ export default function PedidosDoDia({
           { rot: "Pedidos do dia", node: <NumberTicker value={kpis.pedidos} /> },
           { rot: "Faturamento previsto", node: <NumberTicker value={kpis.fat / 100} prefix="R$ " decimals={2} /> },
           { rot: "Itens a produzir", node: <NumberTicker value={kpis.totalItens} /> },
-          { rot: "Próxima retirada", node: <span>{kpis.proxima}</span> },
+          {
+            rot: "Próxima retirada",
+            node: kpis.proxima ? (
+              <span>{kpis.proxima}</span>
+            ) : (
+              <span className="text-[15px] font-medium text-cream/50">sem retirada marcada</span>
+            ),
+          },
         ].map((k) => (
           <div key={k.rot} className="glass rounded-[18px] px-5 py-4">
             <div className="font-title text-[28px] font-bold leading-none text-grad-dourado">{k.node}</div>

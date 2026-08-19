@@ -22,6 +22,7 @@ import {
   Tooltip,
   Cell,
   CartesianGrid,
+  LabelList,
 } from "recharts";
 import {
   ArrowUpRight,
@@ -45,6 +46,11 @@ const PERIODOS: [Periodo, string][] = [
   ["custom", "Personalizado"],
 ];
 
+// Placeholder de KPI sem numero. Antes era um travessao solto, que e proibido
+// no painel e ainda parecia campo quebrado; escrito, o dono sabe que nao houve
+// movimento no periodo.
+const SEM_DADO = <span className="text-base font-medium text-cream/45">sem dados</span>;
+
 const OURO = "#e6c766";
 const COBRE = "#e7cf94";
 
@@ -65,7 +71,14 @@ export default function Resultados({
 
   function trocar(p: Periodo) {
     if (p === "custom") {
-      const hoje = new Date().toISOString().slice(0, 10);
+      // toISOString() dá o dia em UTC: das 21h em diante o campo de data já
+      // abria em amanhã e o dono filtrava um período que ainda não aconteceu.
+      const hoje = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Sao_Paulo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
       router.push(`/resultados?periodo=custom&de=${d1 || hoje}&ate=${d2 || hoje}`);
     } else {
       router.push(`/resultados?periodo=${p}`);
@@ -169,7 +182,7 @@ export default function Resultados({
           icon={<Clock size={17} />}
           valor={
             semDados ? (
-              "—"
+              SEM_DADO
             ) : K.horasEconomizadas.valor < 60 ? (
               <NumberTicker value={K.horasEconomizadas.valor} suffix=" min" />
             ) : (
@@ -184,7 +197,7 @@ export default function Resultados({
           destaque
           icon={<RotateCcw size={17} />}
           valor={
-            semDados ? "—" : <NumberTicker value={K.recuperadoCentavos.valor / 100} prefix="R$ " decimals={2} />
+            semDados ? SEM_DADO : <NumberTicker value={K.recuperadoCentavos.valor / 100} prefix="R$ " decimals={2} />
           }
           rotulo="em orçamentos recuperados"
           variacao={K.recuperadoCentavos.variacaoPct}
@@ -199,7 +212,7 @@ export default function Resultados({
           destaque
           icon={<Banknote size={17} />}
           valor={
-            semDados ? "—" : <NumberTicker value={K.faturadoCentavos.valor / 100} prefix="R$ " decimals={2} />
+            semDados ? SEM_DADO : <NumberTicker value={K.faturadoCentavos.valor / 100} prefix="R$ " decimals={2} />
           }
           rotulo="faturados pelo WhatsApp"
           variacao={K.faturadoCentavos.variacaoPct}
@@ -216,21 +229,21 @@ export default function Resultados({
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
         <Kpi
           icon={<MessageCircle size={16} />}
-          valor={semDados ? "—" : <NumberTicker value={K.atendimentos.valor} />}
+          valor={semDados ? SEM_DADO : <NumberTicker value={K.atendimentos.valor} />}
           rotulo="atendimentos"
           variacao={K.atendimentos.variacaoPct}
           comparativo={dados.comparativoLabel}
         />
         <Kpi
           icon={<Moon size={16} />}
-          valor={semDados ? "—" : <NumberTicker value={K.foraHorario.valor} />}
+          valor={semDados ? SEM_DADO : <NumberTicker value={K.foraHorario.valor} />}
           rotulo="fora do horário"
           variacao={K.foraHorario.variacaoPct}
           comparativo={dados.comparativoLabel}
         />
         <Kpi
           icon={<ShoppingBag size={16} />}
-          valor={semDados ? "—" : <NumberTicker value={K.pedidos.valor} />}
+          valor={semDados ? SEM_DADO : <NumberTicker value={K.pedidos.valor} />}
           rotulo="pedidos que entraram"
           variacao={K.pedidos.variacaoPct}
           comparativo={dados.comparativoLabel}
@@ -274,7 +287,7 @@ export default function Resultados({
             <Vazio label={dados.periodoLabel} />
           ) : (
             <ResponsiveContainer width="100%" height={230}>
-              <BarChart data={dados.porDiaSemana} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
+              <BarChart data={dados.porDiaSemana} margin={{ top: 20, right: 4, left: 0, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.07)" />
                 {/* interval=0 obriga os sete dias a aparecer. No automático o
                     recharts descartava o "Sáb" quando a largura apertava, e a
@@ -288,9 +301,29 @@ export default function Resultados({
                   tickLine={false}
                   axisLine={false}
                 />
-                <YAxis hide />
+                {/* O gráfico dizia que terça é o pico e não dizia quantos: pra
+                    ler "6 pedidos" o dono tinha que passar o mouse, o que no
+                    tablet do balcão nem existe. Eixo com a escala e o número em
+                    cima da barra. allowDecimals=false porque pedido é inteiro,
+                    e o zero fica sem rótulo pra não sujar os dias vazios. */}
+                <YAxis
+                  allowDecimals={false}
+                  width={26}
+                  tick={{ fill: "rgba(245,235,220,0.4)", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
                 <Tooltip cursor={{ fill: "rgba(255,255,255,0.05)" }} content={<TipCount unidade="pedidos" />} />
                 <Bar dataKey="pedidos" radius={[6, 6, 0, 0]}>
+                  <LabelList
+                    dataKey="pedidos"
+                    position="top"
+                    offset={7}
+                    fill="rgba(245,235,220,0.9)"
+                    fontSize={12}
+                    fontWeight={600}
+                    formatter={(v) => (Number(v) > 0 ? String(v) : "")}
+                  />
                   {dados.porDiaSemana.map((d, i) => {
                     const max = Math.max(...dados.porDiaSemana.map((x) => x.pedidos));
                     return <Cell key={i} fill={d.pedidos === max ? OURO : "rgba(230,199,102,0.4)"} />;

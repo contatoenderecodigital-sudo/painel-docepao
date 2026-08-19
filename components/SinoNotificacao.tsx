@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================================
-//  SINO — avisa que chegou pedido novo, com som.
+//  SINO: avisa que chegou pedido novo, com som.
 //
 //  A padaria não fica olhando a tela: o pessoal está no balcão, no forno. Um
 //  pedido que entra e ninguém vê é um cliente esperando resposta à toa.
@@ -10,7 +10,7 @@
 //
 //  1. O som é DESLIGADO por padrão e fica guardado no navegador. Navegador
 //     bloqueia áudio sem gesto do usuário, então tocar sozinho de cara não
-//     funcionaria — e um painel que apita sem ninguém ter pedido é motivo pra
+//     funcionaria, e um painel que apita sem ninguém ter pedido é motivo pra
 //     deixar a aba fechada.
 //  2. O beep é gerado no próprio navegador (WebAudio), sem arquivo de som:
 //     um mp3 seria mais uma coisa pra carregar, versionar e falhar.
@@ -46,7 +46,7 @@ export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) 
     }
   }, []);
 
-  // Dois toques curtos, como um aviso de balcão — não um alarme.
+  // Dois toques curtos, como um aviso de balcão, e não um alarme.
   const tocar = useCallback(() => {
     try {
       const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -147,11 +147,27 @@ export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) 
 
   const total = (contagem?.fila ?? 0) + (contagem?.aguardando ?? 0) + (contagem?.ajuda ?? 0);
 
+  // O menu aberto já separa pedido de conversa, mas o balãozinho do sino somava
+  // tudo e chamava de pedido: com 6 pedidos na fila e 1 conversa passada pra
+  // equipe ele dizia "7 pedido(s) esperando você", e a dona ia procurar um
+  // sétimo pedido que não existia. Aqui o texto conta cada coisa pelo nome.
+  const pedidosEsperando = (contagem?.fila ?? 0) + (contagem?.aguardando ?? 0);
+  const conversasEsperando = contagem?.ajuda ?? 0;
+  const partesTitulo: string[] = [];
+  if (pedidosEsperando > 0) {
+    partesTitulo.push(`${pedidosEsperando} ${pedidosEsperando === 1 ? "pedido" : "pedidos"}`);
+  }
+  if (conversasEsperando > 0) {
+    partesTitulo.push(`${conversasEsperando} ${conversasEsperando === 1 ? "conversa" : "conversas"}`);
+  }
+  const tituloSino =
+    partesTitulo.length > 0 ? `${partesTitulo.join(" e ")} esperando você` : "Nada esperando você";
+
   return (
     <div className="relative">
       <button
         onClick={() => setAberto((v) => !v)}
-        title={total > 0 ? total + " pedido(s) esperando você" : "Nenhum pedido esperando"}
+        title={tituloSino}
         aria-label="Notificações"
         className="press toque relative w-10 h-10 grid place-items-center rounded-full transition-colors"
         style={

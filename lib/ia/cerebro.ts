@@ -864,6 +864,13 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     if (familiaEscolhida) {
       const alvo = categoria === "docinho" ? /([0-9]+) *(docinho|doce)/i : /([0-9]+) *salgado/i;
       let pedidoTotal = Number((String(falaDoCliente).match(alvo) ?? [])[1] ?? 0);
+      // Ele disse 'metade de cada' sem numero: o total e o que ELA acabou de
+      // propor. Sem isto, cada tipo levava o total inteiro e a festa triplicava.
+      if (!pedidoTotal) {
+        const daSugestao = Number((String(ultimaFalaDela).match(alvo) ?? [])[1] ?? 0);
+        const dividindo = /de cada|meio a meio|metade|igual|divid/i.test(String(falaDoCliente));
+        if (daSugestao > 0 && dividindo) pedidoTotal = daSugestao;
+      }
       // "metade frito metade assado": cada metade e um balde separado, senao a
       // conta fecha no total e estoura dentro de uma das duas.
       // So e meio a meio quando ele cita OS DOIS tipos: "metade frito metade

@@ -1,5 +1,5 @@
 // ============================================================================
-//  CLIENTES (CRM) — ficha de cada cliente com histórico agregado de pedidos.
+//  CLIENTES (CRM): ficha de cada cliente com histórico agregado de pedidos.
 //  As "preferências / notas" da equipe ficam em negocios.config.clientes_notas
 //  (mapa telefone -> texto), pra não precisar de migração de schema.
 //  Isolamento multi-tenant: toda query filtra por negocio_id.
@@ -23,11 +23,16 @@ type Linha = {
 
 export async function listarClientes(negocioId: string): Promise<ClienteCRM[]> {
   const linhas = await query<Linha>(
+    // Toda data que sai daqui vai CONVERTIDA pro fuso da padaria. As colunas sao
+    // timestamptz e o servidor roda em UTC: as 22h35 do dia 18 na padaria o
+    // banco ja responde 2026-08-19, e o historico do cliente mostrava um pedido
+    // de hoje com a data de amanha toda noite depois das 21h. O to_char devolve
+    // texto SEM fuso justamente pra ninguem converter de novo na tela.
     `select c.id, c.nome, c.telefone, c.aniversario, c.selos,
-            c.criado_em as cliente_desde,
+            to_char(c.criado_em at time zone 'America/Sao_Paulo', 'YYYY-MM-DD"T"HH24:MI:SS') as cliente_desde,
             coalesce(agg.qtd, 0) as qtd_pedidos,
             coalesce(agg.total, 0) as total_gasto,
-            agg.ultimo as ultimo_pedido,
+            to_char(agg.ultimo at time zone 'America/Sao_Paulo', 'YYYY-MM-DD"T"HH24:MI:SS') as ultimo_pedido,
             coalesce(ped.pedidos, '[]'::json) as pedidos
        from clientes c
        left join lateral (
@@ -39,7 +44,8 @@ export async function listarClientes(negocioId: string): Promise<ClienteCRM[]> {
        left join lateral (
          select json_agg(json_build_object(
                   'id', s.id, 'data', s.retirada_data, 'totalCentavos', s.total_centavos,
-                  'status', s.status, 'criadoEm', s.criado_em,
+                  'status', s.status,
+                  'criadoEm', to_char(s.criado_em at time zone 'America/Sao_Paulo', 'YYYY-MM-DD"T"HH24:MI:SS'),
                   'itens', (select count(*) from pedido_itens i where i.pedido_id = s.id)
                 ) order by s.criado_em desc) as pedidos
            from (select * from pedidos where cliente_id = c.id and negocio_id = $1 order by criado_em desc limit 8) s
