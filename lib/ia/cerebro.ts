@@ -18,6 +18,7 @@ import { registrarUsoIA, type UsoTurno } from "./uso";
 import catalogo from "./dados/catalogo.json";
 import { padariaAberta } from "@/lib/padaria-aberta";
 import { enumDeProdutos, FORA_DO_CARDAPIO } from "./produtos";
+import { fatosDaCasa, afirmacoesNaoAutorizadas, RECADO_DA_EQUIPE } from "./fatos";
 
 // TODOS OS PRECOS UNITARIOS QUE A PADARIA PRATICA, em centavos.
 // Fonte unica: o catalogo. O que nao esta aqui, ela nao pode dizer que cobra.
@@ -4419,6 +4420,31 @@ async function rodarConversa(
         }
       } catch (e) {
         console.error("[ia] falha na guarda de preco (segue com o texto dela):", e);
+      }
+
+      // POLITICA DA CASA SO SAI DA LISTA AUTORIZADA.
+      //
+      // Ela inventou "minimo de 20 de cada sabor" e "cada quilo serve 10
+      // pessoas". Minimo inventado no WhatsApp e minimo que o cliente pode
+      // cobrar: em Moffatt contra Air Canada o tribunal obrigou a empresa a
+      // honrar a politica que o proprio chatbot criou.
+      try {
+        const naoAutorizadas = afirmacoesNaoAutorizadas(
+          textoFinal,
+          fatosDaCasa({ prazoMinimoDias: tenant.persona?.prazoMinimoDias }),
+        );
+        if (naoAutorizadas.length) {
+          console.warn("[ia] politica inventada, cortada do texto:", naoAutorizadas.join(" | "));
+          let limpo = textoFinal;
+          for (const frase of naoAutorizadas) limpo = limpo.split(frase).join("");
+          limpo = limpo.replace(/[ ]{2,}/g, " ").replace(/\n{3,}/g, String.fromCharCode(10, 10)).trim();
+          textoFinal = (limpo ? limpo + String.fromCharCode(10, 10) : "") + RECADO_DA_EQUIPE;
+          // A equipe precisa saber que o cliente perguntou uma coisa que a Dora
+          // nao pode responder, senao ele fica esperando um retorno que nao vem.
+          estado.precisaHumano = true;
+        }
+      } catch (e) {
+        console.error("[ia] falha na guarda de politica (segue com o texto dela):", e);
       }
 
       // O RESUMO SAI DO PEDIDO GRAVADO, NAO DA LEMBRANCA DELA.
