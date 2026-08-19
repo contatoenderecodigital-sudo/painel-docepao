@@ -382,7 +382,7 @@
       "banana com suspiro"
     ]
   },
-  "_por_quilo": "Bolos recheados, tortas, empadão, bolo salgado, pão francês, calzone, cachorro-quente, pão de X, pizza redonda e CUCA (recheada e sem recheio) são POR QUILO: a qtd registrada é o PESO em kg (ex: 1.5) e o preço aqui é por kg. Cupcake, franciscano, pizza de forma e pão doce são por unidade.",
+  "_por_quilo": "Bolos recheados, tortas, empadão, bolo salgado, pão francês, pão doce, calzone, cachorro-quente, pão de X, pizza redonda e CUCA (recheada e sem recheio) são POR QUILO: a qtd registrada é o PESO em kg (ex: 1.5) e o preço aqui é por kg. Cupcake, franciscano e pizza de forma são por unidade.",
   "_preco_beneficente": "SO a equipe aplica, a IA nunca cota. Quando o cliente pede desconto, ajuda ou diz que e beneficente, o cachorro-quente e o pao de X saem POR UNIDADE: cachorro-quente R$ 1,20 e pao de X R$ 1,40 (audio WhatsApp 2026-08-11 11.02.24: 'quando a pessoa pedir um desconto, ou entao falar que e beneficente, ou ate pedir uma ajuda, a gente ja cobra unidade. O cachorro-quente, R$ 1,20 e o pao de X, R$ 1,40'). No mesmo audio a dona diz que quem negocia e a casa ('deixa eu ver a possibilidade de um desconto, eu ja te retorno'), entao esses valores ficam aqui como registro e o caso vai pro humano.",
   "_topo_de_bolo": "Nao e produto do motor, e por isso nao esta na lista: o valor varia e a equipe orca. Referencia da dona (audio WhatsApp 2026-08-11 10.39.36): so o nome R$ 15 a 20, topo completo R$ 30, com flores ou muito dourado R$ 35 a 40; e no audio 11.02.22 (1) ela diz que '90% dos topos custa realmente 30 reais, mas tem as excecoes'. Em 16/08 (audio docepao16082 (3)) ela pediu pra publicar no cardapio 'valores do topo aproximado 30 reais'. A regra do audio 10.39.36 segue valendo: 'sempre tem que ter a confirmacao ou colocar que geralmente e 30 reais, mas a gente vai ter que pedir um orcamento antes'. Papel de arroz, esse sim, e fixo em R$ 12.",
   "outros_produtos": [
@@ -579,8 +579,8 @@
       "nome": "pao doce",
       "preco": 22.9,
       "categoria": "padaria",
-      "unidade": "un",
-      "_nota": "POR UNIDADE. O cardapio impresso mais novo (cardapio.html, 16/08/2026) escreve 'cuca e pao doce por unidade'; no audio docepao1608 (4) a dona leu essa mesma linha e corrigiu SO a cuca ('nas cucas voce colocou unidade, mas na verdade e quilo'), sem falar do pao doce. Nenhum dos 49 audios diz que o pao doce e por quilo. Ele aparece pela primeira vez no audio WhatsApp 2026-08-11 10.35.43 (2) so com o valor: 'a gente tem tambem o pao doce, que esta R$ 22,90'."
+      "unidade": "kg",
+      "_nota": "POR QUILO, igual a cuca. A dona citou o pao doce na mesma frase da cuca sem recheio e no mesmo valor (audio 2026-08-11 10.35.43 (2)), e depois corrigiu num audio so pra dizer que esse preco e o do QUILO (docepao1608 (4)). Estava como unidade, o que faria cada pao custar mais que um bolo caseiro inteiro."
     },
     {
       "nome": "mini bolha doce",
