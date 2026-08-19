@@ -13,7 +13,7 @@
 // ============================================================================
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, Plus, Minus, Trash2, Check, Square, CheckSquare, Pencil } from "lucide-react";
+import { ChevronDown, Plus, Minus, Trash2, Check, Square, CheckSquare, Pencil, TriangleAlert } from "lucide-react";
 import { brl } from "@/lib/tipos";
 
 // Quantidade do jeito que a padaria escreve: 1,5 kg, nunca 1.5kg. A fila de
@@ -121,10 +121,17 @@ const semAcento = (t: string) =>
 // grava "risolis" sem acento, e "cuca recheada de banana" com o sabor colado no
 // nome. Casando so pelo texto exato, esses itens ficavam sem os chips de sabor
 // e a equipe voltava a digitar o recheio na mao.
-// Vale primeiro o nome igual (sem acento), depois o nome do cardapio que
-// COMECA o gravado. Entre varios, ganha o mais longo: senao "cuca recheada de
-// banana" casaria com "cuca", que nao tem sabor nenhum, em vez de "cuca
-// recheada".
+// A ordem e sempre esta, e o sentido nunca inverte:
+// 1. nome igual (sem acento) ganha de tudo. "empadao" e "empadao", ponto.
+// 2. sem igual, vale o nome do CARDAPIO que cabe dentro do gravado, porque o
+//    gravado e que vem mais comprido: "cuca recheada de banana" e "cuca
+//    recheada". Entre varios, ganha o mais longo, senao essa mesma cuca cairia
+//    em "cuca", que nao tem sabor nenhum.
+// 3. NUNCA o contrario. Se um nome de cardapio mais comprido que o gravado
+//    pudesse ganhar, "empadao" cairia na ficha de "empadao com palmito", que e
+//    outro produto (R$ 39,90 o quilo contra R$ 34,90), e o painel ofereceria
+//    palmito num empadao de frango. Por isso o teste e sempre gravado
+//    startsWith cardapio, e nunca ao contrario.
 function doCardapio(cardapio: OpcaoCardapio[], produto: string): OpcaoCardapio | undefined {
   const n = semAcento(produto);
   if (!n) return undefined;
@@ -144,6 +151,23 @@ function doCardapio(cardapio: OpcaoCardapio[], produto: string): OpcaoCardapio |
   }
   return melhor;
 }
+// SABOR EM FALTA: UM PEDIDO REAL FOI PRA COZINHA CEGO.
+// Hoje fechou um pedido com "cuca recheada: 3 un" e nenhum sabor escolhido, e
+// o ticket saiu assim. Ninguem assa uma cuca sem saber o recheio, e a cliente
+// so ia descobrir na hora da retirada. Quem sabe se o item precisa de sabor e o
+// proprio cardapio: se o produto tem lista de sabores e nenhum deles aparece na
+// observacao, o item esta sem recheio definido.
+function saboresDe(cardapio: OpcaoCardapio[], produto: string): string[] {
+  return doCardapio(cardapio, produto)?.sabores ?? [];
+}
+
+function semSaborEscolhido(cardapio: OpcaoCardapio[], it: Item): boolean {
+  const ops = saboresDe(cardapio, it.produto);
+  if (!ops.length) return false;
+  const obs = (it.obs ?? "").toLowerCase();
+  return !ops.some((sab) => obs.includes(sab.toLowerCase()));
+}
+
 const DO_MOTOR: Record<string, Categoria> = {
   doce: "docinho",
   salgado: "salgado_frito",
@@ -152,12 +176,14 @@ const DO_MOTOR: Record<string, Categoria> = {
   adicional_bolo: "papel_de_arroz",
   pizza: "pizza",
 };
+// A categoria usa exatamente o mesmo casamento do sabor. Aqui a busca aceitava
+// tambem o nome do cardapio que CONTINHA o gravado, que e a direcao proibida:
+// "empadao" achava "empadao com palmito" e o item ia parar na ficha do produto
+// mais caro. Quando nao da pra ter certeza, a familia que o motor gravou no
+// pedido vale mais do que um palpite pelo nome.
 function categoriaDaTela(produto: string, doMotor: string, cardapio: OpcaoCardapio[]): Categoria {
-  const n = semAcento(produto);
-  const exato = cardapio.find((c) => semAcento(c.nome) === n);
-  if (exato) return exato.categoria;
-  const perto = cardapio.find((c) => semAcento(c.nome).includes(n) || n.includes(semAcento(c.nome)));
-  if (perto) return perto.categoria;
+  const achado = doCardapio(cardapio, produto);
+  if (achado) return achado.categoria;
   if (CATEGORIAS.some((c) => c.id === doMotor)) return doMotor as Categoria;
   return DO_MOTOR[doMotor] ?? "outro";
 }
@@ -303,6 +329,13 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
   const preenchidos = CAMPOS.filter((c) => (dados[c.chave] ?? "").toString().trim() !== "").length;
   const vazio = itens.length === 0 && preenchidos === 0;
 
+  // Quem desce ate o fim do painel nao ve mais o item la de cima. O contador
+  // fica no topo do bloco pra equipe saber que existe buraco antes de salvar,
+  // como no dia da cuca sem recheio.
+  const itensSemSabor = itens.filter(
+    (x) => x.produto.trim() !== "" && semSaborEscolhido(cardapio, x),
+  ).length;
+
   const resumo = itens.length
     ? itens.map((x) => `${qtdBR(x.qtd)}${x.unidade === "kg" ? " kg" : ""} ${x.produto}`).join(", ")
     : "só os dados por enquanto";
@@ -408,6 +441,25 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
               <option key={c.categoria + c.nome} value={c.nome} />
             ))}
           </datalist>
+          {/* Antes de tudo: quantos itens ainda estao sem sabor. O pedido da cuca
+              recheada fechou sem recheio nenhum e ninguem percebeu porque nada
+              na tela chamava atencao. */}
+          {itensSemSabor > 0 && (
+            <p
+              className="text-[11px] leading-snug flex items-start gap-1.5 mb-2 rounded-[10px] px-2 py-1.5"
+              style={{
+                color: "#e7cf94",
+                background: "rgba(231,207,148,0.10)",
+                border: "1px solid rgba(231,207,148,0.35)",
+              }}
+            >
+              <TriangleAlert size={12} className="shrink-0 mt-0.5" />
+              <span>
+                {itensSemSabor === 1 ? "1 item sem sabor" : `${itensSemSabor} itens sem sabor`}. Escolha o sabor pra
+                cozinha saber o que fazer.
+              </span>
+            </p>
+          )}
           <div className="flex flex-col gap-2">
             {itens.map((it, i) => (
               <div key={i} className="rounded-[12px] p-2.5 border border-white/8" style={{ background: "rgba(0,0,0,0.18)" }}>
@@ -448,9 +500,18 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
 
                 {(() => {
                   const daCategoria = cardapio.filter((c) => c.categoria === it.categoria);
-                  // No bolo o nome carrega a mistura ("bolo X com Y"). O seletor
-                  // de cima e do sabor base; o Y tem campo proprio embaixo.
-                  const partes = it.produto.split(new RegExp(" com ", "i"));
+                  // SO O BOLO DE FESTA TEM "X COM Y".
+                  // No bolo, o Y e a mistura e tem campo proprio embaixo, entao o
+                  // seletor mostra so o sabor base. Fora do bolo, o " com " faz
+                  // parte do NOME do produto: "empadao com palmito" e outro item
+                  // do cardapio, R$ 39,90 o quilo contra R$ 34,90 do empadao
+                  // comum. Cortando pra todo mundo, a tela mostrava "empadao" no
+                  // seletor enquanto o item gravado era o de palmito, e os chips
+                  // de sabor traziam palmito num item que a equipe lia como
+                  // empadao de frango. Conferiam um produto, a cozinha recebia
+                  // outro, e o preco cobrado era o do mais caro.
+                  const misturavel = it.categoria === "bolo_festa";
+                  const partes = misturavel ? it.produto.split(/ com /i) : [it.produto];
                   const baseNome = partes[0] ?? "";
                   const mistura = partes[1] ?? "";
                   const conhecido = daCategoria.some((c) => c.nome === baseNome);
@@ -731,12 +792,32 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                     esquece o sabor e erra o nome, e sabor faltando é a cozinha
                     fazendo o padrão e o cliente descobrindo na festa. */}
                 {(() => {
-                  const ops = doCardapio(cardapio, it.produto)?.sabores ?? [];
+                  const ops = saboresDe(cardapio, it.produto);
                   if (!ops.length) return null;
                   const atual = (it.obs ?? "").toLowerCase();
+                  // Enquanto nenhum chip estiver aceso o bloco fica realcado. O
+                  // aviso e so visual: a equipe salva no meio do caminho o tempo
+                  // todo e travar o botao ia fazer ela perder correcao pronta.
+                  const faltaSabor = !ops.some((sab) => atual.includes(sab.toLowerCase()));
                   return (
-                    <div className="mt-2">
-                      <span className="block text-[11px] text-cream/45 mb-1">Sabor</span>
+                    <div
+                      className="mt-2 rounded-[10px]"
+                      style={
+                        faltaSabor
+                          ? {
+                              background: "rgba(231,207,148,0.07)",
+                              border: "1px solid rgba(231,207,148,0.45)",
+                              padding: "8px",
+                            }
+                          : undefined
+                      }
+                    >
+                      <span className="block text-[11px] text-cream/45 mb-1">
+                        Sabor{" "}
+                        <span style={{ color: "#e7cf94" }} aria-label="obrigatório">
+                          *
+                        </span>
+                      </span>
                       <div className="flex flex-wrap gap-1">
                       {ops.map((sab) => {
                         const marcado = atual.includes(sab.toLowerCase());
@@ -764,6 +845,15 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                         );
                       })}
                     </div>
+                    {faltaSabor && (
+                      <p
+                        className="text-[11px] leading-snug mt-1.5 flex items-start gap-1.5"
+                        style={{ color: "#e7cf94" }}
+                      >
+                        <TriangleAlert size={11} className="shrink-0 mt-0.5" />
+                        <span>Sem o sabor a cozinha não sabe o que fazer.</span>
+                      </p>
+                    )}
                     </div>
                   );
                 })()}
