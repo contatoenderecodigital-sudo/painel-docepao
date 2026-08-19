@@ -25,14 +25,18 @@ import type { ItemPedido, Pedido } from "@/lib/tipos";
 
 // Dois relógios, de propósito.
 //
-// A LISTA mostra cedo, porque quem age nela é gente: a dona olha o nome, vê
-// que é a cliente que sempre pede pra sábado, e manda um alô com jeito. Uma
-// hora parado já é informação útil pra ela.
+// A LISTA só mostra depois de DEZ HORAS de silêncio. Uma hora era cedo
+// demais: quem parou de responder ao meio-dia pode estar almoçando ou
+// trabalhando, e a tela enchia de conversa viva. Tela cheia de ruído é tela
+// que a dona para de abrir. Dez horas quer dizer que ele recebeu a resposta e
+// passou o resto do dia sem voltar.
 //
-// A COBRANÇA automática espera muito mais, porque quem escreve é um robô, e
-// robô não lê a situação. Cobrar quem só foi almoçar queima a cliente.
-export const HORAS_PARA_LISTAR = 1;
-export const HORAS_PARA_COBRAR = 6;
+// A COBRANÇA vem logo atrás por causa de uma janela curta, não por pressa: a
+// Meta só aceita texto livre até 24h depois da última mensagem do cliente.
+// Passou disso, só template aprovado, que a padaria ainda não tem. Então o
+// robô tem de 12h a 24h pra agir, e esperar mais só perde a janela.
+export const HORAS_PARA_LISTAR = 10;
+export const HORAS_PARA_COBRAR = 12;
 
 export const AUTOR_COBRANCA = "cobranca";
 
