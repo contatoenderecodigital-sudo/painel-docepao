@@ -172,7 +172,10 @@ export async function carregarConexao(negocioId: string): Promise<ConexaoWhatsap
   if (conectado) {
     const c = await queryUm<{ c: number }>(
       `select count(*)::int as c from mensagens
-        where negocio_id = $1 and papel = 'assistant' and criado_em >= current_date`,
+        -- O dia da padaria, nao o do servidor: com current_date (UTC) a conta
+        -- zerava as 21h de Brasilia, no meio do expediente.
+        where negocio_id = $1 and papel = 'assistant'
+          and criado_em >= (now() at time zone 'America/Sao_Paulo')::date`,
       [negocioId],
     );
     mensagensHoje = c?.c ?? 0;
