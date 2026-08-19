@@ -214,6 +214,19 @@ export async function marcarWebhookNovo(wamid: string): Promise<boolean> {
 
 // Registra o pedido que a IA fechou: cabeçalho em `pedidos` + itens.
 // Entra como 'confirmado' → aparece na fila de APROVAÇÃO da equipe no painel.
+// A hora chega da conversa como o cliente falou: 16h, 16, 16:00, as 16h30.
+// No banco tem que ser um formato so, senao o cupom, o painel e a tela do dia
+// mostram a mesma hora de tres jeitos. Tem pedido gravado como '16h'.
+function horaPadrao(h?: string | null): string | null {
+  if (!h) return null;
+  const m = String(h).trim().match(/^(\d{1,2})(?:[h:.](\d{1,2}))?/);
+  if (!m) return null;
+  const hora = Number(m[1]);
+  const min = Number(m[2] ?? 0);
+  if (hora > 23 || min > 59) return null;
+  return String(hora).padStart(2, "0") + ":" + String(min).padStart(2, "0");
+}
+
 export async function registrarPedido(
   negocioId: string,
   clienteId: string,
@@ -264,6 +277,18 @@ export async function registrarPedido(
   //
   // O corte é por status: assim que a equipe aprova, o pedido sai do caminho e
   // um novo pedido do mesmo cliente nasce separado, como tem que ser.
+  // SEM DATA DE RETIRADA O PEDIDO NAO ENTRA NA FILA.
+  //
+  // A cozinha produz por dia. Um pedido com hora e sem data e um pedido que
+  // ninguem sabe pra quando fazer, e na tela ele aparecia como um tracinho
+  // discreto do lado de uma hora que parecia certa. Para na mesa da equipe,
+  // com o motivo escrito, ate alguem perguntar pro cliente.
+  const semData = !pedido.retiradaData;
+  const precisaConfirmacao = (pedido.precisaConfirmacao ?? false) || semData;
+  const motivoHumano = semData
+    ? [pedido.motivoHumano, "O cliente não disse o dia da retirada."].filter(Boolean).join(" ")
+    : pedido.motivoHumano ?? null;
+
   const aberto = await queryUm<{ id: string; equipe_ajustou: boolean }>(
     `select id, coalesce(equipe_ajustou, false) as equipe_ajustou from pedidos
        where negocio_id = $1 and cliente_id = $2 and status = 'confirmado'
@@ -292,11 +317,11 @@ export async function registrarPedido(
         [
           aberto.id,
           parseDataRetirada(pedido.retiradaData),
-          pedido.retiradaHora ?? null,
+          horaPadrao(pedido.retiradaHora),
           totalCentavos,
           pedido.observacoes ?? null,
-          pedido.precisaConfirmacao ?? false,
-          pedido.precisaConfirmacao ? pedido.motivoHumano ?? null : null,
+          precisaConfirmacao,
+          precisaConfirmacao ? motivoHumano : null,
           pedido.formaPagamento ?? null,
         ],
       );
@@ -313,11 +338,11 @@ export async function registrarPedido(
           negocioId,
           clienteId,
           parseDataRetirada(pedido.retiradaData),
-          pedido.retiradaHora ?? null,
+          horaPadrao(pedido.retiradaHora),
           totalCentavos,
           pedido.observacoes ?? null,
-          pedido.precisaConfirmacao ?? false,
-          pedido.precisaConfirmacao ? pedido.motivoHumano ?? null : null,
+          precisaConfirmacao,
+          precisaConfirmacao ? motivoHumano : null,
           pedido.formaPagamento ?? null,
         ],
       );

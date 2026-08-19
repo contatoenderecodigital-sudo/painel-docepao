@@ -29,7 +29,11 @@ function formataData(iso: string | null) {
   const [a, m, d] = iso.split("-");
   const dias = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
   const dt = new Date(Number(a), Number(m) - 1, Number(d));
-  return `${dias[dt.getDay()]} ${d}/${m}`;
+  // O ano só aparece quando muda. Encomenda de formatura fechada em agosto
+  // pra dezembro do ano seguinte estava saindo como um 12/12 solto na tela.
+  const anoAtual = new Date().getFullYear();
+  const ano = Number(a) === anoAtual ? "" : "/" + a;
+  return `${dias[dt.getDay()]} ${d}/${m}${ano}`;
 }
 
 type IconTipo = React.ComponentType<{ size?: number }>;
@@ -119,7 +123,9 @@ function CardPedido({
             href={linkWhatsapp(pedido.clienteTelefone)}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-[13px] text-cream/60 mt-1 hover:text-cream transition-colors"
+            /* 44px no dedo: é o atalho pro WhatsApp do cliente e era o menor
+               alvo da tela, com 19px. No mouse continua compacto. */
+            className="inline-flex items-center gap-1.5 text-[13px] text-cream/60 mt-1 h-11 sm:h-auto sm:mt-1 hover:text-cream transition-colors"
           >
             <WhatsAppIcon /> {formatarTelefoneBR(pedido.clienteTelefone)}
           </a>
@@ -127,8 +133,10 @@ function CardPedido({
         </div>
         <div className="text-right shrink-0">
           <div className="t-label text-cream/45">Retirada</div>
-          <div className="text-sm font-semibold text-cream mt-0.5">
-            {data ?? "-"}{pedido.retiradaHora ? ` · ${pedido.retiradaHora}` : ""}
+          <div className="text-sm font-semibold mt-0.5" style={{ color: data ? undefined : "#ff8a8a" }}>
+            {/* Sem data, a tela grita. Um tracinho do lado de uma hora certa
+                passa despercebido, e quem paga o preco e a cozinha. */}
+            {data ?? "SEM DATA"}{pedido.retiradaHora ? ` · ${pedido.retiradaHora}` : ""}
           </div>
           {pedido.pessoas ? (
             <span

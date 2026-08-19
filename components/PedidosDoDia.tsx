@@ -114,6 +114,22 @@ export default function PedidosDoDia({
   }, []);
 
   const hoje = useMemo(() => hojeNaPadaria(), []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const daUrl = new URLSearchParams(window.location.search).get("dia");
+    if (daUrl && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(daUrl)) setSel(daUrl);
+  }, []);
+
+  // O dia escolhido vai pro endereço: sem isso, F5 voltava pra hoje e não
+  // dava pra mandar pra cozinha o link do sábado da formatura.
+  function escolherDia(c: string) {
+    setSel(c);
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (c === hoje) url.searchParams.delete("dia");
+    else url.searchParams.set("dia", c);
+    window.history.replaceState(null, "", url.pathname + url.search);
+  }
   const [sel, setSel] = useState(() => {
     const m: Record<string, number> = {};
     for (const p of pedidos) if (p.retiradaData) m[p.retiradaData] = (m[p.retiradaData] || 0) + 1;
@@ -183,7 +199,7 @@ export default function PedidosDoDia({
       <div className="text-[11px] uppercase tracking-[0.2em] text-dourado font-semibold">Pedidos do dia</div>
       <div className="flex items-center gap-2 mt-1">
         <h1 className="font-title text-3xl font-bold text-cream">Produção da cozinha</h1>
-        <AjudaInfo titulo="Pedidos do dia" texto="A produção do dia separada por estação (salgados, docinhos, bolo festa). Cada equipe vê só o que precisa fazer, e o ticket do caixa fica com o total." />
+        <AjudaInfo titulo="Pedidos do dia" texto="A produção do dia separada por estação (salgados, docinhos, bolo festa). Cada equipe vê só o que precisa fazer, e o ticket do caixa fica com o total. Aqui só entra pedido JÁ APROVADO: o que ainda está esperando aprovação aparece na tela de Aprovação, e por isso os dois números podem não bater." />
       </div>
       <p className="text-sm text-cream/60 mt-1 mb-6 max-w-2xl">
         Cada equipe vê só o que precisa produzir. A soma de todos os pedidos do dia, separada por estação.
@@ -277,7 +293,11 @@ export default function PedidosDoDia({
                   </div>
                   <div className="p-4 flex flex-col gap-3 flex-1">
                     {itens.length === 0 ? (
-                      <div className="text-[13px] text-cream/40 py-4 text-center">Nada pra esta estação hoje.</div>
+                      <div className="text-[13px] text-cream/40 py-4 text-center">
+                        {/* Dizia sempre "hoje", mesmo com outro dia escolhido no
+                            calendário: a dona lia produção vazia olhando sexta. */}
+                        {sel === hoje ? "Nada pra esta estação hoje." : "Nada pra esta estação neste dia."}
+                      </div>
                     ) : (
                       itens.map((it) => (
                         <div key={it.produto} className="flex items-center gap-2">
@@ -475,7 +495,7 @@ export default function PedidosDoDia({
               return (
                 <button
                   key={i}
-                  onClick={() => setSel(c)}
+                  onClick={() => escolherDia(c)}
                   className={"relative aspect-square rounded-lg text-[12px] grid place-items-center transition-colors " + (on ? "font-bold text-vinho-d" : "text-cream/80 hover:bg-white/10")}
                   style={on ? { background: "#e7cf94" } : n > 0 ? { background: `rgba(197,111,30,${intensidade})` } : undefined}
                 >
@@ -486,9 +506,13 @@ export default function PedidosDoDia({
               );
             })}
           </div>
-          <div className="text-[11px] text-cream/45 mt-3 flex items-center gap-2">
-            <span className="w-3 h-3 rounded" style={{ background: "rgba(197,111,30,0.5)" }} /> dias mais cheios
-          </div>
+          {/* Legenda de cor sem nenhum dia colorido é enfeite que confunde:
+              só aparece quando existe dia cheio pra explicar. */}
+          {maxDia > 0 && (
+            <div className="text-[11px] text-cream/45 mt-3 flex items-center gap-2">
+              <span className="w-3 h-3 rounded" style={{ background: "rgba(197,111,30,0.5)" }} /> dias mais cheios
+            </div>
+          )}
         </div>
       </div>
 

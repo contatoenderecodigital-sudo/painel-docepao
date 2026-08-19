@@ -14,7 +14,7 @@
 //  empresa. Resolvido, o pedido cai na fila de aprovação normal.
 // ============================================================================
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, MessageSquare, Check, Loader2, Image as ImgIcon } from "lucide-react";
@@ -44,6 +44,15 @@ function fmtQtd(qtd: number, unidade?: string | null) {
 
 export default function AguardandoConfirmacao({ pedidos }: { pedidos: Pedido[] }) {
   const router = useRouter();
+
+  // Esta tela vivia congelada: o contador do menu subia e a lista aqui
+  // continuava a mesma até alguém apertar F5. Pedido parado aqui é pedido
+  // esperando o cliente responder, então cada minuto sem aparecer é venda
+  // esfriando sem ninguém saber.
+  useEffect(() => {
+    const t = setInterval(() => router.refresh(), 8000);
+    return () => clearInterval(t);
+  }, [router]);
 
   if (pedidos.length === 0) {
     return (
@@ -270,9 +279,18 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
         </div>
         {!pedido.aguardandoCliente && (
           <button
-            onClick={() => enviar(false)}
+            onClick={() => {
+              // Pergunta antes: é a ação que mais empurra o pedido pra frente
+              // e era a menos protegida da tela. Um dedo torto no celular
+              // mandava pra fila sem o valor do topo de bolo, e daí sai papel.
+              const ok = window.confirm(
+                "Mandar este pedido direto pra aprovação, sem cobrar valor nenhum a mais?\n\nO cliente não vai receber pedido de confirmação de valor."
+              );
+              if (ok) enviar(false);
+            }}
             disabled={salvando}
-            className="mt-2.5 text-[12px] text-cream/50 hover:text-cream/80 underline underline-offset-2 disabled:opacity-50"
+            className="mt-2.5 w-full h-11 px-3 rounded-[10px] text-[12.5px] font-medium text-cream/70 hover:text-cream disabled:opacity-50"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}
           >
             Não tem valor a cobrar, mandar direto pra aprovação
           </button>
