@@ -114,11 +114,17 @@ export async function POST(req: NextRequest) {
               (i.unidade === "kg" ? String(i.qtd).replace(".", ",") + " kg" : i.qtd + " un") +
               " de " + i.produto + (i.obs ? " (" + i.obs + ")" : ""),
           );
+          // A PERGUNTA NO FIM E O QUE FAZ O PEDIDO ANDAR.
+          //
+          // Antes terminava com "se alguma coisa nao estiver certa, me avisa",
+          // que e passivo: muito cliente nao responde nada e o pedido fica
+          // parado esperando alguem da padaria empurrar na mao. Pedindo o
+          // "ta certo", o ok dele libera a aprovacao sozinho.
           const texto =
             "Passando pra confirmar: a equipe ajustou seu pedido aqui.\n\n" +
             linhas.join("\n") +
             "\n\nTotal: " + (total / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) +
-            "\n\nSe alguma coisa nao estiver certa, me avisa que a gente acerta.";
+            "\n\nTa certo assim pra eu passar pra confirmacao? Se faltou alguma coisa, me fala que a gente acerta.";
           await enviarTexto(telefone, texto, { token: creds.token, phoneId: creds.phoneId }).catch((e) => console.error("[montagem] falha ao avisar o cliente:", e));
           await salvarMensagem(sessao.negocioId, corpo.clienteId, "assistant", texto, {
             autor: "equipe",
@@ -128,15 +134,34 @@ export async function POST(req: NextRequest) {
         console.error("[montagem] nao consegui avisar o cliente da correcao:", e);
       }
 
-      // A partir daqui quem fala com o cliente e a equipe: a Dora nao pode
-      // conversar por cima de uma correcao que ela nao fez.
+      // O PEDIDO FICA ESPERANDO O CLIENTE, EM VEZ DE PAUSAR A DORA.
+      //
+      // Antes a IA era pausada aqui. A intencao era certa, a Dora nao pode
+      // conversar por cima de uma correcao que ela nao fez, mas o efeito era
+      // que o "ok" do cliente caia no vazio: ninguem escutava, o pedido nao
+      // andava, e alguem da padaria tinha que empurrar pra aprovacao na mao.
+      //
+      // Agora usa a mesma maquina do lancamento do topo, que ja esta testada:
+      // o pedido fica aguardando_cliente, a Dora entra so pra tratar a
+      // resposta (com as ferramentas de mexer no pedido bloqueadas, ela nao
+      // reorca nem reescreve nada), e:
+      //   ele aceita  -> entra na fila de aprovacao sozinho
+      //   ele recusa  -> volta pra fila da equipe com o motivo
       let assumiu = false;
       try {
-        const { definirPausaIA } = await import("@/lib/banco/atendimentos");
-        await definirPausaIA(sessao.negocioId, corpo.clienteId, true);
+        const { limparPendencia } = await import("@/lib/banco/pedidos");
+        await limparPendencia(corpo.pedidoId, sessao.negocioId);
         assumiu = true;
       } catch (e) {
-        console.error("[montagem] nao consegui pausar a IA depois da correcao:", e);
+        console.error("[montagem] nao consegui deixar o pedido esperando o cliente:", e);
+        // Nao conseguiu? Entao pausa, que e o comportamento antigo: melhor a
+        // equipe assumir a conversa do que a Dora responder por cima.
+        try {
+          const { definirPausaIA } = await import("@/lib/banco/atendimentos");
+          await definirPausaIA(sessao.negocioId, corpo.clienteId, true);
+        } catch (e2) {
+          console.error("[montagem] nem pausar a IA deu certo:", e2);
+        }
       }
       return Response.json({ ok: true, totalCentavos: total, assumiu });
     }

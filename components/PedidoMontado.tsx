@@ -1046,10 +1046,12 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
             </div>
             {assumiuConversa && (
               <div className="mt-2 text-[11.5px] leading-snug rounded-[10px] px-3 py-2.5" style={{ background: "rgba(231,207,148,0.12)", border: "1px solid rgba(231,207,148,0.30)", color: "#e7cf94" }}>
-                <span className="font-semibold">Pronto, agora a conversa é sua.</span>{" "}
-                O cliente já recebeu no WhatsApp o pedido como ficou. A Dora parou de responder
-                aqui, então quem fecha com ele daqui pra frente é você. Qualquer outra mudança no
-                pedido, faça por este painel do lado e salve de novo.
+                <span className="font-semibold">Pronto, agora é com o cliente.</span>{" "}
+                Ele já recebeu no WhatsApp o pedido como ficou, com o total novo, e a pergunta se
+                está certo assim. Se ele disser que sim, o pedido entra na fila de aprovação
+                sozinho. Se ele não aceitar, volta pra cá com o motivo. A Dora não vai reorçar nem
+                mexer em nada: ela só trata a resposta dele. Qualquer outra mudança, faça neste
+                painel do lado e salve de novo.
               </div>
             )}
             {erro && (
