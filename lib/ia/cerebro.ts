@@ -150,12 +150,27 @@ export function obsQueOClienteNaoDisse(obs: unknown, falasDoCliente: string[]): 
   // sozinha porque vieram de uma escolha estruturada, nao de invencao.
   const nossas =
     /^(sem foto|com foto|sem topo|sem papel|prato aberto|caixa com tampa|topo de bolo|papel de arroz|pao de lo|nome|idade|tema|anos?|dividido|variado|sortido)/;
+  // ROTULO NAO E ESCOLHA.
+  //
+  // O cliente escreve "rosa", e ela anota "forminha rosa". A palavra "forminha"
+  // e rotulo DELA, nao invencao: quem escolheu a cor foi ele. Sem tirar esses
+  // rotulos, a guarda recusava a anotacao certa e a cor se perdia, que e
+  // exatamente o defeito que ela ja tinha antes de existir guarda nenhuma.
+  const ROTULOS = /\b(forminha|forminhas|recheio|recheios|sabor|sabores|cor|tema|massa|cobertura|pao de lo|com|de|do|da|e|em|no|na)\b/g;
   const fora: string[] = [];
   for (const pedaco of texto.split(",").map((x) => x.trim()).filter(Boolean)) {
     const p = semAcMin(pedaco);
     if (p.length < 4 || nossas.test(p)) continue;
     // Basta o cliente ter escrito as palavras significativas em algum momento.
-    const palavras = p.split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+    // Os rotulos dela ("forminha", "recheio") saem antes: o que precisa vir do
+    // cliente e a ESCOLHA, nao a palavra que descreve o campo.
+    // "sem" tem tres letras e cairia do filtro, mas e ESCOLHA, nao rotulo: ela
+    // inventou "cuca sem recheio" que ninguem pediu. Tirando o rotulo "recheio"
+    // sobra so o "sem", e ele precisa continuar valendo.
+    const palavras = p
+      .replace(ROTULOS, " ")
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 3 || w === "sem");
     if (!palavras.length) continue;
     const disse = palavras.every((w) => tudo.includes(w));
     if (!disse) fora.push(pedaco);
@@ -213,6 +228,41 @@ export function faltandoNoResumo(texto: string, itens: { produto?: string }[]): 
       const chave = semAcMin(p).split(" ").filter((w) => w.length > 2)[0] ?? semAcMin(p);
       return chave && !t.includes(chave);
     });
+}
+
+// PRODUTO QUE NINGUEM CITOU NAO ENTRA NO PEDIDO.
+//
+// Na troca do bolo de prestigio por 4 leites, nasceu no pedido um "leite ninho"
+// que a cliente nunca pediu. Ela NEGOU que existia ("nao tem bolo de leite
+// ninho no seu pedido, pode ficar tranquila") e duas mensagens depois COBROU:
+// "leite ninho: 3 un x R$ 1,25 = R$ 3,13". Anotado como 2,5 kg e cobrado como
+// 3 unidades, ou seja, nem consigo isso ela conseguiu.
+//
+// O enum nao pega isso, porque "leite ninho" EXISTE (e um docinho). E a guarda
+// de observacao tambem nao, porque ela olha o SABOR, nao o produto. Faltava
+// perguntar o obvio: alguem falou nesse produto?
+//
+// Vale a fala do cliente E o que ELA acabou de propor, porque proposta aceita
+// com "pode ser" e escolha dele tambem.
+export function produtoQueNinguemCitou(
+  produto: string,
+  falasDoCliente: string[],
+  propostaDela: string,
+): boolean {
+  const nome = semAcMin(produto).trim();
+  if (!nome) return false;
+  // Generico ("salgado", "docinho") e a IA organizando o pedido, nao produto.
+  if (/^(salgado|salgado frito|salgado assado|docinho|bolo|bolo recheado|topo de bolo)$/.test(nome)) return false;
+  const tudo = " " + [...falasDoCliente, propostaDela].map((f) => semAcMin(f)).join(" | ") + " ";
+  // Toda palavra que importa do nome tem que aparecer em algum lugar. "bolo
+  // laka" passa se ele falou "laka"; "leite ninho" nao passa se ninguem falou
+  // "ninho", mesmo com "leites" na conversa.
+  const palavras = nome
+    .replace(/\b(de|do|da|com|e|em|no|na|bolo|pizza|mini)\b/g, " ")
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 3);
+  if (!palavras.length) return false;
+  return !palavras.every((w) => tudo.includes(w));
 }
 
 // ENDERECO DITO QUE NAO E O DA PADARIA, trocado pelo verdadeiro.
@@ -917,14 +967,24 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     }
     // PORTAO DE ESCRITA. Erro instrutivo em vez de codigo opaco: a mensagem
     // devolvida diz o que fazer no lugar, senao ela tenta a mesma coisa de novo.
-    if (clienteProibiuAnotar(falaDoCliente)) {
+    // ultimaFala, NAO falaDoCliente.
+    //
+    // falaDoCliente e a conversa INTEIRA colada, e eu usei ela achando que era
+    // a mensagem de agora. Resultado: o cliente disse "so estou pesquisando" na
+    // mensagem 3 e ficou bloqueado ate a 17, gritando "anota ai, confirmado" e
+    // ouvindo que nao tinha confirmado. Sete tentativas de fechar, nenhuma
+    // pizza anotada, e o cliente indo embora achando que tinha pedido.
+    //
+    // Intencao e do TURNO: vale a ultima coisa que ele disse, nao o que ele
+    // disse dez mensagens atras.
+    if (clienteProibiuAnotar(ultimaFala || falaDoCliente)) {
       return (
         "NAO anotei: o cliente acabou de dizer que NAO quer anotar nada, que so esta perguntando. " +
         "Responda o que ele perguntou, com preco e informacao, e nao anote item nenhum. " +
         "Quando ele decidir de verdade, ai sim voce anota."
       );
     }
-    if (soPerguntouSemPedir(falaDoCliente, String(input.produto || ""))) {
+    if (soPerguntouSemPedir(ultimaFala || falaDoCliente, String(input.produto || ""))) {
       return (
         "NAO anotei: ele PERGUNTOU sobre " + String(input.produto || "isso") + ", nao pediu. " +
         "Pergunta nao vira item no pedido. Responda o preco e como se vende, e pergunte se ele quer. " +
@@ -965,6 +1025,22 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       return variantes[0] ?? anotado;
     })();
     const categoria = String(input.categoria || "outro");
+    // PRODUTO FANTASMA: o "leite ninho" que nasceu na troca do bolo, foi negado
+    // por ela e cobrado no fim. O enum nao pega, porque o produto EXISTE.
+    if (
+      produtoQueNinguemCitou(
+        produto,
+        falasDoCliente.length ? falasDoCliente : [falaDoCliente],
+        String(montagemAtual?.dados?.proposta ?? "") + " " + ultimaFalaDela,
+      )
+    ) {
+      return (
+        `NAO anotei "${produto}": ninguem falou nesse produto nesta conversa, nem o cliente nem voce. ` +
+        `Item que aparece do nada vira cobranca que o cliente nao reconhece no balcao. ` +
+        `Se voce quis TROCAR um item por outro, use trocar_item. Se e sugestao sua, ofereca primeiro e ` +
+        `anote depois que ele aceitar.`
+      );
+    }
     // A divisao entre tipos pode corrigir esse numero antes de anotar.
     let qtd = Number(input.qtd) || 0;
     let avisoDivisao = "";
@@ -3887,10 +3963,22 @@ async function rodarConversa(
           pediuBolo,
           String(montagemDoTurno?.dados?.nao_quer ?? ""),
         );
-        textoFinal = faltando.length
-          ? "Pra fechar seu pedido ainda falta " + faltando[0].replace(/^- /, "") + ". Me confirma isso que eu fecho agora."
-          : "Ainda nao consegui fechar seu pedido aqui. Vou chamar alguem da equipe pra terminar com voce.";
-        if (!faltando.length) estado.precisaHumano = true;
+        // INSTRUCAO INTERNA NUNCA VAI PRO CLIENTE.
+        //
+        // Aqui ia "Pra fechar seu pedido ainda falta " + a pendencia, e a
+        // pendencia e texto escrito PRA IA. O cliente recebeu no WhatsApp:
+        // "Pra fechar seu pedido ainda falta o cliente falou em bolo e nao tem
+        // bolo nenhum anotado. Mande o cardapio de bolos ou pergunte o sabor, e
+        // anote com o peso em quilos e o pao de lo."
+        //
+        // Ele achou que era golpe ou robo quebrado, e com razao. Se a gente
+        // chegou aqui, ela ja mentiu que fechou o pedido: o certo e uma frase
+        // honesta e curta, e a equipe assumindo. O que falta a dona ve na tela,
+        // que e onde essa informacao serve.
+        console.warn("[ia] pendencia interna NAO foi pro cliente:", faltando[0] ?? "(nenhuma)");
+        textoFinal =
+          "Deixa eu confirmar uns detalhes do seu pedido com a equipe antes de fechar, pra nao te passar nada errado. Ja te falo por aqui.";
+        estado.precisaHumano = true;
       }
 
       // "QUANTO FICOU O TOTAL?" COM PEDIDO REGISTRADO TEM RESPOSTA.

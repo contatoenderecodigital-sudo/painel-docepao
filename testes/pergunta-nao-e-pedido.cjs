@@ -38,12 +38,16 @@ const corpo =
   semTipos(extrair("const semAcMin =", "// O cliente disse explicitamente")) +
   semTipos(extrair("export function clienteProibiuAnotar(", "// A fala do cliente e SO uma pergunta")) +
   semTipos(extrair("export function soPerguntouSemPedir(", "// Pedacos da observacao")) +
-  semTipos(extrair("export function obsQueOClienteNaoDisse(", "//  O RESUMO QUE ELA FALA TEM QUE SER O PEDIDO QUE ESTA GRAVADO."));
+  semTipos(extrair("export function obsQueOClienteNaoDisse(", "//  O RESUMO QUE ELA FALA TEM QUE SER O PEDIDO QUE ESTA GRAVADO.")) +
+  semTipos(
+    extrair("export function produtoQueNinguemCitou(", "// ENDERECO DITO QUE NAO E O DA PADARIA")
+      .replace(/\(\s*produto: string,\s*falasDoCliente: string\[\],\s*propostaDela: string,\s*\): boolean/, "(produto, falasDoCliente, propostaDela)"),
+  );
 
 const criar = new Function(
-  corpo + "\nreturn { clienteProibiuAnotar, soPerguntouSemPedir, obsQueOClienteNaoDisse };",
+  corpo + "\nreturn { clienteProibiuAnotar, soPerguntouSemPedir, obsQueOClienteNaoDisse, produtoQueNinguemCitou };",
 );
-const { clienteProibiuAnotar, soPerguntouSemPedir, obsQueOClienteNaoDisse } = criar();
+const { clienteProibiuAnotar, soPerguntouSemPedir, obsQueOClienteNaoDisse, produtoQueNinguemCitou } = criar();
 
 let erros = 0;
 function conferir(ok, oque, detalhe) {
@@ -100,6 +104,50 @@ for (const [frase, produto] of [
 }
 
 console.log("");
+console.log("== A INTENCAO E DO TURNO, nao da conversa inteira ==");
+// O DEFEITO QUE ISTO PEGA, achado na bateria de 19/08/2026:
+// eu usei a conversa INTEIRA no lugar da mensagem de agora, entao o cliente
+// disse "so estou pesquisando" na mensagem 3 e ficou bloqueado ate a 17,
+// gritando "anota ai, confirmado" e ouvindo que nao tinha confirmado. Sete
+// tentativas de fechar, nenhuma pizza anotada, cliente indo embora achando que
+// tinha pedido. Pior que o bug original.
+const CONVERSA_INTEIRA = [
+  "bom dia, quanto custa a torta salgada?",
+  "Calma, eu nao quero pedir nada ainda, so estou pesquisando preco",
+  "e a pizza redonda, quantos sabores cabem?",
+  "vou querer uma redonda meio calabresa meio frango com catupiry pra sabado 19h",
+  "pode anotar a pizza",
+  "confirmado",
+].join(String.fromCharCode(10));
+const AGORA = "pode anotar a pizza";
+
+conferir(
+  clienteProibiuAnotar(CONVERSA_INTEIRA),
+  "a conversa inteira ainda casa com o 'so pesquisando' (por isso nao serve)",
+  "o teste perdeu o sentido, reveja",
+);
+conferir(
+  !clienteProibiuAnotar(AGORA),
+  "mas a mensagem de AGORA nao bloqueia: ele mandou anotar",
+  "vai travar a venda de novo",
+);
+for (const agora of ["confirmado", "pode anotar a pizza", "mano eu ja fechei, anota ai", "sim, quero fechar agora"]) {
+  conferir(!clienteProibiuAnotar(agora), 'nao trava em "' + agora + '"', "trava venda fechada");
+  conferir(!soPerguntouSemPedir(agora, "pizza redonda"), '  e nao trata como pergunta: "' + agora + '"', "segurou o pedido");
+}
+
+console.log("");
+console.log("== ROTULO dela nao e invencao ==");
+// A cliente escreveu so "rosa" e a Dora anotou "forminha rosa". A guarda
+// recusou dizendo que ela inventou, e a cor se perdia: exatamente o defeito que
+// existia ANTES de haver guarda nenhuma.
+const SO_A_COR = ["quero 60 brigadeiros", "rosa"];
+for (const obs of ["forminha rosa", "recheio de calabresa", "sabor morango", "cor dourada"]) {
+  const fora = obsQueOClienteNaoDisse(obs, SO_A_COR.concat(["calabresa", "morango", "dourada"]));
+  conferir(fora.length === 0, 'aceita "' + obs + '" (o rotulo e dela, a escolha e dele)', "recusou: " + fora.join(", "));
+}
+
+console.log("");
 console.log("== sabor que o cliente NUNCA falou tem que ser recusado ==");
 const conversaReal = [
   "bom dia, queria saber o preco da torta salgada e do empadao",
@@ -128,6 +176,53 @@ for (const obs of [
 ]) {
   const fora = obsQueOClienteNaoDisse(obs, conversaFesta);
   conferir(fora.length === 0, 'aceita a observacao "' + obs + '"', "recusou: " + fora.join(", "));
+}
+
+console.log("");
+console.log("== PRODUTO FANTASMA: o leite ninho que ninguem pediu ==");
+// O CASO REAL, da bateria de 19/08/2026. A cliente pediu pra trocar o bolo de
+// prestigio por 4 leites. Nasceu no pedido um "leite ninho" que ela nunca
+// pediu. A Dora NEGOU que existia ("nao tem bolo de leite ninho no seu pedido,
+// pode ficar tranquila") e duas mensagens depois COBROU R$ 3,13 por ele.
+//
+// O enum nao pega isso, porque "leite ninho" existe de verdade (e um docinho).
+const CONVERSA_DO_BOLO = [
+  "quero um bolo de 2,5 kg de prestigio pra festa dia 12/09",
+  "pao de lo branco, topo tema princesa",
+  "trocar o bolo de prestigio pra 4 leites",
+];
+conferir(
+  produtoQueNinguemCitou("leite ninho", CONVERSA_DO_BOLO, ""),
+  'recusa o "leite ninho" que ninguem citou',
+  "o fantasma entra no pedido e vira cobranca",
+);
+conferir(
+  !produtoQueNinguemCitou("bolo 4 leites", CONVERSA_DO_BOLO, ""),
+  "mas deixa passar o bolo 4 leites, que ela pediu",
+  "bloqueou a troca que o cliente pediu",
+);
+
+console.log("");
+console.log("== o que foi PROPOSTO por ela e aceito tambem vale ==");
+// Na festa ela indica os itens e o cliente responde "pode ser". Esses produtos
+// nao aparecem na fala dele, e nem por isso sao invencao.
+const PROPOSTA = '[{"produto":"mini bolha","qtd":83},{"produto":"esfirra","qtd":84}]';
+for (const nome of ["mini bolha", "esfirra"]) {
+  conferir(
+    !produtoQueNinguemCitou(nome, ["festa de 25 pessoas dia 12/09", "pode ser"], PROPOSTA),
+    'aceita "' + nome + '", que ela propos e ele aceitou',
+    "recusaria a indicacao da festa inteira",
+  );
+}
+
+console.log("");
+console.log("== generico nao e produto fantasma ==");
+for (const nome of ["salgado", "docinho", "bolo", "topo de bolo"]) {
+  conferir(
+    !produtoQueNinguemCitou(nome, ["quero 300 salgados pra festa"], ""),
+    'nao trava no generico "' + nome + '"',
+    "quebra a montagem do pedido antes de escolher os tipos",
+  );
 }
 
 console.log("");
