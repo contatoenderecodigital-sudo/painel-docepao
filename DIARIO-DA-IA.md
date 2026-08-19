@@ -241,3 +241,82 @@ só pode ser alcançado com template. É a pendência real dessa funcionalidade.
 `/api/cobranca/rodar` com o segredo no cabeçalho. Enquanto isso não existe, a
 tela serve pra dona ver quem cobrar e cobrar na mão, que já é a maior parte do
 valor.
+
+## 19/08, madrugada: a varredura das oito telas
+
+Cada tela foi medida no monitor e no aparelho, com número, não com olhada.
+Vinte e cinco defeitos, e os que valem lembrar são os que não pareciam
+defeito.
+
+### Dinheiro
+
+**Três pedidos sumiam da conta, e junto R$ 1.662,50.** Resultados dizia "11
+pedidos que entraram", Clientes contava 14, e Aguardando confirmação mostrava
+3 cartões que não apareciam em número nenhum. "Entrou" somava só o que já
+estava na fila de aprovação; o pedido parado esperando valor de topo de bolo
+não entrava em lugar nenhum, embora tenha entrado de verdade. Duas telas se
+contradizendo fazem a dona parar de acreditar nas duas, e esse é o dano maior
+que o número errado.
+
+**Pedido sem data de retirada ia pra fila.** Existia no banco um pedido com
+hora 17:00 e nenhuma data, mostrado como "- · 17:00": um tracinho discreto do
+lado de uma hora que parece certa. A dona aprova, o papel sai, e a cozinha não
+sabe pra que dia produzir. Agora para na mesa da equipe com o motivo escrito, e
+onde falta data a tela grita SEM DATA em vermelho.
+
+### A tela mentindo
+
+**"Cliente visualizou a cobrança" em dez dos onze orçamentos parados**, sem
+nenhuma cobrança ter sido enviada por ninguém. A consulta comparava a última
+mensagem do cliente com a data da última cobrança e, não havendo cobrança,
+usava o começo dos tempos como referência. O efeito prático era pior que o
+bug: a dona olharia dez clientes marcados como já avisados e não ligaria pra
+nenhum. A tela que existe pra recuperar dinheiro estaria impedindo a
+recuperação.
+
+**"Já compraram: R$ 0,00"**, onde o rótulo pede gente e o valor entrega
+dinheiro. Lia-se como "ninguém comprou nada".
+
+### O celular
+
+Sete defeitos que não existiam em 1440px, e três impediam trabalho. O pior:
+**pelo celular ninguém aprovava pedido**, porque o botão ficava das 382px às
+533px numa tela de 390, dentro de um cartão sem rolagem lateral. A causa era um
+`shrink-0` que travava a largura no conteúdo e impedia o `flex-wrap` que já
+estava ali de disparar.
+
+Depois: o balão de ajuda saindo 39px pela borda e cortando palavra no meio, o
+ícone de imprimir ticket com 15px (o menor alvo do painel), o telefone do
+cliente com 19,5px em onze cartões.
+
+### A conversa
+
+**A Dora nunca perguntava o dia.** A cliente pediu 50 coxinhas, disse "pode ser
+as 17h", disse o nome e o pix. Três respostas oferecendo mais salgados, nenhuma
+perguntando a data. A trava de não registrar sem data funcionou (nenhum pedido
+furado foi criado), mas a venda evaporava igual: a cliente saía achando que
+tinha encomenda marcada.
+
+Escrevi a regra no prompt e testei: **não adiantou**, ofereceu mais salgados de
+novo. Passei pro código, e aí funcionou. É a regra da casa mais uma vez:
+decisão que custa dinheiro mora no código, não no prompt.
+
+**E "sexta" não valia como data.** A cliente disse "sexta", a Dora confirmou
+"você quis dizer sexta-feira, dia 21/08/2026?", a cliente disse "isso", e o
+sistema pediu a data "no formato dia/mês, tipo 21/08". A trava do dd/mm existe
+por bom motivo, mas tratava dia da semana como lixo, e dia da semana é como se
+marca encomenda de padaria. O teste está em `testes/dia-da-semana.cjs` e roda
+contra o código real extraído do arquivo: na primeira tentativa a função
+devolvia nulo pra tudo porque uma barra de escape saiu dobrada, e só rodando
+isso apareceu.
+
+### O que essa noite ensinou
+
+1. **Defeito de tela só aparece no aparelho em que a pessoa trabalha.** Nenhum
+   dos sete do celular era visível no monitor.
+2. **Tela escondida por CSS continua montada, e continua buscando.** O painel
+   batia duas vezes em cada rota por isso, justamente nas que mais dão 502.
+3. **Testar a trava acha mais que testar o caminho feliz.** Todos os meus
+   testes anteriores davam a data, porque eu escrevia clientes que colaboram.
+4. **Regra no prompt não é regra.** Duas vezes nesta noite o modelo ignorou uma
+   instrução explícita e só o código resolveu.
