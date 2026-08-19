@@ -17,6 +17,7 @@ import { motorPadrao, formatarOrcamento, brl, citadoDeVerdade, type Motor, type 
 import { registrarUsoIA, type UsoTurno } from "./uso";
 import catalogo from "./dados/catalogo.json";
 import { padariaAberta } from "@/lib/padaria-aberta";
+import { enumDeProdutos, FORA_DO_CARDAPIO } from "./produtos";
 
 // TODOS OS PRECOS UNITARIOS QUE A PADARIA PRATICA, em centavos.
 // Fonte unica: o catalogo. O que nao esta aqui, ela nao pode dizer que cobra.
@@ -320,8 +321,17 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
         properties: {
           produto: {
             type: "string",
+            // LISTA FECHADA, e não texto livre.
+            //
+            // Enquanto isto era string, ela anotou "docinho sem lactose", que a
+            // padaria não faz, e o cliente saiu achando que ia receber. Com
+            // strict:true a API compila o enum numa gramática e mascara token
+            // inválido: agora ela não CONSEGUE escrever produto inexistente.
+            enum: enumDeProdutos(),
             description:
-              "Nome como no cardápio: 'coxinha', 'pastel assado', 'brigadeiro', 'bolo brigadeiro'.",
+              "Nome exato do cardápio. Se o cliente pedir algo que não está na lista, escolha \"" +
+              FORA_DO_CARDAPIO +
+              "\" e eu te digo o que responder.",
           },
           categoria: {
             type: "string",
@@ -735,6 +745,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
   };
 
   if (nome === "anotar_item") {
+    // A ESCAPATORIA DO ENUM. Sem ela, a decodificacao restrita obrigaria o
+    // modelo a escolher o vizinho mais parecido, calado, e "docinho sem
+    // lactose" viraria "docinho" no pedido em vez de virar uma recusa honesta.
+    if (String(input.produto || "").trim() === FORA_DO_CARDAPIO) {
+      return (
+        "NAO anotei, e voce fez certo em marcar assim: isso NAO esta no cardapio da padaria. " +
+        "Diga pro cliente que a gente nao faz esse item, sem inventar variacao nem prometer, e ofereca " +
+        "o que existe de mais parecido. Se ele insistir ou for coisa especial, chame a equipe."
+      );
+    }
     // PORTAO DE ESCRITA. Erro instrutivo em vez de codigo opaco: a mensagem
     // devolvida diz o que fazer no lugar, senao ela tenta a mesma coisa de novo.
     if (clienteProibiuAnotar(falaDoCliente)) {
