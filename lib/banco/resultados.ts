@@ -101,6 +101,12 @@ const MSG_LOCAL = "m.criado_em at time zone '" + TZ + "'";
 const NA_FILA =
   "p.status = 'confirmado' and coalesce(p.precisa_confirmacao, false) = false" +
   " and coalesce(p.aguardando_cliente, false) = false";
+// Pedido que entrou mas parou antes da fila: esperando a equipe lançar o
+// valor do topo de bolo, ou esperando o cliente aceitar o total novo. Ele
+// sumia de toda conta desta tela, e com ele o dinheiro dele.
+const ESPERANDO_VALOR =
+  "p.status = 'confirmado' and (coalesce(p.precisa_confirmacao, false)" +
+  " or coalesce(p.aguardando_cliente, false))";
 // Ainda nao existe aprovado_em nesses: a data que vale e quando o cliente fechou.
 const DATA_ENTRADA = "coalesce(p.confirmado_em, p.criado_em) at time zone '" + TZ + "'";
 
@@ -114,6 +120,8 @@ type LinhaKpi = {
   aguardandoValor: string;
   aguardandoQtd: string;
   aguardandoRecuperado: string;
+  esperandoQtd: string;
+  esperandoValor: string;
 };
 
 async function kpisDoIntervalo(negocioId: string, ini: string, fim: string): Promise<LinhaKpi> {
@@ -146,7 +154,13 @@ async function kpisDoIntervalo(negocioId: string, ini: string, fim: string): Pro
             and ${DATA_ENTRADA} >= $2 and ${DATA_ENTRADA} < $3) as "aguardandoQtd",
        (select coalesce(sum(p.total_centavos), 0) from pedidos p
           where p.negocio_id = $1 and ${NA_FILA} and coalesce(p.cobrancas, 0) > 0
-            and ${DATA_ENTRADA} >= $2 and ${DATA_ENTRADA} < $3) as "aguardandoRecuperado"`,
+            and ${DATA_ENTRADA} >= $2 and ${DATA_ENTRADA} < $3) as "aguardandoRecuperado",
+       (select count(*) from pedidos p
+          where p.negocio_id = $1 and ${ESPERANDO_VALOR}
+            and ${DATA_ENTRADA} >= $2 and ${DATA_ENTRADA} < $3) as "esperandoQtd",
+       (select coalesce(sum(p.total_centavos), 0) from pedidos p
+          where p.negocio_id = $1 and ${ESPERANDO_VALOR}
+            and ${DATA_ENTRADA} >= $2 and ${DATA_ENTRADA} < $3) as "esperandoValor"`,
     [negocioId, ini, fim],
   );
   return (
@@ -160,6 +174,8 @@ async function kpisDoIntervalo(negocioId: string, ini: string, fim: string): Pro
       aguardandoValor: "0",
       aguardandoQtd: "0",
       aguardandoRecuperado: "0",
+      esperandoQtd: "0",
+      esperandoValor: "0",
     }
   );
 }
@@ -201,8 +217,13 @@ export async function agregar(
     centavos: n(atual.aguardandoValor),
     recuperadoCentavos: n(atual.aguardandoRecuperado),
   };
-  const pedidosEntraram = n(atual.pedidos) + aguardando.pedidos;
-  const pedidosEntraramAntes = n(anterior.pedidos) + n(anterior.aguardandoQtd);
+  const esperando = {
+    pedidos: n(atual.esperandoQtd),
+    centavos: n(atual.esperandoValor),
+  };
+  const pedidosEntraram = n(atual.pedidos) + aguardando.pedidos + esperando.pedidos;
+  const pedidosEntraramAntes =
+    n(anterior.pedidos) + n(anterior.aguardandoQtd) + n(anterior.esperandoQtd);
 
   const kpis = {
     horasEconomizadas: kpi(minutos(n(atual.respostas)), minutos(n(anterior.respostas))),
@@ -225,6 +246,9 @@ export async function agregar(
          union all
          select ${DATA_ENTRADA} as quando from pedidos p
           where p.negocio_id = $1 and ${NA_FILA} and ${DATA_ENTRADA} >= $2 and ${DATA_ENTRADA} < $3
+         union all
+         select ${DATA_ENTRADA} as quando from pedidos p
+          where p.negocio_id = $1 and ${ESPERANDO_VALOR} and ${DATA_ENTRADA} >= $2 and ${DATA_ENTRADA} < $3
        ) d
       group by 1`,
     [negocioId, j.ini, j.fim],
@@ -328,6 +352,7 @@ export async function agregar(
     temDados,
     kpis,
     aguardando,
+    esperando,
     porDiaSemana,
     faturamentoSerie,
     produtosTop,

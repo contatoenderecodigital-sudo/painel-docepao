@@ -93,7 +93,8 @@ export default function Resultados({
   const espera = dados.aguardando;
   // PEDIDOS traz aprovados + fila. Quantos ja foram aprovados sai por subtracao,
   // pra tela nunca mostrar uma soma que nao fecha com o card.
-  const pedidosAprovados = Math.max(0, K.pedidos.valor - espera.pedidos);
+  const esperaValor = dados.esperando ?? { pedidos: 0, centavos: 0 };
+  const pedidosAprovados = Math.max(0, K.pedidos.valor - espera.pedidos - esperaValor.pedidos);
   // Grafico de dia da semana sempre vem com os 7 dias, entao length nunca era 0
   // e o painel desenhava sete barras de altura zero: eixo sozinho, cara de
   // quebrado. Vazio de verdade e quando nao houve pedido nenhum.
@@ -249,7 +250,7 @@ export default function Resultados({
           comparativo={dados.comparativoLabel}
           detalhe={
             espera.pedidos > 0
-              ? pedidosAprovados + " aprovados · " + espera.pedidos + " esperando aprovação"
+              ? [pedidosAprovados + " aprovados", espera.pedidos + " esperando aprovação", esperaValor.pedidos > 0 ? esperaValor.pedidos + " esperando valor" : null].filter(Boolean).join(" · ")
               : null
           }
         />

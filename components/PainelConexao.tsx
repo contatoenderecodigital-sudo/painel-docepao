@@ -264,7 +264,7 @@ function Status({ conexao }: { conexao: ConexaoWhatsapp }) {
             valor={caiu ? "Offline" : "Online"}
           />
           <Indicador icon={<Clock size={15} className="text-dourado" />} rotulo="Conectado desde" valor={dataBr(conexao.conectadoEm) ?? "hoje"} />
-          <Indicador icon={<MessageSquare size={15} className="text-dourado" />} rotulo="Respondidas hoje" valor={String(conexao.mensagensHoje)} />
+          <Indicador icon={<MessageSquare size={15} className="text-dourado" />} rotulo="Mensagens respondidas hoje" valor={String(conexao.mensagensHoje)} />
         </div>
       </div>
 
@@ -297,7 +297,7 @@ function Status({ conexao }: { conexao: ConexaoWhatsapp }) {
         <button
           onClick={reconectar}
           disabled={estado === "conectando"}
-          className="press glass rounded-lg px-4 py-2.5 text-sm text-cream/85 inline-flex items-center gap-2 hover:bg-white/[0.08] transition-colors disabled:opacity-60"
+          className="press glass rounded-lg px-4 h-11 sm:h-auto sm:py-2.5 text-sm text-cream/85 inline-flex items-center gap-2 hover:bg-white/[0.08] transition-colors disabled:opacity-60"
         >
           {estado === "conectando" ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />} Reconectar
         </button>
@@ -311,7 +311,7 @@ function Status({ conexao }: { conexao: ConexaoWhatsapp }) {
         <button
           onClick={desconectar}
           disabled={desconectando}
-          className="press rounded-lg px-4 py-2.5 text-sm font-medium inline-flex items-center gap-2 transition-colors disabled:opacity-60 ml-auto"
+          className="press rounded-lg px-4 h-11 sm:h-auto sm:py-2.5 text-sm font-medium inline-flex items-center gap-2 transition-colors disabled:opacity-60 ml-auto"
           style={{ background: "rgba(224,30,30,0.12)", color: "#ff8a8a" }}
         >
           {desconectando ? <Loader2 size={15} className="animate-spin" /> : <LogOut size={15} />} Desconectar número

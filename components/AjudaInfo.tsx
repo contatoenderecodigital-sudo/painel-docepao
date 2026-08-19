@@ -14,7 +14,8 @@ export default function AjudaInfo({ titulo, texto }: { titulo: string; texto: st
         type="button"
         onClick={() => setAberto((v) => !v)}
         aria-label="O que é esta tela"
-        className="press w-7 h-7 rounded-full grid place-items-center text-cream/50 hover:text-dourado hover:bg-white/[0.06] transition-colors"
+        /* 28px e alvo de mouse. No dedo vira 44, que e o minimo pra acertar. */
+        className="press w-11 h-11 sm:w-7 sm:h-7 rounded-full grid place-items-center text-cream/50 hover:text-dourado hover:bg-white/[0.06] transition-colors"
       >
         <HelpCircle size={18} />
       </button>

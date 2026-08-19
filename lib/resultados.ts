@@ -34,6 +34,10 @@ export type Resultados = {
   // fila (a tela mostrava PEDIDOS = 0 com eles lá dentro), mas esse dinheiro ainda
   // pode ser recusado, então não pode entrar no faturado.
   aguardando: { pedidos: number; centavos: number; recuperadoCentavos: number };
+  // Pedido que entrou e parou ANTES da fila: esperando a equipe lançar o valor
+  // do topo de bolo, ou esperando o cliente aceitar o total novo. Ficava fora
+  // de toda conta, e com ele o dinheiro dele.
+  esperando?: { pedidos: number; centavos: number };
   porDiaSemana: { dia: string; pedidos: number }[];
   faturamentoSerie: PontoSerie[]; // centavos ao longo do tempo
   produtosTop: ProdutoVenda[];
@@ -187,6 +191,7 @@ function gerarDemo(periodo: Periodo, de?: string, ate?: string): Resultados {
     // exemplo que este arquivo cria; fila parada inventada seria mais um número
     // falso pra alguem confundir com o real.
     aguardando: { pedidos: 0, centavos: 0, recuperadoCentavos: 0 },
+    esperando: { pedidos: 0, centavos: 0 },
     porDiaSemana,
     faturamentoSerie,
     produtosTop,

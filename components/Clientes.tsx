@@ -77,7 +77,10 @@ function dataCurta(iso: string | null) {
   const base = isoNaPadaria(iso);
   if (!base) return null;
   const [a, m, d] = base.split("-");
-  return `${d}/${m}/${a.slice(2)}`;
+  // O ano de dois dígitos economizava três caracteres e criava um quarto
+  // formato de data no painel. Encomenda de formatura fecha com meses de
+  // antecedência: ano cortado ali vira discussão no balcão.
+  return `${d}/${m}/${a}`;
 }
 function diaMes(iso: string | null) {
   const base = isoNaPadaria(iso);
@@ -108,7 +111,10 @@ export default function Clientes({
     return clientes.filter((c) => (c.nome + " " + c.telefone).toLowerCase().includes(t));
   }, [clientes, busca]);
 
-  const sel = clientes.find((c) => c.id === selId) ?? lista[0] ?? null;
+  // Buscar por um nome que nao existe mostrava "Nenhum cliente encontrado" e
+  // deixava a ficha do cliente anterior aberta embaixo, como se ele tivesse
+  // sido achado. A ficha tem que sair da lista filtrada, nao da lista inteira.
+  const sel = lista.find((c) => c.id === selId) ?? lista[0] ?? null;
 
   const totalClientes = clientes.length;
   // Number() defensivo: o banco pode devolver o total como string (bigint do sum),
@@ -135,7 +141,9 @@ export default function Clientes({
         <MiniKpi icon={<Users size={16} />} rotulo="Clientes">
           <NumberTicker value={totalClientes} className="font-title text-2xl font-bold text-cream" />
         </MiniKpi>
-        <MiniKpi icon={<Banknote size={16} />} rotulo="Já compraram">
+        {/* Dizia "Já compraram" e mostrava dinheiro: o rótulo pedia gente e o
+            valor entregava reais, então R$ 0,00 lia-se como "ninguém comprou". */}
+        <MiniKpi icon={<Banknote size={16} />} rotulo="Faturado com eles">
           {/* decimals=2: sem isso o KPI mostrava "R$ 0" enquanto Resultados
               mostrava "R$ 0,00" pro mesmo dinheiro, e as duas telas pareciam
               contar coisas diferentes. */}
@@ -265,7 +273,8 @@ function Ficha({ c }: { c: ClienteCRM }) {
             href={linkWhatsapp(c.telefone)}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-[13px] text-cream/60 hover:text-dourado transition-colors mt-0.5"
+            /* 19,5px era o menor alvo da tela, e é o atalho pro WhatsApp. */
+            className="inline-flex items-center gap-1.5 text-[13px] text-cream/60 hover:text-dourado transition-colors mt-0.5 h-11 sm:h-auto"
           >
             <WhatsAppGlyph /> {formatarTelefoneBR(c.telefone)}
           </a>
