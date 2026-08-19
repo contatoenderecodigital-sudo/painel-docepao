@@ -1583,6 +1583,38 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // "hoje", "amanha" e "depois de amanha" viram data no fuso da padaria.
     // Sem isso o pedido vai pra cozinha sem dia, e no dia seguinte esse
     // "hoje" ja e ontem.
+    // DIA DA SEMANA VIRA DATA.
+    //
+    // "sexta" e "sabado que vem" e como se marca encomenda numa padaria.
+    // Exigir 21/08 de quem fala assim transforma a atendente em formulário, que
+    // é exatamente o que a persona proíbe. Resolve pro próximo dia daquele nome,
+    // sempre no futuro, e a Dora confirma com o cliente antes de fechar.
+    const diaDaSemanaViraData = (texto: string): string | null => {
+      const nomes: Record<string, number> = {
+        domingo: 0, segunda: 1, terca: 2, quarta: 3, quinta: 4, sexta: 5, sabado: 6,
+      };
+      const limpo = String(texto || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/-?feira/g, " ")
+        .trim();
+      const alvo = Object.keys(nomes).find((d) =>
+        new RegExp("\\b" + d + "\\b").test(limpo),
+      );
+      if (!alvo) return null;
+      const agoraSP = new Date(
+        new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
+      );
+      // Sempre pra frente: quem diz sexta numa sexta quer a sexta que vem, e
+      // marcar pra hoje sem ele pedir é erro que a cozinha paga.
+      let passos = (nomes[alvo] - agoraSP.getDay() + 7) % 7;
+      if (passos === 0) passos = 7;
+      agoraSP.setDate(agoraSP.getDate() + passos);
+      const d = String(agoraSP.getDate()).padStart(2, "0");
+      const m = String(agoraSP.getMonth() + 1).padStart(2, "0");
+      return d + "/" + m + "/" + agoraSP.getFullYear();
+    };
     const emSaoPaulo = (dias: number) => {
       const agoraSP = new Date(
         new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
@@ -1598,14 +1630,24 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       if (/^(hoje|hj)$/.test(semAcD)) input.retirada_data = emSaoPaulo(0);
       else if (/^(amanha|manha seguinte)$/.test(semAcD)) input.retirada_data = emSaoPaulo(1);
       else if (/^depois de amanha$/.test(semAcD)) input.retirada_data = emSaoPaulo(2);
+      else {
+        const daSemana = diaDaSemanaViraData(semAcD);
+        if (daSemana) input.retirada_data = daSemana;
+      }
     }
 
     // DIA E HORA DA RETIRADA SAO OBRIGATORIOS NO FECHAMENTO.
     //
     // E o que a producao le primeiro na comanda. Pedido sem isso vira papel
     // solto na bancada e alguem tendo que ligar pro cliente pra perguntar.
-    const dataRetirada =
+    const dataBruta =
       String(input.retirada_data ?? "").trim() || String(montagemAtual?.dados?.retirada_data ?? "").trim();
+    // O dia da semana pode ter ficado guardado da mensagem anterior, quando o
+    // cliente disse só "sexta" e depois confirmou com um "isso".
+    const dataRetirada = /^[0-9]{1,2}[/-][0-9]{1,2}/.test(dataBruta)
+      ? dataBruta
+      : diaDaSemanaViraData(dataBruta) ?? dataBruta;
+    if (dataRetirada !== dataBruta) input.retirada_data = dataRetirada;
     const horaRetirada =
       String(input.retirada_hora ?? "").trim() || String(montagemAtual?.dados?.retirada_hora ?? "").trim();
     // Texto que nao e data nao passa: ja saiu pedido com a palavra "hoje" no
