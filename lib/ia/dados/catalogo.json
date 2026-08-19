@@ -2,128 +2,600 @@
   "_fonte": "Extraído dos 5 PDFs oficiais da Doce Pão (dados/tabelas de produtos), julho 2026. Esta é a tabela-fonte do orçamento. Preço que o sistema cotar SAI DAQUI.",
   "_moeda": "BRL",
   "_regra_preco": "O sabor NÃO muda o preço. O que define o valor é a linha (frito x assado, faixa do bolo, etc.). Sabores ficam como metadados pra IA saber o que oferecer.",
-
   "forminhas_docinho": {
     "_nota": "Cores de forminha que a IA oferece pro cliente escolher no docinho. Só a cor (sem repetir variante 'laminada'; se o cliente quiser laminada, é a mesma cor com acabamento laminado).",
-    "cores": ["amarelo","amarelo neon","azul","azul bebê","azul royal","branca","dourada","laranja","laranja neon","lilás","marrom","pink","prata","preta","rosa","rosa claro","roxo","roxo neon","verde bandeira","verde tiffany","vermelha"]
+    "cores": [
+      "amarelo",
+      "amarelo neon",
+      "azul",
+      "azul bebê",
+      "azul royal",
+      "branca",
+      "dourada",
+      "laranja",
+      "laranja neon",
+      "lilás",
+      "marrom",
+      "pink",
+      "prata",
+      "preta",
+      "rosa",
+      "rosa claro",
+      "roxo",
+      "roxo neon",
+      "verde bandeira",
+      "verde tiffany",
+      "vermelha"
+    ]
   },
-
   "salgados": {
     "_regra_sabor": "FRITO = sabor fixo, a IA NAO pergunta recheio (o recheio ja esta no campo 'recheio'). ASSADO = se tiver 'recheios', a IA PERGUNTA qual o cliente quer; sem 'recheios' e fixo. Frito com 'recheios' (risolis, mini bolha) a IA PERGUNTA igual ao assado. Chodo tem padrao presunto e queijo (a dona confirmou); frango, calabresa ou bacon so se o cliente pedir.",
     "frito": {
-      "preco": 1.00,
-      "preco_cento": 100.00,
+      "preco": 1,
+      "preco_cento": 100,
       "itens": [
-        { "nome": "coxinha", "recheio": "frango" },
-        { "nome": "bolinha de queijo", "recheio": "queijo" },
-        { "nome": "almofadinha", "recheio": "presunto e queijo" },
-        { "nome": "croquete", "recheio": "carne com catupiry" },
-        { "nome": "mini pão de queijo", "recheio": "queijo" },
-        { "nome": "salsicha frita", "recheio": "salsicha" },
-        { "nome": "chodó", "recheio": "presunto e queijo", "_nota": "Padrao presunto e queijo. Frango, calabresa ou bacon so sob pedido." },
-        { "nome": "mini bolha", "recheios": ["carne","queijo","presunto","frango"] },
-        { "nome": "risólis", "recheios": ["carne","frango"] }
+        {
+          "nome": "coxinha",
+          "recheio": "frango"
+        },
+        {
+          "nome": "bolinha de queijo",
+          "recheio": "queijo"
+        },
+        {
+          "nome": "almofadinha",
+          "recheio": "presunto e queijo"
+        },
+        {
+          "nome": "croquete",
+          "recheio": "carne com catupiry"
+        },
+        {
+          "nome": "mini pão de queijo",
+          "recheio": "queijo"
+        },
+        {
+          "nome": "salsicha frita",
+          "recheio": "salsicha"
+        },
+        {
+          "nome": "chodó",
+          "recheio": "presunto e queijo",
+          "_nota": "Padrao presunto e queijo. Frango, calabresa ou bacon so sob pedido."
+        },
+        {
+          "nome": "mini bolha",
+          "recheios": [
+            "carne",
+            "queijo",
+            "presunto",
+            "frango"
+          ],
+          "_nota": "Sao esses QUATRO os sabores padrao (audio docepao16082 (2), 16/08/2026: 'O pastelzinho bolha pode colocar varios sabores, carne, queijo, presunto, frango, ne, geralmente. Geralmente, esses quatro sabores'). BROCOLIS nao entra na lista padrao: no audio DOCEPAORESPOSTASDONA (3), 30/07, ela cita 'tem brocolis, o que o cliente escolher', ou seja, sob pedido. Sabor fora dos quatro vai com precisa_confirmacao."
+        },
+        {
+          "nome": "risólis",
+          "recheios": [
+            "carne",
+            "frango"
+          ],
+          "_nota": "A dona fala 'gado', que e a carne de gado, a mesma coisa que carne (audio DOCEPAORESPOSTASDONA (3), 30/07/2026: 'O risoles e so frango e gado, so frango e gado'; audio WhatsApp 2026-07-29 08.08.53 (3): 'recheado com carne de gado'). Pro cliente aparece como CARNE, que e como esta no cardapio impresso. Se ele disser 'gado', e carne."
+        }
       ]
     },
     "assado": {
       "preco": 1.25,
-      "preco_cento": 125.00,
+      "preco_cento": 125,
       "itens": [
-        { "nome": "pastel assado", "recheios": ["carne","frango","calabresa","bacon","brócolis"] },
-        { "nome": "esfirra", "recheios": ["carne","frango","calabresa","brócolis","bacon"] },
-        { "nome": "empadinha", "recheios": ["palmito","frango","carne","brócolis"] },
-        { "nome": "quiche", "recheios": ["calabresa","bacon","frango","brócolis"] },
-        { "nome": "croissant", "recheios": ["carne","frango","calabresa","bacon","brócolis"] },
-        { "nome": "mini pizza", "recheios": ["calabresa","filé","bacon","milho"] },
-        { "nome": "mini sanduíche de patê de frango" },
-        { "nome": "mini x" },
-        { "nome": "enroladinho de salsicha assado" },
-        { "nome": "pão de batata" }
+        {
+          "nome": "pastel assado",
+          "recheios": [
+            "carne",
+            "frango",
+            "calabresa",
+            "bacon",
+            "brócolis"
+          ]
+        },
+        {
+          "nome": "esfirra",
+          "recheios": [
+            "carne",
+            "frango",
+            "calabresa",
+            "brócolis",
+            "bacon"
+          ]
+        },
+        {
+          "nome": "empadinha",
+          "recheios": [
+            "palmito",
+            "frango",
+            "carne",
+            "brócolis"
+          ]
+        },
+        {
+          "nome": "quiche",
+          "recheios": [
+            "calabresa",
+            "bacon",
+            "frango",
+            "brócolis"
+          ]
+        },
+        {
+          "nome": "croissant",
+          "recheios": [
+            "carne",
+            "frango",
+            "calabresa",
+            "bacon",
+            "brócolis"
+          ]
+        },
+        {
+          "nome": "mini pizza",
+          "recheios": [
+            "calabresa",
+            "filé",
+            "bacon",
+            "milho"
+          ]
+        },
+        {
+          "nome": "mini sanduíche de patê de frango"
+        },
+        {
+          "nome": "mini x"
+        },
+        {
+          "nome": "enroladinho de salsicha assado"
+        },
+        {
+          "nome": "pão de batata"
+        }
       ]
     }
   },
-
   "doces": {
     "_nota": "Preço por unidade. Especialidades variam 1,25–1,75; trufas 2,25 fixo.",
     "itens": [
-      { "nome": "brigadeiro",            "preco": 1.25 },
-      { "nome": "beijinho",              "preco": 1.25 },
-      { "nome": "cajuzinho",             "preco": 1.25 },
-      { "nome": "café",                  "preco": 1.25 },
-      { "nome": "leite ninho",           "preco": 1.25 },
-      { "nome": "bicho de pé",           "preco": 1.75 },
-      { "nome": "camafeu de nozes",      "preco": 1.75 },
-      { "nome": "docinho de churros",    "preco": 1.75 },
-      { "nome": "leite ninho com avelã", "preco": 1.75 },
-      { "nome": "olho de sogra",         "preco": 1.75 },
-      { "nome": "ouriço",                "preco": 1.75 },
-      { "nome": "trufa",                 "preco": 2.25, "sabores": ["morango","uva","cereja","café","nozes","limão","amendoim","maracujá","brigadeiro"] }
+      {
+        "nome": "brigadeiro",
+        "preco": 1.25
+      },
+      {
+        "nome": "beijinho",
+        "preco": 1.25
+      },
+      {
+        "nome": "cajuzinho",
+        "preco": 1.25
+      },
+      {
+        "nome": "café",
+        "preco": 1.25
+      },
+      {
+        "nome": "leite ninho",
+        "preco": 1.25
+      },
+      {
+        "nome": "bicho de pé",
+        "preco": 1.75
+      },
+      {
+        "nome": "camafeu de nozes",
+        "preco": 1.75
+      },
+      {
+        "nome": "docinho de churros",
+        "preco": 1.75
+      },
+      {
+        "nome": "leite ninho com avelã",
+        "preco": 1.75
+      },
+      {
+        "nome": "olho de sogra",
+        "preco": 1.75
+      },
+      {
+        "nome": "ouriço",
+        "preco": 1.75
+      },
+      {
+        "nome": "trufa",
+        "preco": 2.25,
+        "sabores": [
+          "morango",
+          "uva",
+          "cereja",
+          "café",
+          "nozes",
+          "limão",
+          "amendoim",
+          "maracujá",
+          "brigadeiro"
+        ]
+      }
     ],
     "_preco_padrao_doce": 1.25
   },
-
   "bolos_recheados": {
     "_nota": "3 faixas de preço POR QUILO: o valor da faixa é o preço do quilo e a quantidade registrada é o peso (ex: 1,5 kg = 1,5 x o valor). 1 quilo serve 10 pessoas (100 g por pessoa), confirmado pela dona. Tamanhos: redondo de 300 g a 5,5 kg, quadrado de 2,5 kg a 6 kg. Bolo misto vale o sabor mais caro.",
     "unidade": "kg",
     "faixas": [
-      { "faixa": "A", "preco": 46.90, "sabores": ["4 leites","brigadeiro","dois amores","frutas (pêssego e abacaxi)","laka","mineira","prestígio","porto alegre","brigadeiro com maracujá"] },
-      { "faixa": "B", "preco": 49.90, "sabores": ["bombom","biz","morango","marta rocha"] },
-      { "faixa": "C", "preco": 55.90, "sabores": ["0% lactose","strogonoff de nozes"] }
+      {
+        "faixa": "A",
+        "preco": 46.9,
+        "sabores": [
+          "4 leites",
+          "brigadeiro",
+          "dois amores",
+          "frutas (pêssego e abacaxi)",
+          "laka",
+          "mineira",
+          "prestígio",
+          "porto alegre",
+          "brigadeiro com maracujá"
+        ]
+      },
+      {
+        "faixa": "B",
+        "preco": 49.9,
+        "sabores": [
+          "bombom",
+          "biz",
+          "morango",
+          "marta rocha"
+        ]
+      },
+      {
+        "faixa": "C",
+        "preco": 55.9,
+        "sabores": [
+          "0% lactose",
+          "strogonoff de nozes"
+        ]
+      }
     ]
   },
-
   "bolos_caseiros": {
     "_nota": "Preço por unidade (bolo inteiro caseiro).",
     "itens": [
-      { "nome": "aipim",                         "preco": 30.90 },
-      { "nome": "banana caramelizada",           "preco": 30.90 },
-      { "nome": "chocolate preto com leite ninho","preco": 30.90 },
-      { "nome": "floresta negra",                "preco": 30.90 },
-      { "nome": "formigueiro",                   "preco": 30.90 },
-      { "nome": "fubá com goiabada",             "preco": 30.90 },
-      { "nome": "inglês",                        "preco": 33.90 },
-      { "nome": "nega maluca",                   "preco": 33.90 },
-      { "nome": "prestígio com ganache",         "preco": 33.90 },
-      { "nome": "red velvet",                    "preco": 33.90 },
-      { "nome": "cenoura",                       "preco": 34.90 },
-      { "nome": "churros",                       "preco": 34.90 },
-      { "nome": "laranja caramelizada",          "preco": 34.90 },
-      { "nome": "café",                          "preco": 35.90 },
-      { "nome": "limão",                         "preco": 35.90 }
+      {
+        "nome": "aipim",
+        "preco": 30.9
+      },
+      {
+        "nome": "banana caramelizada",
+        "preco": 30.9
+      },
+      {
+        "nome": "chocolate preto com leite ninho",
+        "preco": 30.9
+      },
+      {
+        "nome": "floresta negra",
+        "preco": 30.9
+      },
+      {
+        "nome": "formigueiro",
+        "preco": 30.9
+      },
+      {
+        "nome": "fubá com goiabada",
+        "preco": 30.9
+      },
+      {
+        "nome": "inglês",
+        "preco": 33.9
+      },
+      {
+        "nome": "nega maluca",
+        "preco": 33.9
+      },
+      {
+        "nome": "prestígio com ganache",
+        "preco": 33.9
+      },
+      {
+        "nome": "red velvet",
+        "preco": 33.9
+      },
+      {
+        "nome": "cenoura",
+        "preco": 34.9
+      },
+      {
+        "nome": "churros",
+        "preco": 34.9
+      },
+      {
+        "nome": "laranja caramelizada",
+        "preco": 34.9
+      },
+      {
+        "nome": "café",
+        "preco": 35.9
+      },
+      {
+        "nome": "limão",
+        "preco": 35.9
+      }
     ]
   },
-
   "pizza": {
     "_nota": "Forma 60x40cm. O rendimento (serve X pessoas) VEM DO CARDÁPIO DELA — está impresso, não é chute.",
-    "inteira": { "preco": 120.00, "serve": [6, 8], "sabores_ate": 4 },
-    "meia":    { "preco": 60.00,  "serve": [1, 4], "sabores_ate": 2 },
-    "sabores_salgados": ["bacon","bacon com milho","bacon com brócolis","4 queijos","filé ao molho madeira com fritas","filé acebolado","frango com catupiry","alho e óleo","hot dog","moda da casa","lombinho","lombinho com abacaxi","brócolis","milho","bolonhesa","vegetariana","strogonoff de frango","strogonoff de gado","calabresa","calabresa acebolada","portuguesa"],
-    "sabores_doces": ["abacaxi com coco","brigadeiro","prestígio","crocante","califórnia","banana","chocolate preto com morango","chocolate branco com morango","chocolate com confete","banana com suspiro"]
+    "inteira": {
+      "preco": 120,
+      "serve": [
+        6,
+        8
+      ],
+      "sabores_ate": 4
+    },
+    "meia": {
+      "preco": 60,
+      "serve": [
+        1,
+        4
+      ],
+      "sabores_ate": 2
+    },
+    "_nota_sabores": "Lista igual a do cardapio impresso mais novo (cardapio.html, revisado em 16/08/2026, que a dona aprovou no audio docepao16082 (1): 'o padrao ta otimo'). 'Bacon com brocolis' saiu: constava so na extracao dos PDFs de julho (catalogo-precos.md) e nao aparece no cardapio revisado. Bacon e brocolis continuam existindo separados, e a inteira aceita ate 4 sabores.",
+    "sabores_salgados": [
+      "bacon",
+      "bacon com milho",
+      "4 queijos",
+      "filé ao molho madeira com fritas",
+      "filé acebolado",
+      "frango com catupiry",
+      "alho e óleo",
+      "hot dog",
+      "moda da casa",
+      "lombinho",
+      "lombinho com abacaxi",
+      "brócolis",
+      "milho",
+      "bolonhesa",
+      "vegetariana",
+      "strogonoff de frango",
+      "strogonoff de gado",
+      "calabresa",
+      "calabresa acebolada",
+      "portuguesa"
+    ],
+    "sabores_doces": [
+      "abacaxi com coco",
+      "brigadeiro",
+      "prestígio",
+      "crocante",
+      "califórnia",
+      "banana",
+      "chocolate preto com morango",
+      "chocolate branco com morango",
+      "chocolate com confete",
+      "banana com suspiro"
+    ]
   },
-
-  "_por_quilo": "Bolos recheados, tortas, empadão, bolo salgado, pão francês, calzone, cachorro-quente, pão de X e pizza redonda são POR QUILO: a qtd registrada é o PESO em kg (ex: 1.5) e o preço aqui é por kg. Cupcake, franciscano e pizza de forma são por unidade. Cuca e pão doce seguem por unidade aqui, mas a unidade de venda esta A CONFIRMAR com a dona (o cardapio impresso traz por unidade e a dona falou em quilo).",
+  "_por_quilo": "Bolos recheados, tortas, empadão, bolo salgado, pão francês, calzone, cachorro-quente, pão de X, pizza redonda e CUCA (recheada e sem recheio) são POR QUILO: a qtd registrada é o PESO em kg (ex: 1.5) e o preço aqui é por kg. Cupcake, franciscano, pizza de forma e pão doce são por unidade.",
+  "_preco_beneficente": "SO a equipe aplica, a IA nunca cota. Quando o cliente pede desconto, ajuda ou diz que e beneficente, o cachorro-quente e o pao de X saem POR UNIDADE: cachorro-quente R$ 1,20 e pao de X R$ 1,40 (audio WhatsApp 2026-08-11 11.02.24: 'quando a pessoa pedir um desconto, ou entao falar que e beneficente, ou ate pedir uma ajuda, a gente ja cobra unidade. O cachorro-quente, R$ 1,20 e o pao de X, R$ 1,40'). No mesmo audio a dona diz que quem negocia e a casa ('deixa eu ver a possibilidade de um desconto, eu ja te retorno'), entao esses valores ficam aqui como registro e o caso vai pro humano.",
+  "_topo_de_bolo": "Nao e produto do motor, e por isso nao esta na lista: o valor varia e a equipe orca. Referencia da dona (audio WhatsApp 2026-08-11 10.39.36): so o nome R$ 15 a 20, topo completo R$ 30, com flores ou muito dourado R$ 35 a 40; e no audio 11.02.22 (1) ela diz que '90% dos topos custa realmente 30 reais, mas tem as excecoes'. Em 16/08 (audio docepao16082 (3)) ela pediu pra publicar no cardapio 'valores do topo aproximado 30 reais'. A regra do audio 10.39.36 segue valendo: 'sempre tem que ter a confirmacao ou colocar que geralmente e 30 reais, mas a gente vai ter que pedir um orcamento antes'. Papel de arroz, esse sim, e fixo em R$ 12.",
   "outros_produtos": [
-    { "nome": "torta fria", "preco": 36.90, "categoria": "torta_fria", "unidade": "kg", "sabores": ["frango","legumes"] },
-    { "nome": "torta fria com palmito", "preco": 39.90, "categoria": "torta_fria", "unidade": "kg", "sabores": ["palmito","frango com palmito"] },
-    { "nome": "empadao", "preco": 34.90, "categoria": "empadao", "unidade": "kg", "sabores": ["frango","frango com legumes"] },
-    { "nome": "empadao com palmito", "preco": 39.90, "categoria": "empadao", "unidade": "kg", "sabores": ["palmito"] },
-    { "nome": "torta doce", "preco": 33.90, "categoria": "torta_recheada", "unidade": "kg", "sabores": ["limao","morango","bombom","prestigio","porto alegre"] },
-    { "nome": "torta especial", "preco": 49.90, "categoria": "torta_recheada", "unidade": "kg", "sabores": ["oreo","mousse 4 leites","mousse morango"] },
-    { "nome": "bolo salgado", "preco": 29.90, "categoria": "bolo_salgado", "unidade": "kg", "sabores": ["frango","presunto","legumes"] },
-    { "nome": "cupcake pequeno", "preco": 2.00, "categoria": "cupcake", "unidade": "un", "_nota": "2 a 3 cm, forminha de brigadeiro", "sabores": ["4 leites","brigadeiro"] },
-    { "nome": "cupcake pequeno recheado", "preco": 3.00, "categoria": "cupcake", "unidade": "un", "sabores": ["4 leites","brigadeiro"] },
-    { "nome": "cupcake grande", "preco": 5.00, "categoria": "cupcake", "unidade": "un", "_nota": "5 a 6 cm" },
-    { "nome": "cupcake grande recheado", "preco": 7.00, "categoria": "cupcake", "unidade": "un" },
-    { "nome": "franciscano", "preco": 12.00, "categoria": "franciscano", "unidade": "un", "sabores": ["calabresa","bacon","frango","presunto e queijo","salsicha com presunto e queijo","salsicha presunto queijo e bacon","so bacon","calabresa com bacon"] },
-    { "nome": "calzone", "preco": 41.90, "categoria": "calzone", "unidade": "kg", "_nota": "sabores da pizza" },
-    { "nome": "pizza redonda", "preco": 41.90, "categoria": "pizza", "unidade": "kg", "_nota": "30 cm, por quilo" },
-    { "nome": "pao frances", "preco": 11.99, "categoria": "padaria", "unidade": "kg" },
-    { "nome": "cachorro-quente mini", "preco": 20.90, "categoria": "padaria", "unidade": "kg" },
-    { "nome": "cachorro-quente", "preco": 19.90, "categoria": "padaria", "unidade": "kg", "_nota": "medio e grande" },
-    { "nome": "pao de x", "preco": 19.90, "categoria": "padaria", "unidade": "kg" },
-    { "nome": "cuca recheada", "preco": 26.90, "categoria": "padaria", "unidade": "un", "sabores": ["chocolate","doce de leite","abacaxi","vinho","goiaba","frutas vermelhas","limao"] },
-    { "nome": "cuca", "preco": 22.90, "categoria": "padaria", "unidade": "un", "_nota": "sem recheio. Unidade de venda A CONFIRMAR: cardapio impresso diz unidade, a dona falou quilo." },
-    { "nome": "pao doce", "preco": 22.90, "categoria": "padaria", "unidade": "un" },
-    { "nome": "papel de arroz", "preco": 12.00, "categoria": "adicional_bolo", "unidade": "un", "_nota": "Adicional do bolo decorado, valor fixo. Topo de bolo NAO entra aqui: valor varia, vai por precisa_confirmacao." }
+    {
+      "nome": "torta fria",
+      "preco": 36.9,
+      "categoria": "torta_fria",
+      "unidade": "kg",
+      "sabores": [
+        "frango",
+        "legumes"
+      ]
+    },
+    {
+      "nome": "torta fria com palmito",
+      "preco": 39.9,
+      "categoria": "torta_fria",
+      "unidade": "kg",
+      "sabores": [
+        "palmito",
+        "frango com palmito"
+      ],
+      "_nota": "SIM, existe a versao frango com palmito, e ela custa o mesmo que a de palmito (audio DOCEPAORESPOSTASDONA (4): 'Uma torta de palmito, ou entao frango com palmito fica R$ 39,90 o quilo'). O que sobe o preco e o palmito, nao o frango."
+    },
+    {
+      "nome": "empadao",
+      "preco": 34.9,
+      "categoria": "empadao",
+      "unidade": "kg",
+      "sabores": [
+        "frango",
+        "frango com legumes"
+      ]
+    },
+    {
+      "nome": "empadao com palmito",
+      "preco": 39.9,
+      "categoria": "empadao",
+      "unidade": "kg",
+      "sabores": [
+        "palmito"
+      ]
+    },
+    {
+      "nome": "torta doce",
+      "preco": 33.9,
+      "categoria": "torta_recheada",
+      "unidade": "kg",
+      "sabores": [
+        "limao",
+        "morango",
+        "bombom",
+        "prestigio",
+        "porto alegre"
+      ]
+    },
+    {
+      "nome": "torta especial",
+      "preco": 49.9,
+      "categoria": "torta_recheada",
+      "unidade": "kg",
+      "sabores": [
+        "oreo",
+        "mousse 4 leites",
+        "mousse morango"
+      ]
+    },
+    {
+      "nome": "bolo salgado",
+      "preco": 29.9,
+      "categoria": "bolo_salgado",
+      "unidade": "kg",
+      "sabores": [
+        "frango",
+        "presunto",
+        "legumes"
+      ]
+    },
+    {
+      "nome": "cupcake pequeno",
+      "preco": 2,
+      "categoria": "cupcake",
+      "unidade": "un",
+      "_nota": "2 a 3 cm, forminha de brigadeiro",
+      "sabores": [
+        "4 leites",
+        "brigadeiro"
+      ]
+    },
+    {
+      "nome": "cupcake pequeno recheado",
+      "preco": 3,
+      "categoria": "cupcake",
+      "unidade": "un",
+      "sabores": [
+        "4 leites",
+        "brigadeiro"
+      ]
+    },
+    {
+      "nome": "cupcake grande",
+      "preco": 5,
+      "categoria": "cupcake",
+      "unidade": "un",
+      "_nota": "5 a 6 cm"
+    },
+    {
+      "nome": "cupcake grande recheado",
+      "preco": 7,
+      "categoria": "cupcake",
+      "unidade": "un"
+    },
+    {
+      "nome": "franciscano",
+      "preco": 12,
+      "categoria": "franciscano",
+      "unidade": "un",
+      "sabores": [
+        "calabresa",
+        "bacon",
+        "frango",
+        "presunto e queijo",
+        "salsicha com presunto e queijo",
+        "salsicha presunto queijo e bacon",
+        "so bacon",
+        "calabresa com bacon"
+      ]
+    },
+    {
+      "nome": "calzone",
+      "preco": 41.9,
+      "categoria": "calzone",
+      "unidade": "kg",
+      "_nota": "sabores da pizza"
+    },
+    {
+      "nome": "pizza redonda",
+      "preco": 41.9,
+      "categoria": "pizza",
+      "unidade": "kg",
+      "_nota": "30 cm, por quilo"
+    },
+    {
+      "nome": "pao frances",
+      "preco": 11.99,
+      "categoria": "padaria",
+      "unidade": "kg"
+    },
+    {
+      "nome": "cachorro-quente mini",
+      "preco": 20.9,
+      "categoria": "padaria",
+      "unidade": "kg"
+    },
+    {
+      "nome": "cachorro-quente",
+      "preco": 19.9,
+      "categoria": "padaria",
+      "unidade": "kg",
+      "_nota": "medio e grande"
+    },
+    {
+      "nome": "pao de x",
+      "preco": 19.9,
+      "categoria": "padaria",
+      "unidade": "kg"
+    },
+    {
+      "nome": "cuca recheada",
+      "preco": 26.9,
+      "categoria": "padaria",
+      "unidade": "kg",
+      "sabores": [
+        "chocolate",
+        "doce de leite",
+        "abacaxi",
+        "vinho",
+        "goiaba",
+        "frutas vermelhas",
+        "limao"
+      ],
+      "_nota": "vendida POR QUILO (dona confirmou em audio 16/08/2026; o cardapio impresso dizia unidade)"
+    },
+    {
+      "nome": "cuca",
+      "preco": 22.9,
+      "categoria": "padaria",
+      "unidade": "kg",
+      "_nota": "vendida POR QUILO (dona confirmou em audio 16/08/2026; o cardapio impresso dizia unidade)"
+    },
+    {
+      "nome": "pao doce",
+      "preco": 22.9,
+      "categoria": "padaria",
+      "unidade": "un",
+      "_nota": "POR UNIDADE. O cardapio impresso mais novo (cardapio.html, 16/08/2026) escreve 'cuca e pao doce por unidade'; no audio docepao1608 (4) a dona leu essa mesma linha e corrigiu SO a cuca ('nas cucas voce colocou unidade, mas na verdade e quilo'), sem falar do pao doce. Nenhum dos 49 audios diz que o pao doce e por quilo. Ele aparece pela primeira vez no audio WhatsApp 2026-08-11 10.35.43 (2) so com o valor: 'a gente tem tambem o pao doce, que esta R$ 22,90'."
+    },
+    {
+      "nome": "mini bolha doce",
+      "preco": 1.25,
+      "categoria": "salgado",
+      "unidade": "un",
+      "sabores": [
+        "banana"
+      ],
+      "_nota": "ENTRA no cardapio, confirmado no audio docepao16082 (2), 16/08/2026: 'se o cliente pedir, voce consegue fazer, por exemplo, pastel doce de banana. E uma coisa que a gente faz, so que a gente cobra 1,25. A gente ate nao tem no cardapio, mas da pra colocar (...) incluindo no cardapio tambem pasteis doce, pastel bolha doce'. E a mesma bolha frita, so que doce, e custa R$ 1,25 em vez de R$ 1,00. O cliente chama de 'pastel bolha doce' ou 'pastel doce'; o nome fica 'mini bolha doce' de proposito, pra casar com a familia da 'mini bolha' e nao roubar o pedido salgado no motor de preco (nome mais completo ganha: 'pastel bolha doce' fazia 'pastel bolha' virar o doce e cobrar R$ 0,25 a mais em cada um). O salgado continua sendo 'mini bolha' a R$ 1,00."
+    },
+    {
+      "nome": "papel de arroz",
+      "preco": 12,
+      "categoria": "adicional_bolo",
+      "unidade": "un",
+      "_nota": "Adicional do bolo decorado, valor fixo. Topo de bolo NAO entra aqui: valor varia, vai por precisa_confirmacao."
+    }
   ]
 }
