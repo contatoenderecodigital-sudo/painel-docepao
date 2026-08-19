@@ -366,16 +366,28 @@ const REGRAS_GERAIS = [
       // Primeiro passo do cenario limpa o pedido do cliente de teste, senao um
       // cenario herda o pedido do outro e a checagem vira loteria.
       const primeiro = msgs.filter((m) => m.de === "cliente").length === 1;
-      const r = await p.request.post(BASE + "/api/testar-ia", {
-        data: { mensagens: msgs, reiniciar: primeiro },
-        timeout: 120000,
-      });
+      // Limite de tokens por minuto nao e defeito do sistema, e fila: quando
+      // acontece, a bateria espera e repete o MESMO turno, senao o cenario
+      // inteiro passa a mentir dali pra frente.
       let j = {};
-      try { j = await r.json(); } catch { j = { erro: "HTTP " + r.status() }; }
-      const resposta = String(j.resposta || j.erro || "");
+      let resposta = "";
+      for (let tentativa = 1; tentativa <= 4; tentativa++) {
+        const r = await p.request.post(BASE + "/api/testar-ia", {
+          data: { mensagens: msgs, reiniciar: primeiro && tentativa === 1 },
+          timeout: 120000,
+        });
+        try { j = await r.json(); } catch { j = { erro: "HTTP " + r.status() }; }
+        resposta = String(j.resposta || j.erro || "");
+        const noLimite = /429|rate limit|provedores de ia falharam/i.test(resposta);
+        if (!noLimite || tentativa === 4) break;
+        const pedido = resposta.match(/try again in ([0-9.]+)s/i);
+        const espera = pedido ? Math.ceil(Number(pedido[1]) * 1000) + 800 : tentativa * 8000;
+        console.log("  [limite de tokens, esperando " + Math.round(espera / 1000) + "s e repetindo]");
+        await new Promise((r2) => setTimeout(r2, espera));
+      }
       msgs.push({ de: "ia", texto: resposta });
       // Respiro pra nao estourar o limite de chamadas da OpenAI no meio da bateria.
-      await new Promise((r2) => setTimeout(r2, 1200));
+      await new Promise((r2) => setTimeout(r2, 2500));
 
       console.log("\n> " + passo.diz);
       console.log("  " + resposta.replace(/\n/g, "\n  "));
