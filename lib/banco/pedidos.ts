@@ -366,9 +366,17 @@ export async function pedidoEmAberto(
        from pedidos p left join clientes c on c.id = p.cliente_id
       where p.negocio_id = $1 and p.cliente_id = $2
         and p.status in ('confirmado', 'aprovado', 'impresso')
+        -- Pedido nao impresso NAO some da tela, mesmo com a data passada: e
+        -- trabalho pendente, e e justamente quando passou que alguem precisa
+        -- ver. O do Paulo sumiu no dia seguinte sem nunca ter sido impresso,
+        -- com o cliente pedindo pra mudar o pedido.
         -- O dia que vale e o da padaria: com current_date (UTC), pedido pra
         -- hoje sumia depois das 21h de Brasilia.
-        and (p.retirada_data is null or p.retirada_data >= (now() at time zone 'America/Sao_Paulo')::date)
+        and (
+          p.impresso_em is null
+          or p.retirada_data is null
+          or p.retirada_data >= (now() at time zone 'America/Sao_Paulo')::date
+        )
       order by p.criado_em desc
       limit 1`,
     [negocioId, clienteId],

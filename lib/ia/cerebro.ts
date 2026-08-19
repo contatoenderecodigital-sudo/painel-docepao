@@ -2382,6 +2382,24 @@ export function obsEhAListaInteira(produto: string, obs?: string | null): boolea
   return citados >= 3;
 }
 
+// A familia do produto, do jeito que o resto do sistema chama. Serve pra
+// devolver um pedido gravado ao rascunho sem jogar o item na comanda errada.
+export function categoriaDoProduto(nome: string): string {
+  const limpo = String(nome || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const bate = (n: string) => { const x = n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); return limpo === x || limpo.startsWith(x + " "); };
+  if (((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]).some((i) => bate(i.nome))) return "salgado_frito";
+  if (((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[]).some((i) => bate(i.nome))) return "salgado_assado";
+  if (((catalogo.doces?.itens ?? []) as { nome: string }[]).some((i) => bate(i.nome))) return "docinho";
+  if (((catalogo.bolos_caseiros?.itens ?? []) as { nome: string }[]).some((i) => bate(i.nome))) return "bolo_caseiro";
+  if (/^bolo/.test(limpo)) return "bolo_festa";
+  if (/^pizza/.test(limpo)) return "pizza";
+  if (/papel de arroz/.test(limpo)) return "papel_de_arroz";
+  if (/^cupcake/.test(limpo)) return "cupcake";
+  const outro = ((catalogo.outros_produtos ?? []) as { nome: string; unidade?: string }[]).find((i) => bate(i.nome));
+  if (outro) return outro.unidade === "kg" ? "por_quilo" : "por_unidade";
+  return "outro";
+}
+
 export function unidadeDoProduto(nome: string, categoria?: string): "kg" | "un" {
   const limpo = String(nome || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const todos: { nome: string; unidade?: string }[] = [
@@ -3327,7 +3345,10 @@ async function rodarConversa(
         /\b(mudar|muda|trocar|troca|alterar|altera|aumentar|aumenta|diminuir|diminui|acrescentar|acrescenta|tirar|tira|cancelar|cancela|desmarcar|adiar)\b/i.test(
           String(falaDoCliente2 ?? ""),
         );
-      if (pedidoAberto && querMexerNoPedido && !estado.pedido) {
+      // So chama gente quando a cozinha ja esta com o pedido. Antes disso ela
+      // mesma altera, porque nada foi produzido ainda.
+      const jaNaCozinha = !!pedidoAberto && (pedidoAberto.impresso || pedidoAberto.status === "aprovado");
+      if (pedidoAberto && querMexerNoPedido && jaNaCozinha && !estado.pedido) {
         console.warn("[ia] cliente quer mexer no pedido registrado; chamando a equipe");
         estado.precisaHumano = true;
         const quandoM = [

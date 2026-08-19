@@ -13,7 +13,7 @@
 // ============================================================================
 
 import { NextRequest, after } from "next/server";
-import { responder, pecaDaEtapa, ehFestaNaFala, unidadeDoProduto } from "@/lib/ia/cerebro";
+import { responder, pecaDaEtapa, ehFestaNaFala, unidadeDoProduto, categoriaDoProduto } from "@/lib/ia/cerebro";
 import { carregarTenant } from "@/lib/ia/tenant";
 import { enviarTexto, enviarImagemPorLink, urlDoCardapio, RECADOS_CARDAPIO, baixarMidia, marcarLidaEDigitando, type CredsEnvio } from "@/lib/whatsapp/api";
 import { avisarDono } from "@/lib/alertas";
@@ -383,10 +383,46 @@ async function processar(corpo: WebhookPayload) {
       // reconstrói tudo de cabeça a cada mensagem, e é aí que perde item, troca
       // bolo por docinho e pergunta de novo o que o cliente já respondeu.
       const montado = await lerMontagem(negocioId, clienteId).catch(() => null);
-      const pedidoAnterior = await resumoPedidoFechado(negocioId, clienteId).catch(() => null);
       // O pedido que ele ja fez e que ainda esta andando. Enquanto o ticket nao
       // imprime, toda mensagem dele chega em cima DESTE pedido, nao no vazio.
       const emAberto = await pedidoEmAberto(negocioId, clienteId).catch(() => null);
+
+      // PEDIDO AINDA NAO IMPRESSO VOLTA PRO RASCUNHO QUANDO ELE QUER MUDAR.
+      //
+      // Ao registrar, o rascunho e limpo. Se o cliente emenda 'da pra mudar pra
+      // 250?', ela ficava sem o pedido na mao e recomecava do zero, perguntando
+      // o que ele ja tinha respondido. Enquanto nao imprimiu, o pedido gravado
+      // volta a ser editavel e ela mexe em cima dele.
+      try {
+        const querMudar = /\b(mudar|muda|trocar|troca|alterar|altera|aumentar|aumenta|diminuir|diminui|acrescentar|acrescenta|tirar|tira|incluir|inclui|adicionar|adiciona)\b/i.test(
+          String(texto || ""),
+        );
+        const naoImpresso = emAberto && !emAberto.impresso && emAberto.status !== "aprovado";
+        const rascunhoVazio = (montado?.itens?.length ?? 0) === 0;
+        if (querMudar && naoImpresso && rascunhoVazio && emAberto) {
+          console.log("[whatsapp] cliente quer mudar pedido ainda nao impresso; devolvendo pro rascunho");
+          for (const it of emAberto.itens) {
+            await anotarItem(negocioId, clienteId, {
+              produto: it.produto,
+              // O pedido em aberto nao guarda a categoria do item; o cardapio
+              // decide, que e a mesma fonte do preco e da unidade.
+              categoria: (categoriaDoProduto(it.produto) || "outro") as never,
+              qtd: Number(it.qtd) || 0,
+              unidade: (it.unidade === "kg" ? "kg" : "un") as "kg" | "un",
+              obs: it.obs ?? null,
+            }).catch(() => {});
+          }
+          await anotarDados(negocioId, clienteId, {
+            retirada_data: emAberto.retiradaData ?? undefined,
+            retirada_hora: emAberto.retiradaHora ?? undefined,
+            forma_pagamento: emAberto.formaPagamento ?? undefined,
+            cliente_nome: emAberto.quemRetira ?? undefined,
+          }).catch(() => {});
+        }
+      } catch (e) {
+        console.error("[whatsapp] falha ao devolver o pedido pro rascunho:", e);
+      }
+      const pedidoAnterior = await resumoPedidoFechado(negocioId, clienteId).catch(() => null);
 
       // RENOVA O 'DIGITANDO...' ANTES DE PENSAR.
       //
