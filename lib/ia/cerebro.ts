@@ -3220,7 +3220,12 @@ async function rodarConversa(
         const ofertando = /pode ser de|tem (os sabores|de)|os sabores s[ãa]o|op[çc][õo]es s[ãa]o|qual (o )?sabor|que sabor|qual recheio/i.test(
           textoFinal,
         );
-        if (ofertando) {
+        // Produtos com lista de sabor citados nesta mensagem. Dois ou mais e
+        // conversa de festa normal, e cada sabor tem dono possivel.
+        const produtosCitados = Object.keys(SABORES).filter(
+          (nome) => (SABORES[nome] ?? []).length >= 2 && txt.includes(semAcL(nome)),
+        ).length;
+        if (ofertando && produtosCitados === 1) {
           for (const nome of Object.keys(SABORES)) {
             const ops = SABORES[nome] ?? [];
             if (ops.length < 2) continue;
