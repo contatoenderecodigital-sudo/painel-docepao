@@ -23,11 +23,12 @@ export default function AjudaInfo({ titulo, texto }: { titulo: string; texto: st
         <>
           <div className="fixed inset-0 z-40" onClick={() => setAberto(false)} />
           <div
-            /* Ancorado a esquerda e com largura fixa, no celular ele comecava
-               em 141 e terminava em 429 numa tela de 390: quase quarenta pixels
-               de texto fora da tela, cortando palavra no meio. Agora ele nasce
-               da direita do botao e nunca passa da largura da tela. */
-            className="absolute right-0 sm:left-0 sm:right-auto top-12 sm:top-9 z-50 w-[min(18rem,calc(100vw-2rem))] rounded-2xl p-4 text-left"
+            /* No celular ele é preso à TELA, não ao botão: com margem dos dois
+               lados não existe posição de botão que o faça vazar. Ancorar no
+               botão sempre quebra em alguma tela, porque em alguma tela ele
+               cai perto da borda. No monitor, onde sobra espaço, volta a sair
+               do botão como sempre foi. */
+            className="fixed left-4 right-4 top-1/2 -translate-y-1/2 sm:absolute sm:left-0 sm:right-auto sm:top-9 sm:translate-y-0 sm:w-72 z-50 rounded-2xl p-4 text-left"
             style={{
               background: "rgba(58,16,28,0.98)",
               backdropFilter: "blur(20px)",

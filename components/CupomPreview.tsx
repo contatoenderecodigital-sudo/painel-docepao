@@ -304,7 +304,7 @@ export default function CupomPreview({
 
         {/* acoes */}
         <div className="no-print flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
-          <button onClick={onClose} className="px-4 py-2 rounded-[10px] text-sm text-cream/70 border border-white/15 hover:bg-white/10 transition-colors">
+          <button onClick={onClose} className="px-4 h-11 sm:h-auto sm:py-2 rounded-[10px] text-sm text-cream/70 border border-white/15 hover:bg-white/10 transition-colors">
             Fechar
           </button>
           <button onClick={() => imprimir()} className="btn-cobre press inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold">
