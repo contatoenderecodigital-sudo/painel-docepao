@@ -17,6 +17,9 @@ export type JobImpressao = {
     retiradaHora: string | null;
     pessoas: number | null;
     totalCentavos: number;
+    // Quem fecha o caixa na retirada le isto no papel: sem a forma combinada,
+    // pergunta de novo pro cliente e da pra cobrar errado.
+    formaPagamento: string | null;
     observacoes: string | null;
     itens: {
       produto: string;
@@ -41,6 +44,7 @@ export async function jobsPendentes(negocioId: string): Promise<JobImpressao[]> 
     retirada_hora: string | null;
     pessoas: number | null;
     total_centavos: number;
+    forma_pagamento: string | null;
     observacoes: string | null;
     itens:
       | {
@@ -71,7 +75,7 @@ export async function jobsPendentes(negocioId: string): Promise<JobImpressao[]> 
      )
      select r.id as fila_id, p.id as pedido_id,
             c.nome as cliente_nome, c.telefone as cliente_telefone,
-            p.retirada_data, p.retirada_hora, p.pessoas, p.total_centavos, p.observacoes,
+            p.retirada_data, p.retirada_hora, p.pessoas, p.total_centavos, p.observacoes, p.forma_pagamento,
             coalesce(
               (select json_agg(json_build_object('produto', i.produto, 'categoria', i.categoria, 'qtd', i.qtd, 'obs', i.obs, 'unidade', i.unidade, 'unit_centavos', i.unit_centavos, 'subtotal_centavos', i.subtotal_centavos))
                from pedido_itens i where i.pedido_id = p.id),
@@ -93,6 +97,7 @@ export async function jobsPendentes(negocioId: string): Promise<JobImpressao[]> 
       retiradaHora: l.retirada_hora ? l.retirada_hora.slice(0, 5) : null,
       pessoas: l.pessoas,
       totalCentavos: l.total_centavos,
+      formaPagamento: l.forma_pagamento ?? null,
       observacoes: l.observacoes,
       itens: (l.itens ?? []).map((i) => ({
         produto: i.produto,
