@@ -3811,6 +3811,32 @@ async function rodarConversa(
       // preco, e ninguem escolhe festa lendo nove nomes num paragrafo.
       // Peca que ja foi pro cliente ha pouco nao volta: repetir cardapio no meio
       // da escolha faz parecer que a padaria perdeu o fio da conversa.
+      // SEM O DIA, A PERGUNTA E O DIA.
+      //
+      // Quando o cliente ja esta fechando (deu nome, pagamento ou hora) e tem
+      // item montado, oferecer mais coisa e trocar a venda por conversa: sem
+      // data nada e registrado, e ele vai embora achando que encomendou.
+      try {
+        const d = montagemDoTurno?.dados ?? {};
+        const temItem = (montagemDoTurno?.itens ?? []).length > 0;
+        const jaFechando = Boolean(d.cliente_nome || d.forma_pagamento || d.retirada_hora);
+        const semDia = !d.retirada_data;
+        const perguntouODia = /que dia|pra quando|qual dia|dia da retirada|data da retirada/i.test(
+          textoFinal,
+        );
+        if (temItem && jaFechando && semDia && !perguntouODia) {
+          // Tira a oferta de mais produto e pergunta o que falta. Só troca a
+          // pergunta do fim: o que ela anotou antes continua valendo.
+          const oferta =
+            /[^.!?\n]*(quer (mais|acrescentar|algum)|deseja mais|vai querer mais|pra acompanhar|pra completar)[^.!?\n]*[?.!]/gi;
+          const semOferta = textoFinal.replace(oferta, "").replace(/\n{3,}/g, "\n\n").trim();
+          const base = semOferta || textoFinal.trim();
+          textoFinal = (base ? base + "\n\n" : "") + "Pra que dia você quer?";
+        }
+      } catch (e) {
+        console.error("[ia] falha ao perguntar o dia:", e);
+      }
+
       const mandadasAgora = pecasJaMandadas(historico);
       const semLista = listaViraCardapio(textoFinal, estado.cardapios, mandadasAgora);
       // O que o CLIENTE pediu vale por ultimo: se ele pediu a peca, ela vai.
