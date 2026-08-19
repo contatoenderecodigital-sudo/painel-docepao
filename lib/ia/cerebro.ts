@@ -3815,7 +3815,14 @@ async function rodarConversa(
         // Ele respondeu alguma coisa entre uma pergunta e outra? Entao o problema
         // e ela nao ter entendido, nao ele ter ignorado.
         const respondeuAlgo = String(falaDoCliente2 ?? "").trim().length > 2;
-        if (iguais >= 2 && respondeuAlgo) {
+        // Mas se ela ANOTOU alguma coisa neste turno, ela entendeu. A pergunta
+        // se repete porque falta outra coisa, nao porque a fala foi confusa, e
+        // dizer "nao entendi" pra quem acabou de ser entendido apaga a
+        // confirmacao do que foi anotado e faz o cliente duvidar de tudo.
+        const anotouAgora =
+          JSON.stringify(montagemDoTurno?.dados ?? {}) !== JSON.stringify(montagemAtual?.dados ?? {}) ||
+          JSON.stringify(montagemDoTurno?.itens ?? []) !== JSON.stringify(montagemAtual?.itens ?? []);
+        if (iguais >= 2 && respondeuAlgo && !anotouAgora) {
           console.warn("[ia] terceira vez na mesma pergunta; admitindo que nao entendeu");
           textoFinal =
             "Desculpa, acho que eu não entendi direito o que você escreveu." +
