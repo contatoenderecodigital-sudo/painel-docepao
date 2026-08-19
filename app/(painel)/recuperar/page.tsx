@@ -17,9 +17,11 @@ export default async function Page() {
   const nomeNegocio = await nomeNegocioAtual("");
 
   let msgCobranca = MSG_PADRAO;
+  let cobrancaAtiva = false;
   if (bancoConfigurado && sessao?.negocioId) {
-    const { carregarMsgCobranca } = await import("@/lib/banco/negocios");
+    const { carregarMsgCobranca, carregarCobrancaAtiva } = await import("@/lib/banco/negocios");
     msgCobranca = (await carregarMsgCobranca(sessao.negocioId)) || MSG_PADRAO;
+    cobrancaAtiva = await carregarCobrancaAtiva(sessao.negocioId);
   }
 
   return (
@@ -29,6 +31,7 @@ export default async function Page() {
       agora={Date.now()}
       stats={stats}
       msgCobranca={msgCobranca}
+      cobrancaAtiva={cobrancaAtiva}
     />
   );
 }

@@ -13,7 +13,7 @@ import type { Conversa, TipoMidia } from "../tipos";
 
 type MsgBruta = {
   id: string;
-  autor: "cliente" | "ia" | "equipe";
+  autor: "cliente" | "ia" | "equipe" | "cobranca";
   conteudo: string;
   hora: string;
   data: string;

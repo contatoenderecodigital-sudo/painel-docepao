@@ -30,9 +30,13 @@ export const carregarAguardandoConfirmacao = cache(async (negocioId?: string): P
   return listarAguardandoConfirmacao(negocioId);
 });
 
+// Orcamento parado nao mora em pedidos: mora na montagem da conversa, onde a
+// Dora anota o que o cliente foi pedindo. Quem montou e sumiu tem itens la e
+// nenhuma linha em pedidos. Ate hoje isso lia status 'orcado' da tabela de
+// pedidos, que nenhum caminho do codigo jamais grava: a tela vivia vazia.
 export async function carregarParados(negocioId?: string): Promise<Pedido[]> {
   if (!bancoConfigurado || !negocioId) return ORCAMENTOS_PARADOS_MOCK;
-  const { listarParados } = await import("./banco/pedidos");
+  const { listarParados } = await import("./banco/parados");
   return listarParados(negocioId);
 }
 

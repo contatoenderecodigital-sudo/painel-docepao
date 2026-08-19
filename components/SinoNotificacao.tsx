@@ -42,6 +42,12 @@ export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) 
   const [aberto, setAberto] = useState(false);
   const [contagem, setContagem] = useState<Contagem | null>(null);
   const anterior = useRef<Contagem | null>(null);
+  // O som e lido por referencia de proposito. Ele comeca desligado e liga logo
+  // depois, quando a preferencia salva e lida do navegador. Como dependencia do
+  // efeito, essa mudanca derrubava o relogio e criava outro: era dai que saiam
+  // as duas chamadas coladas em toda abertura de pagina.
+  const somRef = useRef(som);
+  useEffect(() => { somRef.current = som; }, [som]);
   const audioCtx = useRef<AudioContext | null>(null);
 
   useEffect(() => {
@@ -125,7 +131,7 @@ export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) 
         }
         const cresceu = nova.fila > antes.fila || nova.aguardando > antes.aguardando || nova.ajuda > antes.ajuda;
         if (cresceu) {
-          if (som) tocar();
+          if (somRef.current) tocar();
           if (typeof document !== "undefined") {
             document.title = `(${nova.fila + nova.aguardando + nova.ajuda}) ${nome}`;
           }
@@ -141,7 +147,7 @@ export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) 
       liderAtivo = false;
       clearInterval(id);
     };
-  }, [som, tocar, avisarNoNavegador]);
+  }, [tocar, avisarNoNavegador]);
 
   function alternar() {
     const novo = !som;

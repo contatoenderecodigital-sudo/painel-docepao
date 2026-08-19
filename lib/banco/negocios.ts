@@ -264,6 +264,25 @@ export async function salvarMsgCobranca(negocioId: string, texto: string): Promi
   );
 }
 
+// A COBRANCA AUTOMATICA ESTA LIGADA?
+//
+// Nasce DESLIGADA e so liga por escolha da dona. Mandar mensagem sozinha pra
+// cliente que nao escreveu antes e irreversivel: nao pode ser padrao.
+export async function carregarCobrancaAtiva(negocioId: string): Promise<boolean> {
+  const n = await queryUm<{ a: boolean | null }>(
+    `select (config->>'cobranca_ativa')::boolean as a from negocios where id = $1`,
+    [negocioId],
+  );
+  return n?.a === true;
+}
+export async function salvarCobrancaAtiva(negocioId: string, ativa: boolean): Promise<void> {
+  await query(
+    `update negocios set config = coalesce(config, '{}'::jsonb)
+       || jsonb_build_object('cobranca_ativa', $2::boolean) where id = $1`,
+    [negocioId, ativa],
+  );
+}
+
 export type NegocioMarca = {
   nome: string;
   corPrimaria: string | null;

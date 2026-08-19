@@ -113,7 +113,7 @@ function cortarNoPedidoFechado(msgs: Mensagem[]): Mensagem[] {
 // mensagem que a DONA digita entra papel='assistant' + autor='equipe'. Mídia
 // recebida entra com tipo/mime/dados (base64) pra aparecer no chat.
 export type ExtraMensagem = {
-  autor?: "cliente" | "ia" | "equipe";
+  autor?: "cliente" | "ia" | "equipe" | "cobranca";
   tipo?: "texto" | "imagem" | "audio" | "documento" | "video";
   mime?: string | null;
   dados?: string | null; // base64, sem prefixo data:
@@ -324,6 +324,20 @@ export async function registrarPedido(
       pedidoId = ped[0]?.id;
     }
     if (!pedidoId) throw new Error("Falha ao registrar pedido");
+
+    // Fechou depois de cobranca: carimba quantas foram. E esse numero que
+    // faz o card de recuperado no mes existir; sem ele a agregacao procurava
+    // cobrancas > 0 numa coluna que nada no sistema escrevia.
+    await q(
+      `update pedidos set cobrancas = (
+         select count(*) from mensagens x
+          where x.negocio_id = $2 and x.cliente_id = $3 and x.autor = 'cobranca'
+       ), cobrado_em = (
+         select max(x.criado_em) from mensagens x
+          where x.negocio_id = $2 and x.cliente_id = $3 and x.autor = 'cobranca'
+       ) where id = $1`,
+      [pedidoId, negocioId, clienteId],
+    );
 
     for (const it of itens) {
       await q(

@@ -23,7 +23,7 @@ import AudioBolha from "@/components/AudioBolha";
 import { Check,
   Search, Plus, Paperclip, SendHorizontal, ArrowLeft, Bot, X,
   MessageSquare, Info, FileText, Download, CheckCheck, AlertCircle,
-  Clock, ShieldAlert, Hand, ShoppingBag,
+  Clock, ShieldAlert, Hand, ShoppingBag, Zap,
 } from "lucide-react";
 
 const CORES = ["#5b8c7b", "#c58a3d", "#7a6cae", "#4a7ba6", "#a85b52", "#6f9b52", "#b0713e", "#8a5a86"];
@@ -202,6 +202,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
       <div className="max-w-[78%] md:max-w-[64%]">
         {!isCliente && m.de === "equipe" && primeiro && <div className="text-[10px] text-cream/45 mb-0.5 text-right pr-1">Você</div>}
         {!isCliente && m.de === "ia" && primeiro && <div className="text-[10px] text-cream/45 mb-0.5 text-right pr-1 flex items-center justify-end gap-1"><Bot size={11} /> Atendente</div>}
+        {!isCliente && m.de === "cobranca" && primeiro && <div className="text-[10px] mb-0.5 text-right pr-1 flex items-center justify-end gap-1" style={{ color: "#e7cf94" }}><Zap size={11} /> Cobrança automática</div>}
         <div>
         <div className={bolhaBase} style={{ ...bolhaStyle, padding: m.tipo === "imagem" && src ? 4 : undefined }}>
           {/* IMAGEM */}

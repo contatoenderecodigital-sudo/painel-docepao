@@ -3,7 +3,12 @@
 // Recuperar orçamento: clientes que pediram e sumiram sem confirmar. Não é uma
 // lista estática, é um painel de recuperação de vendas: mostra o dinheiro em
 // risco, prova o que já voltou, e prioriza quem cobrar primeiro (por tempo
-// parado, com cor de urgência). O sistema cobra sozinho; aqui a equipe empurra.
+// parado, com cor de urgência).
+//
+// A cobrança automática nasce DESLIGADA e só roda por escolha da dona. Por
+// muito tempo esta tela afirmou que o sistema cobrava sozinho enquanto nada
+// no código mandava mensagem nenhuma: o interruptor era estado da própria
+// tela e o selo verde nascia aceso.
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -85,12 +90,14 @@ export default function Recuperar({
   agora,
   stats,
   msgCobranca = "Oi {nome}! Seu orçamento ainda está de pé. Quer confirmar? É só responder por aqui.",
+  cobrancaAtiva = false,
 }: {
   parados: Pedido[];
   nomeNegocio?: string;
   agora: number;
   stats: Stats;
   msgCobranca?: string;
+  cobrancaAtiva?: boolean;
 }) {
   const [cobrados, setCobrados] = useState<Record<string, boolean>>({});
   const [preview, setPreview] = useState<Pedido | null>(null);
@@ -98,7 +105,29 @@ export default function Recuperar({
   const [tempoF, setTempoF] = useState<TempoFiltro>("todos");
   const [statusF, setStatusF] = useState<StatusFiltro>("todos");
   const [busca, setBusca] = useState("");
-  const [autoOn, setAutoOn] = useState(true);
+  // Vem do banco, nao de um chute otimista: e a dona quem liga.
+  const [autoOn, setAutoOn] = useState(cobrancaAtiva);
+  const [salvandoAuto, setSalvandoAuto] = useState(false);
+
+  async function alternarAuto() {
+    const novo = !autoOn;
+    setAutoOn(novo);
+    setSalvandoAuto(true);
+    try {
+      const r = await fetch("/api/cobranca/ativa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ativa: novo }),
+      });
+      if (!r.ok) throw new Error();
+    } catch {
+      // Nao gravou: volta o interruptor pra onde estava, senao a tela mente
+      // de novo, que e exatamente o problema que estamos consertando.
+      setAutoOn(!novo);
+    } finally {
+      setSalvandoAuto(false);
+    }
+  }
   const [personalizando, setPersonalizando] = useState(false);
   const [template, setTemplate] = useState(msgCobranca);
   const [salvandoMsg, setSalvandoMsg] = useState(false);
@@ -166,11 +195,11 @@ export default function Recuperar({
         <h1 className="font-title text-3xl font-bold text-cream">
           Dinheiro que ia embora sem ninguém perceber
         </h1>
-        <AjudaInfo titulo="Recuperar orçamento" texto="Clientes que pediram orçamento e sumiram sem confirmar. O sistema cobra sozinho na hora certa, e aqui você vê quem priorizar e dá o empurrão com um toque." />
+        <AjudaInfo titulo="Recuperar orçamento" texto="Clientes que montaram pedido com a atendente e sumiram sem confirmar. Aqui você vê quem priorizar e dá o empurrão com um toque. A cobrança automática só sai se você ligar, e ela avisa só quem parou faz algumas horas." />
       </div>
       <p className="text-sm text-cream/65 mt-1 mb-6 max-w-2xl">
-        Clientes que pediram orçamento e sumiram sem confirmar. O sistema cobra sozinho na hora
-        certa, mas aqui você vê quem priorizar e dá o empurrão com um toque.
+        Clientes que montaram pedido com a atendente e sumiram sem confirmar. Aqui você vê quem
+        priorizar e dá o empurrão com um toque.
       </p>
 
       {/* ---------------- KPIs ---------------- */}
@@ -250,7 +279,9 @@ export default function Recuperar({
               </span>
             </div>
             <div className="text-[12px] text-cream/55 mt-0.5">
-              Envia sozinha: "{template.replace("{nome}", "").replace(/\s+/g, " ").trim()}"
+              {autoOn
+                ? "Envia sozinha: " + template.replace("{nome}", "").replace(/\s+/g, " ").trim()
+                : "Desligada, ninguém é cobrado sozinho. Você continua podendo cobrar no toque."}
             </div>
           </div>
         </div>
@@ -270,7 +301,8 @@ export default function Recuperar({
             type="button"
             role="switch"
             aria-checked={autoOn}
-            onClick={() => setAutoOn((v) => !v)}
+            onClick={alternarAuto}
+            disabled={salvandoAuto}
             className="relative h-6 w-11 rounded-full transition-colors shrink-0 press"
             style={{ background: autoOn ? "linear-gradient(135deg,#1fae54,#128c3e)" : "rgba(255,255,255,0.16)" }}
           >
