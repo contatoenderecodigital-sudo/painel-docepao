@@ -2252,7 +2252,9 @@ function faltaSabor(obs: string | null | undefined, ops: string[]): boolean {
 // e, no fim, os dados da peca: nome e idade do aniversariante, tema e foto.
 // Sem ordem ela pulava etapa e voltava, e o cliente respondia tres assuntos ao
 // mesmo tempo. Aqui o prompt cobra UMA etapa por vez, a da vez.
-type Etapa = { titulo: string; pendencias: string[] };
+// pendencias TRAVAM o pedido (sem elas a cozinha nao produz).
+// opcionais sao perguntados junto, mas NUNCA seguram o registro.
+type Etapa = { titulo: string; pendencias: string[]; opcionais?: string[] };
 
 function faltaNoItem(i: MontagemAtual["itens"][number]): string | null {
   const nome = String(i.produto || "").trim();
@@ -2333,14 +2335,17 @@ function etapasDaFesta(
         ? ["- o cliente ainda nao escolheu NENHUM docinho. MANDE a peca do cardapio de docinhos e pergunte em cima dela; ninguem decora cardapio. Depois pergunte quais sabores e quantos de cada."]
         : []),
       ...(docinhos.map(faltaNoItem).filter(Boolean) as string[]),
-      ...(docinhos.length && doceSemForminha.length
-        ? [
-            `- falta a COR DA FORMINHA dos docinhos (${doceSemForminha
-              .map((d) => d.produto)
-              .join(", ")}). Pergunte uma vez so, pra todos.`,
-          ]
-        : []),
     ],
+    // A cozinha faz o docinho do mesmo jeito sem saber a cor do papel. Se o
+    // cliente nao disser, a padaria escolhe ou liga. Nao vale perder a festa.
+    opcionais:
+      docinhos.length && doceSemForminha.length
+        ? [
+            `- seria bom saber a COR DA FORMINHA dos docinhos (${doceSemForminha
+              .map((d) => d.produto)
+              .join(", ")}). Pergunte uma vez so, pra todos, e NAO segure o pedido por isso.`,
+          ]
+        : [],
   });
 
   // Acompanhamento do bolo: e aqui que a padaria ganha os R$ 12 do papel de
@@ -2401,21 +2406,32 @@ function etapasDaFesta(
       /tema/i.test(obsBolo) ||
       /(topo|papel de arroz)[^,;.]{0,20}\bde\s+(?!bolo|arroz)[a-zà-úA-ZÀ-Ú][a-zà-ú-]{2,}/i.test(obsBolo);
     if (!temTema) falta.push("o TEMA da festa");
-    if (!/foto/i.test(obsBolo)) falta.push("se ele tem FOTO de referencia do tema (se nao tiver, anote 'sem foto')");
+    // A foto AJUDA a confeitaria a acertar o desenho, mas a peca sai sem ela.
+    // Ela ja segurou um pedido de R$ 458 fechado insistindo nesta foto.
+    const semFoto = !/foto/i.test(obsBolo);
     etapas.push({
       titulo: "DADOS DA PECA DO BOLO",
       pendencias: falta.length
         ? [`- ${bolo.produto}: falta ${falta.join(", ")}. Sem isso a peca nao e fabricada. Escreva tudo na observacao do bolo.`]
         : [],
+      opcionais: semFoto
+        ? [
+            "- se ele tiver FOTO de referencia do tema, peca UMA vez: ajuda a confeitaria a fazer igual. " +
+              "Se ele nao mandar, anote 'sem foto' e SIGA. Foto nunca segura pedido.",
+          ]
+        : [],
     });
   }
 
-  return etapas.filter((e) => e.pendencias.length > 0);
+  return etapas.filter((e) => e.pendencias.length > 0 || (e.opcionais?.length ?? 0) > 0);
 }
 
 // Tudo que ainda falta, de todas as etapas. Quem decide se DA pra fechar usa
 // isto: sem ele, fechar so olhava sabor e passava por cima da forminha, do
 // topo e dos dados da peca.
+// SO o que TRAVA. Os opcionais ficam de fora de proposito: esta funcao decide
+// se registrar_pedido entra na lista de ferramentas, e uma cor de forminha
+// faltando tirava dela a possibilidade de fechar a festa inteira.
 function pendenciasDeSabor(
   itens: MontagemAtual["itens"],
   festa = false,
@@ -2713,12 +2729,19 @@ function descreverMontagem(
   const etapas = etapasDaFesta(itens, festa, pediuBolo, String(m?.dados?.nao_quer ?? ""), falouSalgado, falouDocinho, falaDoCliente);
   const atual = etapas[0];
   const pend = atual ? atual.pendencias : [];
+  const opc = atual?.opcionais ?? [];
   const faltaDepois = Math.max(0, etapas.length - 1);
-  const cobrar = pend.length
+  const cobrar = pend.length || opc.length
     ? `\n\nETAPA DE AGORA: ${atual?.titulo}. Fora a resposta a pergunta dele, fale SO desta etapa nesta mensagem.\n` +
       "SE A ULTIMA MENSAGEM DO CLIENTE FOR UMA PERGUNTA, RESPONDA ELA PRIMEIRO, com a informacao concreta " +
       "(preco, peso, sabor, como se vende), e so depois siga a etapa.\n" +
       pend.join(String.fromCharCode(10)) +
+      (opc.length
+        ? String.fromCharCode(10) +
+          "BOM TER, MAS NAO TRAVA O PEDIDO (pergunte junto, e se ele nao responder siga assim mesmo):" +
+          String.fromCharCode(10) +
+          opc.join(String.fromCharCode(10))
+        : "") +
       String.fromCharCode(10, 10) +
       "ANOTAR O QUE ELE ACABOU DE INFORMAR VALE SEMPRE, mesmo que nao seja desta etapa: data, hora, nome e " +
       "pagamento entram com anotar_dados na hora em que ele fala, e o que ele ja escolheu entra com anotar_item " +
@@ -2736,8 +2759,9 @@ function descreverMontagem(
     const v = m?.dados?.[k];
     return !!v && String(v).trim() !== "";
   };
+  const travando = etapas.flatMap((e) => e.pendencias);
   const completo =
-    pend.length === 0 &&
+    travando.length === 0 &&
     linhas.length > 0 &&
     preciso("cliente_nome") &&
     preciso("retirada_data") &&
@@ -2749,7 +2773,10 @@ function descreverMontagem(
       "deixa o cliente achando que encomendou sem existir pedido nenhum. " +
       "Valor que voce nao sabe (o topo de bolo, por exemplo) NAO e motivo pra chamar_humano: registre o pedido com " +
       "precisa_confirmacao=true e o motivo, que a equipe informa o valor depois. Chamar a equipe em vez de registrar " +
-      "deixa o pedido fora da fila."
+      "deixa o pedido fora da fila." +
+      String.fromCharCode(10, 10) +
+      "Detalhe que voce ainda queria (cor de forminha, foto do tema) NAO segura nada: registre o pedido AGORA e " +
+      "pergunte o detalhe na mesma mensagem, se quiser. Ja aconteceu de segurar uma festa fechada de R$ 458 por causa de uma foto."
     : "";
 
   return (
