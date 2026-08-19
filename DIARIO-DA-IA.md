@@ -147,3 +147,46 @@ nova na mesma conta não muda nada, porque o limite é da organização.
 - Levar a ponte atualizada pra máquina da padaria (o papel do caixa passou a
   mostrar a forma de pagamento)
 - A dona usar a tela de aprovação com pedido real
+
+## 19/08: o painel no celular, que é onde ela vai atender
+
+Todo o teste até aqui foi em monitor de 1440px. Uma passagem num aparelho de
+390px achou sete defeitos, e o primeiro deles sozinho invalidava a entrega.
+
+**Pelo celular ninguém aprovava pedido.** O botão "Aprovar e imprimir" ficava
+das 382px às 533px, fora de uma tela de 390px, dentro de um cartão com
+`overflow-hidden`. Não dava nem pra arrastar de lado pra alcançar: era
+inatingível. A causa era um `shrink-0` no grupo dos botões, que travava a
+largura no tamanho do conteúdo e impedia o `flex-wrap` que já estava ali de
+disparar. Hoje o rodapé empilha no celular e o aprovar termina em 347px, com
+43px de sobra.
+
+Os outros seis:
+
+- Voltar pra lista não limpava o `?cliente=` do endereço, então recarregar a
+  página jogava de volta pra dentro do chat que ela acabou de fechar, e o
+  botão de voltar do aparelho pulava pra conversa anterior em vez de sair.
+- Com o teclado aberto sobravam 188px de conversa contra 180px de enfeite
+  fixo, ou seja, um balão e meio na tela. Cabeçalho e barra de estado passaram
+  a recolher enquanto a altura aperta.
+- O telefone e o estado brigavam por 196px no cabeçalho e saíam cortados. No
+  celular o número sai do cabeçalho e fica no painel do contato; no monitor
+  ele aparece inteiro.
+- Filtros de 28px de altura num aparelho de toque, onde o mínimo aceitável é
+  44px. Agora 40px no dedo e 28px no mouse.
+- A tela de Clientes tinha três rolagens uma dentro da outra, e a lista era
+  uma janelinha de 170px mostrando 3 de 15 clientes. Hoje mostra 7 sem rolar.
+- "Qua é o seu dia mais forte" nos Destaques: a sigla serve pro eixo do
+  gráfico, não pro meio de uma frase.
+
+A lição que fica pro resto do projeto: **defeito de tela só aparece no
+aparelho em que a pessoa trabalha**. Nenhum desses sete era visível no
+monitor, e três deles impediam trabalho de verdade.
+
+Junto vieram três da própria dona usando o painel, que teste automatizado não
+pega porque teste não se distrai: responder o cliente devolvia pra lista de
+atendimentos (a tela recarrega ao enviar e a conversa aberta só vivia na
+memória), subir pra reler puxava de volta pro fim a cada mensagem nova, e
+conversa esperando a equipe não chamava atenção de longe. As duas primeiras
+estão corrigidas; a terceira virou uma pulsação lenta de 2,4s, lenta de
+propósito, porque alarme rápido a pessoa aprende a ignorar em dois dias.
