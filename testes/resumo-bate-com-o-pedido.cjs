@@ -36,7 +36,7 @@ const semTipos = (t) =>
 
 const corpo =
   semTipos(extrair("const semAcMin =", "// O cliente disse explicitamente")) +
-  semTipos(extrair("export function ehResumoDePedido(", "// ENDERECO DITO QUE NAO E O DA PADARIA"));
+  semTipos(extrair("export function ehResumoDePedido(", "// PRODUTO QUE NINGUEM CITOU NAO ENTRA NO PEDIDO."));
 
 const criar = new Function(
   corpo + "\nreturn { ehResumoDePedido, citadosForaDoPedido, faltandoNoResumo };",
