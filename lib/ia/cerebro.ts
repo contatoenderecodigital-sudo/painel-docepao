@@ -377,6 +377,41 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "trocar_item",
+      description:
+        "O cliente TROCOU uma coisa por outra: 'na verdade quero 4 leites', 'muda o prestígio pra bombom', 'em vez de coxinha põe esfirra'. UMA chamada só tira o velho e põe o novo. NUNCA use anotar_item pra trocar, senão ficam os dois no pedido e o cliente paga em dobro.",
+      parameters: {
+        type: "object",
+        properties: {
+          produto_sai: {
+            type: "string",
+            enum: enumDeProdutos(),
+            description: "O que estava anotado e o cliente NÃO quer mais.",
+          },
+          produto_entra: {
+            type: "string",
+            enum: enumDeProdutos(),
+            description: "O que ele quer no lugar.",
+          },
+          categoria: {
+            type: "string",
+            enum: ["bolo_festa", "bolo_caseiro", "docinho", "salgado_frito", "salgado_assado", "pizza", "por_quilo", "por_unidade", "cupcake", "papel_de_arroz", "outro"],
+          },
+          qtd: { type: "number", description: "Quantidade do que entra. Em bolo e por quilo é o PESO em kg." },
+          obs: {
+            type: ["string", "null"],
+            description: "O que o cliente disse sobre o item NOVO. Null se não houver.",
+          },
+        },
+        required: ["produto_sai", "produto_entra", "categoria", "qtd", "obs"],
+        additionalProperties: false,
+      },
+      strict: true,
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "anotar_dados",
       description:
         "Anota os dados do pedido conforme o cliente for dizendo. Mande só o que ele acabou de informar; o resto continua guardado. Nunca invente: só o que ele disse.",
@@ -744,6 +779,64 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     return base;
   };
 
+  if (nome === "trocar_item") {
+    // TROCA E UMA OPERACAO SO.
+    //
+    // A cliente trocou o bolo de prestigio por 4 leites e ficaram os DOIS no
+    // pedido. Trocou cuca simples por cuca de goiaba e ficaram "cuca 1" e
+    // "cuca recheada 1", cobranca em dobro. Isso tem nome na literatura,
+    // chama state momentum: o modelo tende a MANTER o valor antigo e falha
+    // justamente em atualizar o que precisava mudar.
+    //
+    // Enquanto trocar for "anota o novo e torce pra ela remover o velho", vao
+    // ficar os dois. Aqui sai e entra na mesma chamada.
+    const sai = String(input.produto_sai || "").trim();
+    const entra = String(input.produto_entra || "").trim();
+    const cat = String(input.categoria || "outro");
+    if (entra === FORA_DO_CARDAPIO) {
+      return (
+        "NAO troquei: o que ele quer no lugar NAO esta no cardapio. Diga que a padaria nao faz esse item, " +
+        "sem inventar variacao, ofereca o que existe de mais parecido e mantenha o que ja estava anotado."
+      );
+    }
+    if (!sai || !entra) return "NAO troquei: preciso do que SAI e do que ENTRA.";
+    if (marca(sai) === marca(entra)) {
+      return "NAO troquei: sai e entra sao a mesma coisa. Se foi so a observacao que mudou, use anotar_item.";
+    }
+    const existe = itensAgora().find((x) => marca(x.produto) === marca(sai));
+    if (!existe) {
+      const lista = itensAgora().map((x) => x.produto).join(", ") || "nada";
+      return (
+        `NAO troquei: "${sai}" nao esta anotado neste pedido. O que esta anotado e: ${lista}. ` +
+        `Se ele esta ACRESCENTANDO um item novo, use anotar_item.`
+      );
+    }
+    const inventadasTroca = obsQueOClienteNaoDisse(
+      input.obs,
+      falasDoCliente.length ? falasDoCliente : [falaDoCliente],
+    );
+    if (inventadasTroca.length) {
+      return (
+        "NAO troquei: isto na observacao o cliente nunca escreveu: " + inventadasTroca.join(", ") +
+        ". Chame trocar_item de novo sem isso."
+      );
+    }
+    const quanto = Number(input.qtd) || Number(existe.qtd) || 0;
+    // A ordem importa: tira depois poe, senao o novo entra e o velho fica.
+    estado.montagem.push({ tipo: "remover", produto: existe.produto, categoria: String(existe.categoria || cat) });
+    estado.montagem.push({
+      tipo: "item",
+      produto: entra,
+      categoria: cat,
+      qtd: quanto,
+      obs: input.obs == null ? null : String(input.obs),
+    });
+    return (
+      `Troquei: saiu "${existe.produto}" e entrou "${entra}" (${quanto}). ` +
+      `Ficou UMA linha so, nao duas. Confirme a troca pro cliente numa frase curta.`
+    );
+  }
+
   if (nome === "anotar_item") {
     // A ESCAPATORIA DO ENUM. Sem ela, a decodificacao restrita obrigaria o
     // modelo a escolher o vizinho mais parecido, calado, e "docinho sem
@@ -842,11 +935,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       boloJaAnotado.produto.trim().toLowerCase() !== produto.trim().toLowerCase()
     ) {
       if (!input.dois_bolos) {
+        // A instrucao antiga mandava chamar anotar_item "com o nome do bolo
+        // velho corrigido pro sabor novo", que nao quer dizer nada, e o
+        // resultado foi cliente com DOIS bolos no pedido e pagando em dobro.
+        // Agora existe uma ferramenta que faz a troca numa operacao so.
         return (
           `NAO anotei ainda: ja existe um bolo neste pedido, o "${boloJaAnotado.produto}". ` +
-          `Se o cliente TROCOU o sabor, chame anotar_item com o nome "${boloJaAnotado.produto}" corrigido pro sabor ` +
-          `novo, que ai eu substituo. Se ele quer DOIS bolos mesmo (acontece em festa grande), CONFIRME com ele e ` +
-          `chame de novo com dois_bolos=true. Nunca acrescente por conta propria um bolo que ele nao pediu.`
+          `Se o cliente TROCOU o sabor, chame trocar_item com produto_sai="${boloJaAnotado.produto}" e ` +
+          `produto_entra="${produto}", que eu tiro um e ponho o outro de uma vez. ` +
+          `Se ele quer DOIS bolos mesmo (acontece em festa grande), CONFIRME com ele e chame anotar_item de novo ` +
+          `com dois_bolos=true. Nunca acrescente por conta propria um bolo que ele nao pediu.`
         );
       }
     }
@@ -3537,7 +3635,7 @@ async function rodarConversa(
     // a equipe entra), ou ele pergunta alguma coisa. Montar pedido ali e o que
     // fez ela recalcular por cima de um pedido ja fechado.
     if (pedidoAguardando) {
-      return !["anotar_item", "remover_item", "anotar_dados", "montar_orcamento", "registrar_pedido"].includes(nome);
+      return !["anotar_item", "trocar_item", "remover_item", "anotar_dados", "montar_orcamento", "registrar_pedido"].includes(nome);
     }
     if (nome === "registrar_pedido" && !podeFechar) return false;
     return true;
