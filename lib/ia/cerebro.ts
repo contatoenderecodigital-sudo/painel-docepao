@@ -3236,14 +3236,15 @@ async function rodarConversa(
             // produto, e nao quando o cliente falou de duas coisas na mesma frase.
             const faltamOsCertos = ops.filter((o) => !txt.includes(semAcL(o))).length;
             if (faltamOsCertos === 0) continue;
-            console.warn("[ia] lista de sabor errada pra " + nome + ": " + intrusos.join(", ") + "; corrigida");
+            console.warn("[ia] lista de sabor errada pra " + nome + ": " + intrusos.join(", ") + "; a lista certa vai na frente");
+            // Nao mexe no texto dela: acrescenta a lista do cardapio na frente.
+            // Cortar frase ja deixou a resposta vazia, e resposta vazia e pior
+            // que resposta com sabor errado, porque o cliente fica sem nada.
             textoFinal =
               "O " + nome + " a gente faz de " + ops.slice(0, -1).join(", ") +
-              (ops.length > 1 ? " ou " + ops[ops.length - 1] : String(ops[0])) + "." + "\n\n" +
-              textoFinal.replace(
-                new RegExp("[^.!?\\n]*(" + intrusos.map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\      // PERGUNTA DE SABOR TEM RESPOSTA NO CARDAPIO: ELA SAI DAQUI.")).join("|") + ")[^.!?\\n]*[.!?]", "gi"),
-                "",
-              ).trim();
+              (ops.length > 1 ? " ou " + ops[ops.length - 1] : String(ops[0])) +
+              ". Os outros sabores que apareceram aqui sao de outro produto." +
+              "\n\n" + textoFinal;
             break;
           }
         }
