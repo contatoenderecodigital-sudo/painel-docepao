@@ -1286,7 +1286,14 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     if (unidadeDoProduto(produto, categoria) === "kg") {
       // Um peso so na fala: sem isso, "3 kg de bolo e 2 kg de torta" colocaria
       // 3 kg nos dois. Com dois pesos na frase quem decide continua sendo ela.
-      const pesos = [...String(falaDoCliente).matchAll(/([0-9]+(?:[.,][0-9]+)?)\s*(kg|quilos?)/gi)];
+      // Peso por extenso conta igual: 'meio quilo' e 'um quilo e meio' sao como
+      // a pessoa fala na padaria, e sem isso o item se perdia na conversa.
+      const falaPeso = String(falaDoCliente)
+        .replace(/um quilo e meio|1 quilo e meio/gi, "1,5 kg")
+        .replace(/meio quilo|1\/2 quilo/gi, "0,5 kg")
+        .replace(/dois quilos e meio/gi, "2,5 kg")
+        .replace(/tr[eê]s quilos e meio/gi, "3,5 kg");
+      const pesos = [...falaPeso.matchAll(/([0-9]+(?:[.,][0-9]+)?)\s*(kg|quilos?)/gi)];
       if (pesos.length === 1) {
         const peso = Number(pesos[0][1].replace(",", "."));
         if (peso > 0 && peso !== qtd) {
@@ -3431,7 +3438,7 @@ async function rodarConversa(
 
       // PRECO DO BOLO DE FESTA: as faixas estao no cardapio, e o sabor decide.
       const perguntouBolo =
-        /(quanto|qual|pre[çc]o)[^?]{0,40}(quilo|kg)[^?]{0,20}bolo|quanto (custa|fica|sai) o bolo|pre[çc]o do bolo/i.test(
+        /(quanto|qual|pre[çc]o)[^?]{0,40}(quilo|kg)[^?]{0,20}bolo|quanto (custa|fica|sai) o bolo|pre[çc]o do bolo|(^|\W)(e )?o (quilo|kg) do bolo/i.test(
           String(falaDoCliente2 ?? ""),
         );
       if (perguntouBolo && textoFinal && !/R\$\s?[0-9]/.test(textoFinal)) {
@@ -3451,7 +3458,7 @@ async function rodarConversa(
 
       // PRECO DE SALGADO, DOCINHO E BOLO: POR UNIDADE E POR CENTO.
       const perguntouCento =
-        /(quanto|qual|preco|preço)[^?]{0,40}(cento|cem|100)|quanto (custa|fica|sai) o (cento|salgadinho|salgado|docinho|doce|bolo)|pre[çc]o d[oa] (cento|salgado|docinho|bolo)/i.test(
+        /(quanto|qual|preco|preço)[^?]{0,40}(cento|cem|100)|quanto (custa|fica|sai) o (cento|salgadinho|salgado|docinho|doce|bolo)|pre[çc]o d[oa] (cento|salgado|docinho|bolo)|(^|\W)(e )?o cento/i.test(
           String(falaDoCliente2 ?? ""),
         );
       if (perguntouCento && textoFinal && !/R\$\s?[0-9]/.test(textoFinal)) {
@@ -3581,7 +3588,7 @@ async function rodarConversa(
         const falaDele = historico
           .filter((h) => h.role === "user" && typeof h.content === "string")
           .map((h) => String(h.content).toLowerCase())
-          .join("  ");
+          .join("\n");
         const recusouMesmo =
           /(sem|n[ãa]o quero|nem|n[ãa]o vou querer|dispensa|deixa pra la|deixa pra lá)[^.]{0,30}(salgad|docinho|doce|bolo)/i.test(
             falaDele,
@@ -3731,7 +3738,9 @@ async function rodarConversa(
       const falaDoCliente = historico
         .filter((m) => m.role === "user" && typeof m.content === "string")
         .map((m) => m.content as string)
-        .join("  ");
+        // Quebra de linha, nao espaco: com espaco, o 11 de "dia 15/11" colou no
+        // "salgado" da mensagem seguinte e o total do pedido virou onze.
+        .join("\n");
       const falasDela = historico.filter((m) => m.role === "assistant" && typeof m.content === "string").map((m) => m.content as string);
       const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemDoTurno, pedidoAguardando, ultimaFala, ultimaFalaDela, falasDela);
       // Sem isto, quando ela faz besteira so da pra adivinhar o que ela chamou.
