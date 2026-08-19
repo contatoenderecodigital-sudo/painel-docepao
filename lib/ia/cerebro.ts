@@ -1105,6 +1105,32 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       }
     }
 
+    // PRODUTO QUE ELE NUNCA CITOU NAO ENTRA.
+    {
+      const semAcP = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const daCasa = [
+        ...((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]).map((i) => String(i.nome)),
+        ...((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[]).map((i) => String(i.nome)),
+        ...((catalogo.doces?.itens ?? []) as { nome: string }[]).map((i) => String(i.nome)),
+      ];
+      const ehDaLista = daCasa.some((n) => semAcP(n) === semAcP(produto));
+      if (ehDaLista) {
+        const naFala = semAcP(falaDoCliente);
+        const citou = naFala.includes(semAcP(produto));
+        // Ele pediu pra ela escolher? Entao indicar e o trabalho dela.
+        const pediuIndicacao =
+          /me indica|voce que sabe|voce escolhe|o que voce (indica|sugere|acha)|sortido|mais pedidos|do seu jeito|como voce achar|surpresa/i.test(
+            falaDoCliente,
+          );
+        if (!citou && !pediuIndicacao) {
+          console.warn("[ia] produto nao citado pelo cliente: " + produto + "; recusado");
+          return (
+            "NAO anotei: o cliente nunca falou em " + produto + " nesta conversa. Produto que aparece do nada vira producao que ninguem pediu e trava o pedido esperando o sabor de um item que nao existe. Anote so o que ele escolheu; se faltar escolher, pergunte citando as opcoes."
+          );
+        }
+      }
+    }
+
     // QUANTIDADE DE PECA EM PRODUTO DE QUILO NAO VIRA QUILO.
     if (unidadeDoProduto(produto, categoria) === "kg") {
       const falaAgora = String(ultimaFala ?? "");
