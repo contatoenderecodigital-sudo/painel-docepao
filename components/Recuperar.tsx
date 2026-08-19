@@ -404,7 +404,7 @@ export default function Recuperar({
                       target="_blank"
                       rel="noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1.5 text-[13px] text-cream/60 hover:text-dourado transition-colors mt-0.5"
+                      className="inline-flex items-center gap-1.5 text-[13px] text-cream/60 hover:text-dourado transition-colors mt-0.5 h-11 sm:h-auto"
                     >
                       <WhatsAppGlyph />
                       {formatarTelefoneBR(p.clienteTelefone)}

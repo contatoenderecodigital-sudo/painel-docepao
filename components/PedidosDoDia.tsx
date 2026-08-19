@@ -473,11 +473,11 @@ export default function PedidosDoDia({
         {/* mini-calendario do mes */}
         <div className="glass rounded-[18px] p-4 h-fit xl:sticky xl:top-6">
           <div className="flex items-center justify-between mb-3">
-            <button onClick={() => setMesRef(addDias(`${ay}-${String(am).padStart(2, "0")}-01`, -1))} className="press w-7 h-7 grid place-items-center rounded-lg bg-white/[0.06] hover:bg-white/10 text-cream/70">
+            <button onClick={() => setMesRef(addDias(`${ay}-${String(am).padStart(2, "0")}-01`, -1))} className="press w-11 h-11 sm:w-7 sm:h-7 grid place-items-center rounded-lg bg-white/[0.06] hover:bg-white/10 text-cream/70">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m15 6-6 6 6 6" /></svg>
             </button>
             <div className="text-[13px] font-semibold text-cream capitalize">{MES[am - 1]} {ay}</div>
-            <button onClick={() => { const d = new Date(ay, am, 1); setMesRef(iso(d)); }} className="press w-7 h-7 grid place-items-center rounded-lg bg-white/[0.06] hover:bg-white/10 text-cream/70">
+            <button onClick={() => { const d = new Date(ay, am, 1); setMesRef(iso(d)); }} className="press w-11 h-11 sm:w-7 sm:h-7 grid place-items-center rounded-lg bg-white/[0.06] hover:bg-white/10 text-cream/70">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m9 6 6 6-6 6" /></svg>
             </button>
           </div>

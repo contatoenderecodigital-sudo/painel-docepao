@@ -160,7 +160,9 @@ function Ticket({
     >
       <button
         onClick={onImprimir}
-        className="no-print absolute top-2.5 right-2.5 text-black/35 hover:text-black transition-colors"
+        /* 15px era o menor alvo do painel inteiro. A area de toque cresce; o
+           icone continua discreto porque o ticket e estreito de proposito. */
+        className="no-print absolute top-0 right-0 w-11 h-11 sm:w-7 sm:h-7 grid place-items-center text-black/35 hover:text-black transition-colors"
         aria-label="Imprimir este ticket"
       >
         <Printer size={15} strokeWidth={1.8} />
@@ -276,7 +278,7 @@ export default function CupomPreview({
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 grid place-items-center rounded-full text-cream/60 hover:text-cream hover:bg-white/10 transition-colors shrink-0"
+            className="w-11 h-11 sm:w-9 sm:h-9 grid place-items-center rounded-full text-cream/60 hover:text-cream hover:bg-white/10 transition-colors shrink-0"
             aria-label="Fechar"
           >
             <X size={18} />

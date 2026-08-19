@@ -101,7 +101,7 @@ export default function PedidoDetalhe({
       >
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 text-cream/50 hover:text-cream transition-colors z-10"
+          className="absolute right-2 top-2 w-11 h-11 grid place-items-center rounded-full text-cream/50 hover:text-cream hover:bg-white/10 transition-colors z-10"
           aria-label="Fechar"
         >
           <X size={18} />

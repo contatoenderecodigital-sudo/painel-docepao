@@ -23,7 +23,11 @@ export default function AjudaInfo({ titulo, texto }: { titulo: string; texto: st
         <>
           <div className="fixed inset-0 z-40" onClick={() => setAberto(false)} />
           <div
-            className="absolute left-0 top-9 z-50 w-72 rounded-2xl p-4 text-left"
+            /* Ancorado a esquerda e com largura fixa, no celular ele comecava
+               em 141 e terminava em 429 numa tela de 390: quase quarenta pixels
+               de texto fora da tela, cortando palavra no meio. Agora ele nasce
+               da direita do botao e nunca passa da largura da tela. */
+            className="absolute right-0 sm:left-0 sm:right-auto top-12 sm:top-9 z-50 w-[min(18rem,calc(100vw-2rem))] rounded-2xl p-4 text-left"
             style={{
               background: "rgba(58,16,28,0.98)",
               backdropFilter: "blur(20px)",
@@ -34,7 +38,7 @@ export default function AjudaInfo({ titulo, texto }: { titulo: string; texto: st
           >
             <div className="flex items-start justify-between gap-2">
               <div className="text-sm font-semibold text-cream">{titulo}</div>
-              <button onClick={() => setAberto(false)} className="text-cream/50 hover:text-cream -mt-0.5">
+              <button onClick={() => setAberto(false)} aria-label="Fechar" className="w-9 h-9 -mt-2 -mr-2 shrink-0 grid place-items-center rounded-full text-cream/50 hover:text-cream hover:bg-white/10">
                 <X size={15} />
               </button>
             </div>
