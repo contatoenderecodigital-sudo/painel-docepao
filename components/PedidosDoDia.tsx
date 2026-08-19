@@ -218,7 +218,7 @@ export default function PedidosDoDia({
             <div className="text-[13px] font-semibold text-cream first-letter:uppercase">{fmtLongo(sel)}</div>
             {relacao && <div className="text-[10px] uppercase tracking-wider text-dourado">{relacao}</div>}
           </div>
-          <button onClick={() => setSel(addDias(sel, 1))} className="press w-11 h-11 md:w-8 md:h-8 grid place-items-center rounded-lg bg-white/[0.06] hover:bg-white/10 text-cream/80" aria-label="Proximo dia">
+          <button onClick={() => setSel(addDias(sel, 1))} className="press w-11 h-11 md:w-8 md:h-8 grid place-items-center rounded-lg bg-white/[0.06] hover:bg-white/10 text-cream/80" aria-label="Próximo dia">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m9 6 6 6-6 6" /></svg>
           </button>
         </div>
