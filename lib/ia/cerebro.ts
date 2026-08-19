@@ -18,6 +18,95 @@ import { registrarUsoIA, type UsoTurno } from "./uso";
 import catalogo from "./dados/catalogo.json";
 import { padariaAberta } from "@/lib/padaria-aberta";
 
+// TODOS OS PRECOS UNITARIOS QUE A PADARIA PRATICA, em centavos.
+// Fonte unica: o catalogo. O que nao esta aqui, ela nao pode dizer que cobra.
+function precosDaCasa(): Set<number> {
+  const validos = new Set<number>();
+  const guardar = (v: unknown) => {
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) validos.add(Math.round(n * 100));
+  };
+  guardar(catalogo.salgados?.frito?.preco);
+  guardar(catalogo.salgados?.assado?.preco);
+  for (const i of catalogo.doces?.itens ?? []) guardar((i as { preco?: number }).preco);
+  for (const f of catalogo.bolos_recheados?.faixas ?? []) guardar((f as { preco?: number }).preco);
+  for (const i of catalogo.bolos_caseiros?.itens ?? []) guardar((i as { preco?: number }).preco);
+  for (const i of (catalogo.outros_produtos ?? []) as { preco?: number }[]) guardar(i.preco);
+  guardar(catalogo.pizza?.inteira?.preco);
+  guardar(catalogo.pizza?.meia?.preco);
+  // O cento e o unitario vezes cem, e ela fala nos dois formatos.
+  for (const v of [...validos]) validos.add(v * 100);
+  return validos;
+}
+
+// PRECOS UNITARIOS QUE ELA ESCREVEU E A PADARIA NAO COBRA.
+//
+// So olha preco por unidade, nos dois jeitos que ela escreve:
+//   "R$ 70 o quilo"        valor primeiro
+//   "Cada quilo custa R$ 50,00"   unidade primeiro
+//
+// Total de pedido continua livre: quem soma e o motor, conferido em outro
+// lugar, e "3 kg de bolo laka: R$ 140,70" nao e preco de tabela, e linha de
+// conta. Por isso a forma com unidade primeiro exige "cada/o/a/por" na frente e
+// NAO pode ter numero antes: senao toda linha de orcamento cairia aqui.
+//
+// LIMITE CONHECIDO: isto pega valor que nao existe em NENHUM lugar da tabela.
+// Nao pega valor que existe mas e de outro produto (dizer que o salgado custa
+// R$ 2,00, que e o preco do cupcake pequeno, passa). Os dois casos reais que
+// motivaram a guarda, R$ 70 e R$ 50, nao existem na tabela e ficam pegos.
+// Cobrir o resto exige amarrar preco a produto na mesma frase, que e o proximo
+// passo quando sobrar tempo.
+export function precosInventados(texto: string): string[] {
+  const validos = precosDaCasa();
+  const NUM = "([0-9]{1,3}(?:[.][0-9]{3})*(?:[,][0-9]{1,2})?|[0-9]+(?:[.][0-9]{1,2})?)";
+  const UNI = "(quilo|kg|cada|a unidade|por unidade|o cento)";
+  const padroes = [
+    // valor primeiro: "R$ 70 o quilo"
+    new RegExp("R\\$ ?" + NUM + " ?(?:o |a |por |cada )?" + UNI, "gi"),
+    // unidade primeiro: "Cada quilo custa R$ 50,00". Sem numero antes da
+    // unidade, senao "3 kg ... R$ 140,70" viraria falso positivo.
+    new RegExp(
+      "(?<![0-9,.] ?)(?:cada|por|o|a) (quilo|kg|unidade|cento)( (?:custa|sai|fica|e|vale|de))? R\\$ ?" + NUM,
+      "gi",
+    ),
+  ];
+  const fora: string[] = [];
+  for (const acha of padroes) {
+    for (const m of String(texto ?? "").matchAll(acha)) {
+      // O valor e o primeiro grupo que parece numero de dinheiro.
+      const bruto = m.slice(1).find((g) => typeof g === "string" && /[0-9]/.test(g) && !/[a-z]/i.test(g));
+      if (!bruto) continue;
+      const cru = String(bruto).replace(/[.]/g, "").replace(",", ".");
+      const cent = Math.round(Number(cru) * 100);
+      if (Number.isFinite(cent) && cent > 0 && !validos.has(cent) && !fora.includes(m[0])) fora.push(m[0]);
+    }
+  }
+  return fora;
+}
+
+// ENDERECO DITO QUE NAO E O DA PADARIA, trocado pelo verdadeiro.
+//
+// Ela disse "Rua XV de Novembro, 123" pra uma cliente de 68 anos que ia
+// buscar o bolo, com o endereco certo dentro do proprio prompt dela.
+export function corrigirEndereco(texto: string, enderecoCerto: string): string {
+  const certo = String(enderecoCerto ?? "").trim();
+  let saida = String(texto ?? "");
+  if (!certo) return saida;
+  const achaRua = new RegExp(
+    "\\b(rua|av[.]?|avenida|travessa|rodovia) +[A-Za-zÀ-ú0-9.ºª]+(?: +[A-Za-zÀ-ú0-9.ºª]+){0,4},? *(?:n[ºo.]? *)?[0-9]{1,5}\\b",
+    "gi",
+  );
+  const semAc = (t: string) =>
+    t.normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "").toLowerCase();
+  const alvo = semAc(certo).replace(/[^a-z0-9]/g, " ");
+  for (const m of [...saida.matchAll(achaRua)].map((x) => x[0])) {
+    const partes = semAc(m).replace(/[^a-z0-9]/g, " ").split(" ").filter((x) => x.length > 3);
+    const bate = partes.length > 0 && partes.every((x) => alvo.includes(x));
+    if (!bate) saida = saida.split(m).join(certo);
+  }
+  return saida;
+}
+
 const MODELO = process.env.MODELO_IA || "gpt-4o-mini";
 
 // Formata quantidade + unidade pro resumo. Itens por quilo (bolo, tortas, empadão...)
@@ -3984,6 +4073,43 @@ async function rodarConversa(
         }
       } catch (e) {
         console.error("[ia] falha ao perguntar o dia:", e);
+      }
+
+      // PRECO POR UNIDADE QUE NAO EXISTE NA TABELA NAO SAI DAQUI.
+      //
+      // So mexe em preco UNITARIO ("R$ 70 o quilo", "R$ 1,25 cada"), que tem
+      // que estar na tabela. Total de pedido e conta e continua livre: quem
+      // calcula total e o motor, e ele ja e conferido em outro lugar.
+      try {
+        const inventados = precosInventados(textoFinal);
+        if (inventados.length) {
+          console.warn("[ia] preco inventado no texto, mensagem trocada:", inventados.join(" | "));
+          // Tira a frase que carrega o preco falso. Se sobrar texto util ele
+          // vai; se nao sobrar, ela promete conferir, que e verdade.
+          const frases = textoFinal
+            .split(new RegExp("(?<=[.!?])", "g"))
+            .filter((f) => !inventados.some((x) => f.includes(x)));
+          const sobrou = frases.join("").replace(/[ ]{2,}/g, " ").trim();
+          textoFinal =
+            (sobrou ? sobrou + String.fromCharCode(10, 10) : "") +
+            "Esse valor eu vou confirmar certinho com a equipe pra nao te passar nada errado.";
+          estado.precisaHumano = true;
+        }
+      } catch (e) {
+        console.error("[ia] falha na guarda de preco (segue com o texto dela):", e);
+      }
+
+      // ENDERECO E HORARIO SAO DADO FIXO, E ELA INVENTOU MESMO TENDO O CERTO.
+      //
+      // Disse "Rua XV de Novembro, 123" pra uma cliente de 68 anos que ia
+      // buscar o bolo. O endereco certo esta na persona, entao aqui o codigo
+      // troca pelo verdadeiro em vez de deixar sair o inventado.
+      try {
+        const antes = textoFinal;
+        textoFinal = corrigirEndereco(textoFinal, String(tenant.persona?.endereco ?? ""));
+        if (antes !== textoFinal) console.warn("[ia] endereco inventado, trocado pelo certo");
+      } catch (e) {
+        console.error("[ia] falha na guarda de endereco (segue com o texto dela):", e);
       }
 
       const mandadasAgora = pecasJaMandadas(historico);
