@@ -3134,6 +3134,24 @@ async function rodarConversa(
         }
       }
 
+      // MUDANCA OU CANCELAMENTO DE PEDIDO REGISTRADO: CHAMA A EQUIPE.
+      const querMexerNoPedido =
+        /\b(mudar|muda|trocar|troca|alterar|altera|aumentar|aumenta|diminuir|diminui|acrescentar|acrescenta|tirar|tira|cancelar|cancela|desmarcar|adiar)\b/i.test(
+          String(falaDoCliente2 ?? ""),
+        );
+      if (pedidoAberto && querMexerNoPedido && !estado.pedido) {
+        console.warn("[ia] cliente quer mexer no pedido registrado; chamando a equipe");
+        estado.precisaHumano = true;
+        const quandoM = [
+          pedidoAberto.retiradaData ? pedidoAberto.retiradaData : null,
+          pedidoAberto.retiradaHora ? "às " + pedidoAberto.retiradaHora : null,
+        ].filter(Boolean).join(" ");
+        textoFinal =
+          "Seu pedido" + (quandoM ? " pra " + quandoM : "") + " já está com a equipe da padaria." +
+          " Pra mexer nele agora quem resolve é uma pessoa daqui: já avisei, e ela fala com você por aqui." +
+          " Me diz o que você quer mudar que eu deixo anotado pra ela.";
+      }
+
       // CONFIRMACAO CURTA COM PEDIDO REGISTRADO VIRA STATUS, NAO PERGUNTA.
       //
       // "pode fechar" depois do pedido fechado recebia "quer falar sobre esse
