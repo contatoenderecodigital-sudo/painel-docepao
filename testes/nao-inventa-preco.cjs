@@ -45,7 +45,7 @@ const semTipos = (t) =>
 
 const corpo =
   semTipos(extrair("function precosDaCasa()", "// PRECOS UNITARIOS QUE ELA ESCREVEU")) +
-  semTipos(extrair("export function precosInventados(", "// ENDERECO DITO QUE NAO E O DA PADARIA")) +
+  semTipos(extrair("export function precosInventados(", "//  PORTAO DE ESCRITA: PERGUNTA NAO E PEDIDO.")) +
   semTipos(extrair("export function corrigirEndereco(", "const MODELO = process.env"));
 
 const criar = new Function("catalogo", corpo + "\nreturn { precosInventados, corrigirEndereco };");

@@ -84,6 +84,83 @@ export function precosInventados(texto: string): string[] {
   return fora;
 }
 
+// ===========================================================================
+//  PORTAO DE ESCRITA: PERGUNTA NAO E PEDIDO.
+//
+//  Teste com clientes ao vivo, 19/08/2026. A cliente escreveu, com todas as
+//  letras, "Calma, eu nao quero pedir nada ainda, so estou pesquisando preco" e
+//  depois "Por favor nao anota nada". A Dora anotou cinco itens. Outro cliente
+//  perguntou o preco da torta e ganhou uma torta no pedido. Uma senhora disse
+//  "eu nao falei que queria 1 quilo minha filha" e o quilo continuou la.
+//
+//  Isso e o que a literatura chama de nao separar ferramenta de LEITURA de
+//  ferramenta de ESCRITA. Consultar preco e leitura e nao pode mexer no pedido.
+//
+//  Aqui o codigo confere ANTES de aplicar, em vez de pedir por favor no prompt.
+// ===========================================================================
+
+const semAcMin = (t: unknown): string =>
+  String(t ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+
+// O cliente disse explicitamente pra NAO anotar. Vale pro turno inteiro.
+export function clienteProibiuAnotar(fala: string): boolean {
+  const t = semAcMin(fala);
+  return /(nao|so nao) (anota|anote|coloca|bota|poe|registra)|nao quero (pedir|encomendar|fechar) nada|so (estou|to) (pesquisando|perguntando|olhando|vendo)|so queria saber|e so (uma )?(pergunta|duvida)|nao e pedido/.test(
+    t,
+  );
+}
+
+// A fala do cliente e SO uma pergunta sobre este produto, sem decidir nada.
+// Perguntar quanto custa nao pode virar item no pedido.
+export function soPerguntouSemPedir(fala: string, produto: string): boolean {
+  const t = semAcMin(fala);
+  const nome = semAcMin(produto).trim();
+  if (!t || !nome) return false;
+  // Nao fala do produto: nao e este o caso (pode estar aceitando proposta).
+  const primeira = nome.split(" ")[0];
+  if (!t.includes(primeira)) return false;
+  // Decidiu de verdade? Entao pode anotar.
+  const decidiu =
+    /\b(quero|queria|vou querer|me ve|me da|manda|pode ser|fechado|vou levar|anota|bota|coloca|leva)\b/.test(t) ||
+    // quantidade explicita: "2 kg", "50 coxinha", "meia duzia"
+    /\b[0-9]+([.,][0-9]+)? ?(kg|quilos?|un|unidades?|pe[cç]as?|cento)\b/.test(t) ||
+    /\b[0-9]+\b/.test(t.replace(/\b(1[0-9]|2[0-9]|3[01])[/][0-9]{1,2}/g, " ")); // ignora data
+  if (decidiu) return false;
+  // So pergunta de preco, existencia ou como funciona.
+  return /(quanto (custa|fica|sai|e|vem)|qual o pre[cç]o|pre[cç]o d|voces (tem|fazem|trabalham)|tem .{0,20}\?|como (e|funciona|vende)|serve quantas)/.test(
+    t,
+  );
+}
+
+// Pedacos da observacao que o cliente NUNCA escreveu.
+//
+// Ela inventou "porto alegre" como sabor de uma torta SALGADA, inventou
+// "frango com legumes" num empadao e inventou "sem recheio" numa cuca. Sabor
+// inventado vira producao errada e cliente recusando o pedido no balcao.
+export function obsQueOClienteNaoDisse(obs: unknown, falasDoCliente: string[]): string[] {
+  const texto = String(obs ?? "").trim();
+  if (!texto) return [];
+  const tudo = " " + falasDoCliente.map((f) => semAcMin(f)).join(" | ") + " ";
+  // Palavras que descrevem o pedido, nao o gosto do cliente: ela pode escrever
+  // sozinha porque vieram de uma escolha estruturada, nao de invencao.
+  const nossas =
+    /^(sem foto|com foto|sem topo|sem papel|prato aberto|caixa com tampa|topo de bolo|papel de arroz|pao de lo|nome|idade|tema|anos?|dividido|variado|sortido)/;
+  const fora: string[] = [];
+  for (const pedaco of texto.split(",").map((x) => x.trim()).filter(Boolean)) {
+    const p = semAcMin(pedaco);
+    if (p.length < 4 || nossas.test(p)) continue;
+    // Basta o cliente ter escrito as palavras significativas em algum momento.
+    const palavras = p.split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+    if (!palavras.length) continue;
+    const disse = palavras.every((w) => tudo.includes(w));
+    if (!disse) fora.push(pedaco);
+  }
+  return fora;
+}
+
 // ENDERECO DITO QUE NAO E O DA PADARIA, trocado pelo verdadeiro.
 //
 // Ela disse "Rua XV de Novembro, 123" pra uma cliente de 68 anos que ia
@@ -546,6 +623,9 @@ function executarFerramenta(
   // As ultimas falas DELA: e assim que o codigo sabe que a mesma pergunta ja
   // foi feita tres vezes sem resposta.
   falasDela: string[] = [],
+  // Tudo que o CLIENTE escreveu nesta conversa. E contra isto que o portao de
+  // escrita confere se um sabor foi dito por ele ou inventado por ela.
+  falasDoCliente: string[] = [],
 ): string {
   if (nome === "montar_orcamento") {
     if (input.modo !== "itens") {
@@ -655,6 +735,30 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
   };
 
   if (nome === "anotar_item") {
+    // PORTAO DE ESCRITA. Erro instrutivo em vez de codigo opaco: a mensagem
+    // devolvida diz o que fazer no lugar, senao ela tenta a mesma coisa de novo.
+    if (clienteProibiuAnotar(falaDoCliente)) {
+      return (
+        "NAO anotei: o cliente acabou de dizer que NAO quer anotar nada, que so esta perguntando. " +
+        "Responda o que ele perguntou, com preco e informacao, e nao anote item nenhum. " +
+        "Quando ele decidir de verdade, ai sim voce anota."
+      );
+    }
+    if (soPerguntouSemPedir(falaDoCliente, String(input.produto || ""))) {
+      return (
+        "NAO anotei: ele PERGUNTOU sobre " + String(input.produto || "isso") + ", nao pediu. " +
+        "Pergunta nao vira item no pedido. Responda o preco e como se vende, e pergunte se ele quer. " +
+        "Se ele disser que quer, ai voce chama anotar_item."
+      );
+    }
+    const inventadas = obsQueOClienteNaoDisse(input.obs, falasDoCliente.length ? falasDoCliente : [falaDoCliente]);
+    if (inventadas.length) {
+      return (
+        "NAO anotei: isto na observacao o cliente NUNCA escreveu: " + inventadas.join(", ") + ". " +
+        "Sabor, recheio e cor sao escolha dele, e o que voce inventar vira producao errada no balcao. " +
+        "Chame anotar_item de novo SEM isso, e pergunte pra ele o que faltou."
+      );
+    }
     // Como o cliente chama x como a cozinha le: "pastel frito" e a mini bolha.
     // Sem isso a linha casava com o generico "salgado frito" e a producao
     // recebia "salgado frito de carne", que nao diz que peca fazer.
@@ -4198,7 +4302,13 @@ async function rodarConversa(
         // "salgado" da mensagem seguinte e o total do pedido virou onze.
         .join("\n");
       const falasDela = historico.filter((m) => m.role === "assistant" && typeof m.content === "string").map((m) => m.content as string);
-      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemDoTurno, pedidoAguardando, ultimaFala, ultimaFalaDela, falasDela);
+      // Tudo que o CLIENTE escreveu: o portao de escrita confere sabor e
+      // observacao contra isto, pra ela nao inventar o gosto dele.
+      const falasDoCliente = historico
+        .filter((h) => h.role === "user")
+        .map((h) => (typeof h.content === "string" ? h.content : ""))
+        .filter(Boolean);
+      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemDoTurno, pedidoAguardando, ultimaFala, ultimaFalaDela, falasDela, falasDoCliente);
       // Sem isto, quando ela faz besteira so da pra adivinhar o que ela chamou.
       // 90 caracteres cortavam justamente a lista do que falta, que e o motivo da
       // recusa. Sem ela o log so diz que recusou, nao por que.
