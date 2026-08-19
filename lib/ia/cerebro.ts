@@ -3821,7 +3821,10 @@ async function rodarConversa(
         const temItem = (montagemDoTurno?.itens ?? []).length > 0;
         const jaFechando = Boolean(d.cliente_nome || d.forma_pagamento || d.retirada_hora);
         const semDia = !d.retirada_data;
-        const perguntouODia = /que dia|pra quando|qual dia|dia da retirada|data da retirada/i.test(
+        // Ja falou de data nesta resposta conta como perguntar: quando ela
+        // devolve "voce quis dizer sexta, dia 21/08?", grudar "pra que dia voce
+        // quer?" logo embaixo faz a atendente parecer que nao ouviu a cliente.
+        const perguntouODia = /que dia|pra quando|qual dia|dia da retirada|data da retirada|quis dizer|[0-9]{1,2}\/[0-9]{1,2}|segunda|ter[cç]a|quarta|quinta|sexta|s[áa]bado|domingo/i.test(
           textoFinal,
         );
         if (temItem && jaFechando && semDia && !perguntouODia) {
