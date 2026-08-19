@@ -12,7 +12,7 @@
 //  responder alguma coisa. Recolhido mostra só o resumo; aberto dá pra editar.
 // ============================================================================
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, Plus, Minus, Trash2, Check, Square, CheckSquare, Pencil, TriangleAlert } from "lucide-react";
 import { brl } from "@/lib/tipos";
 
@@ -285,19 +285,29 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
 
   // Troca de conversa zera tudo. E enquanto a equipe está editando, a
   // atualização automática não entra por cima do que ela está digitando.
+  //
+  // Um efeito só de propósito: eram dois, e na abertura os dois disparavam
+  // juntos, batendo duas vezes em /api/montagem por conversa aberta.
+  const clienteAnterior = useRef<string>("");
+  const versaoCarregada = useRef<string>("");
   useEffect(() => {
-    setSujo(false);
-    setSalvo(false);
-    setItens([]);
-    setBrutos([]);
-    setDados({});
-    setRegistrado(null);
+    if (clienteAnterior.current !== clienteId) {
+      clienteAnterior.current = clienteId;
+      setSujo(false);
+      setSalvo(false);
+      setItens([]);
+      setBrutos([]);
+      setDados({});
+      setRegistrado(null);
+    }
+    // Editando na mão: a carga automática esperaria, senão apagaria o que a
+    // equipe está digitando no meio da correção.
+    if (sujo) return;
+    const chave = clienteId + ":" + versao;
+    if (versaoCarregada.current === chave) return;
+    versaoCarregada.current = chave;
     carregar();
-  }, [clienteId, carregar]);
-
-  useEffect(() => {
-    if (!sujo) carregar();
-  }, [versao, sujo, carregar]);
+  }, [clienteId, versao, sujo, carregar]);
 
   // A montagem gravada vira linha de tela aqui, e nao na hora de buscar, porque
   // depende do cardapio: e ele que diz a categoria e a unidade de cada produto.
@@ -380,6 +390,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       setSalvo(true);
       // A gravacao pode mudar a lista (papel de arroz da observacao entra como
       // item): a tela le de volta o que ficou gravado, nao o que ela mandou.
+      versaoCarregada.current = "";
       carregar();
       setTimeout(() => setSalvo(false), 2500);
     } catch {
