@@ -1185,8 +1185,11 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         );
         const falaLimpa = semAcF(falaDoCliente + (aceitou ? " " + String(ultimaFalaDela ?? "") : ""));
         const alvoNome = semAcF(produto);
+        const palavrasDaFala = falaLimpa.split(/[^a-z0-9]+/).filter((w) => w.length > 2);
         // Procura '<produto> de <sabor>' ou '<produto> com <sabor>' na fala.
         const achado = opsDele.find((o) => {
+          // Erro de digitacao no sabor ja travou um pedido inteiro por um Z.
+          if (palavrasDaFala.some((w) => pareceSabor(w, o))) return true;
           const sab = semAcF(o);
           const re = new RegExp(alvoNome + "[a-z ]{0,12}(de|com|sabor) " + sab.replace(/[.*+?^${}()|[\\]\\\\]/g, ""), "i");
           return re.test(falaLimpa);
@@ -2317,6 +2320,36 @@ export function horaLimpa(bruta: unknown): string {
   const min = m[2] ? Number(m[2]) : 0;
   if (!Number.isFinite(h) || h > 23 || min > 59) return t;
   return String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0");
+}
+
+// Compara sabor do jeito que a pessoa digita: sem acento e com folga pra erro
+// de digitacao. "calabreza" e calabresa, "brigadero" e brigadeiro.
+export function pareceSabor(escrito: string, sabor: string): boolean {
+  const limpo = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const a = limpo(escrito);
+  const b = limpo(sabor);
+  if (!a || !b) return false;
+  if (a.includes(b) || b.includes(a)) return true;
+  // Distancia de edicao curta, so pra pegar troca de letra.
+  const dist = (x: string, y: string): number => {
+    if (Math.abs(x.length - y.length) > 3) return 99;
+    const linha = Array.from({ length: y.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= x.length; i++) {
+      let ant = linha[0];
+      linha[0] = i;
+      for (let j = 1; j <= y.length; j++) {
+        const guarda = linha[j];
+        linha[j] = Math.min(linha[j] + 1, linha[j - 1] + 1, ant + (x[i - 1] === y[j - 1] ? 0 : 1));
+        ant = guarda;
+      }
+    }
+    return linha[y.length];
+  };
+  // Palavra curta so aceita um erro: com dois, 'uva' viraria 'ave'.
+  const teto = b.length <= 5 ? 1 : 2;
+  // Compara tambem palavra a palavra: a frase inteira raramente casa.
+  const palavras = a.split(/[^a-z0-9]+/).filter((w) => w.length > 2);
+  return palavras.some((w) => dist(w, b) <= teto) || dist(a, b) <= teto;
 }
 
 // TODAS as opcoes de sabor de um produto, venha de onde vier: o mapa do
