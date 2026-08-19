@@ -1,40 +1,40 @@
 // ============================================================================
 //  O PAPEL QUE VAI PRO MURAL DA COZINHA.
 //
-//  A regra é da dona, dita por ela nos áudios:
+//  O LAYOUT É O QUE JÁ ESTAVA CERTO. A ponte antiga imprimia assim e funcionou
+//  nos testes de salgadinho, docinho e bolo de festa: tudo em tamanho normal,
+//  com negrito só no que a dona nomeou como essencial.
 //
-//    "Tudo vai ficar separado por segmentos. Empadão é uma coisa, torta doce é
-//     outra coisa, torta recheada é outra coisa. É tudo separado."
+//    "A comanda é simples: é nome do cliente, é dia, é horário e é a quantidade."
 //
-//  E o motivo é produção em etapas, não organização:
+//  Tentei "melhorar" dobrando largura e altura do título, da retirada e de cada
+//  item. Saiu gigante: largura dobrada corta o papel em 24 colunas, então cada
+//  linha estoura e um pedido de sete itens vira meio metro de bobina. A ponte
+//  antiga tinha o comando de dobrar definido e nunca usava, e era por isso que
+//  ninguém reclamava. Aqui não se dobra nada: negrito basta.
 //
-//    "Os docinhos é uma coisa que eu posso fazer cinco horas antes. Mas daí o
-//     salgado eu tenho que preparar no momento, tipo 15 minutos antes da pessoa
-//     chegar. Por isso elas precisam estar separadas pra vir pra frente e a
-//     gente já ir dando ok."
+//  A DIVISÃO EM COMANDAS é a regra dela, e o motivo é produção em etapas:
+//
+//    "Empadão é uma coisa, torta doce é outra coisa, torta recheada é outra.
+//     Os docinhos eu posso fazer cinco horas antes, mas o salgado eu tenho que
+//     preparar 15 minutos antes da pessoa chegar."
 //
 //  Cada comanda avisa o que MAIS o cliente pediu, porque já deu errado:
 //
-//    "A Apoliana pegou um pedido que tinha tudo junto, e daí a outra não viu no
+//    "A Apoliana pegou um pedido que tinha tudo junto, e a outra não viu no
 //     mural que tinha um pedaço de torta."
 //
-//    "No bolo tem que estar escrito que ela encomendou salgados e docinhos, nos
-//     doces tem que estar escrito que ela encomendou bolo e salgados, que aí a
-//     gente se liga."
+//  E o papel não escreve nome de setor: "não precisa colocar salgadeiro,
+//  padeiro, confeiteiro, porque vai tudo pra mesma sala".
 //
-//  E o papel NÃO leva nome de setor:
-//
-//    "Não precisa colocar salgadeiro, padeiro, confeiteiro, porque vai tudo pra
-//     mesma sala. A gente só queria que eles tivessem separados."
-//
-//  MONTADO AQUI, NO SERVIDOR, e não na ponte que roda na padaria: enquanto era
-//  lá, mudar o layout exigia trocar o arquivo naquela máquina E reiniciar o
-//  programa. Isso falhou do jeito previsível, o arquivo foi corrigido às 02:17 e
-//  o processo rodava desde as 14:26 do dia anterior, então continuou imprimindo
-//  o layout velho da memória.
+//  MONTADO NO SERVIDOR, e não na ponte que roda na padaria: enquanto era lá,
+//  mudar o layout exigia trocar o arquivo naquela máquina E reiniciar o
+//  programa, e isso falhou do jeito previsível (o arquivo corrigido às 02:17 e
+//  o processo rodando desde as 14:26 do dia anterior, imprimindo o layout velho
+//  da memória).
 // ============================================================================
 
-import { deptoDe, deptosDoPedido, nomeDaComanda, qtdDoTicket, type DeptoId } from "./departamentos";
+import { deptoDe, deptosDoPedido, nomeDaComanda, qtdDoTicket, unidadeDoItem, type DeptoId } from "./departamentos";
 
 export type ItemCupom = {
   produto: string;
@@ -59,7 +59,6 @@ export type PedidoCupom = {
   itens: ItemCupom[];
 };
 
-// Comandos da impressora termica.
 const ESC = "\x1B";
 const GS = "\x1D";
 const INICIO = ESC + "@";
@@ -67,19 +66,17 @@ const CENTRO = ESC + "a\x01";
 const ESQUERDA = ESC + "a\x00";
 const NEGRITO_ON = ESC + "E\x01";
 const NEGRITO_OFF = ESC + "E\x00";
-const GRANDE_ON = GS + "!\x11";
-const GRANDE_OFF = GS + "!\x00";
 const CORTAR = GS + "V\x42\x00";
 const LARGURA = 48; // colunas de uma impressora de 80mm
 
-// Impressora termica engasga com acento: sai caractere trocado no meio da
-// palavra. Melhor "PAES E CUCAS" legivel do que "PÃES" virando ruido.
+// Impressora térmica engasga com acento: sai caractere trocado no meio da
+// palavra. Melhor "PAES E CUCAS" legível do que "PÃES" virando ruído.
 function semAcento(t: string): string {
   return String(t ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
 function risco(c = "="): string {
-  return c.repeat(LARGURA);
+  return c.repeat(LARGURA) + "\n";
 }
 
 function dinheiro(centavos: number | undefined): string {
@@ -94,8 +91,9 @@ function dataBR(iso: string | null): string | null {
 
 // Quebra na largura do papel em vez de deixar a impressora cortar no meio da
 // palavra: "esfirra de calabresa com catupiry" virava "...com catupi" e quem
-// esta assando ficava adivinhando o resto.
-function quebrar(texto: string, largura = LARGURA): string[] {
+// está assando ficava adivinhando o resto.
+function quebrar(texto: string, recuo = ""): string {
+  const largura = LARGURA - recuo.length;
   const linhas: string[] = [];
   let atual = "";
   for (const p of semAcento(texto).split(/\s+/)) {
@@ -107,102 +105,117 @@ function quebrar(texto: string, largura = LARGURA): string[] {
     }
   }
   if (atual) linhas.push(atual.trim());
-  return linhas;
+  return linhas.map((l) => recuo + l + "\n").join("");
 }
 
-// O cabecalho e igual em toda comanda. Nas palavras dela: "a comanda e simples,
-// e nome do cliente, e dia, e horario e e a quantidade".
+// O cabeçalho é igual em toda comanda: as quatro coisas que ela nomeou, mais o
+// número do pedido pra casar com o painel.
 function cabecalho(titulo: string, p: PedidoCupom): string {
-  let t = INICIO + CENTRO + NEGRITO_ON + GRANDE_ON;
-  t += semAcento(titulo) + "\n" + GRANDE_OFF;
-  t += "Doce Pao\n" + NEGRITO_OFF + ESQUERDA + risco() + "\n";
-  t += NEGRITO_ON + "CLIENTE: " + semAcento(p.clienteNome || "-") + "\n" + NEGRITO_OFF;
-  // Dia e hora em corpo grande: e o que a producao procura primeiro. Pedido sem
-  // data grita, em vez de sair um espaco em branco que ninguem nota.
+  let t = INICIO + CENTRO + NEGRITO_ON;
+  t += semAcento(titulo) + "\n" + NEGRITO_OFF;
+  t += "Doce Pao\n" + ESQUERDA + risco("=");
+  t += NEGRITO_ON + semAcento("CLIENTE: " + (p.clienteNome || "-")) + "\n" + NEGRITO_OFF;
+  if (p.clienteTelefone) t += "Fone: " + p.clienteTelefone + "\n";
+  // Dia e hora sempre juntos: a produção separa o mural por dia, e a hora diz o
+  // que sai do forno primeiro. Faltando a data, o papel avisa em vez de deixar
+  // um espaço em branco que ninguém nota.
   const data = dataBR(p.retiradaData);
-  t += NEGRITO_ON + GRANDE_ON;
-  t += "RETIRADA: " + (data || "SEM DATA") + (p.retiradaHora ? " " + p.retiradaHora : "") + "\n";
-  t += GRANDE_OFF + NEGRITO_OFF;
-  if (p.pessoas) t += "Festa de " + p.pessoas + " pessoas\n";
-  t += "Pedido #" + String(p.id).slice(0, 8) + "\n" + risco() + "\n";
+  const quando = [data, p.retiradaHora].filter(Boolean).join(" as ");
+  t += NEGRITO_ON + "RETIRADA: " + (quando || "SEM DATA, CONFIRMAR") + "\n" + NEGRITO_OFF;
+  if (p.pessoas) t += "Festa: " + p.pessoas + " pessoas\n";
+  t += "Pedido #" + String(p.id).slice(0, 8) + "\n";
+  t += risco("=");
   return t;
 }
 
-function linhasDosItens(itens: ItemCupom[], comPreco: boolean): string {
+// A observação de cada item sai logo abaixo dele: é o sabor, o recheio, a cor
+// da forminha, o tema do topo, o nome e a idade do aniversariante. Cada uma na
+// comanda do seu item, então a forminha não vaza pra comanda do bolo.
+function listaItens(itens: ItemCupom[]): string {
   let t = "";
   for (const i of itens) {
-    t += NEGRITO_ON + GRANDE_ON + qtdDoTicket(i) + GRANDE_OFF + "  " + semAcento(i.produto).toUpperCase() + "\n" + NEGRITO_OFF;
-    // A observacao e o sabor, o recheio, a cor da forminha, o tema do topo. Sem
-    // ela nao ha o que assar: "3 cucas recheadas" sem sabor ja foi pra cozinha.
-    if (i.obs) for (const l of quebrar("  > " + i.obs)) t += l + "\n";
-    if (comPreco) {
-      t += "  " + qtdDoTicket(i) + " x " + dinheiro(i.unitCentavos) + " = " + dinheiro(i.subtotalCentavos) + "\n";
-    }
+    t += NEGRITO_ON + qtdDoTicket(i).padEnd(8) + NEGRITO_OFF + semAcento(i.produto) + "\n";
+    if (i.obs) t += quebrar(i.obs, "  > ");
   }
   return t;
 }
 
-// "CLIENTE TAMBEM PEDIU": a referencia cruzada que ela pediu em cada comanda.
-// Sem isso a pessoa da bancada pega o papel dela e vai embora achando que o
-// pedido acabou ali.
-function referenciaCruzada(outras: DeptoId[]): string {
-  if (!outras.length) return "";
-  let t = risco("-") + "\n";
-  t += NEGRITO_ON + "CLIENTE TAMBEM PEDIU:\n" + NEGRITO_OFF;
-  for (const l of quebrar(outras.map(nomeDaComanda).join(", "))) t += l + "\n";
-  return t;
+// Resumo por faixa de preço, pedido dela pra bater com o caixa quando o pedido
+// chega na frente por partes ("quantos salgados de R$ 1,00 e quantos de R$
+// 1,25"). Por quilo sai aproximado, porque o peso final é na balança.
+function resumoPorFaixa(itens: ItemCupom[]): { texto: string; total: number; temKg: boolean } {
+  const grupos = new Map<string, { unidade: string; unit: number; qtd: number; sub: number }>();
+  let temKg = false;
+  for (const i of itens) {
+    const u = unidadeDoItem(i);
+    if (u === "kg") temKg = true;
+    const unit = i.unitCentavos || 0;
+    const chave = u + ":" + unit;
+    const g = grupos.get(chave) ?? { unidade: u, unit, qtd: 0, sub: 0 };
+    g.qtd += Number(i.qtd) || 0;
+    g.sub += i.subtotalCentavos || 0;
+    grupos.set(chave, g);
+  }
+  let texto = "";
+  let total = 0;
+  for (const g of grupos.values()) {
+    total += g.sub;
+    const q = String(g.qtd).replace(".", ",");
+    texto +=
+      g.unidade === "kg"
+        ? `${q} kg x ${dinheiro(g.unit)}/kg = ${dinheiro(g.sub)}\n`
+        : `${q} un x ${dinheiro(g.unit)} = ${dinheiro(g.sub)}\n`;
+  }
+  return { texto, total, temKg };
 }
 
 function observacaoDoPedido(p: PedidoCupom): string {
   if (!p.observacoes) return "";
-  let t = risco("-") + "\n";
-  t += NEGRITO_ON + "OBS:\n" + NEGRITO_OFF;
-  for (const l of quebrar(p.observacoes)) t += l + "\n";
-  return t;
+  return risco("-") + NEGRITO_ON + "OBS:\n" + NEGRITO_OFF + quebrar(p.observacoes);
 }
 
-// UMA COMANDA POR SEGMENTO, com o subtotal dela.
-//
-// O subtotal ajuda a conferir com o caixa quando o pedido chega na frente por
-// partes, que e como ela trabalha: "a gente vai dar ok na nossa comandinha aqui
-// na frente, que a torta fria ta pronta".
+// "CLIENTE TAMBEM PEDIU": sem isso a pessoa da bancada pega o papel dela e vai
+// embora achando que o pedido acabou ali.
+function referenciaCruzada(outras: DeptoId[]): string {
+  if (!outras.length) return "";
+  return risco("-") + NEGRITO_ON + "CLIENTE TAMBEM PEDIU:\n" + NEGRITO_OFF + quebrar(outras.map(nomeDaComanda).join(", "));
+}
+
 function comanda(p: PedidoCupom, id: DeptoId, itens: ItemCupom[], outras: DeptoId[]): string {
+  // PRECO NAO VAI PRA COZINHA: quem esta fritando nao precisa saber quanto
+  // custou, e numero a mais na correria e numero pra ler errado. O valor sai
+  // so na via do caixa.
   let t = cabecalho("== " + nomeDaComanda(id) + " ==", p);
-  t += linhasDosItens(itens, false);
-  t += risco("-") + "\n";
-  const subtotal = itens.reduce((s, i) => s + Number(i.subtotalCentavos || 0), 0);
-  t += NEGRITO_ON + "Subtotal desta comanda: " + dinheiro(subtotal) + "\n" + NEGRITO_OFF;
+  t += listaItens(itens);
   t += observacaoDoPedido(p);
   t += referenciaCruzada(outras);
   return t + "\n\n\n" + CORTAR;
 }
 
-// O PAPEL DO CAIXA: o pedido inteiro, com valores e a forma de pagamento.
-//
-// E o unico que junta tudo, e serve pra fechar o valor com o cliente na
-// retirada: "veio um pedido so de salgado no caixa, mas eu vou ler embaixo que
-// tem bolo".
+// O papel do CAIXA: o pedido inteiro, pra fechar o valor com o cliente na
+// retirada. "Veio um pedido só de salgado no caixa, mas eu vou ler embaixo que
+// tem bolo."
 function caixa(p: PedidoCupom): string {
   let t = cabecalho("== CAIXA ==", p);
-  if (p.clienteTelefone) t += "Fone: " + p.clienteTelefone + "\n";
-  t += linhasDosItens(p.itens, true);
-  t += risco("-") + "\n";
-  t += NEGRITO_ON + GRANDE_ON + "TOTAL: " + dinheiro(p.totalCentavos) + "\n" + GRANDE_OFF + NEGRITO_OFF;
-  // Sem forma combinada vale o padrao da casa: paga na retirada.
+  t += listaItens(p.itens);
+  t += risco("-");
+  const r = resumoPorFaixa(p.itens);
+  t += r.texto;
+  t += NEGRITO_ON + "TOTAL: " + dinheiro(p.totalCentavos) + "\n" + NEGRITO_OFF;
+  // Sem forma combinada vale o padrão da casa: paga na retirada.
   const forma = String(p.formaPagamento || "").trim();
   t += NEGRITO_ON + (forma ? "Pagamento: " + semAcento(forma).toUpperCase() : "Pagamento na RETIRADA") + "\n" + NEGRITO_OFF;
   t += observacaoDoPedido(p);
   return t + "\n\n\n" + CORTAR;
 }
 
-// Todos os papeis de um pedido: uma comanda por segmento, mais o caixa.
+// Todos os papéis de um pedido: uma comanda por segmento, mais o caixa.
 export function montarCupons(p: PedidoCupom): string[] {
   const porComanda = new Map<DeptoId, ItemCupom[]>();
   for (const i of p.itens || []) {
     const id = deptoDe(i);
     porComanda.set(id, [...(porComanda.get(id) ?? []), i]);
   }
-  // Ordem da producao, a mesma da lista de departamentos.
   const ordem = deptosDoPedido({ itens: p.itens } as never);
 
   const saida: string[] = [];

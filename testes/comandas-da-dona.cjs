@@ -24,6 +24,10 @@ const { montarCupons } = require(join(pasta, "cupom-escpos.js"));
 const { deptoDe } = require(join(pasta, "departamentos.js"));
 
 const limpo = (t) => String(t).replace(/\x1B.|\x1D.|[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+// O papel escreve o produto como esta no pedido, sem caixa alta: e o layout
+// que ja funcionava. A conferencia compara sem diferenciar.
+const tem = (texto, oque) => String(texto).toLowerCase().includes(String(oque).toLowerCase());
+
 let erros = 0;
 function conferir(ok, oque) {
   console.log((ok ? "ok    " : "ERRO  ") + oque);
@@ -107,7 +111,7 @@ const comandaBolo = limpo(dela.find((c) => limpo(c).includes("== BOLO CASEIRO ==
 const comandaCaixa = limpo(dela.find((c) => limpo(c).includes("== CAIXA ==")) || "");
 
 conferir(dela.length === 3, "sai uma comanda de docinhos, uma de bolo caseiro e o caixa");
-conferir(comandaDoce.includes("BRIGADEIRO") && comandaDoce.includes("BEIJINHO"), "brigadeiro e beijinho na MESMA comanda");
+conferir(tem(comandaDoce, "brigadeiro") && tem(comandaDoce, "beijinho"), "brigadeiro e beijinho na MESMA comanda");
 conferir(!comandaDoce.includes("BOLO DE CENOURA"), "o bolo NAO entra na comanda dos docinhos");
 conferir(comandaDoce.includes("CLIENTE TAMBEM PEDIU") && comandaDoce.includes("BOLO CASEIRO"), "nos docinhos esta escrito que tem bolo caseiro");
 conferir(comandaBolo.includes("CLIENTE TAMBEM PEDIU") && comandaBolo.includes("DOCINHOS"), "na comanda do bolo esta escrito que tem docinhos");
@@ -137,7 +141,7 @@ const tf = limpo(cf.find((c) => limpo(c).includes("== TORTA FRIA ==")) || "");
 const bf = limpo(cf.find((c) => limpo(c).includes("== BOLO FESTA ==")) || "");
 
 conferir(cf.length === 4, "salgados, torta fria, bolo festa e caixa: quatro papeis");
-conferir(salg.includes("COXINHA") && salg.includes("ESFIRRA"), "os 150 salgados numa comanda so");
+conferir(tem(salg, "coxinha") && tem(salg, "esfirra"), "os 150 salgados numa comanda so");
 // Cuidado: "TORTA FRIA" aparece SIM na comanda dos salgados, mas na
 // referencia cruzada, que e o certo. O que nao pode e ela estar na LISTA DE
 // ITENS. Por isso a conferencia olha so o trecho antes do aviso.
@@ -157,7 +161,7 @@ conferir(!tudo.includes("EXTRAS"), "nada cai numa comanda generica");
 
 // A comanda da cozinha nao leva preco unitario, so o subtotal pra conferencia.
 conferir(!salg.includes(" x R$"), "a comanda da cozinha nao lista preco por item");
-conferir(salg.includes("Subtotal desta comanda"), "mas mostra o subtotal, pra bater com o caixa");
+conferir(!/R\$/.test(salg), "a comanda da cozinha nao mostra preco nenhum");
 
 // ---------------------------------------------------------------------------
 // O caixa: tudo junto, com valores e a forma de pagamento.
@@ -165,7 +169,8 @@ conferir(salg.includes("Subtotal desta comanda"), "mas mostra o subtotal, pra ba
 console.log("");
 console.log("== o papel do caixa ==");
 const cx = limpo(cf.find((c) => limpo(c).includes("== CAIXA ==")) || "");
-conferir(cx.includes("COXINHA") && cx.includes("TORTA FRIA") && cx.includes("BOLO LAKA"), "o caixa tem TODOS os itens");
+conferir(tem(cx, "coxinha") && tem(cx, "torta fria") && tem(cx, "bolo laka"), "o caixa tem TODOS os itens");
+conferir(/R\$/.test(cx), "o preco sai so no papel do caixa");
 conferir(cx.includes("TOTAL: R$ 523,50"), "o caixa mostra o total certo");
 conferir(cx.includes("Pagamento: PIX"), "o caixa mostra a forma de pagamento");
 conferir(cx.includes(" x R$"), "o caixa mostra o valor de cada item");
