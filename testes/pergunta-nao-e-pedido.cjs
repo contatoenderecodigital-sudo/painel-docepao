@@ -38,7 +38,7 @@ const corpo =
   semTipos(extrair("const semAcMin =", "// O cliente disse explicitamente")) +
   semTipos(extrair("export function clienteProibiuAnotar(", "// A fala do cliente e SO uma pergunta")) +
   semTipos(extrair("export function soPerguntouSemPedir(", "// Pedacos da observacao")) +
-  semTipos(extrair("export function obsQueOClienteNaoDisse(", "// ENDERECO DITO QUE NAO E O DA PADARIA"));
+  semTipos(extrair("export function obsQueOClienteNaoDisse(", "//  O RESUMO QUE ELA FALA TEM QUE SER O PEDIDO QUE ESTA GRAVADO."));
 
 const criar = new Function(
   corpo + "\nreturn { clienteProibiuAnotar, soPerguntouSemPedir, obsQueOClienteNaoDisse };",

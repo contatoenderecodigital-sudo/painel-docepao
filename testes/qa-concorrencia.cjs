@@ -21,8 +21,15 @@ const VPS = "root@179.198.126.197";
 const CHAVE = require("os").homedir() + "/.ssh/id_ed25519_hub";
 
 // Cada cliente com um produto que ninguem mais pede, pra mistura ficar obvia.
+//
+// O sabor de cuca aqui era BANANA, e o teste quebrou em 19/08/2026 acusando que
+// nada foi anotado. Nao era bug: a padaria NAO faz cuca de banana. Os sabores
+// sao chocolate, doce de leite, abacaxi, vinho, goiaba, frutas vermelhas e
+// limao. A guarda de sabor nasceu depois deste teste e estava certa em recusar.
+// Trocado por goiaba, que existe, senao o teste cobraria uma venda que a
+// padaria nao pode fazer.
 const CLIENTES = [
-  { fone: "5511911110001", diz: "quero 3 cucas de banana pra dia 22/08 as 10h", esperado: /cuca/i, proibido: /coxinha|bolo|brigadeiro/i },
+  { fone: "5511911110001", diz: "quero 3 kg de cuca de goiaba pra dia 22/08 as 10h", esperado: /cuca/i, proibido: /coxinha|bolo|brigadeiro/i },
   { fone: "5511922220002", diz: "quero 200 coxinhas pra dia 23/08 as 16h", esperado: /coxinha/i, proibido: /cuca|bolo|brigadeiro/i },
   { fone: "5511933330003", diz: "quero 2 kg de bolo de morango pra dia 24/08 as 18h", esperado: /bolo/i, proibido: /cuca|coxinha/i },
 ];
