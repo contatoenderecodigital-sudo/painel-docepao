@@ -526,7 +526,17 @@
       "preco": 41.9,
       "categoria": "pizza",
       "unidade": "kg",
-      "_nota": "30 cm, por quilo"
+      "_nota": "30 cm de diametro, o unico tamanho que a casa faz, vendida POR PESO a R$ 41,90 o quilo. Aceita SO DOIS sabores (a de forma aceita 4). NAO tem peso minimo: e montada e pesada na hora. Costuma dar entre 800 g e 1,2 kg, o que sai por R$ 35 a R$ 45. Fonte: audio da dona docepao1908 (1) e docepao19082 (2), 19/08/2026.",
+      "sabores_ate": 2,
+      "peso_minimo": null,
+      "peso_tipico_kg": [
+        0.8,
+        1.2
+      ],
+      "valor_tipico": [
+        35,
+        45
+      ]
     },
     {
       "nome": "pao frances",
@@ -600,5 +610,16 @@
       "unidade": "un",
       "_nota": "Adicional do bolo decorado, valor fixo. Topo de bolo NAO entra aqui: valor varia, vai por precisa_confirmacao."
     }
-  ]
+  ],
+  "_minimo_por_sabor": {
+    "sugerir": 20,
+    "sabores_por_cento_sugeridos": 5,
+    "recusar": false,
+    "_nota": "\"Num cento de salgados, o ideal e sempre 20, no minimo 20 unidades. Claro que se a cliente quiser 10 de cada, a gente abre uma excecao, e obvio. Mas assim, sempre sugerir.\" e \"se a cliente falar 15, 15, 15, abre uma excecao, nao tem problema nenhum\". Ou seja: SUGERIR 20 por sabor e 5 sabores no cento, e ACEITAR o que o cliente pedir. Nunca recusar quantidade menor. Fonte: audio da dona docepao1908 (2), 19/08/2026."
+  },
+  "_entrega": {
+    "sempre_pedir_humano": true,
+    "tem_aplicativo": false,
+    "_nota": "\"e sempre pedir ajuda pro humano quando e entrega, e dai a gente responde\" e \"A gente nao tem aplicativo para Uber, nao tem aplicativo, a gente nao chama Uber, so em algumas ocasioes, mas ai sempre pedi ajuda para o humano\". Depende do entregador e do dia: pra HOJE depende se ele consegue, um dia antes a casa tenta encaixar, e a janela da tarde e por volta das 14h30 as 16h30. A Dora NAO cota taxa e NAO promete entrega: chama a equipe. Fonte: audios da dona docepao19082 (1), (3) e (4), 19/08/2026."
+  }
 }

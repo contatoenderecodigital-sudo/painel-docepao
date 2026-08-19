@@ -72,6 +72,10 @@ for (const frase of [
   "A gente nao faz entrega, e so retirada na loja mesmo.",
   "A pizza de forma serve de 6 a 8 pessoas.",
   "A pizza meia serve 3 a 4 pessoas.",
+  // Respostas da dona no audio de 19/08/2026, que TEM que sair.
+  "A pizza redonda nao tem peso minimo, e montada e pesada na hora.",
+  "A gente entrega em alguns casos, ja vou confirmar com a equipe se da pro seu dia.",
+  "Sugiro uns 20 de cada sabor, mas se voce quiser 15 tambem da.",
   "O bolo decorado precisa de 2 dias de antecedencia.",
   "Salgado frito sai R$ 1,00 cada e o assado R$ 1,25.",
   "Quantos docinhos voce vai querer?",

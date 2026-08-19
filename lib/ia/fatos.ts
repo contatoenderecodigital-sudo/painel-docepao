@@ -46,10 +46,17 @@ export type FatosDaCasa = {
 
 export function fatosDaCasa(cfg?: { prazoMinimoDias?: number }): FatosDaCasa {
   const serve: Record<string, string> = {};
-  // O unico rendimento que tem fonte e o da pizza, que esta no cardapio dela.
+  // Rendimento so do que tem FONTE. A pizza de forma vem do cardapio impresso.
   const p = catalogo.pizza as { inteira?: { serve?: number[] }; meia?: { serve?: number[] } };
   if (p?.inteira?.serve) serve["pizza inteira"] = p.inteira.serve.join(" a ") + " pessoas";
   if (p?.meia?.serve) serve["pizza meia"] = p.meia.serve.join(" a ") + " pessoas";
+  // A redonda veio do audio da dona em 19/08/2026: nao tem peso minimo, e
+  // montada e pesada, costuma dar de 800 g a 1,2 kg e sair de R$ 35 a R$ 45.
+  // Sem isto aqui, a guarda cortaria a resposta CERTA sobre a redonda.
+  const red = ((catalogo.outros_produtos ?? []) as { nome: string; peso_tipico_kg?: number[] }[]).find(
+    (x) => /redonda/i.test(String(x.nome)),
+  );
+  if (red?.peso_tipico_kg) serve["pizza redonda"] = red.peso_tipico_kg.join(" a ") + " kg";
   return {
     // NAO EXISTE minimo de pedido. O que a dona chama de minimo e por SABOR
     // dentro do cento ("num cento voce pode escolher cinco sabores, que ai
