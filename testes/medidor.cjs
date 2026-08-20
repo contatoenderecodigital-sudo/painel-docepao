@@ -286,6 +286,34 @@ async function main() {
   console.log(
     "pass^" + REPETICOES + ": " + perfeitos + " de " + alvos.length + " cenarios acertaram TODAS as execucoes.",
   );
+
+  // AS CONVERSAS FICAM GUARDADAS, NAO SO A NOTA.
+  //
+  // Este medidor julga pelo ESTADO DO BANCO, que e o que impede texto bonito
+  // com pedido errado de passar. So que o contrario tambem existe: pedido certo
+  // no fim de um atendimento que faria qualquer pessoa desistir no meio. Foi
+  // lendo conversa que apareceram dez defeitos em 20/08/2026, todos invisiveis
+  // pra nota.
+  //
+  // O medidor LIMPA a faixa dele antes de comecar. Rodar de novo apagava as
+  // conversas da rodada anterior, e eu perdi as 40 conversas de uma medicao
+  // inteira justamente quando fui ler. Agora elas saem pra arquivo antes disso
+  // poder acontecer.
+  try {
+    const linhas = await psql(
+      "select c.telefone || ' | ' || m.papel || ' >> ' || replace(coalesce(m.conteudo,''), chr(10), ' ') " +
+      "from docepao.mensagens m join docepao.clientes c on c.id=m.cliente_id " +
+      "where c.telefone like '" + FAIXA + "' order by c.telefone, m.criado_em",
+    );
+    const fs = require("node:fs");
+    const arquivo = "conversas-da-medicao.txt";
+    fs.writeFileSync(arquivo, String(linhas));
+    console.log("");
+    console.log("As conversas desta rodada ficaram em " + arquivo + ".");
+    console.log("Leia como CLIENTE: o pedido certo no banco nao prova que alguem compraria.");
+  } catch (e) {
+    console.log("(nao consegui salvar as conversas: " + String(e).slice(0, 80) + ")");
+  }
   // Nao derruba o build: este medidor gasta minutos e mensagem de verdade, e
   // serve pra decidir, nao pra travar commit. Quem trava commit e o todos.cjs.
   process.exit(0);
