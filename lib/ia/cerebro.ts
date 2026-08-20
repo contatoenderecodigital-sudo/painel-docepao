@@ -2058,7 +2058,36 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // acrescentar o que "faltava" fez o bolo entrar duas vezes: uma certa, de
     // 4 kg a R$ 49,90, e outra como docinho brigadeiro de R$ 1,25, porque ela
     // reescreveu o bolo de cabeca na hora de fechar.
-    const brutos = anotados.length ? anotados : daIA;
+    const brutosCrus = anotados.length ? anotados : daIA;
+    // GENERICO NAO ENTRA EM PEDIDO REGISTRADO.
+    //
+    // O rastro de 20/08/2026 pegou o estrago: ela ofereceu o sortido certo (40
+    // esfirra, 40 empadinha, 40 pastel assado, 40 quiche, 40 croissant), a
+    // cliente aceitou, e na hora de registrar ela mandou "salgado assado, 200".
+    // O motor nao sabe cobrar generico, e os 200 salgados SUMIRAM do pedido, em
+    // silencio. R$ 250 evaporando sem ninguem ver.
+    //
+    // Aqui o codigo abre o generico nos tipos, com a conta fechada, em vez de
+    // deixar sumir. E a mesma divisao que a ferramenta de sortido usa.
+    const brutos = brutosCrus.flatMap((i) => {
+      const nome = marca(i.item);
+      const familia =
+        /^salgado assado$/.test(nome) || (nome === "salgado" && i.categoria === "salgado_assado")
+          ? "salgado_assado"
+          : /^salgado( frito)?$/.test(nome)
+            ? "salgado_frito"
+            : /^(docinho|doce)$/.test(nome)
+              ? "docinho"
+              : null;
+      if (!familia) return [i];
+      const partes = sugestaoDeSortido(familia as never, Number(i.qtd) || 0);
+      if (!partes.length) return [i];
+      console.warn(
+        "[ia] generico \"" + i.item + "\" (" + i.qtd + ") aberto em: " +
+          partes.map((p) => p.qtd + " " + p.produto).join(", "),
+      );
+      return partes.map((p) => ({ ...i, item: p.produto, qtd: p.qtd, categoria: familia }));
+    });
     // A CATEGORIA desfaz a ambiguidade antes de qualquer busca de preço.
     // "brigadeiro" sozinho é ambíguo: existe como docinho de R$ 1,25 e como
     // sabor de bolo de R$ 46,90 o quilo. Duas vezes o bolo de 2 kg virou
