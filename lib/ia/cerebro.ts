@@ -44,6 +44,8 @@ import {
   pecasPermitidas,
   perguntouPrecoDeFamilia,
   obsSemDeliberacao,
+  restricoesQueACasaNaoFaz,
+  obsSemRestricaoInventada,
   dataBrigaComODiaDaSemana,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
@@ -868,6 +870,26 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // existe no cardapio, e a venda morria pela redacao dela. E a cozinha
     // deixa de receber "sabor calabresa nao existe" impresso na comanda.
     input.obs = obsSemDeliberacao(input.obs) || null;
+
+    // PROMESSA QUE A COZINHA NAO CUMPRE NAO ENTRA NO PEDIDO.
+    //
+    // Medido em 20/08/2026: o pedido fechou com "30 brigadeiro (sem lactose,
+    // forminha rosa)". A cliente PERGUNTOU se tem docinho sem lactose, a Dora
+    // respondeu certo que nao tem, e a restricao foi parar na observacao assim
+    // mesmo. A padaria produziria brigadeiro normal e entregaria pra alguem
+    // que leu "sem lactose" na confirmacao. Com intolerancia de verdade, isso
+    // deixa de ser prejuizo e vira problema de saude.
+    //
+    // O arquivo de fatos ja impedia ela de AFIRMAR isso na conversa. Esta era
+    // a outra porta, e estava aberta.
+    const prometeu = restricoesQueACasaNaoFaz(input.obs);
+    if (prometeu.length) input.obs = obsSemRestricaoInventada(input.obs) || null;
+    // O aviso viaja junto da resposta da ferramenta, que e o canal que ela le.
+    const avisoRestricao = prometeu.length
+      ? "\n\nATENCAO: tirei da observacao \"" + prometeu.join(", ") + "\". A padaria NAO faz isso, e escrito ali " +
+        "ia pra comanda da cozinha e pra confirmacao do cliente como se fosse combinado. Diga com todas as letras " +
+        "que a gente nao trabalha com isso, e siga com o pedido normal."
+      : "";
     const inventadas = obsQueOClienteNaoDisse(input.obs, falasDoCliente.length ? falasDoCliente : [falaDoCliente]);
     if (inventadas.length) {
       return (
@@ -1284,7 +1306,27 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       // "coxinhas", e o cardapio guarda "risólis", "esfirra", "coxinha".
       const semAcento = (t: string) =>
         String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const dito = semAcento(falaDoCliente + " " + (ultimaFalaDela || ""));
+      // A SEGUNDA GUARDA DE PRODUTO FANTASMA, COM OS MESMOS DOIS BURACOS.
+      //
+      // Existiam duas guardas com o mesmo proposito e textos diferentes. Eu
+      // consertei uma e nem sabia da outra, entao a medicao continuou
+      // reprovando: "mudar o total" subiu de 0/5 pra 2/5 e parou ali. O rastro
+      // mostrou esta aqui recusando coxinha, croquete, bolinha de queijo,
+      // quiche, pastel assado e croissant, cinco vezes cada.
+      //
+      // Os dois buracos sao os que ja custaram a noite inteira:
+      //   1. lia so a fala do momento mais a ultima dela
+      //   2. nao sabia o que o CODIGO tinha mandado ela oferecer
+      //
+      // O sortido do sistema entra aqui pelo mesmo caminho da outra guarda.
+      const dito = semAcento(
+        [
+          ...(falasDoCliente.length ? falasDoCliente : [falaDoCliente]),
+          ultimaFalaDela || "",
+          String(montagemAtual?.dados?.proposta ?? ""),
+          (estado.sugeridos ?? []).join(" "),
+        ].join(" | "),
+      );
       const nome = semAcento(produto).trim();
       const raiz = (t: string) => t.replace(/(es|s)$/, "");
       const primeiraPalavra = nome.split(/\s+/)[0];
@@ -1853,7 +1895,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         `Se ele ja disse o sabor na conversa, chame anotar_item de novo com ele na observacao em vez de perguntar.` + avisoDivisao
       );
     }
-    return `Anotei ${qtd} de ${produto} no pedido.${avisoDivisao}${avisoSabor} Continue a conversa normalmente; o pedido fica guardado e você não precisa repetir os itens anteriores.`;
+    return `Anotei ${qtd} de ${produto} no pedido.${avisoDivisao}${avisoSabor} Continue a conversa normalmente; o pedido fica guardado e você não precisa repetir os itens anteriores.${avisoRestricao}`;
   }
   if (nome === "remover_item") {
     estado.montagem.push({
@@ -3852,7 +3894,33 @@ async function rodarConversa(
       const querFamilia = familiaQueElePediu(doCliente);
       if (querFamilia) {
         const proibida = querFamilia === "assado" ? "salgado_frito" : "salgado_assado";
-        ofertados = corrigidos.filter((o) => categoriaDoProduto(o.produto) !== proibida);
+        const sobrou = corrigidos.filter((o) => categoriaDoProduto(o.produto) !== proibida);
+
+        // TIRAR O ERRADO SEM REPOR O CERTO E OUTRO ERRO.
+        //
+        // Medido em 20/08/2026: o filtro de familia funcionou (os fritos
+        // sairam) e o pedido fechou com UMA linha de 66 esfirras, onde a
+        // cliente tinha pedido 200 salgados assados. Antes ela recebia 200 com
+        // frito no meio; depois do meu filtro, recebia 66 e mais nada.
+        //
+        // Nenhum dos dois e atender. Quando o filtro corta itens, a conta
+        // precisa ser refeita na familia certa, com a soma exata.
+        const quantosQuer = totalQueElePediu(doCliente, "salgado");
+        const somaSobrou = sobrou
+          .filter((o) => String(categoriaDoProduto(o.produto)).startsWith("salgado"))
+          .reduce((s, o) => s + o.qtd, 0);
+        if (sobrou.length < corrigidos.length && quantosQuer > 0 && somaSobrou !== quantosQuer) {
+          const refeito = sugestaoDeSortido(
+            querFamilia === "assado" ? "salgado_assado" : "salgado_frito",
+            quantosQuer,
+          );
+          ofertados = [
+            ...refeito.map((r) => ({ produto: r.produto, qtd: r.qtd, obs: null })),
+            ...sobrou.filter((o) => !String(categoriaDoProduto(o.produto)).startsWith("salgado")),
+          ];
+        } else {
+          ofertados = sobrou;
+        }
       } else {
         ofertados = corrigidos;
       }

@@ -502,3 +502,53 @@ a via de aceite que eu criei escreve direto na montagem, sem passar por
 Atalho de código que ignora guarda é pior que não ter guarda, porque o teste da
 guarda passa verde e o defeito continua chegando no cliente. Foi só a medição
 com conversa de verdade que pegou.
+
+### Segunda medição: 5 de 8, e o que ela cobrou
+
+Mesmos oito cenários, container `119e79b`, rastro salvo em arquivo ANTES de
+qualquer commit (a lição da rodada anterior).
+
+```
+                                            1a rodada   2a rodada
+troca de bolo nao duplica                      3/5         5/5
+pergunta de preco nao vira item                5/5         5/5
+produto que a padaria nao faz nao entra        5/5         4/5
+festa com quatro familias fecha                5/5         5/5
+cor da forminha nao volta a ser perguntada     5/5         5/5
+pizza fecha e nao e recusada                   1/5         5/5
+quem pede assado nao recebe frito              2/5         2/5
+mudar o total nao vira negociacao              0/5         2/5
+```
+
+**Existiam DUAS guardas de produto fantasma.** Com textos diferentes, no mesmo
+arquivo. Consertei uma e não sabia da outra. O rastro mostrou a segunda
+recusando coxinha, croquete, bolinha de queijo, quiche, pastel assado e
+croissant, cinco vezes cada, todos itens que o próprio sistema tinha mandado
+ela oferecer. Ela ficava presa entre uma ordem e uma proibição, as duas minhas.
+E a segunda tinha os dois mesmos buracos da primeira: lia só a última fala e
+não conhecia o sortido do código.
+
+**Meu conserto do assado criou outro defeito.** O filtro de família tirou os
+fritos e deixou o pedido com uma linha de 66 esfirras onde a cliente pediu 200
+salgados assados. Antes ela recebia 200 com frito no meio; depois do meu
+filtro, 66 e mais nada. Nenhum dos dois é atender. Tirar o errado sem repor o
+certo é outro erro, e agora a conta é refeita na família certa com soma exata.
+
+**O achado que passa de prejuízo.** O pedido fechou com
+`30 brigadeiro (sem lactose, forminha rosa)`. A cliente PERGUNTOU se tem
+docinho sem lactose, a Dora respondeu certo que a padaria não faz, e a
+restrição foi parar na observação assim mesmo. A observação vai pra comanda da
+cozinha e pro resumo que o cliente recebe: a padaria produziria brigadeiro
+normal e entregaria pra alguém que leu "sem lactose" na confirmação. Com
+intolerância de verdade isso deixa de ser prejuízo e vira problema de saúde.
+
+O arquivo de fatos já impedia ela de AFIRMAR isso na conversa. O campo de
+observação era a outra porta, e estava aberta. A guarda limpa em vez de
+recusar, porque o brigadeiro é uma venda de verdade: sai só a promessa que a
+cozinha não cumpre.
+
+**O padrão que se repete:** três das quatro correções desta rodada foram em
+código que eu tinha escrito nas horas anteriores. Não é falta de cuidado com o
+código novo, é o custo de mexer num sistema com muitos caminhos para o mesmo
+lugar. Por isso a medição vale mais que o teste, e por isso ela roda inteira
+depois de cada leva de correção, nunca antes de dormir achando que acabou.

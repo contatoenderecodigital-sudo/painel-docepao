@@ -1032,3 +1032,45 @@ export function obsSemDeliberacao(obs: unknown): string {
     .filter((p) => !DELIBERACAO.test(semAcMin(p)));
   return partes.join(", ");
 }
+
+// RESTRICAO QUE A CASA NAO FAZ NAO ENTRA NO PEDIDO.
+//
+// Medicao de 20/08/2026: o pedido fechou com "30 brigadeiro (sem lactose,
+// forminha rosa)". A cliente tinha PERGUNTADO se tem docinho sem lactose, a
+// Dora respondeu certo que nao tem, e mesmo assim a restricao foi parar na
+// observacao do item.
+//
+// A observacao vai pra comanda da cozinha e pro resumo que o cliente recebe.
+// Ou seja: a padaria produz brigadeiro normal e entrega pra alguem que leu
+// "sem lactose" na confirmacao. Se essa pessoa tem intolerancia, isso passa de
+// prejuizo pra problema de saude.
+//
+// O arquivo de fatos ja impede ela de AFIRMAR que a casa faz. Isto aqui e a
+// outra porta, que estava aberta: o campo de observacao.
+//
+// Nao recusa o item. O brigadeiro e uma venda de verdade, so a promessa que a
+// casa nao cumpre e que sai.
+export function restricoesQueACasaNaoFaz(obs: unknown): string[] {
+  const t = semAcMin(obs);
+  if (!t) return [];
+  const NAO_FAZ: [string, RegExp][] = [
+    ["sem lactose", /\b(sem|0 ?%|zero) ?lactose\b|\blactose ?free\b|\bdeslactosad/],
+    ["sem gluten", /\b(sem|0 ?%|zero) ?gluten\b|\bgluten ?free\b/],
+    ["vegano", /\bvegan[oa]s?\b|\bsem (ingredientes? de )?origem animal\b/],
+    ["diet", /\bdiet\b|\b(sem|0 ?%|zero) ?a[cç]ucar\b|\bzero a[cç]ucar\b/],
+    ["integral", /\bintegral\b/],
+  ];
+  return NAO_FAZ.filter(([, re]) => re.test(t)).map(([nome]) => nome);
+}
+
+// A mesma observacao, sem a promessa que a casa nao cumpre.
+export function obsSemRestricaoInventada(obs: unknown): string {
+  const bruto = String(obs ?? "").trim();
+  if (!bruto) return "";
+  return bruto
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .filter((p) => restricoesQueACasaNaoFaz(p).length === 0)
+    .join(", ");
+}
