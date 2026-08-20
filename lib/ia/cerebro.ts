@@ -2773,7 +2773,19 @@ function etapasDaFesta(
   // Sem topo e sem papel nao precisa de nome, idade nem tema: a peca nao existe.
   if (bolo && (citadoDeVerdade(obsBolo, "topo") || citadoDeVerdade(obsBolo, "papel de arroz"))) {
     const falta: string[] = [];
-    if (!/nome/i.test(obsBolo)) falta.push("o NOME do aniversariante");
+    // O NOME PODE ESTAR SEM A PALAVRA "NOME".
+    //
+    // O rastro de 20/08/2026 pegou uma festa travada pra sempre: a observacao
+    // do bolo dizia "aniversariante Alice 5 anos", com o nome ali, e esta linha
+    // procurava a palavra literal "nome". Ela pediu o nome do aniversariante
+    // ate o cliente desistir, com o nome escrito na propria linha.
+    //
+    // Vale a palavra "nome", ou um rotulo de aniversario seguido de um nome
+    // proprio, que e como ela escreve na pratica.
+    const temNome =
+      /nome/i.test(obsBolo) ||
+      /(anivers[aá]riante|nivers|para o|pra o|pra a|para a)\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zá-úâ-ûã-õç]{2,}/.test(obsBolo);
+    if (!temNome) falta.push("o NOME do aniversariante");
     // A idade pode ter sido dita na conversa, nao na observacao.
     const temIdade =
       /[0-9]{1,2} ?anos?/i.test(obsBolo) ||
