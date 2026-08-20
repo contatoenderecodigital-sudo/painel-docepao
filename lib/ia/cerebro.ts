@@ -4704,7 +4704,23 @@ async function rodarConversa(
         .filter((h) => h.role === "user")
         .map((h) => (typeof h.content === "string" ? h.content : ""))
         .filter(Boolean);
+      // O RASTRO DE TODA CHAMADA, COM OS ARGUMENTOS.
+      //
+      // Sem isto da pra ver os erros mas nao o CAMINHO ate eles, e a diferenca
+      // importa: perguntar pro modelo por que errou nao funciona (ele inventa
+      // uma explicacao plausivel e a gente conserta a coisa errada), mas o
+      // rastro do que ele realmente chamou nao mente.
+      const resumoArgs = (() => {
+        try {
+          const s = JSON.stringify(args);
+          return s.length > 220 ? s.slice(0, 220) + "..." : s;
+        } catch {
+          return "(argumentos ilegiveis)";
+        }
+      })();
+      console.log("[rastro] " + tc.function.name + " <- " + resumoArgs);
       const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemDoTurno, pedidoAguardando, ultimaFala, ultimaFalaDela, falasDela, falasDoCliente, pedidoAberto);
+      console.log("[rastro] " + tc.function.name + " -> " + String(saida).slice(0, 200));
       // Sem isto, quando ela faz besteira so da pra adivinhar o que ela chamou.
       // 90 caracteres cortavam justamente a lista do que falta, que e o motivo da
       // recusa. Sem ela o log so diz que recusou, nao por que.
