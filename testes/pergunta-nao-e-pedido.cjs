@@ -195,6 +195,35 @@ conferir(
 );
 
 console.log("");
+console.log("== o JEITO QUE O CLIENTE CHAMA vale como ter citado ==");
+// O rastro de 20/08/2026 pegou isto no ato: o cliente escreveu "quero uma de
+// forma com calabresa, frango com catupiry e portuguesa", a Dora chamou
+// anotar_item com "pizza inteira" (o nome certo do catalogo) OITO vezes, e a
+// guarda recusou as oito, porque ele nunca escreveu a palavra "inteira".
+// Resultado: eu estava bloqueando TODA venda de pizza da padaria.
+for (const [produto, fala] of [
+  ["pizza inteira", "quero uma de forma com calabresa, frango com catupiry e portuguesa"],
+  ["pizza inteira", "me ve uma pizza de metro de calabresa"],
+  ["pizza inteira", "queria uma pizza grande pro jogo"],
+  ["pizza redonda", "quero uma redonda de calabresa e frango"],
+  ["pizza meia", "pode ser meia pizza so"],
+  ["mini bolha", "quero 50 pastel frito de carne"],
+  ["cuca recheada", "3 kg de cuca de goiaba"],
+  ["torta fria com palmito", "2 kg de torta fria de frango com palmito"],
+]) {
+  conferir(
+    !produtoQueNinguemCitou(produto, [fala], ""),
+    'aceita "' + produto + '" quando ele disse "' + fala.slice(0, 38) + '"',
+    "bloqueia a venda por causa do nome do catalogo",
+  );
+}
+conferir(
+  produtoQueNinguemCitou("pizza inteira", ["quero 100 coxinhas pra sabado"], ""),
+  "mas continua recusando pizza quando ele nao falou em pizza nenhuma",
+  "a guarda parou de guardar",
+);
+
+console.log("");
 console.log("== o que foi PROPOSTO por ela e aceito tambem vale ==");
 // Na festa ela indica os itens e o cliente responde "pode ser". Esses produtos
 // nao aparecem na fala dele, e nem por isso sao invencao.

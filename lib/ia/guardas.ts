@@ -278,6 +278,30 @@ export function produtoQueNinguemCitou(
   // O que separa esse caso do "leite ninho" fantasma e o SABOR: goiaba e sabor
   // de cuca recheada, e ninho nao e sabor de nada que ele pediu. Entao, quando
   // a primeira palavra do produto bate, o sabor dito por ele fecha a conta.
+  // O JEITO QUE O CLIENTE CHAMA NAO E O NOME DO CATALOGO.
+  //
+  // O rastro de 20/08/2026 pegou isto no ato: o cliente escreveu "quero uma de
+  // forma com calabresa, frango com catupiry e portuguesa", a Dora chamou
+  // anotar_item com "pizza inteira" (o nome certo do catalogo) OITO vezes, e
+  // esta guarda recusou as oito, porque ele nunca escreveu a palavra "inteira".
+  // Eu estava bloqueando toda venda de pizza da padaria.
+  //
+  // Estes apelidos sao os que a propria casa usa, e ja estao no prompt dela:
+  // "pizza de metro" e "pizza de forma" sao a retangular; o pastel frito e a
+  // mini bolha.
+  const APELIDOS: Record<string, string[]> = {
+    "pizza inteira": ["pizza de forma", "de forma", "pizza de metro", "de metro", "retangular", "pizza grande", "pizza inteira", "uma pizza"],
+    "pizza meia": ["meia pizza", "metade da pizza", "meia de forma", "meia"],
+    "pizza redonda": ["redonda", "pizza redonda", "de 30", "30 cm"],
+    "mini bolha": ["pastel frito", "pastel", "bolha"],
+    "cuca recheada": ["cuca"],
+    "torta fria com palmito": ["torta fria"],
+    "empadao com palmito": ["empadao", "empadão"],
+  };
+  for (const apelido of APELIDOS[nome] ?? []) {
+    if (tudo.includes(semAcMin(apelido))) return false;
+  }
+
   const primeira = palavras[0];
   if (primeira && tudo.includes(primeira)) {
     const doCatalogo = ((catalogo.outros_produtos ?? []) as { nome: string; sabores?: string[]; recheios?: string[] }[])
