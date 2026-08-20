@@ -37,12 +37,18 @@ const qtdBR = (n: number) => String(Number(n) || 0).replace(".", ",");
 function ehPapelDerivado(x: { produto: string }, todos: { produto: string; obs?: string | null }[]): boolean {
   const nome = String(x.produto || "").trim().toLowerCase();
   if (!/^papel de arroz$/.test(nome)) return false;
-  return todos.some(
-    (o) =>
-      /^bolo/i.test(String(o.produto || "").trim()) &&
-      /papel de arroz/i.test(String(o.obs || "")) &&
-      !/sem papel/i.test(String(o.obs || "")),
-  );
+  // TEM BOLO NO PEDIDO? ENTAO QUEM MANDA E O BOTAO DO BOLO, MARCADO OU NAO.
+  //
+  // A primeira versao disto exigia que a observacao do bolo CITASSE papel de
+  // arroz. Parecia certo e criava o pior caso: com o botao marcado a linha era
+  // escondida e nao enviada (o servidor recriava, tudo bem), mas ao DESMARCAR
+  // ela voltava a ser enviada e continuava cobrada. O dono desmarcou na tela,
+  // salvou, e o total ficou nos mesmos R$ 199,60.
+  //
+  // Com bolo no pedido a linha nunca e enviada pelo painel. O servidor cria a
+  // partir da observacao: marcado, nasce e cobra; desmarcado, nao nasce e nao
+  // cobra. Uma fonte da verdade so, nos dois estados do botao.
+  return todos.some((o) => /^bolo/i.test(String(o.produto || "").trim()));
 }
 
 function cortarResumo(t: string, max: number) {
