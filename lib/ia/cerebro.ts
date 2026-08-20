@@ -4547,6 +4547,40 @@ async function rodarConversa(
     // Mandar os parâmetros antigos dá 400 e o atendimento cai inteiro, então a
     // chamada se adapta ao modelo em vez de assumir um formato só.
     const ehRaciocinio = /^(gpt-5|o1|o3|o4)/i.test(prov.modelo);
+    // NAO FALTA NADA E ELE MANDOU FECHAR: A FERRAMENTA E OBRIGATORIA.
+    //
+    // Teste ao vivo de 20/08/2026. O pedido tinha bolo, tema, nome e idade do
+    // aniversariante, pao de lo, data, hora, nome de quem paga e pagamento. O
+    // cliente escreveu "pode fechar". A Dora respondeu:
+    //
+    //   "Agora so preciso do sobrenome do aniversariante pra completar a
+    //    observacao do bolo. Pode ser?"
+    //
+    // Inventou um requisito que nao existe em regra nenhuma e nao registrou. O
+    // cliente sai da conversa achando que encomendou, e nao existe pedido: e o
+    // pior defeito possivel aqui, porque so aparece no dia da retirada.
+    //
+    // O prompt ja mandava registrar AGORA, com todas as letras. A noite inteira
+    // provou que prompt e sugestao. Aqui a escolha sai das maos dela: quando o
+    // codigo ja conferiu que nao falta nada e o cliente pediu pra fechar, a API
+    // e obrigada a chamar registrar_pedido. Ela so preenche os argumentos.
+    // Os quatro dados obrigatorios entram na conta aqui: podeFechar so olha
+    // item e sabor. Sem isto, forcar a ferramenta empurraria pedido sem hora,
+    // que a propria guarda de registro recusa, e a conversa entraria em laco.
+    const temOsDados = ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento"].every((k) => {
+      const v = (montagemDoTurno?.dados as Record<string, unknown> | undefined)?.[k];
+      return !!v && String(v).trim() !== "";
+    });
+    const obrigarFechamento =
+      podeFechar &&
+      temOsDados &&
+      mandouFechar(historico.filter((h) => h.role === "user").map((h) => String(h.content ?? ""))) &&
+      !estado.pedido &&
+      (montagemDoTurno?.itens ?? []).length > 0 &&
+      ferramentas.some((f) => (f as { function?: { name?: string } })?.function?.name === "registrar_pedido");
+    const escolhaDaFerramenta = obrigarFechamento
+      ? ({ type: "function", function: { name: "registrar_pedido" } } as const)
+      : undefined;
     const resp = await client.chat.completions.create(
       ehRaciocinio
         ? {
@@ -4557,6 +4591,7 @@ async function rodarConversa(
             max_completion_tokens: 4000,
             messages,
             tools: ferramentas,
+            ...(escolhaDaFerramenta ? { tool_choice: escolhaDaFerramenta } : {}),
           }
         : {
             model: prov.modelo,
@@ -4564,6 +4599,7 @@ async function rodarConversa(
             temperature: 0.4, // menos "criatividade" = segue mais as regras (usar a ferramenta)
             messages,
             tools: ferramentas,
+            ...(escolhaDaFerramenta ? { tool_choice: escolhaDaFerramenta } : {}),
           },
     );
     somarUso(resp.usage);
