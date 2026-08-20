@@ -291,6 +291,31 @@ export function produtoQueNinguemCitou(
   return true;
 }
 
+// O CLIENTE DISSE QUE A IMAGEM NAO CHEGOU, OU PEDIU POR ESCRITO.
+//
+// A regra do prompt e "mande a imagem, nao digite a lista", e ela e boa: a peca
+// do cardapio ja traz os precos certos e evita ela errar digitando. So que a
+// regra era absoluta, e por isso ela repetia "te mandei o cardapio" pra quem
+// tinha acabado de dizer que nao recebeu.
+//
+// Aconteceu com dois clientes no teste de 19/08/2026. Uma senhora escreveu
+// "eu nao consigo abrir isso minha filha, me fala o preco por escrito" e ouviu
+// de novo que estava no cardapio. Isso e venda perdida por teimosia: internet
+// ruim, imagem apagada sem querer e celular velho acontecem todo dia.
+//
+// Quando isto e verdade, o codigo TIRA a ferramenta de mandar imagem da mesa e
+// ela e obrigada a escrever. Prompt e sugestao; ferramenta que nao existe, nao.
+export function pediuPorEscrito(fala: string): boolean {
+  const t = semAcMin(fala);
+  if (!t.trim()) return false;
+  const naoChegou =
+    /(nao|n) (chegou|veio|recebi|apareceu|carregou|abriu|abre|consigo abrir|to vendo|estou vendo|vejo)/.test(t) ||
+    /nao chegou nada|nada chegou|nenhuma (lista|imagem|foto)|imagem nao|cardapio nao (chegou|veio|abriu)/.test(t);
+  const porEscrito =
+    /(por escrito|escrito aqui|escreve|digita|manda escrito|me fala (o|os|a|as)? ?(preco|precos|sabores|tipos)|fala aqui|lista aqui)/.test(t);
+  return naoChegou || porEscrito;
+}
+
 // A FORMA DE PAGAMENTO E A ULTIMA QUE ELE FALOU, NAO A PRIMEIRA.
 //
 // A funcao antiga testava numa ORDEM FIXA: pix, depois cartao, depois dinheiro.

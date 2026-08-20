@@ -57,3 +57,31 @@ export function produtosDoCardapio(): string[] {
 export function enumDeProdutos(): string[] {
   return [...produtosDoCardapio(), FORA_DO_CARDAPIO];
 }
+
+// COMO O PRODUTO SE ESCREVE PRO CLIENTE.
+//
+// O catalogo guarda alguns nomes SEM acento de proposito, porque o motor de
+// preco compara sem acento e "pao doce" tem que casar com "pão doce" digitado
+// pelo cliente. Isso e certo por dentro e feio por fora: o recibo saia com
+// "pao doce" e "empadao", e quem le acha que a padaria escreve errado.
+//
+// Este mapa e o mesmo do gerador das pecas de cardapio, pra imagem, recibo e
+// tela falarem igual.
+const COMO_ESCREVE: Record<string, string> = {
+  empadao: "empadão",
+  "empadao com palmito": "empadão com palmito",
+  "pao doce": "pão doce",
+  "pao frances": "pão francês",
+  "pao de x": "pão de X",
+  "pao de batata": "pão de batata",
+  "pao de queijo": "pão de queijo",
+  "mini pao de queijo": "mini pão de queijo",
+  "mini sanduiche de pate de frango": "mini sanduíche de patê de frango",
+  risolis: "risólis",
+  chodo: "chodó",
+};
+
+export function comoSeEscreve(nome: unknown): string {
+  const t = String(nome ?? "").trim();
+  return COMO_ESCREVE[t.toLowerCase()] ?? t;
+}

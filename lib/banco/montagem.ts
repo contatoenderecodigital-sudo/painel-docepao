@@ -176,15 +176,45 @@ export async function anotarItem(
   // duplicou a trufa: a linha tinha "forminha azul royal" e o sabor chegou
   // depois como "morango, forminha azul royal". Uma observação que CONTÉM a
   // outra é a mesma linha ficando mais completa, não um item novo.
-  if (i < 0 && mesmoNome.length === 1) {
+  // VALE PRA QUALQUER NUMERO DE LINHAS, NAO SO PRA UMA.
+  //
+  // Isto exigia `mesmoNome.length === 1`, e por isso desistia assim que
+  // existiam DUAS linhas do mesmo produto: dali em diante cada detalhe
+  // confirmado virava linha nova. No teste de 19/08/2026 o pedido terminou com
+  // QUATRO linhas de trufa, 100 unidades onde a cliente pediu 25, e num laco
+  // eterno: a Dora perguntava o sabor, a cliente respondia, e em vez de
+  // completar a linha nascia outra, entao o sabor nunca ficava preenchido.
+  //
+  // Agora procura entre TODAS as linhas do mesmo produto a que esta sendo
+  // completada. Uma observacao que CONTEM a outra e a mesma linha ficando mais
+  // completa, nao um item novo.
+  if (i < 0 && mesmoNome.length > 0) {
     // "sem sabor especificado" e observacao de enfeite: vale como vazia, senao
     // o sabor que chega depois vira uma SEGUNDA linha do mesmo produto e o
     // pedido fica com duas trufas, uma delas sem sabor pra sempre.
     const limpar = (t: string) => (ENFEITE.test(t) ? "" : t);
-    const antiga = limpar(marca(mesmoNome[0].obs));
+    // COMPARA POR PEDACO, NAO POR TEXTO CORRIDO.
+    //
+    // "forminha branca, morango" e "morango, forminha branca" sao a MESMA
+    // coisa, e comparando texto corrido nao casam. Foi assim que nasceu a
+    // quarta linha de trufa: a Dora reescreveu a observacao em outra ordem.
+    const pedacos = (t: string) =>
+      new Set(t.split(",").map((x) => x.trim()).filter(Boolean));
+    const contem = (maior: Set<string>, menor: Set<string>) =>
+      [...menor].every((p) => maior.has(p));
     const nova = limpar(marca(item.obs));
-    const refinamento = !antiga || !nova || nova.includes(antiga) || antiga.includes(nova);
-    if (refinamento) i = m.itens.indexOf(mesmoNome[0]);
+    const setNova = pedacos(nova);
+    // A linha MAIS parecida primeiro: entre varias, completa a que ja tem mais
+    // coisa em comum, senao o recheio cai na linha errada.
+    const candidata = mesmoNome
+      .map((x) => ({ x, antiga: limpar(marca(x.obs)) }))
+      .filter(({ antiga }) => {
+        if (!antiga || !nova) return true;
+        const setAntiga = pedacos(antiga);
+        return contem(setNova, setAntiga) || contem(setAntiga, setNova);
+      })
+      .sort((a, b) => b.antiga.length - a.antiga.length)[0];
+    if (candidata) i = m.itens.indexOf(candidata.x);
   }
 
   if (i >= 0) {

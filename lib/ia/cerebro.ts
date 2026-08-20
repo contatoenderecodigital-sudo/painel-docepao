@@ -17,7 +17,7 @@ import { motorPadrao, formatarOrcamento, brl, citadoDeVerdade, type Motor, type 
 import { registrarUsoIA, type UsoTurno } from "./uso";
 import catalogo from "./dados/catalogo.json";
 import { padariaAberta } from "@/lib/padaria-aberta";
-import { enumDeProdutos, FORA_DO_CARDAPIO } from "./produtos";
+import { enumDeProdutos, FORA_DO_CARDAPIO, comoSeEscreve } from "./produtos";
 import { fatosDaCasa, afirmacoesNaoAutorizadas, RECADO_DA_EQUIPE } from "./fatos";
 // As guardas moram em arquivo proprio pra os testes importarem de verdade,
 // em vez de recortar texto deste arquivo (o que quebrava a cada mudanca).
@@ -31,6 +31,7 @@ import {
   faltandoNoResumo,
   produtoQueNinguemCitou,
   pagamentoQueEleFalou,
+  pediuPorEscrito,
   corrigirEndereco,
 } from "./guardas";
 
@@ -2313,9 +2314,22 @@ ATENCAO: recusar o registro NAO quer dizer recomecar a coletar. Tudo que o clien
       linhaPagamento +
       // Dia sem hora nao serve: o cliente precisa saber quando buscar, e a
       // equipe precisa da mesma informacao no ticket.
-      `*Retirada:* ${String(input.retirada_data || "")}${horaLimpa(input.retirada_hora) ? " às " + horaLimpa(input.retirada_hora) : ""}\n` +
+      // "as manha" nao existe. Quando o cliente marca por periodo em vez de
+      // hora ("de manha", "a tarde"), o "as" na frente fica errado e o resumo
+      // sai torto justo na linha que a equipe mais le. Hora de verdade leva
+      // "as"; periodo leva "de".
+      `*Retirada:* ${String(input.retirada_data || "")}${(() => {
+        const h = horaLimpa(input.retirada_hora);
+        if (!h) return "";
+        return /^[0-9]{2}:[0-9]{2}$/.test(h) ? " às " + h : " " + h;
+      })()}\n` +
       (input.observacoes ? `*Obs:* ${String(input.observacoes)}\n` : "") +
-      c.linhas.map((l) => `${l.item}${l.obs ? " (" + l.obs + ")" : ""}: ${fmtQtd(l.qtd, l.unidade)} x ${brl(l.unit)} = ${brl(l.subtotal)}`).join("\n") +
+      // comoSeEscreve: o catalogo guarda "pao doce" e "empadao" SEM acento de
+      // proposito, porque o motor compara sem acento. Certo por dentro, feio no
+      // recibo do cliente, que lia "pao doce" e achava que a padaria escreve
+      // errado. A imagem do cardapio ja usava o nome bonito; agora o recibo
+      // usa o mesmo.
+      c.linhas.map((l) => `${comoSeEscreve(l.item)}${l.obs ? " (" + l.obs + ")" : ""}: ${fmtQtd(l.qtd, l.unidade)} x ${brl(l.unit)} = ${brl(l.subtotal)}`).join("\n") +
       `\n*Total: ${brl(c.total)}*` +
       (temTopo ? `\nA equipe vai te informar o valor do topo.` : "") +
       `\nJá passei pra nossa equipe. Assim que confirmarem, eu te aviso por aqui.` +
@@ -3305,6 +3319,69 @@ async function rodarConversa(
     }
   }
 
+  // A FOTO DO TEMA TAMBEM E APROVEITADA PELO CODIGO.
+  //
+  // A cliente respondeu "tenho foto sim, mando depois" e ouviu o pedido de foto
+  // mais CINCO vezes, inclusive depois de reclamar. Ela mesma escreveu: "ja
+  // falei q tenho a foto, mando por aqui mais tarde". Cliente que repete cinco
+  // vezes acha que esta falando com robo quebrado, e tem razao.
+  //
+  // Mesmo defeito da forminha e do pagamento, mesmo conserto: quem grava a
+  // resposta e o codigo, nao a boa vontade dela.
+  const perguntouFoto = /foto/i.test(String(ultimaDelaAqui));
+  if (perguntouFoto) {
+    const t = String(ultimaFalaDoCliente).toLowerCase();
+    const respondeuFoto =
+      /(tenho|mando|envio|te mando|mandarei|vou mandar|ja mandei|depois eu mando)/.test(t) ||
+      /(nao tenho|nao vou mandar|sem foto|nao tem foto|nao achei)/.test(t);
+    const bolos = (montagemDoTurno?.itens ?? []).filter(
+      (i) => String(i.categoria || "").startsWith("bolo") && !/foto/i.test(String(i.obs ?? "")),
+    );
+    if (respondeuFoto && bolos.length) {
+      const naoTem = /(nao tenho|nao vou|sem foto|nao tem|nao achei)/.test(t);
+      const marcaFoto = naoTem ? "sem foto" : "cliente vai mandar a foto do tema";
+      const comFoto = (obs: unknown) => [String(obs ?? "").trim(), marcaFoto].filter(Boolean).join(", ");
+      for (const i of bolos) {
+        estado.montagem.push({
+          tipo: "item",
+          produto: i.produto,
+          categoria: i.categoria,
+          qtd: i.qtd,
+          obs: comFoto(i.obs),
+        });
+      }
+      montagemDoTurno = {
+        ...(montagemDoTurno ?? { itens: [], dados: {} }),
+        itens: (montagemDoTurno?.itens ?? []).map((i) =>
+          bolos.includes(i) ? { ...i, obs: comFoto(i.obs) } : i,
+        ),
+      } as MontagemAtual;
+      messages.push({
+        role: "system",
+        content:
+          "A FOTO JA FOI RESOLVIDA e esta anotada como \"" + marcaFoto + "\". NAO pergunte de foto de novo, " +
+          "nem uma vez: confirme numa frase curta e siga pro que falta.",
+      });
+    }
+  }
+
+  // A IMAGEM NAO CHEGOU: ESCREVE.
+  //
+  // A ferramenta de mandar cardapio ja foi tirada da mesa neste turno. Falta
+  // dizer o que fazer no lugar, senao ela responde "te mandei" de novo e o
+  // cliente desiste. Foi o que aconteceu com duas pessoas em 19/08/2026.
+  if (pediuPorEscrito(String(ultimaFalaDoCliente))) {
+    messages.push({
+      role: "system",
+      content:
+        "O CLIENTE DISSE QUE NAO RECEBEU A IMAGEM, ou pediu por escrito. Nao adianta mandar de novo e a " +
+        "ferramenta de cardapio esta bloqueada neste turno de proposito.\n\n" +
+        "ESCREVA a lista no chat agora, com os precos, em linhas curtas, so da categoria que ele perguntou. " +
+        "A tabela inteira esta neste prompt, entao voce tem tudo. NAO diga que mandou, NAO peca desculpa " +
+        "comprida e NAO mande ele olhar em outro lugar.",
+    });
+  }
+
   // Pediu com quantidade uma coisa que a casa nao faz: ela precisa dizer isso
   // e seguir com o resto, em vez de repetir o cardapio e travar a conversa.
   const naoExistem = pedidosQueNaoExistem(String(ultimaFalaDoCliente));
@@ -3581,6 +3658,13 @@ async function rodarConversa(
       return !["anotar_item", "trocar_item", "remover_item", "anotar_dados", "montar_orcamento", "registrar_pedido"].includes(nome);
     }
     if (nome === "registrar_pedido" && !podeFechar) return false;
+    // IMAGEM QUE NAO CHEGA NAO ADIANTA MANDAR DE NOVO.
+    //
+    // Ela repetia "te mandei o cardapio" pra quem tinha acabado de dizer que
+    // nao recebeu. Uma senhora escreveu "eu nao consigo abrir isso minha filha,
+    // me fala o preco por escrito" e ouviu a mesma coisa. Tirando a ferramenta
+    // da mesa, ela e obrigada a escrever a lista, que ela tem inteira no prompt.
+    if (nome === "enviar_cardapio" && pediuPorEscrito(String(ultimaFalaDoCliente))) return false;
     return true;
   });
 

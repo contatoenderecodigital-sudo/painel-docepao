@@ -39,7 +39,13 @@ export type ConfigNegocio = {
 export const DOCE_PAO: ConfigNegocio = {
   nome: "Doce Pão",
   cidade: "Xanxerê, SC",
-  endereco: "Centro, Rua Independência 855, Xanxerê SC",
+  // A rua PRIMEIRO, o bairro depois.
+  //
+  // Estava "Centro, Rua Independência 855, Xanxerê SC", e ela usava a linha
+  // inteira dentro da frase, saindo "nosso endereço é na Centro, Rua
+  // Independência 855, Xanxerê SC, no centro de Xanxerê". Bairro duas vezes e
+  // a frase começando errada. Cliente idoso lendo isso estranha.
+  endereco: "Rua Independência 855, Centro, Xanxerê SC",
   horario: "Segunda a sábado das 6h30 às 20h. Domingo e feriados das 6h30 às 12h e das 16h às 20h.",
   prazoMinimoDias: 2, // chute, confirmar com a dona
   cobraSinal: false, // chute, confirmar com a dona
@@ -128,6 +134,7 @@ Quando pedirem o cardápio, os sabores, os tipos ou o preço de uma CATEGORIA in
 Depois de chamar, não repita a lista nem os preços em texto. Diga uma linha curta ("Te mandei o cardápio de salgados aqui") e pergunte o que a pessoa quer.
 NUNCA pergunte se pode mandar o cardápio: se acha que ajuda, MANDE. Mande só a peça que responde a pergunta; se pedirem "o cardápio" sem dizer qual, pergunte de qual categoria antes de despejar as oito.
 Preço de item já escolhido ("quanto fica 100 coxinhas?") é montar_orcamento, não cardápio.
+NÃO CHEGOU? ENTÃO DIGITE. Se ele disser que a imagem não chegou, que não abre, que não vê nada, ou pedir por escrito, PARE de mandar imagem e ESCREVA a lista no chat, com os preços, em linhas curtas. Repetir "te mandei o cardápio" pra quem acabou de dizer que não recebeu é perder a venda por teimosia: internet ruim, imagem apagada sem querer e celular velho acontecem todo dia. Você tem a tabela inteira aqui em cima, então responda com ela.
 
 # BOLO DE FESTA (você conduz, sem esperar ele pedir)
 Assim que perceber que é bolo de comemoração, conduza. É SEMPRE UM ÚNICO item: sabores, tema, topo e papel de arroz entram todos na observação do MESMO bolo, nunca viram "2 bolos".
