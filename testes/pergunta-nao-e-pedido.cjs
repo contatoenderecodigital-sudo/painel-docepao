@@ -171,6 +171,30 @@ conferir(
 );
 
 console.log("");
+console.log("== o NOME DO CATALOGO nao e o nome que o cliente usa ==");
+// O teste de concorrencia pegou isto falhando 1 em 3: o cliente pede "cuca de
+// goiaba" e o produto do catalogo chama "cuca recheada". Exigindo toda palavra
+// do nome na fala dele, eu bloqueava a IA por ter ACERTADO o produto.
+//
+// O que separa isto do "leite ninho" fantasma e o SABOR: goiaba e sabor de cuca
+// recheada, e ninho nao e sabor de nada que ele pediu.
+conferir(
+  !produtoQueNinguemCitou("cuca recheada", ["quero 3 kg de cuca de goiaba pra dia 22/08 as 10h"], ""),
+  'aceita "cuca recheada" quando ele pediu cuca de goiaba',
+  "bloqueia a IA por ter acertado o produto",
+);
+conferir(
+  !produtoQueNinguemCitou("torta fria com palmito", ["quero 2 kg de torta fria de frango com palmito"], ""),
+  'aceita "torta fria com palmito" quando ele disse frango com palmito',
+  "bloqueia a variante certa do catalogo",
+);
+conferir(
+  produtoQueNinguemCitou("cuca recheada", ["quero 100 coxinhas pra sabado"], ""),
+  "mas continua recusando cuca quando ele nao falou em cuca nenhuma",
+  "a guarda parou de guardar",
+);
+
+console.log("");
 console.log("== o que foi PROPOSTO por ela e aceito tambem vale ==");
 // Na festa ela indica os itens e o cliente responde "pode ser". Esses produtos
 // nao aparecem na fala dele, e nem por isso sao invencao.

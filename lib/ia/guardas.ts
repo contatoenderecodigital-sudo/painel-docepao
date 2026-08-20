@@ -141,7 +141,7 @@ export function obsQueOClienteNaoDisse(obs: unknown, falasDoCliente: string[]): 
   // Palavras que descrevem o pedido, nao o gosto do cliente: ela pode escrever
   // sozinha porque vieram de uma escolha estruturada, nao de invencao.
   const nossas =
-    /^(sem foto|com foto|sem topo|sem papel|prato aberto|caixa com tampa|topo de bolo|papel de arroz|pao de lo|nome|idade|tema|anos?|dividido|variado|sortido)/;
+    /^(sem foto|com foto|tem foto|foto|sem topo|com topo|sem papel|com papel|prato aberto|caixa com tampa|topo de bolo|papel de arroz|pao de lo|nome|idade|tema|anos?|dividido|variado|sortido|a combinar)/;
   // ROTULO NAO E ESCOLHA.
   //
   // O cliente escreve "rosa", e ela anota "forminha rosa". A palavra "forminha"
@@ -267,7 +267,28 @@ export function produtoQueNinguemCitou(
     .split(/[^a-z0-9]+/)
     .filter((w) => w.length > 3);
   if (!palavras.length) return false;
-  return !palavras.every((w) => tudo.includes(w));
+  if (palavras.every((w) => tudo.includes(w))) return false;
+
+  // O NOME DO CATALOGO NAO E O NOME QUE O CLIENTE USA.
+  //
+  // Ele pede "cuca de goiaba"; o produto do catalogo chama "cuca recheada".
+  // Exigindo toda palavra do nome na fala dele, eu bloqueava a IA por ter
+  // ACERTADO o produto. O teste de concorrencia pegou isso falhando 1 em 3.
+  //
+  // O que separa esse caso do "leite ninho" fantasma e o SABOR: goiaba e sabor
+  // de cuca recheada, e ninho nao e sabor de nada que ele pediu. Entao, quando
+  // a primeira palavra do produto bate, o sabor dito por ele fecha a conta.
+  const primeira = palavras[0];
+  if (primeira && tudo.includes(primeira)) {
+    const doCatalogo = ((catalogo.outros_produtos ?? []) as { nome: string; sabores?: string[]; recheios?: string[] }[])
+      .concat(
+        ((catalogo.doces?.itens ?? []) as { nome: string; sabores?: string[] }[]).map((i) => ({ nome: i.nome, sabores: i.sabores })),
+      )
+      .find((i) => semAcMin(i.nome) === nome);
+    const sabores = [...(doCatalogo?.sabores ?? []), ...(doCatalogo?.recheios ?? [])].map(semAcMin);
+    if (sabores.some((sab) => sab.length > 2 && tudo.includes(sab))) return false;
+  }
+  return true;
 }
 
 // A FORMA DE PAGAMENTO E A ULTIMA QUE ELE FALOU, NAO A PRIMEIRA.
