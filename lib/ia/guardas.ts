@@ -1147,3 +1147,49 @@ export function temaViroouSabor(produto: string, fala: string, obs: unknown): bo
   if (/^(bolo|bolos)$/.test(primeira)) return false;
   return nome.includes(primeira);
 }
+
+// O VALOR DO TOPO NAO SAI DA BOCA DELA. NUNCA.
+//
+// Teste ao vivo de 20/08/2026:
+//
+//   cliente: e o topo do homem aranha, quanto fica?
+//   Dora:    O topo de bolo tema homem aranha fica em torno de R$ 30, mas a
+//            equipe vai confirmar o valor certinho antes de fechar.
+//
+// O topo e o UNICO item da casa sem preco de tabela: cada peca e fabricada com
+// o tema, o nome e a idade do aniversariante, e quem lanca o valor e a equipe,
+// na tela do painel. Por isso existe a pendencia de topo.
+//
+// "Em torno de R$ 30" nao e estimativa, e ancora. O cliente le 30, a equipe
+// lanca 45, e a diferenca vira discussao no balcao com a dona. Em Moffatt
+// contra Air Canada o tribunal obrigou a empresa a honrar o numero que o
+// chatbot inventou, e a defesa de que o bot seria entidade separada foi
+// rejeitada.
+//
+// A persona ja mandava nao chutar. Prompt e sugestao: isto aqui e o codigo.
+//
+// Devolve a frase inteira que precisa sair, nao so o numero: metade de uma
+// frase de preco e pior que a frase toda.
+export function chutouValorDoTopo(texto: string): string[] {
+  const t = String(texto ?? "");
+  if (!t) return [];
+  const frases = t.split(/(?<=[.!?\n])\s*/);
+  return frases.filter((f) => {
+    const s = semAcMin(f);
+    if (!/\btopo\b|papel de arroz/.test(s)) return false;
+    return /r\$ ?[0-9]/.test(s) || /\b[0-9]{1,3} ?reais\b/.test(s);
+  });
+}
+
+// A mesma resposta, sem o numero que ela nao tinha como saber.
+export function textoSemValorDoTopo(texto: string): string {
+  const frases = chutouValorDoTopo(texto);
+  if (!frases.length) return String(texto ?? "");
+  let saida = String(texto ?? "");
+  for (const f of frases) saida = saida.replace(f, "");
+  saida = saida.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  const verdade =
+    "O valor do topo quem confirma é a equipe, porque a peça é feita com o tema, o nome e a idade. " +
+    "Assim que confirmarem eu te aviso por aqui.";
+  return saida ? saida + "\n\n" + verdade : verdade;
+}

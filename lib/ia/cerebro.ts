@@ -48,6 +48,8 @@ import {
   obsSemRestricaoInventada,
   temaViroouSabor,
   temaDoTopoNaFala,
+  chutouValorDoTopo,
+  textoSemValorDoTopo,
   dataBrigaComODiaDaSemana,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
@@ -5175,6 +5177,26 @@ async function rodarConversa(
       // So mexe em preco UNITARIO ("R$ 70 o quilo", "R$ 1,25 cada"), que tem
       // que estar na tabela. Total de pedido e conta e continua livre: quem
       // calcula total e o motor, e ele ja e conferido em outro lugar.
+      // O VALOR DO TOPO NAO SAI DA BOCA DELA.
+      //
+      // Teste ao vivo de 20/08/2026: "O topo de bolo tema homem aranha fica em
+      // torno de R$ 30, mas a equipe vai confirmar o valor certinho". O topo e
+      // o unico item da casa sem preco de tabela, porque cada peca e feita com
+      // o tema, o nome e a idade. Quem lanca o valor e a equipe, no painel: e
+      // pra isso que existe a pendencia de topo.
+      //
+      // "Em torno de R$ 30" nao e estimativa, e ancora. O cliente le 30, a
+      // equipe lanca 45, e a diferenca vira discussao no balcao com a dona.
+      //
+      // A persona ja mandava nao chutar. Prompt e sugestao; isto e codigo.
+      {
+        const chutes = chutouValorDoTopo(textoFinal);
+        if (chutes.length) {
+          console.warn("[ia] valor de topo chutado, frase trocada:", chutes.join(" | "));
+          textoFinal = textoSemValorDoTopo(textoFinal);
+        }
+      }
+
       try {
         const inventados = precosInventados(textoFinal);
         if (inventados.length) {
