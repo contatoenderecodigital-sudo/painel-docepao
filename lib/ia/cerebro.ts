@@ -723,7 +723,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // cliente pediu "escolhe voce", o codigo respondeu brigadeiro, beijinho e
     // cajuzinho, e na hora de anotar a guarda dizia "ninguem falou nesse
     // produto". Duas coisas que eu fiz hoje se matando.
-    estado.sugeridos = [...(estado.sugeridos ?? []), ...s.map((i) => i.produto)];
+    // A QUANTIDADE SUGERIDA PELO CODIGO TAMBEM PRECISA SER RECONHECIDA.
+    //
+    // Guardar so o nome nao bastava: existe uma terceira guarda, a de
+    // quantidade, que recusava "40 de risolis" porque o cliente nunca escreveu
+    // 40. Quem escreveu 40 foi o SISTEMA, na linha de cima. Cinco recusas por
+    // conversa, e o pedido terminava vazio.
+    //
+    // Guardando "40 risolis" as tres guardas se resolvem com o mesmo dado: a de
+    // produto acha o nome por dentro da string, a de quantidade acha o numero.
+    estado.sugeridos = [...(estado.sugeridos ?? []), ...s.map((i) => i.qtd + " " + i.produto)];
     const soma = s.reduce((a, i) => a + i.qtd, 0);
     return (
       "Sugestao pronta, com a conta fechada em " + soma + ": " +
@@ -1431,6 +1440,19 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // Numero que ela propos e o cliente respondeu em cima: vale. Sem isso, o
     // cliente que aceita a sugestao ("pode ser assim") travava o pedido.
     for (const n of (ultimaFalaDela || "").match(/[0-9]+(?:[.,][0-9]+)?/g) ?? []) numerosDitos.add(((x) => Number(String(x).replace(",", ".")))(n));
+    // A TERCEIRA GUARDA DA MESMA DOENCA.
+    //
+    // O sistema mandava "OFERECA EXATAMENTE ISTO: 40 esfirra, 40 empadinha..."
+    // e esta guarda recusava com "o cliente nunca falou em 40 de esfirra".
+    // Era verdade e era irrelevante: quem escreveu 40 foi o codigo, na mesma
+    // resposta. Cinco recusas por conversa, e o pedido terminava VAZIO. Foi o
+    // que segurou dois cenarios da medicao em 2/5 e 1/5 por tres rodadas.
+    //
+    // Eu ja tinha consertado duas guardas assim e nao procurei a terceira. A
+    // licao nao e "faltou atencao": e que existem varios caminhos pro mesmo
+    // lugar, e conserto pontual nao acha os outros. Quem achou foi o rastro.
+    for (const n of (estado.sugeridos ?? []).join(" ").match(/[0-9]+(?:[.,][0-9]+)?/g) ?? [])
+      numerosDitos.add(((x) => Number(String(x).replace(",", ".")))(n));
     // Palavra INTEIRA, nao pedaco: "umas 30" contem "um" e liberava qualquer
     // quantidade 1 que ela inventasse.
     const palavrasDitas = new Set((falaDoCliente.toLowerCase().match(/[0-9a-zà-úçãõâêôáéíóú]+/g) ?? []));
@@ -1516,7 +1538,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       if (familiaSortido && pediuQueVoceEscolha(falaDoCliente) && qtd > 0) {
         const partes = sugestaoDeSortido(familiaSortido as never, qtd);
         if (partes.length) {
-          estado.sugeridos = [...(estado.sugeridos ?? []), ...partes.map((p) => p.produto)];
+          estado.sugeridos = [...(estado.sugeridos ?? []), ...partes.map((p) => p.qtd + " " + p.produto)];
           return (
             `NAO anotei "${produto}" porque categoria nao se produz, MAS o cliente ja pediu pra voce escolher, ` +
             `entao aqui esta a divisao com a conta fechada em ${qtd}: ` +
@@ -4085,7 +4107,7 @@ async function rodarConversa(
       // um deles era reconhecido depois.
       estado.sugeridos = [
         ...(estado.sugeridos ?? []),
-        ...sugestoes.flatMap((s) => s.itens.map((i) => i.produto)),
+        ...sugestoes.flatMap((s) => s.itens.map((i) => i.qtd + " " + i.produto)),
       ];
       const texto = sugestoes
         .map((s) => s.itens.map((i) => i.qtd + " " + i.produto).join(", "))

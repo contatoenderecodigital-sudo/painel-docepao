@@ -552,3 +552,41 @@ código que eu tinha escrito nas horas anteriores. Não é falta de cuidado com 
 código novo, é o custo de mexer num sistema com muitos caminhos para o mesmo
 lugar. Por isso a medição vale mais que o teste, e por isso ela roda inteira
 depois de cada leva de correção, nunca antes de dormir achando que acabou.
+
+### A terceira guarda, e por que conserto pontual não acha as outras
+
+Terceira medição: **6 de 8**. Os dois que sobraram tinham o mesmo sintoma dos
+piores da noite, banco **vazio**, e os dois eram o mesmo cenário de fundo: o
+cliente pede pra ela escolher os tipos.
+
+O rastro mostrou o que eu vinha errando há três rodadas. O sistema escreve
+"OFEREÇA EXATAMENTE ISTO: 40 esfirra, 40 empadinha, 40 pastel assado, 40 quiche,
+40 croissant". A Dora obedece e chama `anotar_item` cinco vezes. E cinco vezes
+o código recusa, por **três guardas diferentes**:
+
+| Guarda | O que ela dizia |
+|---|---|
+| produto fantasma 1 | "ninguém falou nesse produto, nem o cliente nem você" |
+| produto fantasma 2 | "ninguém falou em esfirra nesta conversa" |
+| quantidade | "o cliente nunca falou em 40 de esfirra" |
+
+Cada uma dizia a verdade e cada uma era irrelevante: quem falou foi o SISTEMA,
+na mesma resposta. Ela ficava presa entre uma ordem e uma proibição, as duas
+minhas, e o pedido terminava vazio.
+
+Consertei a primeira e medi: 0/5 continuou 0/5. Consertei a segunda e medi:
+subiu pra 2/5. Só na terceira rodada o rastro mostrou a de quantidade.
+
+**A lição não é "faltou atenção".** É que existem vários caminhos pro mesmo
+lugar, e conserto pontual não acha os outros. Duas guardas com o mesmo
+propósito e textos diferentes moravam no mesmo arquivo, e eu consertei uma sem
+saber da outra. O que achou as três foi o rastro, nunca a leitura do código.
+
+Por isso o teste novo (`sugestao-do-codigo-nao-e-recusada.cjs`) cobra as três
+de uma vez, com a sugestão REAL que o código produz, não com um exemplo
+inventado. Se aparecer uma quarta guarda com o mesmo buraco, ela quebra o teste
+antes de chegar no cliente.
+
+De quebra, "salgado assado sortido, conforme cardápio" era recusado como sabor
+inventado, cinco vezes por rodada. É descrição dela, mesma classe do "forminha
+rosa": rótulo dela nunca pode recusar venda.

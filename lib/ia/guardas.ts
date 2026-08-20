@@ -191,6 +191,17 @@ export function obsQueOClienteNaoDisse(obs: unknown, falasDoCliente: string[]): 
   // sozinha porque vieram de uma escolha estruturada, nao de invencao.
   const nossas =
     /^(sem foto|com foto|tem foto|foto|sem topo|com topo|sem papel|com papel|prato aberto|caixa com tampa|topo de bolo|papel de arroz|pao de lo|nome|idade|tema|anos?|dividido|variado|sortido|a combinar)/;
+  // DESCRICAO DELA NAO E ESCOLHA INVENTADA, E PODE VIR NO MEIO DA FRASE.
+  //
+  // O rastro pegou "salgado assado sortido, conforme cardapio" sendo recusado
+  // cinco vezes. Nada ali e sabor: e ela descrevendo o que acabou de montar.
+  // A lista acima so valia no COMECO do fragmento, e "salgado assado sortido"
+  // comeca com o nome da familia, entao caia fora e levava o item junto.
+  //
+  // Mesma classe do "forminha rosa" e do "nao definida ainda": rotulo dela
+  // nunca pode recusar venda.
+  const DESCRICAO =
+    /\b(sortid[oa]s?|variad[oa]s?|misto|mistos|conforme (o )?cardapio|do cardapio|da casa|a escolher|a definir|escolha (da casa|sua)|sugestao (da casa|sua)|montado por voce|como voce indicou|que voce indicou)\b/;
   // ROTULO NAO E ESCOLHA.
   //
   // O cliente escreve "rosa", e ela anota "forminha rosa". A palavra "forminha"
@@ -219,7 +230,7 @@ export function obsQueOClienteNaoDisse(obs: unknown, falasDoCliente: string[]): 
   const fora: string[] = [];
   for (const pedaco of texto.split(",").map((x) => x.trim()).filter(Boolean)) {
     const p = semAcMin(pedaco);
-    if (p.length < 4 || nossas.test(p) || LOGISTICA.test(p)) continue;
+    if (p.length < 4 || nossas.test(p) || LOGISTICA.test(p) || DESCRICAO.test(p)) continue;
     // Basta o cliente ter escrito as palavras significativas em algum momento.
     // Os rotulos dela ("forminha", "recheio") saem antes: o que precisa vir do
     // cliente e a ESCOLHA, nao a palavra que descreve o campo.
