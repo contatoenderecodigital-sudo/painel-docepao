@@ -590,3 +590,35 @@ antes de chegar no cliente.
 De quebra, "salgado assado sortido, conforme cardápio" era recusado como sabor
 inventado, cinco vezes por rodada. É descrição dela, mesma classe do "forminha
 rosa": rótulo dela nunca pode recusar venda.
+
+### 8 de 8
+
+Quarta medição, container `dae2da6`: **os oito cenários acertaram as cinco
+execuções**. Quarenta conversas reais, nenhuma falha, julgadas pelo estado do
+banco e não pelo texto.
+
+```
+              1a rodada   2a rodada   3a rodada   4a rodada
+cenarios 5/5     4 de 8      5 de 8      6 de 8      8 de 8
+```
+
+O que fez a diferença, em ordem de valor:
+
+1. **Ler o rastro.** Todos os defeitos que resistiram foram achados lendo a
+   chamada de ferramenta de verdade, nunca lendo o código nem perguntando ao
+   modelo. Nas três rodadas em que um cenário não saiu do lugar, o motivo era
+   sempre uma guarda minha que eu não sabia que existia.
+
+2. **Medir depois de cada leva.** Consertar e medir, consertar e medir. Se eu
+   tivesse consertado as três guardas de uma vez sem medir entre elas, teria
+   dito "está pronto" na primeira e o cliente descobriria o resto.
+
+3. **Consertar a classe.** Os testes que sobraram varrem o catálogo inteiro e a
+   sugestão real do código, não um exemplo. Produto novo no cardápio já nasce
+   coberto.
+
+**O que isso NÃO significa.** pass^5 em oito cenários não é "a IA está pronta".
+Significa que estes oito caminhos, que cobrem os defeitos que já custaram
+dinheiro, ficaram estáveis em cinco execuções cada. Cliente real inventa
+caminho que nenhum cenário tem, e é pra isso que existe o botão Reportar na
+tela de atendimento.
