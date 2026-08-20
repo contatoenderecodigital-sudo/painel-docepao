@@ -33,24 +33,43 @@ function chrome() {
   await p.fill('input[type="password"], input[name="senha"]', LOGIN.senha);
   await p.click('button[type="submit"]');
   await p.waitForTimeout(7000);
-  await p.goto(BASE + "/", { waitUntil: "domcontentloaded", timeout: 60000 });
-  await p.waitForTimeout(5000);
+  // A home e a fila de aprovacao: so mostra quem ja esta esperando aprovacao.
+  // A tela de edicao do pedido mora dentro da conversa, em Atendimentos.
+  await p.goto(BASE + "/atendimentos", { waitUntil: "domcontentloaded", timeout: 60000 });
+  await p.waitForTimeout(6000);
 
   // A lista de conversas: qualquer elemento clicavel que carregue o nome.
   const alvo = p.locator("*").filter({ hasText: new RegExp(ALVO, "i") }).last();
   if (!(await alvo.count())) {
-    console.log("nao achei " + ALVO + " na tela");
+    // Sem isto eu so sei que "nao achei", que e a mesma cegueira que me fez
+    // culpar o cache do navegador do dono por um erro meu.
+    console.log("nao achei " + ALVO + " na tela. URL: " + p.url());
+    const visivel = (await p.locator("body").innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 400);
+    console.log("o que a tela mostra: " + visivel);
     await br.close();
     process.exit(1);
   }
   await alvo.click({ timeout: 15000 }).catch(() => {});
   await p.waitForTimeout(6000);
 
+  // O card do pedido comeca fechado: sem abrir, a lista de itens nem existe e a
+  // conferencia daria "ok" por nao ter encontrado nada. Zero linha nao e prova
+  // de nada, e passar por isso seria o mesmo erro de antes com outra roupa.
+  for (const rotulo of [/pedido/i, /itens/i, /corrigir/i, /editar/i]) {
+    const b = p.locator("button").filter({ hasText: rotulo }).first();
+    if (await b.count()) { await b.click({ timeout: 8000 }).catch(() => {}); await p.waitForTimeout(2500); }
+    if (await p.locator('select[aria-label="Categoria"]').count()) break;
+  }
   const cats = p.locator('select[aria-label="Categoria"]');
   const n = await cats.count();
   const valores = [];
   for (let i = 0; i < n; i++) valores.push((await cats.nth(i).inputValue()).trim());
   console.log("linhas editaveis na tela: " + n);
+  if (n === 0) {
+    console.log("INCONCLUSIVO: nao consegui abrir a lista de itens, entao nada foi conferido");
+    await br.close();
+    process.exit(1);
+  }
   console.log("categorias: " + (valores.join(" | ") || "(nenhuma)"));
   console.log(
     valores.includes("papel_de_arroz")
