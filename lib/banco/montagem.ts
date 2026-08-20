@@ -12,6 +12,11 @@
 // ============================================================================
 
 import { query, queryUm } from "./db";
+// A lista de sabores do cardapio separa pizza doce de salgada, e e ela que
+// decide se duas pizzas anotadas sao a mesma ou duas.
+// Caminho relativo de proposito: os testes compilam este arquivo sozinho, e o
+// atalho "@/" so existe dentro do build do Next.
+import catalogo from "../ia/dados/catalogo.json";
 
 export type CategoriaItem =
   | "bolo_festa"
@@ -166,8 +171,47 @@ export async function anotarItem(
     const y = b.trim().toLowerCase();
     return x.includes(y) || y.includes(x);
   };
+  // PIZZA DOCE E PIZZA SALGADA SAO DUAS PIZZAS, NAO UMA.
+  //
+  // O rastro de 20/08/2026 mostrou o cliente pedindo uma de forma salgada com
+  // tres sabores E uma doce de brigadeiro. A Dora anotou as duas certinho, e a
+  // montagem juntou numa linha so, porque pizza esta em UMA_LINHA_SO pra os
+  // sabores SOMAREM (sao ate 4 na mesma pizza). O pedido foi pra cozinha com
+  // UMA pizza de "brigadeiro" e o cliente pagou por uma.
+  //
+  // Somar sabor da mesma pizza esta certo. Somar uma doce com uma salgada nao:
+  // ninguem come pizza de calabresa com brigadeiro em cima. A lista do cardapio
+  // separa as duas, entao o codigo pergunta de qual lista o sabor veio.
+  // VENCE O CASAMENTO MAIS LONGO, nao a ordem da checagem.
+  //
+  // "crocante" e sabor de pizza DOCE, entao "bacon crocante" casava com doce
+  // so porque a lista doce era olhada primeiro. Comparando o tamanho, "bacon
+  // com brocolis" ganha de um "banana" que apareceu de raspao.
+  const doceOuSalgada = (obs: string | null | undefined): "doce" | "salgada" | null => {
+    const t = marca(obs);
+    if (!t) return null;
+    const p = catalogo.pizza as { sabores_salgados?: string[]; sabores_doces?: string[] };
+    const maior = (lista: string[] = []) =>
+      lista.reduce((m, s) => {
+        const x = marca(s);
+        return t.includes(x) && x.length > m ? x.length : m;
+      }, 0);
+    const doce = maior(p?.sabores_doces);
+    const salgada = maior(p?.sabores_salgados);
+    if (!doce && !salgada) return null;
+    return doce > salgada ? "doce" : "salgada";
+  };
+  const tipoNovo = item.categoria === "pizza" ? doceOuSalgada(item.obs) : null;
+
   let i = UMA_LINHA_SO.includes(item.categoria)
-    ? m.itens.findIndex((x) => x.categoria === item.categoria && nomeCresceu(x.produto, item.produto))
+    ? m.itens.findIndex(
+        (x) =>
+          x.categoria === item.categoria &&
+          nomeCresceu(x.produto, item.produto) &&
+          // So junta pizza com pizza do MESMO tipo. Sem tipo definido nos dois
+          // lados, segue a regra antiga.
+          (!tipoNovo || !doceOuSalgada(x.obs) || doceOuSalgada(x.obs) === tipoNovo),
+      )
     : m.itens.findIndex((x) => mesmaLinha(x, item) && marca(x.obs) === marca(item.obs));
 
   // Só existe uma linha desse produto: é correção dela, não linha nova. Cobre
