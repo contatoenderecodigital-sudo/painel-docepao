@@ -100,7 +100,11 @@ type Dados = {
 
 // Nome de produto se repete entre categorias (brigadeiro é docinho e é sabor de
 // bolo), então a categoria aparece na tela junto do item, não escondida.
-const CATEGORIAS: { id: Categoria; rotulo: string; porQuilo?: boolean }[] = [
+// escolhivel: false sai do seletor mas continua valendo como rotulo do que ja
+// esta gravado. Papel de arroz e topo NAO se escolhe aqui: eles vem da caixa de
+// marcar do bolo, que e a unica fonte da verdade. Deixar na lista era convidar a
+// equipe a criar um papel de arroz solto, que a cozinha nao sabe de qual bolo e.
+const CATEGORIAS: { id: Categoria; rotulo: string; porQuilo?: boolean; escolhivel?: boolean }[] = [
   { id: "bolo_festa", rotulo: "Bolo de festa", porQuilo: true },
   { id: "bolo_caseiro", rotulo: "Bolo caseiro" },
   { id: "docinho", rotulo: "Docinho" },
@@ -108,7 +112,7 @@ const CATEGORIAS: { id: Categoria; rotulo: string; porQuilo?: boolean }[] = [
   { id: "salgado_assado", rotulo: "Salgado assado" },
   { id: "pizza", rotulo: "Pizza" },
   { id: "cupcake", rotulo: "Cupcake" },
-  { id: "papel_de_arroz", rotulo: "Papel de arroz" },
+  { id: "papel_de_arroz", rotulo: "Papel de arroz", escolhivel: false },
   { id: "por_quilo", rotulo: "Por quilo", porQuilo: true },
   { id: "por_unidade", rotulo: "Por unidade" },
   { id: "outro", rotulo: "Outro" },
@@ -611,7 +615,10 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                     className={campo + " flex-1"}
                     aria-label="Categoria"
                   >
-                    {CATEGORIAS.map((c) => (
+                    {/* O que ja esta gravado continua aparecendo, senao a
+                        linha ficaria sem rotulo. O que nao e escolhivel some da
+                        lista pra ninguem criar na mao. */}
+                    {CATEGORIAS.filter((c) => c.escolhivel !== false || c.id === it.categoria).map((c) => (
                       <option key={c.id} value={c.id} style={OPCAO}>
                         {c.rotulo}
                       </option>
