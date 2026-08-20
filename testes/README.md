@@ -71,3 +71,22 @@ SOZINHO antes de mexer em qualquer linha:
 
 E rode o portão sem cano: `node testes/todos.cjs | tail` faz o `&&` seguinte ler
 o código de saída do `tail`, e o commit passa com teste vermelho.
+
+## A barra invertida morre no caminho do shell
+
+Este arquivo nasceu com `/^(topo de bolo|...)\b/` e chegou no disco como
+`/^(topo de bolo|...)^H/`, com o byte de backspace no lugar do limite de
+palavra. A regex nunca casava e o teste reprovava um código correto.
+
+Aconteceu três vezes neste projeto e já custou horas. Duas regras:
+
+1. Patch em arquivo se escreve com a ferramenta Write ou Edit, nunca por
+   heredoc, `sed -i` ou `node -e` com aspas.
+2. Quando der pra escrever a regex **sem barra invertida**, escreva. `($| )`
+   faz o mesmo que `\b` no fim de uma alternância e não tem como ser comido.
+
+Pra conferir se um arquivo foi corrompido assim:
+
+    grep -n "sua regex" arquivo.cjs | cat -A
+
+Byte de backspace aparece como `^H`.

@@ -38,6 +38,25 @@ não mente; a explicação dele mente.
 **Consequência prática:** guarda nova nasce com teste dos DOIS lados, e o nome
 do catálogo nunca é o nome que o cliente usa.
 
+**Puxe o rastro ANTES de deployar.** O log vive no container: o deploy troca o
+container e leva o rastro junto. Em 20/08 eu perdi o rastro inteiro de uma
+medição de 40 conversas porque commitei a correção antes de terminar de ler.
+Salve num arquivo primeiro:
+
+```
+ssh root@179.198.126.197 'docker logs $(docker ps --format "{{.Names}}"|grep "^uyyqf7kzymaxlyq9kl") --since 60m 2>&1 | grep "\[rastro\]"' > rastro.txt
+```
+
+**A medição vale mais que o teste, e reprova o que o teste aprova.** Na primeira
+rodada com os oito cenários, 4 de 8 passaram, com os 31 testes verdes. Três dos
+quatro reprovados eram defeito meu, e dois tinham sido escritos naquele mesmo
+dia. Um deles era um atalho de código que gravava direto na montagem e passava
+por fora da guarda que eu tinha acabado de escrever: o teste da guarda passava
+verde e o cliente recebia o erro igual.
+
+Teste unitário prova que a peça funciona. Só a conversa inteira prova que as
+peças não se atropelam.
+
 ## Como testar
 
 ```

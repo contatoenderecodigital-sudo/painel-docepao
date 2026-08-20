@@ -955,8 +955,24 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       !!boloJaAnotado &&
       (boloJaAnotado.produto.trim().toLowerCase().includes(produto.trim().toLowerCase()) ||
         produto.trim().toLowerCase().includes(boloJaAnotado.produto.trim().toLowerCase()));
+    // TOPO DE BOLO NAO E BOLO, E O CATALOGO SABE DISSO.
+    //
+    // Rastro de 20/08/2026: ela chamou anotar_item com produto "topo de bolo" e
+    // categoria "bolo_festa", e esta guarda tratou o topo como um SEGUNDO bolo
+    // competindo com o da festa. A instrucao devolvida saiu absurda, mandando
+    // trocar o bolo de brigadeiro POR um topo de bolo.
+    //
+    // A categoria vinha dela, e ela errou. Acessorio de bolo nao disputa lugar
+    // com o bolo: acompanha. O topo nao mora no catalogo (o valor e lancado
+    // pela equipe depois), entao aqui ele e reconhecido pelo nome, do mesmo
+    // jeito que produtos.ts ja faz pra colocar ele no enum da ferramenta.
+    const semAcP = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+    const ehAcessorio =
+      /^(topo de bolo|papel de arroz|vela|velas)\b/.test(semAcP(produto)) ||
+      categoriaDoProduto(produto) === "papel_de_arroz";
     if (
       (categoria === "bolo_festa" || categoria === "bolo_caseiro") &&
+      !ehAcessorio &&
       boloJaAnotado &&
       !mesmoBolo &&
       boloJaAnotado.produto.trim().toLowerCase() !== produto.trim().toLowerCase()
@@ -972,9 +988,22 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         // Quando a fala do cliente e claramente de TROCA, o codigo aplica: tira
         // o velho e poe o novo, na mesma resposta. Instrucao boa pro modelo e
         // aquela que ele nao precisa obedecer.
+        // E A CONVERSA INTEIRA, PELA QUINTA VEZ NA MESMA NOITE.
+        //
+        // Isto lia so a fala do momento. A medicao mostrou por que nao serve: o
+        // cliente escreve "na verdade muda pra 4 leites" numa mensagem, e ela
+        // so tenta gravar o bolo novo DUAS mensagens depois, junto com o nome e
+        // o pagamento. Nessa hora a fala do momento e "as 16h, nome Patricia
+        // Bonfanti, pix", que nao tem palavra de troca nenhuma, entao o codigo
+        // recusava e mandava usar outra ferramenta. Ela desistia, e o pedido
+        // fechava com o bolo que o cliente tinha acabado de rejeitar.
+        //
+        // Ler a conversa toda e seguro aqui porque quem quer DOIS bolos tem
+        // campo proprio pra dizer isso (dois_bolos), entao "melhor" dito la
+        // atras nao transforma dois pedidos em uma troca.
         const querTrocar =
           /\b(troca|trocar|muda|mudar|mude|em vez de|no lugar de|na verdade|ao inves|prefiro|melhor)\b/i.test(
-            String(ultimaFala || falaDoCliente),
+            (falasDoCliente.length ? falasDoCliente : [String(ultimaFala || falaDoCliente)]).join(" | "),
           );
         if (querTrocar) {
           estado.montagem.push({
