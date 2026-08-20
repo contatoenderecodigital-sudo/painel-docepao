@@ -66,6 +66,18 @@ function checa(id, ok, detalhe) {
   console.log((ok ? "  ok    " : "  FALHA ") + id + (detalhe ? "  (" + detalhe + ")" : ""));
 }
 
+
+// O CORTE POR HORA, QUE JA EXISTIA E NAO ESTAVA SENDO USADO.
+//
+// /api/qa/ultimo-pedido devolve o ULTIMO pedido do negocio. Sem o corte, o
+// teste conferia o pedido de OUTRA pessoa: em 20/08/2026 ele leu o pedido de
+// demonstracao do dono e reprovou tudo, alem de ter mexido nele na tela.
+// O parametro "desde" foi criado exatamente pra isso.
+const DESDE = encodeURIComponent(new Date().toISOString());
+// O telefone do cliente que a rota /api/testar-ia usa: e o pedido DESTE teste,
+// tenha ele sido criado agora ou atualizado por cima do da rodada anterior.
+const URL_PEDIDO = "/api/qa/ultimo-pedido?telefone=5500000000000&desde=" + DESDE;
+
 (async () => {
   const br = await pw.chromium.launch({ executablePath: chrome() });
   const p = await (await br.newContext()).newPage();
@@ -91,7 +103,7 @@ function checa(id, ok, detalhe) {
   }
 
   console.log("\n=== CONFERINDO O PEDIDO ===");
-  const ped = await (await p.request.get(BASE + "/api/qa/ultimo-pedido")).json().catch(() => null);
+  const ped = await (await p.request.get(BASE + URL_PEDIDO)).json().catch(() => null);
   const cont = await (await p.request.get(BASE + "/api/fila/contagem")).json().catch(() => ({}));
 
   checa("PEDIDO-FOI-CRIADO", !!ped, ped ? "R$ " + (ped.total_centavos / 100).toFixed(2) : "nenhum");

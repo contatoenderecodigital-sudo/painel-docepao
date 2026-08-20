@@ -71,6 +71,33 @@ for (const frase of [
 }
 
 console.log("");
+console.log("== O RESUMO DO PEDIDO NAO SE MEXE ==");
+//
+// Regressao que EU criei com esta guarda, achada no teste ao vivo. O cliente
+// pediu "sem topo e sem papel de arroz". A linha do bolo no resumo tinha a
+// palavra "topo" (dentro de "sem topo") e tinha "R$", entao a guarda apagou a
+// linha inteira e ainda emendou a frase do valor do topo num pedido que NAO
+// tinha topo. O cliente recebeu isto:
+//
+//   "Seu pedido ......... Te mandei o cardapio ......... Total R$ 628,20"
+//
+// A guarda ficou pior que o defeito que ela evita: mutilou a confirmacao que o
+// cliente le. Conta do motor tem a forma "x R$" e "= R$"; chute nao tem.
+for (const linha of [
+  "bolo laka (pão de ló branco, sem topo, sem papel de arroz): 3 kg x R$ 55,90 = R$ 167,70",
+  "topo de bolo: 1 un x R$ 25,00 = R$ 25,00",
+  "papel de arroz: 1 un x R$ 12,00 = R$ 12,00",
+  "Você pediu sem topo, então o bolo fica R$ 167,70.",
+  "bolo bombom (topo de bolo tema homem aranha, nome Theo, 7 anos): 3 kg x R$ 49,90 = R$ 149,70",
+]) {
+  conferir(
+    chutouValorDoTopo(linha).length === 0 && textoSemValorDoTopo(linha) === linha,
+    '"' + linha.slice(0, 46) + '" fica inteira',
+    JSON.stringify(textoSemValorDoTopo(linha)),
+  );
+}
+
+console.log("");
 console.log("== resposta que era SO o chute nao fica vazia ==");
 const soChute = textoSemValorDoTopo("O topo fica em torno de R$ 30.");
 conferir(soChute.length > 20 && soChute.includes("equipe"), "sobra a frase honesta, nao o vazio", JSON.stringify(soChute));

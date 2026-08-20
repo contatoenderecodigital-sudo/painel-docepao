@@ -5407,7 +5407,22 @@ async function rodarConversa(
       //
       // A persona ja mandava nao chutar. Prompt e sugestao; isto e codigo.
       {
-        const chutes = chutouValorDoTopo(textoFinal);
+        // O RESUMO DO PEDIDO NAO SE MEXE. NUNCA.
+        //
+        // Regressao minha, achada no teste ao vivo: o cliente pediu "sem topo e
+        // sem papel de arroz", e a linha do bolo no resumo ficou
+        //   "bolo laka (pao de lo branco, sem topo, sem papel de arroz): 3 kg x
+        //    R$ 55,90 = R$ 167,70"
+        // Essa linha tem a palavra "topo" e tem "R$", entao a guarda apagou ela
+        // inteira, e ainda emendou a frase do valor do topo num pedido que NAO
+        // tem topo. O cliente recebeu o resumo assim:
+        //   "Seu pedido ......... Te mandei o cardapio ......... Total R$ 628,20"
+        //
+        // O resumo e montado pelo codigo, com os numeros do motor, justamente
+        // porque e onde a invencao custa dinheiro. Guarda de invencao nao tem o
+        // que fazer ali: se ela mexe, quem inventa passa a ser a guarda.
+        const ehOResumo = !!estado.resumo && textoFinal === estado.resumo;
+        const chutes = ehOResumo ? [] : chutouValorDoTopo(textoFinal);
         if (chutes.length) {
           console.warn("[ia] valor de topo chutado, frase trocada:", chutes.join(" | "));
           textoFinal = textoSemValorDoTopo(textoFinal);

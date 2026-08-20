@@ -37,6 +37,18 @@ function checa(id, ok, detalhe) {
   console.log((ok ? "  ok   " : "  FALHA") + "  " + id + (detalhe ? "  (" + detalhe + ")" : ""));
 }
 
+
+// O CORTE POR HORA, QUE JA EXISTIA E NAO ESTAVA SENDO USADO.
+//
+// /api/qa/ultimo-pedido devolve o ULTIMO pedido do negocio. Sem o corte, o
+// teste conferia o pedido de OUTRA pessoa: em 20/08/2026 ele leu o pedido de
+// demonstracao do dono e reprovou tudo, alem de ter mexido nele na tela.
+// O parametro "desde" foi criado exatamente pra isso.
+const DESDE = encodeURIComponent(new Date().toISOString());
+// O telefone do cliente que a rota /api/testar-ia usa: e o pedido DESTE teste,
+// tenha ele sido criado agora ou atualizado por cima do da rodada anterior.
+const URL_PEDIDO = "/api/qa/ultimo-pedido?telefone=5500000000000&desde=" + DESDE;
+
 (async () => {
   const br = await pw.chromium.launch({ executablePath: chrome() });
   const ctx = await br.newContext({ viewport: { width: 1500, height: 950 } });
@@ -83,7 +95,7 @@ function checa(id, ok, detalhe) {
   checa("FOTO-ACEITA", !comFoto.erro, comFoto.erro || "");
   await falar("no nome do Sandro, pago no pix, pode fechar");
 
-  const ped = await (await p.request.get(BASE + "/api/qa/ultimo-pedido")).json().catch(() => null);
+  const ped = await (await p.request.get(BASE + URL_PEDIDO)).json().catch(() => null);
   checa("PEDIDO-CRIADO", !!ped, ped ? "total " + ped.total_centavos : "nenhum");
   if (ped) {
     const bolo = (ped.itens || []).find((i) => /bolo/i.test(i.produto));
@@ -134,12 +146,33 @@ function checa(id, ok, detalhe) {
   // ---------------------------------------------------------------------
   await p.goto(BASE + "/aguardando", { waitUntil: "domcontentloaded", timeout: 60000 });
   await p.waitForTimeout(3000);
-  const campoProduto = p.locator('input[placeholder="O que é"]').first();
+
+  // O TESTE SO PODE MEXER NO PEDIDO QUE ELE MESMO CRIOU.
+  //
+  // Isto usava .first(): o PRIMEIRO card da tela, qualquer que fosse. Em
+  // 20/08/2026 o dono deixou um pedido de demonstracao na fila (Patricia
+  // Loureiro, bolo com topo) e saiu de casa. O portao rodou algumas vezes. Numa
+  // rodada o teste lancou R$ 25 no pedido DELA, e numa rodada seguinte o mesmo
+  // botao ja significava "o cliente respondeu por fora" e liberou o pedido pra
+  // aprovacao. A conversa ficou com a Dora perguntando e respondendo sozinha.
+  //
+  // Estragar a demonstracao foi o de menos. Este teste fala com o painel de
+  // PRODUCAO: rodando num dia com pedido de cliente de verdade na fila, ele
+  // lancaria R$ 25 num pedido real e mandaria mensagem pra essa pessoa.
+  //
+  // Agora ele procura o card pelo nome que ele mesmo usou. Se nao achar, falha
+  // dizendo isso, em vez de mexer no pedido do vizinho.
+  const meuCard = p.locator("li,article,section,div").filter({ hasText: /Sandro/ }).last();
+  const dentro = (await meuCard.count()) ? meuCard : null;
+  if (!dentro) {
+    checa("CARD-DO-PROPRIO-PEDIDO", false, "nao achei o card do pedido criado por este teste");
+  }
+  const campoProduto = dentro ? dentro.locator('input[placeholder="O que é"]').first() : p.locator("__nao_existe__");
   if (await campoProduto.count()) {
     await campoProduto.fill("topo de bolo");
-    await p.locator('input[placeholder="R$ cada"]').first().fill("25");
+    await dentro.locator('input[placeholder="R$ cada"]').first().fill("25");
     await p.waitForTimeout(500);
-    const botao = p.locator("button").filter({ hasText: /Lançar .*e avisar/i }).first();
+    const botao = dentro.locator("button").filter({ hasText: /Lançar .*e avisar/i }).first();
     const rotulo = (await botao.count()) ? (await botao.innerText()).replace(/\s+/g, " ").trim() : "";
     checa("BOTAO-MOSTRA-O-VALOR", /25,00/.test(rotulo), rotulo);
     if (await botao.count()) { await botao.click(); await p.waitForTimeout(6000); }
@@ -147,7 +180,7 @@ function checa(id, ok, detalhe) {
     checa("FORMULARIO-DE-LANCAR-VALOR", false, "campo não encontrado");
   }
 
-  const ped2 = await (await p.request.get(BASE + "/api/qa/ultimo-pedido")).json().catch(() => null);
+  const ped2 = await (await p.request.get(BASE + URL_PEDIDO)).json().catch(() => null);
   if (ped2) {
     checa("TOPO-ENTROU-NO-PEDIDO", (ped2.itens || []).some((i) => /topo/i.test(i.produto)),
       (ped2.itens || []).map((i) => i.produto).join(", "));
@@ -160,14 +193,22 @@ function checa(id, ok, detalhe) {
   // ---------------------------------------------------------------------
   console.log("\n5) Aceite do cliente libera pra aprovação");
   // ---------------------------------------------------------------------
-  const botaoAceitou = p.locator("button").filter({ hasText: /Ele aceitou, liberar/i }).first();
+  // Mesma regra do passo anterior, pelo mesmo motivo: este botao libera o pedido
+  // pra aprovacao PULANDO a resposta do cliente. Apontado pro card errado, ele
+  // fecha o pedido de outra pessoa por conta propria.
   await p.reload({ waitUntil: "domcontentloaded" });
   await p.waitForTimeout(3000);
+  const meuCard2 = p.locator("li,article,section,div").filter({ hasText: /Sandro/ }).last();
+  const botaoAceitou = (await meuCard2.count())
+    ? meuCard2.locator("button").filter({ hasText: /Ele aceitou, liberar/i }).first()
+    : p.locator("__nao_existe__");
   if (await botaoAceitou.count()) {
     await botaoAceitou.click();
     await p.waitForTimeout(5000);
+  } else {
+    checa("BOTAO-ACEITOU-NO-CARD-CERTO", false, "nao achei o botao dentro do card do proprio teste");
   }
-  const ped3 = await (await p.request.get(BASE + "/api/qa/ultimo-pedido")).json().catch(() => null);
+  const ped3 = await (await p.request.get(BASE + URL_PEDIDO)).json().catch(() => null);
   checa("LIBERADO-PRA-APROVACAO", ped3 && !ped3.aguardando_cliente && !ped3.precisa_confirmacao,
     ped3 ? "aguardando=" + ped3.aguardando_cliente + " pendente=" + ped3.precisa_confirmacao : "sem pedido");
 

@@ -23,6 +23,17 @@ export async function GET(req: Request) {
   // demonstracao) era lido como se fosse do cenario: a bateria acusou pagamento
   // inventado que na verdade era o pix do Marcelo.
   const desde = new URL(req.url).searchParams.get("desde");
+  // DE QUEM E O PEDIDO. O corte por hora nao bastava.
+  //
+  // A bateria do painel usa sempre o MESMO cliente de teste, entao o registro
+  // ATUALIZA o pedido anterior em vez de criar um novo, e o corte por hora
+  // descartava justamente o pedido que o teste acabou de mexer. Sem filtro
+  // nenhum era pior: em 20/08/2026 a bateria leu o pedido de demonstracao do
+  // dono e reprovou tudo.
+  //
+  // Com o telefone, o teste le o pedido DELE, tenha sido criado agora ou
+  // atualizado. Continua so leitura e continua exigindo sessao.
+  const telefone = new URL(req.url).searchParams.get("telefone");
   try {
     const { queryUm } = await import("@/lib/banco/db");
     const p = await queryUm<Record<string, unknown>>(
@@ -34,9 +45,11 @@ export async function GET(req: Request) {
                 'subtotal_centavos', i.subtotal_centavos, 'obs', i.obs, 'unidade', i.unidade))
                from pedido_itens i where i.pedido_id = p.id), '[]'::json) as itens
          from pedidos p left join clientes c on c.id = p.cliente_id
-        where p.negocio_id = $1 and ($2::timestamptz is null or p.criado_em >= $2)
+        where p.negocio_id = $1
+          and ($2::timestamptz is null or p.criado_em >= $2 or c.telefone = $3)
+          and ($3::text is null or c.telefone = $3)
         order by p.criado_em desc limit 1`,
-      [sessao.negocioId, desde],
+      [sessao.negocioId, desde, telefone],
     );
     return Response.json(p ?? null);
   } catch (e) {

@@ -1177,7 +1177,22 @@ export function chutouValorDoTopo(texto: string): string[] {
   return frases.filter((f) => {
     const s = semAcMin(f);
     if (!/\btopo\b|papel de arroz/.test(s)) return false;
-    return /r\$ ?[0-9]/.test(s) || /\b[0-9]{1,3} ?reais\b/.test(s);
+    if (!/r\$ ?[0-9]/.test(s) && !/\b[0-9]{1,3} ?reais\b/.test(s)) return false;
+    // "SEM topo" nao e cotacao de topo. Quem dispensa o topo continua recebendo
+    // o preco do bolo dele na mesma frase, e apagar isso corta a resposta no
+    // meio.
+    if (/\b(sem|nao quer|nao vai|dispensa|tirar o|tirei o) (topo|papel de arroz)/.test(s)) return false;
+    // LINHA DE PEDIDO NAO E COTACAO.
+    //
+    // Regressao minha, achada no teste ao vivo. O cliente pediu "sem topo e sem
+    // papel de arroz", e a linha do bolo no resumo era
+    //   "bolo laka (pao de lo branco, sem topo, sem papel de arroz):
+    //    3 kg x R$ 55,90 = R$ 167,70"
+    // Tem "topo" e tem "R$", entao a guarda apagou a linha inteira e o cliente
+    // recebeu o resumo do pedido cheio de buracos, num pedido que nem topo
+    // tinha. Conta do motor tem a forma "x R$" e "= R$"; chute nao tem.
+    if (/x ?r\$ ?[0-9]/.test(s) || /= ?r\$ ?[0-9]/.test(s)) return false;
+    return true;
   });
 }
 
