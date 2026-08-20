@@ -244,8 +244,14 @@ export async function anotarItem(
     // quarta linha de trufa: a Dora reescreveu a observacao em outra ordem.
     const pedacos = (t: string) =>
       new Set(t.split(",").map((x) => x.trim()).filter(Boolean));
+    // PEDACO QUE CRESCE E O MESMO PEDACO, NAO OUTRO.
+    //
+    // A cliente disse "forminha azul", a Dora corrigiu pra "forminha azul
+    // bebe", e como os dois textos nao sao iguais nascia uma LINHA NOVA. O
+    // pedido da festa fechou com 150 brigadeiros onde ela pediu 75, R$ 187 a
+    // mais, e so nao foi cobrado porque a cliente conferiu e cobrou tres vezes.
     const contem = (maior: Set<string>, menor: Set<string>) =>
-      [...menor].every((p) => maior.has(p));
+      [...menor].every((p) => [...maior].some((q) => q === p || q.includes(p) || p.includes(q)));
     const nova = limpar(marca(item.obs));
     const setNova = pedacos(nova);
     // A linha MAIS parecida primeiro: entre varias, completa a que ja tem mais

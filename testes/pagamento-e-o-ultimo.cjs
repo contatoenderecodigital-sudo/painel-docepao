@@ -59,6 +59,25 @@ for (const [fala, esperado] of [
 }
 
 console.log("");
+console.log("== TRANSFERENCIA e BOLETO existem, e cliente de empresa usa ==");
+// A secretaria do coffee break informou "transferencia" TRES vezes e o pedido
+// fechou perguntando "vai ser pix, cartao ou dinheiro na retirada?". O jeito de
+// pagar dela simplesmente nao existia no codigo.
+for (const [fala, esperado] of [
+  ["pago em transferencia", "transferencia"],
+  ["vou fazer uma transferencia", "transferencia"],
+  ["pode mandar por TED", "transferencia"],
+  ["faco um deposito", "transferencia"],
+  ["a empresa paga em boleto", "boleto"],
+  ["precisa ser faturado com nota fiscal", "boleto"],
+  ["passo na maquininha", "cartao"],
+  ["nome Cristiane Balestrin, pago em transferencia", "transferencia"],
+]) {
+  const veio = pagamentoQueEleFalou(fala);
+  conferir(veio === esperado, '"' + fala + '" vira ' + esperado, "veio: " + veio);
+}
+
+console.log("");
 console.log("== quem nao falou pagamento nao ganha um inventado ==");
 for (const fala of [
   "quero 100 coxinhas pra sabado",

@@ -397,6 +397,61 @@ export function pediuPorEscrito(fala: string): boolean {
   return naoChegou || porEscrito;
 }
 
+// A DATA TEM QUE CAIR NO DIA DA SEMANA QUE O CLIENTE FALOU.
+//
+// A secretaria pediu pra QUARTA-FEIRA. A Dora escreveu "quarta-feira, dia
+// 27/08" e mandou pro pedido. Em 20/08/2026, que e uma quinta, a proxima quarta
+// e 26/08; 27/08 e quinta. O cliente ia buscar num dia e a padaria produzir
+// noutro, e ninguem ia perceber ate o balcao.
+//
+// O codigo sabe converter dia da semana em data, mas so era chamado quando ela
+// mandava o dia PURO. Mandando a data ja calculada, ele aceitava sem conferir.
+// Agora confere: se o cliente falou um dia da semana e a data nao cai nele, a
+// PALAVRA DELE vence a aritmetica dela.
+//
+// Devolve a data corrigida (dd/mm/aaaa) ou null quando nao ha o que corrigir.
+export function dataBrigaComODiaDaSemana(
+  dataDita: string,
+  falaDoCliente: string,
+  hoje: Date,
+): string | null {
+  const DIAS: Record<string, number> = {
+    domingo: 0, segunda: 1, terca: 2, quarta: 3, quinta: 4, sexta: 5, sabado: 6,
+  };
+  const t = semAcMin(falaDoCliente);
+  // O ULTIMO dia da semana citado pelo cliente: ele pode ter mudado de ideia.
+  let nomeDito: string | null = null;
+  let ondeUltimo = -1;
+  for (const nome of Object.keys(DIAS)) {
+    for (const m of t.matchAll(new RegExp("\\b" + nome + "(-feira|feira)?\\b", "g"))) {
+      const onde = m.index ?? -1;
+      if (onde > ondeUltimo) {
+        ondeUltimo = onde;
+        nomeDito = nome;
+      }
+    }
+  }
+  if (!nomeDito) return null;
+
+  const m = String(dataDita ?? "").match(/^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?/);
+  if (!m) return null;
+  const dia = Number(m[1]);
+  const mes = Number(m[2]);
+  const ano = m[3] ? (Number(m[3]) < 100 ? 2000 + Number(m[3]) : Number(m[3])) : hoje.getFullYear();
+  const d = new Date(ano, mes - 1, dia);
+  if (Number.isNaN(d.getTime()) || d.getDate() !== dia || d.getMonth() !== mes - 1) return null;
+  if (d.getDay() === DIAS[nomeDito]) return null; // bate, nao ha o que corrigir
+
+  // Nao bate: vale o dia da semana que ELE falou, na proxima ocorrencia.
+  const certo = new Date(hoje);
+  certo.setHours(0, 0, 0, 0);
+  const falta = ((DIAS[nomeDito] - certo.getDay() + 7) % 7) || 7;
+  certo.setDate(certo.getDate() + falta);
+  const dd = String(certo.getDate()).padStart(2, "0");
+  const mm = String(certo.getMonth() + 1).padStart(2, "0");
+  return dd + "/" + mm + "/" + certo.getFullYear();
+}
+
 // A FORMA DE PAGAMENTO E A ULTIMA QUE ELE FALOU, NAO A PRIMEIRA.
 //
 // A funcao antiga testava numa ORDEM FIXA: pix, depois cartao, depois dinheiro.
@@ -412,8 +467,16 @@ export function pagamentoQueEleFalou(fala: string): string | undefined {
   const t = String(fala ?? "").toLowerCase();
   const jeitos: { nome: string; acha: RegExp }[] = [
     { nome: "pix", acha: /\bpix\b/g },
-    { nome: "cartao", acha: /cart[ãa]o|cr[ée]dito|d[ée]bito|parcel/g },
+    { nome: "cartao", acha: /cart[ãa]o|cr[ée]dito|d[ée]bito|parcel|maquin(a|inha)/g },
     { nome: "dinheiro", acha: /dinheiro|esp[ée]cie|\bvista\b/g },
+    // TRANSFERENCIA E BOLETO EXISTEM E NAO ESTAVAM AQUI.
+    //
+    // A secretaria do coffee break informou "transferencia" TRES vezes e o
+    // pedido fechou perguntando "vai ser pix, cartao ou dinheiro na retirada?".
+    // Cliente de empresa quase sempre paga assim, e ele fica achando que a
+    // padaria nao aceita o jeito dele.
+    { nome: "transferencia", acha: /transfer[êe]ncia|transferir|ted\b|doc\b|dep[óo]sito/g },
+    { nome: "boleto", acha: /boleto|faturado|nota fiscal|\bnf\b|empenho/g },
   ];
   let escolhido: string | undefined;
   let ondeUltimo = -1;

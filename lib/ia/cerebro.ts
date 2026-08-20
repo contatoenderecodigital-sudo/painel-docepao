@@ -32,6 +32,7 @@ import {
   produtoQueNinguemCitou,
   pagamentoQueEleFalou,
   pediuPorEscrito,
+  dataBrigaComODiaDaSemana,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
   corrigirEndereco,
@@ -298,7 +299,7 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           cliente_nome: { type: ["string", "null"], description: "Nome de QUEM ESTÁ PEDINDO, não do aniversariante." },
           retirada_data: { type: ["string", "null"], description: "Como ele falou: '30/08', '1 do próximo mês', 'sábado que vem'." },
           retirada_hora: { type: ["string", "null"] },
-          forma_pagamento: { type: ["string", "null"], description: "pix, cartao ou dinheiro." },
+          forma_pagamento: { type: ["string", "null"], description: "Como o cliente falou: pix, cartao, dinheiro, transferencia ou boleto. Cliente de empresa costuma pagar em transferencia ou boleto, e a padaria aceita." },
           observacoes: { type: ["string", "null"] },
           nao_quer: {
             type: ["string", "null"],
@@ -1352,6 +1353,35 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // pedido como se fosse item. Salgado nao se produz: coxinha se produz. O
     // cliente TEM que escolher os tipos, e e pra isso que a festa tem etapas.
     if (semTipo(produto)) {
+      // ELE JA PEDIU PRA VOCE ESCOLHER: RESOLVA, NAO DEVOLVA.
+      //
+      // Esta guarda estava certa (categoria nao se produz, coxinha se produz)
+      // e mesmo assim matou o coffee break de 150 salgados: a cliente disse
+      // tres vezes que nao tinha tempo de escolher um a um, e a resposta era
+      // sempre "pergunte QUAIS ele quer". Devolver a pergunta pra quem pediu
+      // ajuda e o oposto de atender, e cada devolucao dessas queima duas
+      // mensagens ate o cliente desistir.
+      const familiaSortido =
+        categoria === "salgado_assado" || /assad/.test(produto.toLowerCase())
+          ? "salgado_assado"
+          : categoria === "salgado_frito" || /salgad|frito/.test(produto.toLowerCase())
+            ? "salgado_frito"
+            : /docinho|doce/.test(produto.toLowerCase()) || categoria === "docinho"
+              ? "docinho"
+              : null;
+      if (familiaSortido && pediuQueVoceEscolha(falaDoCliente) && qtd > 0) {
+        const partes = sugestaoDeSortido(familiaSortido as never, qtd);
+        if (partes.length) {
+          estado.sugeridos = [...(estado.sugeridos ?? []), ...partes.map((p) => p.produto)];
+          return (
+            `NAO anotei "${produto}" porque categoria nao se produz, MAS o cliente ja pediu pra voce escolher, ` +
+            `entao aqui esta a divisao com a conta fechada em ${qtd}: ` +
+            partes.map((p) => p.qtd + " " + p.produto).join(", ") + ". " +
+            `OFERECA exatamente isso numa frase, pergunte SO se pode ser assim, e anote cada um quando ele aceitar. ` +
+            `NAO devolva a pergunta pra ele.`
+          );
+        }
+      }
       const tipos = TIPOS_DA_FAMILIA[produto.toLowerCase()] ?? TIPOS_DA_FAMILIA[categoria] ?? [];
       return (
         `NAO anotei "${produto}": isso e categoria, nao produto, e a cozinha nao produz categoria. ` +
@@ -1452,12 +1482,19 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       if (ehDaLista) {
         const naFala = semAcP(falaDoCliente);
         const citou = naFala.includes(semAcP(produto));
-        // Ele pediu pra ela escolher? Entao indicar e o trabalho dela.
-        const pediuIndicacao =
-          /me indica|voce que sabe|voce escolhe|o que voce (indica|sugere|acha)|sortido|mais pedidos|do seu jeito|como voce achar|surpresa/i.test(
-            falaDoCliente,
-          );
-        if (!citou && !pediuIndicacao) {
+        // DUAS GUARDAS FAZENDO O MESMO TRABALHO COM REGRAS DIFERENTES.
+        //
+        // Esta tinha o proprio regex de "pediu indicacao", mais estreito que o
+        // da guarda nova, e nao conhecia a ferramenta de sortido. Resultado no
+        // rastro de 20/08/2026: o cliente pedia o sortido, o codigo respondia
+        // brigadeiro, beijinho e cajuzinho, e esta guarda recusava os tres,
+        // quatro vezes cada. O sistema brigando com a propria sugestao.
+        //
+        // Agora as duas usam a MESMA regra de indicacao, e o que a ferramenta
+        // sugeriu neste turno vale como citado.
+        const pediuIndicacao = pediuQueVoceEscolha(falaDoCliente);
+        const euMesmoSugeri = (estado.sugeridos ?? []).some((s) => semAcP(s) === semAcP(produto));
+        if (!citou && !pediuIndicacao && !euMesmoSugeri) {
           console.warn("[ia] produto nao citado pelo cliente: " + produto + "; recusado");
           return (
             "NAO anotei: o cliente nunca falou em " + produto + " nesta conversa. Produto que aparece do nada vira producao que ninguem pediu e trava o pedido esperando o sabor de um item que nao existe. Anote so o que ele escolheu; se faltar escolher, pergunte citando as opcoes."
@@ -1506,9 +1543,23 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         const palavrasDaFala = falaLimpa.split(/[^a-z0-9]+/).filter((w) => w.length > 2);
         // Procura '<produto> de <sabor>' ou '<produto> com <sabor>' na fala.
         const achado = opsDele.find((o) => {
-          // Erro de digitacao no sabor ja travou um pedido inteiro por um Z.
-          if (palavrasDaFala.some((w) => pareceSabor(w, o))) return true;
-          const sab = semAcF(o);
+          const sabLimpo = semAcF(o);
+          // PALAVRA SOLTA SO CASA COM SABOR DE UMA PALAVRA.
+          //
+          // O rastro de 20/08/2026 pegou o estrago: pareceSabor recebia cada
+          // palavra da fala e comparava com o nome INTEIRO do sabor, e
+          // "bacon com milho".includes("bacon") e verdadeiro. O cliente pediu
+          // "bacon com brocolis", o codigo viu a palavra "bacon" e escreveu
+          // "bacon com milho" no pedido dele. A pizza saiu com um sabor que
+          // ninguem pediu, e ela ainda negou que tinha anotado.
+          //
+          // Erro de digitacao continua tolerado ("calabreza" e calabresa), mas
+          // so onde nao ha ambiguidade: sabor composto exige a expressao
+          // inteira na fala.
+          const umaPalavra = !sabLimpo.includes(" ");
+          if (umaPalavra && palavrasDaFala.some((w) => pareceSabor(w, sabLimpo))) return true;
+          if (!umaPalavra && falaLimpa.includes(sabLimpo)) return true;
+          const sab = sabLimpo;
           const re = new RegExp(alvoNome + "[a-z ]{0,12}(de|com|sabor) " + sab.replace(/[.*+?^${}()|[\\]\\\\]/g, ""), "i");
           return re.test(falaLimpa);
         });
@@ -1992,6 +2043,24 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       ? dataBruta
       : diaDaSemanaViraData(dataBruta) ?? dataBruta;
     if (dataRetirada !== dataBruta) input.retirada_data = dataRetirada;
+    // A CONTA DELA E CONFERIDA: a palavra do cliente vence a aritmetica dela.
+    //
+    // Ela escreveu "quarta-feira, dia 27/08" e mandou pro pedido. Em 20/08/2026,
+    // uma quinta, a proxima quarta e 26/08. O cliente ia buscar num dia e a
+    // padaria produzir noutro, e ninguem ia perceber ate o balcao.
+    try {
+      const agora = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+      const corrigida = dataBrigaComODiaDaSemana(String(input.retirada_data ?? ""), falaDoCliente, agora);
+      if (corrigida) {
+        console.warn(
+          "[ia] data nao batia com o dia da semana que o cliente falou: " +
+            String(input.retirada_data) + " -> " + corrigida,
+        );
+        input.retirada_data = corrigida;
+      }
+    } catch (e) {
+      console.error("[ia] falha ao conferir a data com o dia da semana:", e);
+    }
     const horaRetirada =
       String(input.retirada_hora ?? "").trim() || String(montagemAtual?.dados?.retirada_hora ?? "").trim();
     // Texto que nao e data nao passa: ja saiu pedido com a palavra "hoje" no
@@ -2480,7 +2549,14 @@ ATENCAO: recusar o registro NAO quer dizer recomecar a coletar. Tudo que o clien
       (!nomeResumo
         ? `\n\nSó me diz: o pedido fica no nome de quem?`
         : !formaPagamento
-          ? `\n\nSó falta combinar: vai ser pix, cartão ou dinheiro na retirada?`
+          // Pergunta ABERTA, e nao tres opcoes.
+          //
+          // A secretaria do coffee break informou "transferencia" tres vezes e
+          // o pedido fechou perguntando "vai ser pix, cartao ou dinheiro na
+          // retirada?". Cliente de empresa quase sempre paga em transferencia
+          // ou boleto, e listar tres jeitos faz ele achar que a padaria nao
+          // aceita o dele.
+          ? `\n\nSó falta combinar: como você prefere pagar?`
           : "");
 
     const itensFmt = c.linhas
