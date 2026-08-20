@@ -904,13 +904,37 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         "ia pra comanda da cozinha e pra confirmacao do cliente como se fosse combinado. Diga com todas as letras " +
         "que a gente nao trabalha com isso, e siga com o pedido normal."
       : "";
+    // RECHEIO INVENTADO SE APAGA. O ITEM FICA.
+    //
+    // Antes isto recusava o item INTEIRO, e o estrago era mudo. Rastro do
+    // sortido de uma festa de 30 pessoas, 20/08/2026: o codigo montou 5 tipos
+    // de 60, ela anotou quatro e mandou o quinto como
+    //   {"produto":"risolis","qtd":60,"obs":"carne"}
+    // O cliente nunca falou em carne, entao a guarda recusou, ela nao repetiu a
+    // chamada, e o pedido ficou com 240 salgados onde a conta era 300. Sessenta
+    // salgados sumiram sem erro nenhum na tela.
+    //
+    // O motivo da guarda continua valendo: recheio que ela inventa vira
+    // producao errada no balcao. Mas apagar o recheio resolve isso do mesmo
+    // jeito, e apagar o ITEM cria um problema pior, porque some comida do dia
+    // da festa e ninguem percebe.
+    //
+    // O item entra sem o recheio, e a maquina de etapas ja cobra o sabor que
+    // ficou faltando: e o caminho que ja existe pra isso.
     const inventadas = obsQueOClienteNaoDisse(input.obs, falasDoCliente.length ? falasDoCliente : [falaDoCliente]);
+    let avisoInventada = "";
     if (inventadas.length) {
-      return (
-        "NAO anotei: isto na observacao o cliente NUNCA escreveu: " + inventadas.join(", ") + ". " +
+      const limpa = String(input.obs ?? "")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .filter((x) => !inventadas.some((inv) => x.toLowerCase().includes(String(inv).toLowerCase())))
+        .join(", ");
+      input.obs = limpa || null;
+      avisoInventada =
+        "\n\nATENCAO: tirei da observacao \"" + inventadas.join(", ") + "\", que o cliente nunca escreveu. " +
         "Sabor, recheio e cor sao escolha dele, e o que voce inventar vira producao errada no balcao. " +
-        "Chame anotar_item de novo SEM isso, e pergunte pra ele o que faltou."
-      );
+        "O item ficou anotado SEM isso: pergunte agora o que faltou, citando as opcoes.";
     }
     // Como o cliente chama x como a cozinha le: "pastel frito" e a mini bolha.
     // Sem isso a linha casava com o generico "salgado frito" e a producao
@@ -1924,7 +1948,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         `Se ele ja disse o sabor na conversa, chame anotar_item de novo com ele na observacao em vez de perguntar.` + avisoDivisao
       );
     }
-    return `Anotei ${qtd} de ${produto} no pedido.${avisoDivisao}${avisoSabor} Continue a conversa normalmente; o pedido fica guardado e você não precisa repetir os itens anteriores.${avisoRestricao}`;
+    return `Anotei ${qtd} de ${produto} no pedido.${avisoDivisao}${avisoSabor} Continue a conversa normalmente; o pedido fica guardado e você não precisa repetir os itens anteriores.${avisoRestricao}${avisoInventada}`;
   }
   if (nome === "remover_item") {
     estado.montagem.push({
@@ -4667,7 +4691,22 @@ async function rodarConversa(
           }
         : {
             model: prov.modelo,
-            max_tokens: 350, // resposta de WhatsApp é curta; corta desperdício de token
+            // O TETO VALE PRA RESPOSTA E PRA CHAMADA DE FERRAMENTA JUNTAS.
+            //
+            // 350 foi calibrado pra mensagem de WhatsApp, que e curta mesmo. So
+            // que os ARGUMENTOS das ferramentas saem do mesmo teto, e num
+            // sortido de festa ela chama anotar_item uma vez por item. O rastro
+            // pegou a 12a chamada saindo cortada no meio:
+            //
+            //   [rastro] anotar_item <- {"produto":"leite"}
+            //
+            // Era "leite ninho", 37 unidades. O JSON truncou, o item nao entrou,
+            // e o pedido ficou com 113 docinhos onde a conta era 150. Ninguem ve
+            // isso acontecer: nao da erro, so falta comida no dia da festa.
+            //
+            // O texto que vai pro cliente continua curto porque a persona manda
+            // ser curto, nao porque o teto obriga.
+            max_tokens: 1500,
             temperature: 0.4, // menos "criatividade" = segue mais as regras (usar a ferramenta)
             messages,
             tools: ferramentasDaVolta,
@@ -4676,6 +4715,14 @@ async function rodarConversa(
     );
     somarUso(resp.usage);
 
+    // RESPOSTA CORTADA PELO TETO NAO PODE PASSAR CALADA.
+    //
+    // Quando o modelo bate no limite, a ultima chamada de ferramenta sai com o
+    // JSON pela metade e o item simplesmente nao entra no pedido. Sem esta
+    // linha, o unico rastro disso e a comida faltando no dia.
+    if (resp.choices[0]?.finish_reason === "length") {
+      console.warn("[rastro] RESPOSTA CORTADA PELO TETO DE TOKENS: pode ter perdido chamada de ferramenta");
+    }
     const msg = resp.choices[0]?.message;
     if (!msg) break;
 
