@@ -3109,7 +3109,25 @@ function etapasDaFesta(
     });
   }
 
-  return etapas.filter((e) => e.pendencias.length > 0 || (e.opcionais?.length ?? 0) > 0);
+  // PRODUCAO ANTES DE VENDA A MAIS.
+  //
+  // So a PRIMEIRA etapa e mostrada pra ela. A ordem em que elas eram montadas
+  // colocava "pergunte se ele quer salgado tambem" antes de "faltam o nome e a
+  // idade do aniversariante pro topo". Teste ao vivo de 20/08/2026:
+  //
+  //   cliente: bolo de bombom 3 kg dia 06/09 as 15h com topo tema homem aranha
+  //   cliente: Patricia Loureiro, pago no pix, pao de lo branco
+  //   Dora:    E docinho, pizza, torta ou empadao, vai querer algum desses?
+  //
+  // O pedido tinha topo e ela nunca pediu o nome nem a idade. Sem esses dois a
+  // peca NAO e fabricada: a confeitaria para com o pedido na mao no dia da
+  // festa. Oferecer pizza e bom; deixar a peca sem como ser feita nao.
+  //
+  // Os dados da peca passam na frente quando estao faltando. O resto da ordem
+  // continua igual.
+  const daPeca = etapas.filter((e) => e.titulo === "DADOS DA PECA DO BOLO" && e.pendencias.length > 0);
+  const resto = etapas.filter((e) => !daPeca.includes(e));
+  return [...daPeca, ...resto].filter((e) => e.pendencias.length > 0 || (e.opcionais?.length ?? 0) > 0);
 }
 
 // Tudo que ainda falta, de todas as etapas. Quem decide se DA pra fechar usa
