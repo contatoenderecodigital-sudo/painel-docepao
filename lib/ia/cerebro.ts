@@ -1959,6 +1959,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       ehFestaNaFala(falaDoCliente),
       /bolo/i.test(falaDoCliente),
       String(montagemAtual?.dados?.nao_quer ?? ""),
+      falaDoCliente,
     );
     if (temTudo && itensAnotados.length > 0 && pendentes.length === 0) {
       return (
@@ -3141,8 +3142,22 @@ function pendenciasDeSabor(
   festa = false,
   pediuBolo = false,
   naoQuer = "",
+  // A CONVERSA DO CLIENTE PRECISA CHEGAR ATE AQUI.
+  //
+  // Esta funcao decide se registrar_pedido entra na mesa, e chamava a maquina
+  // de etapas SEM a conversa. La dentro, a idade do aniversariante e aceita
+  // tanto da observacao do bolo quanto da fala do cliente, justamente porque
+  // ele costuma dizer "faz 7 anos" e ela nem sempre copia isso pra observacao.
+  //
+  // Sem a conversa, esse segundo caminho nunca existia por aqui. Rastro do
+  // teste ao vivo, com "o nome dele e Theo e faz 7 anos" na tela:
+  //   pendSabor=[bolo bombom: falta a IDADE]
+  // O pedido nao fechava por um dado que o cliente tinha acabado de dar.
+  falaDoCliente = "",
 ): string[] {
-  return etapasDaFesta(itens, festa, pediuBolo, naoQuer).flatMap((e) => e.pendencias);
+  return etapasDaFesta(itens, festa, pediuBolo, naoQuer, false, false, false, falaDoCliente).flatMap(
+    (e) => e.pendencias,
+  );
 }
 
 // A peca de cardapio que combina com a etapa de agora. O webhook usa isso pra
@@ -4488,7 +4503,14 @@ async function rodarConversa(
   // quatro, e no fim desistiu e chamou a equipe. Fechar so existe quando da pra
   // fechar; aceite de orcamento so existe quando ha pedido esperando o cliente.
   const podeFechar =
-    (montagemDoTurno?.itens?.length ?? 0) > 0 && pendenciasDeSabor(montagemDoTurno?.itens ?? [], ehFesta, pediuBolo, String(montagemDoTurno?.dados?.nao_quer ?? "")).length === 0;
+    (montagemDoTurno?.itens?.length ?? 0) > 0 &&
+    pendenciasDeSabor(
+      montagemDoTurno?.itens ?? [],
+      ehFesta,
+      pediuBolo,
+      String(montagemDoTurno?.dados?.nao_quer ?? ""),
+      falaToda,
+    ).length === 0;
   const ferramentas = (tenant.sistemaCustom ? FERRAMENTAS_BASICAS : FERRAMENTAS).filter((f) => {
     const nome = "function" in f ? f.function.name : "";
     if (nome === "cliente_aceitou_orcamento") return pedidoAguardando;
@@ -4589,6 +4611,7 @@ async function rodarConversa(
         ehFesta,
         pediuBolo,
         String(montagemDoTurno?.dados?.nao_quer ?? ""),
+        falaToda,
       ).length === 0;
     const obrigarFechamento =
       podeFecharAgora &&
@@ -4612,6 +4635,7 @@ async function rodarConversa(
         ehFesta,
         pediuBolo,
         String(montagemDoTurno?.dados?.nao_quer ?? ""),
+        falaToda,
       );
       console.warn(
         "[rastro] fechar? forcar=" + obrigarFechamento +
@@ -4771,6 +4795,7 @@ async function rodarConversa(
           ehFesta,
           pediuBolo,
           String(montagemDoTurno?.dados?.nao_quer ?? ""),
+          falaToda,
         );
         // INSTRUCAO INTERNA NUNCA VAI PRO CLIENTE.
         //
