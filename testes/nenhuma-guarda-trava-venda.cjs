@@ -27,6 +27,7 @@ const {
   produtoQueNinguemCitou,
   precosInventados,
   familiaQueElePediu,
+  obsSemDeliberacao,
 } = require("./_guardas.cjs")();
 const catalogo = require("../lib/ia/dados/catalogo.json");
 
@@ -202,6 +203,37 @@ for (const [falas, esperado] of [
   conferir(veio === esperado, `familia de "${falas.join(" / ").slice(0, 44)}" deveria ser ${esperado}, veio ${veio}`);
 }
 console.log((falhas.length > antesFam ? "ERRO  " : "ok    ") + "a familia pedida e reconhecida, e a ultima palavra manda");
+
+// ---------------------------------------------------------------------------
+// 3c. A OBSERVACAO E FICHA, NAO BILHETE PENSANDO ALTO
+// ---------------------------------------------------------------------------
+//
+// Rastro do medidor de 20/08/2026, cenario de pizza, nota 1/5. Ela chamou
+// anotar_item com obs "para sexta as 19h, sabor calabresa nao existe, ofereco
+// calabresa acebolada ou calabresa?", ou seja escreveu o raciocinio dela dentro
+// do campo que vai pra comanda da cozinha. A guarda de observacao inventada
+// achou "calabresa acebolada", que o cliente nunca disse, e recusou o item
+// INTEIRO. Oito recusas numa conversa, e a pizza nunca entrou no pedido, mesmo
+// com o cliente tendo pedido calabresa, que existe no cardapio.
+//
+// Limpar e melhor que recusar: a venda nao morre pela redacao dela, e a cozinha
+// nao recebe "sabor calabresa nao existe" impresso na comanda.
+console.log("");
+console.log("== a observacao e ficha, nao bilhete ==");
+const antesObs = falhas.length;
+for (const [entrada, esperado] of [
+  ["para sexta as 19h, sabor calabresa nao existe, ofereco calabresa acebolada ou calabresa?", "para sexta as 19h"],
+  ["sexta as 19h, sabor calabresa nao tem, pode ser outro sabor parecido?", "sexta as 19h"],
+  ["calabresa", "calabresa"],
+  ["forminha azul bebe, tema princesa", "forminha azul bebe, tema princesa"],
+  ["recheio de carne", "recheio de carne"],
+  ["topo tema dinossauro, nome Theo, 7 anos", "topo tema dinossauro, nome Theo, 7 anos"],
+  ["", ""],
+]) {
+  const veio = obsSemDeliberacao(entrada);
+  conferir(veio === esperado, `obs "${entrada.slice(0, 46)}" deveria virar "${esperado}", veio "${veio}"`);
+}
+console.log((falhas.length > antesObs ? "ERRO  " : "ok    ") + "a deliberacao sai e a ficha fica inteira");
 
 // ---------------------------------------------------------------------------
 // 4. As guardas continuam GUARDANDO

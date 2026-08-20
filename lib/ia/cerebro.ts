@@ -43,6 +43,7 @@ import {
   pediuVerOPedido,
   pecasPermitidas,
   perguntouPrecoDeFamilia,
+  obsSemDeliberacao,
   dataBrigaComODiaDaSemana,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
@@ -854,6 +855,19 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         "Se ele disser que quer, ai voce chama anotar_item."
       );
     }
+    // A OBSERVACAO VAI PRA COMANDA DA COZINHA: E FICHA, NAO BILHETE.
+    //
+    // Rastro do medidor, cenario de pizza (nota 1/5). Ela chamou anotar_item com
+    // obs "para sexta as 19h, sabor calabresa nao existe, ofereco calabresa
+    // acebolada ou calabresa?", escrevendo o raciocinio dentro do campo. A
+    // guarda de baixo achou "calabresa acebolada", que o cliente nunca disse, e
+    // recusou o item INTEIRO. Foram oito recusas numa conversa so, e a pizza
+    // nunca entrou no pedido.
+    //
+    // Limpar e melhor que recusar em toda medida: o cliente pediu, o sabor
+    // existe no cardapio, e a venda morria pela redacao dela. E a cozinha
+    // deixa de receber "sabor calabresa nao existe" impresso na comanda.
+    input.obs = obsSemDeliberacao(input.obs) || null;
     const inventadas = obsQueOClienteNaoDisse(input.obs, falasDoCliente.length ? falasDoCliente : [falaDoCliente]);
     if (inventadas.length) {
       return (
@@ -3794,7 +3808,25 @@ async function rodarConversa(
         corrigidos.push(...dessa);
       }
       corrigidos.push(...ofertados.filter((o) => familiaDe(o.produto) === "outro"));
-      ofertados = corrigidos;
+
+      // ATALHO NAO PODE PULAR GUARDA.
+      //
+      // Medido em 20/08/2026: o cenario "quem pede assado nao recebe frito"
+      // terminou com 67 coxinha, 67 mini bolha e 66 esfirra no banco. O rastro
+      // mostrava anotar_item recusando a coxinha certinho ("e salgado FRITO e o
+      // cliente pediu ASSADO") e a coxinha estava la assim mesmo.
+      //
+      // A culpa e minha e e nova: esta via de aceite escreve direto na
+      // montagem, sem passar por anotar_item, entao passou por fora da propria
+      // guarda que eu tinha acabado de escrever. Atalho de codigo que ignora
+      // guarda e pior que nao ter guarda, porque o teste da guarda passa verde.
+      const querFamilia = familiaQueElePediu(doCliente);
+      if (querFamilia) {
+        const proibida = querFamilia === "assado" ? "salgado_frito" : "salgado_assado";
+        ofertados = corrigidos.filter((o) => categoriaDoProduto(o.produto) !== proibida);
+      } else {
+        ofertados = corrigidos;
+      }
     }
     const chave = (t: unknown) =>
       String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
@@ -3943,6 +3975,21 @@ async function rodarConversa(
       .map((f) => ({ f, itens: sugestaoDeSortido(f, quantosDe(f)) }))
       .filter((s) => s.itens.length > 0);
     if (sugestoes.length) {
+      // O QUE O CODIGO MANDOU OFERECER, O CODIGO ACEITA DE VOLTA.
+      //
+      // O sistema escrevia "OFERECA EXATAMENTE ISTO: 40 esfirra, 40 empadinha,
+      // ..." e, quando ela obedecia, a guarda de produto fantasma recusava:
+      // "ninguem falou nesse produto nesta conversa, nem o cliente nem voce".
+      // Era verdade e era irrelevante, quem falou foi o SISTEMA. Ela ficava
+      // presa entre uma ordem e uma proibicao, as duas minhas.
+      //
+      // A ferramenta de sortido ja registrava o que sugeriu; a sugestao feita
+      // aqui, pelo codigo, nao registrava. Mesma sugestao, dois caminhos, e so
+      // um deles era reconhecido depois.
+      estado.sugeridos = [
+        ...(estado.sugeridos ?? []),
+        ...sugestoes.flatMap((s) => s.itens.map((i) => i.produto)),
+      ];
       const texto = sugestoes
         .map((s) => s.itens.map((i) => i.qtd + " " + i.produto).join(", "))
         .join(" e ");

@@ -457,3 +457,48 @@ A do preço tinha ainda outro vício: o gatilho exigia "quanto custa o docinho"
 nessa ordem exata. A cliente escreveu "e o docinho, quanto fica" e recebeu de
 volta "Te mandei o cardápio de docinhos aqui", sem número, depois de ter
 recebido o preço dos salgados na mensagem anterior. Ela parou de responder ali.
+
+### A medição que reprovou meus próprios consertos
+
+Primeira medição com os oito cenários, 40 conversas reais contra o container
+já com todas as correções da madrugada. Resultado: **4 de 8 cenários passaram
+as cinco execuções**.
+
+```
+pass^5  pergunta de preco nao vira item          5/5
+pass^5  produto que a padaria nao faz nao entra  5/5
+pass^5  festa com quatro familias fecha          5/5
+pass^5  cor da forminha nao volta a ser perguntada 5/5
+FALHOU  troca de bolo nao duplica                3/5
+FALHOU  quem pede assado nao recebe frito        2/5
+FALHOU  pizza fecha e nao e recusada             1/5
+FALHOU  mudar o total nao vira negociacao        0/5
+```
+
+Os três piores eram defeitos MEUS, e dois deles eu tinha acabado de escrever.
+
+**Pizza 1/5: a observação virou bilhete.** A Dora chamava `anotar_item` com
+`obs: "para sexta as 19h, sabor calabresa nao existe, ofereco calabresa
+acebolada ou calabresa?"`. Ela escrevia o raciocínio dentro do campo que vai
+pra comanda da cozinha. A guarda de observação inventada achava "calabresa
+acebolada", que o cliente nunca disse, e recusava o item INTEIRO. Oito recusas
+numa conversa, com o cliente tendo pedido calabresa, que existe no cardápio.
+Correção: limpar em vez de recusar. A deliberação sai, a ficha fica.
+
+**Mudar o total 0/5: banco vazio, nada escrito.** O sistema mandava "OFEREÇA
+EXATAMENTE ISTO: 40 esfirra, 40 empadinha..." e, quando ela obedecia, a guarda
+de produto fantasma recusava com "ninguém falou nesse produto nesta conversa,
+nem o cliente nem você". Era verdade e era irrelevante: quem falou foi o
+SISTEMA. Ela ficava presa entre uma ordem e uma proibição, as duas minhas.
+A ferramenta de sortido já registrava o que sugeria; a sugestão feita pelo
+código não registrava. Mesma sugestão, dois caminhos, só um reconhecido.
+
+**Assado 2/5: meu atalho pulou minha guarda.** O banco terminou com 67 coxinha,
+67 mini bolha e 66 esfirra num pedido de assados. O rastro mostrava
+`anotar_item` recusando a coxinha certinho, e a coxinha estava lá assim mesmo:
+a via de aceite que eu criei escreve direto na montagem, sem passar por
+`anotar_item`, e passou por fora da guarda que eu tinha escrito horas antes.
+
+Atalho de código que ignora guarda é pior que não ter guarda, porque o teste da
+guarda passa verde e o defeito continua chegando no cliente. Foi só a medição
+com conversa de verdade que pegou.

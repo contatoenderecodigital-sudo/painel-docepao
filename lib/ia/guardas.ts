@@ -207,10 +207,19 @@ export function obsQueOClienteNaoDisse(obs: unknown, falasDoCliente: string[]): 
   // limpa, nao se recusa.
   const ENCHIMENTO =
     /\b(nao (definid|informad|especificad|escolhid)[oa]?|a definir|a combinar|ainda|indefinid[oa]|pendente|sem definir|por enquanto|talvez)\b/g;
+  // DIA E HORA SAO LOGISTICA, NAO GOSTO.
+  //
+  // "sexta as 19h" passava e "retirar sexta as 19h" era recusado: um verbo na
+  // frente derrubava o fragmento e levava o item junto. Data e hora de verdade
+  // moram no campo de retirada, com guarda propria que confere o dia da semana
+  // contra a conversa. Na observacao isso e enfeite, e enfeite nao pode custar
+  // uma venda.
+  const LOGISTICA =
+    /\b(segunda|terca|quarta|quinta|sexta|sabado|domingo|hoje|amanha|manha|tarde|noite|retirada|retirar|entrega|buscar|[0-9]{1,2}h|[0-9]{1,2}:[0-9]{2}|[0-9]{1,2}[/-][0-9]{1,2})\b/;
   const fora: string[] = [];
   for (const pedaco of texto.split(",").map((x) => x.trim()).filter(Boolean)) {
     const p = semAcMin(pedaco);
-    if (p.length < 4 || nossas.test(p)) continue;
+    if (p.length < 4 || nossas.test(p) || LOGISTICA.test(p)) continue;
     // Basta o cliente ter escrito as palavras significativas em algum momento.
     // Os rotulos dela ("forminha", "recheio") saem antes: o que precisa vir do
     // cliente e a ESCOLHA, nao a palavra que descreve o campo.
@@ -988,4 +997,38 @@ export function perguntouPrecoDeFamilia(fala: string): boolean {
   const ehPergunta = /(quanto (custa|fica|sai|ta|e|sao|vale)|qual (o|e o) (pre[çc]o|valor)|pre[çc]o d|valor d)/i.test(t);
   const citouFamilia = /salgad|docinh|doce|bolo|cento/i.test(t);
   return (ehPergunta && citouFamilia) || /(^|\W)(e )?o cento/i.test(t);
+}
+
+// A OBSERVACAO E UMA FICHA, NAO UM BILHETE PENSANDO ALTO.
+//
+// Rastro do medidor de 20/08/2026, cenario de pizza (nota 1/5). A Dora chamou
+// anotar_item assim:
+//
+//   obs: "para sexta as 19h, sabor calabresa nao existe, ofereco calabresa
+//         acebolada ou calabresa?"
+//
+// Ela escreveu o RACIOCINIO dela dentro do campo que vai pra comanda da
+// cozinha. A guarda de observacao inventada olhou aquilo, achou "calabresa
+// acebolada", que o cliente nunca disse, e recusou o item INTEIRO. A pizza
+// nunca entrava no pedido, e ela tentava de novo com outra frase, e recusava
+// de novo. Oito recusas numa conversa.
+//
+// Recusar aqui e o pior dos mundos: o cliente pediu, existe no cardapio, e a
+// venda morre por causa da redacao dela. O certo e LIMPAR e seguir.
+//
+// De quebra, isso resolve o outro estrago: sem a limpeza, "sabor calabresa nao
+// existe" ia impresso na comanda, e a cozinha leria isso.
+export function obsSemDeliberacao(obs: unknown): string {
+  const bruto = String(obs ?? "").trim();
+  if (!bruto) return "";
+  const DELIBERACAO =
+    /\?|\bnao (existe|tem|temos|ha)\b|\bofere[cç]|\bsugiro\b|\bsugerir\b|\bpode ser\b|\bconfirmar\b|\bperguntar\b|\bverificar\b|\bavisar\b|\bopcoes?\b|\bou\b.*\bou\b|\bprecisa\b|\bfalta escolher\b|\bnao informad/i;
+  const partes = bruto
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean)
+    // Fragmento que e frase de pensamento sai. O que sobra e ficha: sabor, cor,
+    // tema, hora, nome.
+    .filter((p) => !DELIBERACAO.test(semAcMin(p)));
+  return partes.join(", ");
 }
