@@ -9,6 +9,33 @@ O sistema saiu de "testado por impressão" para "testado por medida": existem 19
 testes que travam o commit, um medidor que roda a mesma conversa 5 vezes e julga
 pelo estado do banco, e uma bateria de clientes simulados ao vivo.
 
+## ANTES DE CULPAR A IA, LEIA O RASTRO
+
+Foi a coisa mais produtiva do projeto, e a ideia foi do dono.
+
+```
+ssh root@179.198.126.197 'docker logs $(docker ps --format "{{.Names}}"|grep "^uyyqf7kzymaxlyq9kl") --since 10m 2>&1 | grep "\[rastro\]"'
+```
+
+Sai toda chamada de ferramenta com os argumentos e a resposta do código. Em uma
+hora isso achou três defeitos que os relatórios de teste não achavam, e **nos
+três a IA estava fazendo certo**:
+
+1. Eu bloqueava TODA venda de pizza. Ela chamou `anotar_item` com o produto e os
+   sabores certos oito vezes, e a guarda recusou as oito, porque o cliente
+   escreve "pizza de forma" e o catálogo chama "pizza inteira".
+2. 200 salgados sumiam em silêncio: ela registrava o nome da CATEGORIA no lugar
+   dos produtos, e R$ 250 evaporavam.
+3. A guarda de produto fantasma matava a sugestão do próprio sistema.
+
+**A variante ruim dessa ideia é perguntar pro modelo por que ele errou.** Não
+funciona: sem fonte externa o modelo às vezes piora depois de se autocriticar, e
+inventa uma explicação plausível que faz você consertar a coisa errada. O rastro
+não mente; a explicação dele mente.
+
+**Consequência prática:** guarda nova nasce com teste dos DOIS lados, e o nome
+do catálogo nunca é o nome que o cliente usa.
+
 ## Como testar
 
 ```
