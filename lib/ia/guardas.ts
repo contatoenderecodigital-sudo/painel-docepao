@@ -107,24 +107,73 @@ export function clienteProibiuAnotar(fala: string): boolean {
   );
 }
 
+// ELE NAO VAI COMPRAR HOJE: O QUE ENTROU POR ENGANO TEM QUE SAIR.
+//
+// Bloquear a proxima anotacao nao basta. A cliente que so pesquisava ganhou um
+// "bolo 0% lactose" no pedido por ter feito uma PERGUNTA, pediu pra apagar, e a
+// Dora respondeu "Claro, nao anotei nada entao" com o item ainda na tela. Ela
+// afirmou ao cliente uma coisa que o sistema desmentia.
+//
+// Aqui a diferenca importa e e proposital:
+//   "nao anota esse" / "tira isso"      -> so bloqueia o proximo (pode ter
+//                                          pedido de verdade em andamento)
+//   "nao vou pedir nada hoje"           -> LIMPA, porque ele disse que nao
+//   "so estou pesquisando preco"           esta comprando
+export function clienteNaoVaiComprar(fala: string): boolean {
+  const t = semAcMin(fala);
+  return /nao (vou|quero) (pedir|comprar|encomendar|fechar)( nada)?( hoje| agora| ainda)?|nao e (um )?pedido|so (estou|to) (pesquisando|olhando|vendo)|so (queria|quero) (saber|perguntar|uma informacao)|nao pedi nada|nao vou levar nada|so pesquisando/.test(
+    t,
+  );
+}
+
 // A fala do cliente e SO uma pergunta sobre este produto, sem decidir nada.
 // Perguntar quanto custa nao pode virar item no pedido.
 export function soPerguntouSemPedir(fala: string, produto: string): boolean {
   const t = semAcMin(fala);
   const nome = semAcMin(produto).trim();
   if (!t || !nome) return false;
-  // Nao fala do produto: nao e este o caso (pode estar aceitando proposta).
-  const primeira = nome.split(" ")[0];
-  if (!t.includes(primeira)) return false;
+  // O CLIENTE FALA DO PRODUTO PELA PALAVRA QUE IMPORTA, NAO PELA PRIMEIRA.
+  //
+  // Isto olhava so a primeira palavra do nome. A cliente perguntou "0% lactose
+  // nao e sem acucar ne?" e ganhou um "bolo 0% lactose" no pedido, porque a
+  // guarda procurava a palavra "bolo" e ela nunca escreveu "bolo". Uma pergunta
+  // de esclarecimento virou item, e o item ficou ate o fim da conversa.
+  const pedacos = nome
+    .replace(/\b(de|do|da|com|e|em|no|na|mini)\b/g, " ")
+    .split(/[^a-z0-9%]+/)
+    .filter((w) => w.length > 2);
+  if (!pedacos.length || !pedacos.some((w) => t.includes(w))) return false;
   // Decidiu de verdade? Entao pode anotar.
   const decidiu =
     /\b(quero|queria|vou querer|me ve|me da|manda|pode ser|fechado|vou levar|anota|bota|coloca|leva)\b/.test(t) ||
     // quantidade explicita: "2 kg", "50 coxinha", "meia duzia"
     /\b[0-9]+([.,][0-9]+)? ?(kg|quilos?|un|unidades?|pe[cç]as?|cento)\b/.test(t) ||
-    /\b[0-9]+\b/.test(t.replace(/\b(1[0-9]|2[0-9]|3[01])[/][0-9]{1,2}/g, " ")); // ignora data
+    // NUMERO QUE NAO E QUANTIDADE NAO CONTA COMO DECISAO.
+    //
+    // A cliente escreveu "0% lactose nao e sem acucar ne?" e ganhou um bolo no
+    // pedido: o "0" do "0%" fez o codigo achar que ela tinha dito uma
+    // quantidade. Porcentagem faz parte do NOME do produto (0% lactose, 4
+    // queijos vem por extenso), data e data, e hora e hora.
+    /\b[0-9]+\b/.test(
+      t
+        .replace(/[0-9]+\s*%/g, " ") // 0% lactose
+        .replace(/\b(0[1-9]|[12][0-9]|3[01])[/-][0-9]{1,2}([/-][0-9]{2,4})?/g, " ") // 06/09
+        .replace(/\b[0-9]{1,2}\s*(h|hs|horas?)\b/g, " ") // 15h
+        .replace(/\b[0-9]{1,2}:[0-9]{2}\b/g, " "), // 15:00
+    );
   if (decidiu) return false;
-  // So pergunta de preco, existencia ou como funciona.
-  return /(quanto (custa|fica|sai|e|vem)|qual o pre[cç]o|pre[cç]o d|voces (tem|fazem|trabalham)|tem .{0,20}\?|como (e|funciona|vende)|serve quantas)/.test(
+  // PERGUNTA E PERGUNTA, DE QUALQUER JEITO QUE ELE ESCREVA.
+  //
+  // Isto era uma lista de padroes ("quanto custa", "qual o preco"...) e cliente
+  // pergunta de mil jeitos. A cliente escreveu "0% lactose nao e sem acucar ne?
+  // eu precisava mesmo de um sem acucar, pra diabetico" e ganhou um bolo no
+  // pedido, porque a frase dela nao estava na minha lista.
+  //
+  // Agora vale o sinal que existe em toda pergunta: o ponto de interrogacao.
+  // Somado a nao ter decisao nem quantidade (checados acima), isso e duvida, e
+  // duvida nao vira item. Os padroes ficam pra quem pergunta sem "?".
+  if (t.includes("?")) return true;
+  return /(quanto (custa|fica|sai|e|vem)|qual o pre[cç]o|pre[cç]o d|voces (tem|fazem|trabalham)|voces (fazem|tem)|como (e|funciona|vende)|serve quantas|e doce ou salgado|qual a diferenca)/.test(
     t,
   );
 }

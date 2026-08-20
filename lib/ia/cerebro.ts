@@ -32,6 +32,7 @@ import {
   produtoQueNinguemCitou,
   pagamentoQueEleFalou,
   pediuPorEscrito,
+  clienteNaoVaiComprar,
   dataBrigaComODiaDaSemana,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
@@ -3515,6 +3516,39 @@ async function rodarConversa(
           "A cor da forminha JA FOI ANOTADA como " + inteira + " em " +
           semCor.map((i) => i.produto).join(", ") + ". NAO pergunte a cor de novo e NAO anote esses " +
           "itens outra vez: confirme numa frase curta e siga pro que falta.",
+      });
+    }
+  }
+
+  // ELE DISSE QUE NAO VAI COMPRAR: O QUE ENTROU POR ENGANO SAI AGORA.
+  //
+  // Bloquear a proxima anotacao nao bastava. A cliente que so pesquisava ganhou
+  // um "bolo 0% lactose" por ter feito uma PERGUNTA, pediu pra apagar, e a Dora
+  // respondeu "Claro, nao anotei nada entao" com o item ainda na tela: afirmou
+  // ao cliente o contrario do que o sistema mostrava.
+  //
+  // Quem limpa e o codigo, porque depender dela chamar remover_item foi
+  // exatamente o que nao aconteceu.
+  if (clienteNaoVaiComprar(String(ultimaFalaDoCliente))) {
+    const paraApagar = montagemDoTurno?.itens ?? [];
+    if (paraApagar.length) {
+      console.warn(
+        "[ia] cliente disse que nao vai comprar; limpando " + paraApagar.length + " item(ns) que entraram por engano: " +
+          paraApagar.map((i) => i.produto).join(", "),
+      );
+      for (const i of paraApagar) {
+        estado.montagem.push({ tipo: "remover", produto: String(i.produto), categoria: String(i.categoria || "outro") });
+      }
+      montagemDoTurno = {
+        ...(montagemDoTurno ?? { itens: [], dados: {} }),
+        itens: [],
+      } as MontagemAtual;
+      messages.push({
+        role: "system",
+        content:
+          "O CLIENTE DISSE QUE NAO VAI COMPRAR AGORA. Tudo que estava anotado JA FOI APAGADO por mim, o pedido " +
+          "esta vazio. Responda o que ele perguntou, diga numa frase que nao anotou nada mesmo, e NAO ofereca " +
+          "cardapio nem pergunte sabor. Se ele se despedir, despeca-se de volta.",
       });
     }
   }

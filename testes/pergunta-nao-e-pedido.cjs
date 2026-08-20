@@ -15,7 +15,13 @@
 //
 // Roda com: node testes/pergunta-nao-e-pedido.cjs
 // Importa as guardas de verdade, em vez de recortar texto do cerebro.ts.
-const { clienteProibiuAnotar, soPerguntouSemPedir, obsQueOClienteNaoDisse, produtoQueNinguemCitou } = require("./_guardas.cjs")();
+const {
+  clienteProibiuAnotar,
+  clienteNaoVaiComprar,
+  soPerguntouSemPedir,
+  obsQueOClienteNaoDisse,
+  produtoQueNinguemCitou,
+} = require("./_guardas.cjs")();
 
 let erros = 0;
 function conferir(ok, oque, detalhe) {
@@ -69,6 +75,51 @@ for (const [frase, produto] of [
   ["a festa e dia 12/09, quero empadao", "empadao"],
 ]) {
   conferir(!soPerguntouSemPedir(frase, produto), 'deixa passar "' + frase + '"', "segurou uma venda");
+}
+
+console.log("");
+console.log("== PERGUNTA DE ESCLARECIMENTO nao vira item ==");
+// O caso real: a cliente escreveu "0% lactose nao e sem acucar ne? eu precisava
+// mesmo de um sem acucar, pra diabetico" e ganhou um "bolo 0% lactose" no
+// pedido. A guarda olhava so a PRIMEIRA palavra do produto ("bolo") e ela nunca
+// escreveu "bolo", entao passou batido.
+for (const [fala, produto] of [
+  ["0% lactose nao e sem acucar ne? eu precisava mesmo de um sem acucar, pra diabetico", "bolo 0% lactose"],
+  // Produto que o cliente nem cita e barrado por OUTRA guarda (produto
+  // fantasma), entao aqui so entram frases em que ele nomeia o produto.
+  ["a cuca de goiaba e muito doce?", "cuca recheada"],
+  ["o strogonoff de nozes e doce ou salgado?", "bolo strogonoff de nozes"],
+  ["quanto custa a torta doce?", "torta doce"],
+]) {
+  conferir(soPerguntouSemPedir(fala, produto), 'segura "' + fala.slice(0, 46) + '"', "vira item no pedido");
+}
+
+console.log("");
+console.log("== 'NAO VOU COMPRAR' apaga o que entrou por engano ==");
+// Bloquear a proxima anotacao nao bastava: o item ficava ate o fim e a Dora
+// respondia "Claro, nao anotei nada entao" com ele na tela.
+for (const fala of [
+  "so estou pesquisando preco, nao quero pedir nada ainda",
+  "nao vou pedir nada hoje",
+  "eu nao pedi nada hein",
+  "so queria saber o preco",
+  "nao e um pedido, so uma duvida",
+]) {
+  conferir(clienteNaoVaiComprar(fala), 'limpa o pedido em "' + fala.slice(0, 44) + '"', "o item fantasma fica");
+}
+
+console.log("");
+console.log("== mas quem ESTA comprando nao pode ter o pedido apagado ==");
+// Este e o lado perigoso: limpar o pedido de quem esta comprando e catastrofe.
+for (const fala of [
+  "nao anota o brigadeiro nao, tira ele",
+  "quero 100 coxinhas",
+  "pode ser assim",
+  "tira a torta do pedido",
+  "muda pra 150",
+  "confirmado, pode fechar",
+]) {
+  conferir(!clienteNaoVaiComprar(fala), 'NAO apaga o pedido em "' + fala + '"', "apagou o pedido de quem esta comprando");
 }
 
 console.log("");
