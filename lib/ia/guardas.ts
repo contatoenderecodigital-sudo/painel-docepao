@@ -291,6 +291,53 @@ export function produtoQueNinguemCitou(
   return true;
 }
 
+// O CLIENTE PEDIU QUE ELA ESCOLHA.
+//
+// No teste de aceitacao de 19/08/2026 a secretaria pediu TRES vezes que a Dora
+// montasse o sortido, e nas tres ela devolveu a pergunta:
+//   "Estou sem tempo de escolher um a um. Escolha voce os recheios mais pedidos"
+//   -> "preciso que voce escolha o recheio de cada um, porque cada um tem
+//       opcoes diferentes"
+// O coffee break de 150 salgados e 100 docinhos NAO fechou por causa disso.
+//
+// Devolver a pergunta pra quem pediu ajuda e o oposto de atender. Quando isto e
+// verdade, o codigo monta a sugestao concreta e entrega pronta pra ela.
+export function pediuQueVoceEscolha(fala: string): boolean {
+  const t = semAcMin(fala);
+  if (!t.trim()) return false;
+  return /(voce (escolhe|escolha|decide|monta|que sabe|quem sabe)|escolhe (voce|pra mim|por mim)|o que (voce|vc) (indica|recomenda|sugere|acha)|pode escolher|fica a seu criterio|do jeito que (voces|vc|voce) (acham|achar|quiser)|me (indica|sugere|recomenda)|sortido|variado|misturado|surpresa|sem tempo (de|pra) escolher|nao sei (o que|quais|os tipos)|confio (em voce|no seu|em vcs)|manda o que (for|vier) melhor|(costuma|costumam) (sair|vender|pedir)|(sai|vende|pedem) mais|mais (pedido|vendido|sai)|o que (sai|vende|leva) mais|que (voces|vcs) mais)/.test(
+    t,
+  );
+}
+
+// A SUGESTAO CONCRETA, montada pelo codigo a partir do catalogo.
+//
+// Devolve os tipos mais comuns da familia com a quantidade ja dividida, pra ela
+// OFERECER em vez de perguntar. Quantidade e a conta exata: a soma das partes
+// bate com o total, sempre, senao a padaria produz a mais ou a menos.
+export function sugestaoDeSortido(
+  familia: "salgado_frito" | "salgado_assado" | "docinho",
+  total: number,
+): { produto: string; qtd: number }[] {
+  const q = Math.max(0, Math.floor(total));
+  if (!q) return [];
+  // Os mais pedidos de cada familia, na ordem em que a casa costuma sugerir.
+  const preferidos: Record<string, string[]> = {
+    salgado_frito: ["coxinha", "mini bolha", "risólis", "bolinha de queijo", "croquete"],
+    salgado_assado: ["esfirra", "empadinha", "pastel assado", "quiche", "croissant"],
+    docinho: ["brigadeiro", "beijinho", "cajuzinho", "leite ninho"],
+  };
+  const nomes = preferidos[familia] ?? [];
+  // Quantos tipos: quatro e o que a dona sugere no cento ("cinco sabores, 20 de
+  // cada"), mas pedido pequeno nao se divide em cinco.
+  const quantos = Math.min(nomes.length, q >= 100 ? 5 : q >= 40 ? 3 : 2);
+  const escolhidos = nomes.slice(0, quantos);
+  const base = Math.floor(q / quantos);
+  const sobra = q - base * quantos;
+  // A sobra vai nos primeiros, um a um, pra soma bater exatamente.
+  return escolhidos.map((produto, k) => ({ produto, qtd: base + (k < sobra ? 1 : 0) }));
+}
+
 // O CLIENTE DISSE QUE A IMAGEM NAO CHEGOU, OU PEDIU POR ESCRITO.
 //
 // A regra do prompt e "mande a imagem, nao digite a lista", e ela e boa: a peca

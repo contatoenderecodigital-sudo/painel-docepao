@@ -32,6 +32,8 @@ import {
   produtoQueNinguemCitou,
   pagamentoQueEleFalou,
   pediuPorEscrito,
+  pediuQueVoceEscolha,
+  sugestaoDeSortido,
   corrigirEndereco,
 } from "./guardas";
 
@@ -219,6 +221,31 @@ const FERRAMENTAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           categoria: { type: "string", enum: ["bolo_festa", "bolo_caseiro", "docinho", "salgado_frito", "salgado_assado", "pizza", "por_quilo", "por_unidade", "cupcake", "papel_de_arroz", "outro"] },
         },
         required: ["produto", "categoria"],
+        additionalProperties: false,
+      },
+      strict: true,
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "sugerir_sortido",
+      description:
+        "O cliente NÃO quer escolher e pediu que você monte: 'escolhe você', 'o que sai mais', 'sortido', 'confio', 'sem tempo de escolher um a um'. Chame ISTO em vez de devolver a pergunta pra ele. Eu devolvo os tipos e as quantidades com a conta já fechada, e você só oferece e pergunta se pode ser assim.",
+      parameters: {
+        type: "object",
+        properties: {
+          familia: {
+            type: "string",
+            enum: ["salgado_frito", "salgado_assado", "docinho"],
+            description: "A família que ele quer sortida.",
+          },
+          total: {
+            type: "number",
+            description: "Quantas unidades no total dessa família. Se ele não disse, use o que faz sentido pro tamanho da festa.",
+          },
+        },
+        required: ["familia", "total"],
         additionalProperties: false,
       },
       strict: true,
@@ -641,6 +668,26 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     }
     return base;
   };
+
+  if (nome === "sugerir_sortido") {
+    // ELA DECIDE QUE E INDICACAO, O CODIGO FAZ A CONTA.
+    //
+    // Entender que o cliente quer uma sugestao e o que ela faz bem. Dividir a
+    // quantidade sem sobrar nem faltar e o que o codigo faz bem, e foi errando
+    // isso que o pedido terminou com 175 docinhos onde o cliente pediu 100.
+    const fam = String(input.familia || "") as "salgado_frito" | "salgado_assado" | "docinho";
+    const total = Math.floor(Number(input.total) || 0);
+    if (total <= 0) return "NAO montei: preciso de quantas unidades no total, maior que zero.";
+    const s = sugestaoDeSortido(fam, total);
+    if (!s.length) return "NAO montei: familia invalida. Use salgado_frito, salgado_assado ou docinho.";
+    const soma = s.reduce((a, i) => a + i.qtd, 0);
+    return (
+      "Sugestao pronta, com a conta fechada em " + soma + ": " +
+      s.map((i) => i.qtd + " " + i.produto).join(", ") + ". " +
+      "OFERECA exatamente isso numa frase, pergunte SO se pode ser assim, e anote quando ele aceitar. " +
+      "NAO devolva a pergunta pra ele: ele ja disse que nao quer escolher."
+    );
+  }
 
   if (nome === "trocar_item") {
     // TROCA E UMA OPERACAO SO.
@@ -3389,6 +3436,44 @@ async function rodarConversa(
         content:
           "A FOTO JA FOI RESOLVIDA e esta anotada como \"" + marcaFoto + "\". NAO pergunte de foto de novo, " +
           "nem uma vez: confirme numa frase curta e siga pro que falta.",
+      });
+    }
+  }
+
+  // PEDIU QUE ELA ESCOLHA: O CODIGO MONTA A SUGESTAO.
+  //
+  // A secretaria pediu TRES vezes que a Dora montasse o sortido e nas tres
+  // levou a pergunta de volta. O coffee break de 150 salgados e 100 docinhos
+  // nao fechou por causa disso. Devolver a pergunta pra quem pediu ajuda e o
+  // oposto de atender.
+  //
+  // A conta e do codigo: a soma das partes bate com o total, sempre. Ela so
+  // OFERECE o que ja veio pronto.
+  if (pediuQueVoceEscolha(String(ultimaFalaDoCliente))) {
+    const t = String(String(ultimaFalaDoCliente) + " " + String(ultimaDelaAqui))
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "");
+    const quanto = Number((String(ultimaFalaDoCliente).match(/\b([0-9]{2,4})\b/) ?? [])[1]) || 0;
+    const familias: ("salgado_frito" | "salgado_assado" | "docinho")[] = [];
+    if (/assad/.test(t)) familias.push("salgado_assado");
+    else if (/frito|salgad/.test(t)) familias.push("salgado_frito");
+    if (/docinho|doce/.test(t)) familias.push("docinho");
+    const sugestoes = familias
+      .map((f) => ({ f, itens: sugestaoDeSortido(f, quanto || 100) }))
+      .filter((s) => s.itens.length > 0);
+    if (sugestoes.length) {
+      const texto = sugestoes
+        .map((s) => s.itens.map((i) => i.qtd + " " + i.produto).join(", "))
+        .join(" e ");
+      messages.push({
+        role: "system",
+        content:
+          "O CLIENTE PEDIU QUE VOCE ESCOLHA. Nao devolva a pergunta: ele ja disse que nao quer escolher, e " +
+          "insistir e o oposto de atender.\n\n" +
+          "OFERECA EXATAMENTE ISTO, que ja esta com a conta certa: " + texto + ".\n\n" +
+          "Diga numa frase que essa e a sua sugestao, pergunte SO se pode ser assim, e anote quando ele " +
+          "aceitar. Se ele quiser trocar um tipo, troca e pronto.",
       });
     }
   }
