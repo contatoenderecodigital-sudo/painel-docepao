@@ -622,3 +622,66 @@ Significa que estes oito caminhos, que cobrem os defeitos que já custaram
 dinheiro, ficaram estáveis em cinco execuções cada. Cliente real inventa
 caminho que nenhum cenário tem, e é pra isso que existe o botão Reportar na
 tela de atendimento.
+
+---
+
+## 20 de agosto de 2026, tarde e noite: o dia da entrega
+
+O dono testou na tela junto comigo. Apareceram 14 defeitos que NENHUMA das
+quatro medições e nenhum dos 37 testes tinha pego. Todos apareceram porque um
+cliente andou por um caminho que os cenários não cobriam, quase sempre um bolo
+com topo.
+
+### Os que só apareceriam no dia da retirada
+
+| Defeito | O que acontecia |
+|---|---|
+| Pedido nunca registrado | Cliente dizia "pode fechar", ouvia "posso passar pra equipe?", ia embora achando que encomendou. Não existia pedido |
+| Peça do topo impossível de fabricar | Nunca perguntava nome e idade do aniversariante |
+| 37 docinhos sumindo | O teto de tokens cortava o JSON: `{"produto":"leite"}` no lugar de "leite ninho, 37" |
+| 60 salgados sumindo | Recheio inventado fazia a guarda apagar o item inteiro |
+| Bolo e topo recusados | Ela dizia "anotei" com o pedido vazio no banco |
+
+### As três camadas do pedido que não fechava
+
+Esse levou três tentativas, e nas duas primeiras eu **adivinhei** a causa e
+errei. Só resolveu quando parei e coloquei uma linha de rastro dizendo qual
+condição barrava. A resposta veio de primeira e não era nenhuma das minhas duas
+hipóteses:
+
+1. A decisão de fechar usava a foto do pedido de **antes** da mensagem
+2. A montagem nunca era atualizada depois das ferramentas do turno
+3. Quem decide se dá pra fechar **não recebia a conversa do cliente**
+
+O rastro mostrou a evolução em duas linhas do mesmo turno, com a resposta na
+tela: `falta o NOME e a IDADE` na primeira volta, `falta a IDADE` na segunda,
+com "nome do aniversariante Theo, 7 anos" escrito na própria observação.
+
+### O que eu quebrei e tive que consertar
+
+**A guarda do valor do topo mutilou o resumo do pedido.** O cliente pediu "sem
+topo" e a linha do bolo tinha a palavra "topo" e um valor: a guarda apagou a
+linha inteira. O cliente recebeu `Seu pedido ......... Total R$ 628,20`. A
+guarda ficou pior que o defeito que ela evitava.
+
+**A bateria do painel mexia no pedido de outra pessoa.** Ela clicava no
+`.first()` card da tela. O dono deixou um pedido de demonstração na fila e saiu
+de casa; quando voltou, o pedido estava com R$ 25 de topo lançados e liberado
+pra aprovação, com a Dora perguntando e respondendo sozinha. E isso rodava
+contra o painel de PRODUÇÃO: num dia com pedido real na fila, teria lançado
+R$ 25 no pedido de um cliente e mandado mensagem pra ele.
+
+**Eu culpei o cache do navegador dele por um erro meu.** A linha do papel de
+arroz continuava aparecendo e eu mandei limpar cache e abrir janela anônima. O
+componente tem duas listas de item, e eu tinha filtrado a somente-leitura em
+vez da editável. O que resolveu foi ler o código, não insistir na hipótese.
+
+### A regra que atravessa quase tudo
+
+O código sabia a informação e quem decide não recebia: ou lia só a última
+mensagem, ou lia um estado velho, ou não repassava a conversa adiante.
+
+E a segunda: **prompt é sugestão**. A persona mandava não chutar valor de topo,
+com todas as letras, e ela chutou. Mandava registrar o pedido AGORA, e ela
+perguntou "posso passar pra equipe?". As duas viraram código: guarda que apaga
+o valor, e `tool_choice` obrigando a chamada quando não falta nada.

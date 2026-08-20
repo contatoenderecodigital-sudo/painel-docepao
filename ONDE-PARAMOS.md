@@ -113,33 +113,31 @@ arquivos `docepao1908*` e `docepao19082*`.
   prompt autorizava cotar "R$ 10 a R$ 15 por aplicativo", taxa que a padaria não
   pratica, e isso saiu.
 
+## Testado NA TELA com o dono, em 20/08/2026
+
+Cada linha aqui foi conferida no banco, na impressora ou pela rota real. Nada
+foi dado como certo por leitura de código.
+
+| Fluxo | Como foi conferido |
+|---|---|
+| Conversa vira pedido | Pedido no banco com item, preço, data, hora e pagamento certos |
+| Pendência de topo | `precisa_confirmacao=true`, motivo "confirmar valor do topo de bolo" |
+| Equipe lança o valor | Cliente recebe o total novo e o pedido fica esperando a resposta dele |
+| Cliente CONFIRMA | Sai da espera e entra na fila. Não imprime nada ainda |
+| Cliente RECUSA | Volta com o motivo real: "cliente achou o valor do topo caro e não quer pagar" |
+| Aprovar | Só o botão do painel aprova. Nada no banco aprova sozinho (conferido nos gatilhos) |
+| Imprimir | Comanda da cozinha com os dados da peça e ticket do caixa, batendo com o WhatsApp |
+| Pedido recusado | Não imprime: o gatilho só dispara quando o status vira "aprovado" |
+| Papel de arroz | Marcado cobra R$ 199,60, desmarcado cobra R$ 187,60, pela rota real |
+
 ## O que FALTA
 
-Nada de código na lista do plano. O que sobrou:
+1. ~~Teste de impressão com papel.~~ **Feito em 20/08/2026 pelo dono.** Saíram
+   as duas vias, conferidas na foto: a comanda BOLO FESTA com os dados da peça
+   (pão de ló, tema, nome e idade do aniversariante) e o ticket do CAIXA com
+   `3 kg x R$ 49,90 = R$ 149,70`, topo `1 un x R$ 25,00`, total R$ 174,70, PIX,
+   batendo com o que a cliente leu no WhatsApp.
 
-1. **Teste de impressão com papel.** Único item que não dá pra fazer daqui.
-
-   O pedido da Fernanda Klein que estava separado pra isso **não existe mais**:
-   foi apagado por um teste destrutivo em 19/08, junto com o resto do banco.
-   Conferido no banco em 20/08, não adianta procurar.
-
-   No lugar dele use o pedido **Juliana Ravazzi, R$ 637,30, retirada 20/09/2026
-   às 15:00**, que está confirmado no banco e é ainda mais completo. Sete
-   linhas, e cada uma exercita uma coisa diferente da impressão:
-
-   ```
-   bolo bombom      2 kg   topo tema dinossauro, nome Theo, 7 anos, foto do tema
-   coxinha        100 un   (salgado frito)
-   mini bolha     100 un   carne
-   esfirra        100 un   calabresa  (salgado assado, outra bancada)
-   brigadeiro      75 un   forminha azul bebê
-   beijinho        75 un   forminha azul bebê
-   topo de bolo     1 un   (linha própria, valor lançado pela equipe)
-   ```
-
-   É pôr papel e clicar em Reimprimir. Se ele também sumir, qualquer pedido de
-   festa com bolo, salgado frito, salgado assado e docinho serve: o que importa
-   é ter as quatro bancadas mais o ticket do caixa.
 2. **`ADMIN_WHATSAPP` e `DONA_WHATSAPP`** no Coolify. Os dois números precisam
    ter mandado um "oi" pro número da padaria antes, senão a Meta recusa pela
    janela de 24h.
