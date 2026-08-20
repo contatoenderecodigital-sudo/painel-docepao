@@ -5561,6 +5561,24 @@ async function rodarConversa(
       // recusa. Sem ela o log so diz que recusou, nao por que.
       console.log(`[ia] ${tc.function.name} -> ${saida.replace(new RegExp("\\s+", "g"), " ").slice(0, 320)}`);
       messages.push({ role: "tool", tool_call_id: tc.id, content: saida });
+
+      // O QUE A FERRAMENTA ACABOU DE GRAVAR VALE JA, NESTE TURNO.
+      //
+      // montagemDoTurno era a foto do pedido ANTES da mensagem, e nunca era
+      // atualizada depois das ferramentas. Toda decisao tomada nas voltas
+      // seguintes lia estado velho.
+      //
+      // O rastro provou: a cliente respondeu "o nome dele e Theo e faz 7 anos,
+      // so o bolo mesmo, pode fechar", a Dora escreveu isso na observacao, e a
+      // conferencia de fechamento respondeu
+      //   pendSabor=[bolo bombom: falta o NOME do aniversariante, a IDADE]
+      // com "nome do aniversariante Theo, 7 anos" escrito na propria linha. O
+      // pedido nao fechava e ela ficava perguntando o que ja tinha sido dito.
+      //
+      // E o irmao do defeito que dominou a noite: la a guarda lia so a ultima
+      // mensagem; aqui a decisao le um estado velho. Mesma doenca, lugar
+      // diferente.
+      montagemDoTurno = aplicarMudancasNaMemoria(montagemDoTurno, estado.montagem);
     }
   }
 
@@ -5578,6 +5596,59 @@ async function rodarConversa(
 
 // Quais pecas ja foram mandadas nas ultimas mensagens (a peca vai como imagem
 // com legenda "Cardapio de X", e isso fica no historico).
+// O PEDIDO COMO ESTA AGORA, no meio do turno, sem ir no banco.
+//
+// As mudancas do turno ficam numa lista e so viram banco depois que a resposta
+// sai. Enquanto isso, toda decisao do codigo (fechar ou nao, o que ainda falta,
+// que cardapio mandar) lia a foto de ANTES da mensagem. Era assim que a Dora
+// escrevia o nome do aniversariante e, na mesma resposta, o codigo dizia que o
+// nome estava faltando.
+//
+// Aqui a lista e aplicada em memoria, na mesma ordem em que o banco vai aplicar.
+// Nao substitui a gravacao: serve pras decisoes do turno enxergarem o que ja
+// foi decidido nele.
+function aplicarMudancasNaMemoria(
+  atual: MontagemAtual | null | undefined,
+  mudancas: MudancaMontagem[],
+): MontagemAtual {
+  const base: MontagemAtual = {
+    itens: [...(atual?.itens ?? [])].map((i) => ({ ...i })),
+    dados: { ...(atual?.dados ?? {}) },
+  } as MontagemAtual;
+  const chave = (t: unknown) =>
+    String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+  for (const mud of mudancas) {
+    if (mud.tipo === "dados") {
+      base.dados = { ...base.dados, ...(mud.dados as Record<string, unknown>) } as MontagemAtual["dados"];
+      continue;
+    }
+    const mesmo = (i: { produto: string; categoria?: string | null }) =>
+      chave(i.produto) === chave(mud.produto) && chave(i.categoria) === chave(mud.categoria);
+    if (mud.tipo === "remover") {
+      base.itens = base.itens.filter((i) => !mesmo(i));
+      continue;
+    }
+    const achou = base.itens.find(mesmo);
+    if (achou) {
+      achou.qtd = Number(mud.qtd ?? achou.qtd);
+      // Observacao que cresce e a mesma ficando completa: e assim que o banco
+      // trata, e e por isso que "nome Theo" nao pode apagar "tema homem aranha".
+      const antiga = String(achou.obs ?? "").trim();
+      const nova = String(mud.obs ?? "").trim();
+      achou.obs = !nova ? antiga || null : antiga.includes(nova) ? antiga : nova.includes(antiga) ? nova : nova;
+    } else {
+      base.itens.push({
+        produto: String(mud.produto),
+        categoria: String(mud.categoria ?? "outro"),
+        qtd: Number(mud.qtd ?? 0),
+        unidade: unidadeDoProduto(String(mud.produto), String(mud.categoria ?? "")),
+        obs: mud.obs ?? null,
+      } as MontagemAtual["itens"][number]);
+    }
+  }
+  return base;
+}
+
 function pecasJaMandadas(historico: Mensagem[]): CardapioId[] {
   const ultimas = historico.slice(-8).map((m) => String(m.content ?? "").toLowerCase());
   const achadas: CardapioId[] = [];
