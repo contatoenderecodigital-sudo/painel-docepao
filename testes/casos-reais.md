@@ -428,3 +428,44 @@ virando frito) e o total do sortido (200 virando 100).
 disse continua valendo ate ele mudar, e o que manda e o ULTIMO que ele falou.
 Guarda que so olha a fala do momento vai falhar exatamente quando a conversa
 ficar longa, que e quando o pedido e grande.
+
+---
+
+## Pedido certo, atendimento ruim (20/08/2026, medicao final)
+
+Achado lendo as conversas da medicao como CLIENTE, ideia do dono: o medidor
+julga pelo ESTADO DO BANCO, entao ele aprova um pedido certo no fim de um
+atendimento que faria a pessoa desistir no meio.
+
+**A Dora pede o nome de quem retira 2 a 3 vezes por conversa de festa.** Foram
+29 pedidos de nome nas conversas de uma rodada. O padrao:
+
+  cliente: festa dia 06/09, 100 coxinhas e 50 esfirras de calabresa
+  Dora:    (cardapio de salgados) Anotei. Me diz o nome completo de quem vai
+           retirar, por favor?
+  cliente: e 60 brigadeiros, forminha dourada
+  Dora:    (cardapio de docinhos) Anotei. Quer escolher mais algum sabor?
+  cliente: um bolo de 3 kg de laka, pao de lo branco
+  Dora:    (cardapio de bolos) Anotei. Me diz o nome completo de quem vai
+           retirar, por favor?
+  cliente: sem topo e sem papel de arroz
+  Dora:    Me diz o nome completo de quem vai retirar o pedido?
+
+Tres vezes o nome, com a cliente no meio de montar a festa. E tres cardapios
+mandados DEPOIS dela ja ter dito o que queria.
+
+A propria persona proibe isso com todas as letras: "perguntar duas vezes a mesma
+coisa faz o cliente achar que voce nao anotou nada".
+
+O pedido fechou certo (R$ 378,20, quatro linhas, tudo conferido), e por isso o
+cenario deu 5/5.
+
+**Por que nao foi consertado na hora:** e qualidade de atendimento, nao erro de
+pedido. Mexer na maquina de etapas, que decide a ordem das perguntas, era o
+maior risco possivel na hora da entrega, com o fechamento do pedido recem
+estabilizado depois de tres tentativas. Fica como o primeiro item da proxima
+sessao, com a evidencia acima.
+
+**A direcao do conserto:** dado de fechamento (nome, pagamento) nao se pede
+enquanto o cliente ainda esta listando item. Pergunta uma vez, no fim, quando as
+etapas de item acabaram.
