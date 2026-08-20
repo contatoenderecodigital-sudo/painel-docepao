@@ -516,6 +516,9 @@ function executarFerramenta(
   // Tudo que o CLIENTE escreveu nesta conversa. E contra isto que o portao de
   // escrita confere se um sabor foi dito por ele ou inventado por ela.
   falasDoCliente: string[] = [],
+  // O pedido que ja esta registrado pra este cliente. Serve pra ela nao emitir
+  // o mesmo recibo duas vezes.
+  pedidoAberto?: PedidoEmAbertoIA | null,
 ): string {
   if (nome === "montar_orcamento") {
     if (input.modo !== "itens") {
@@ -2232,6 +2235,32 @@ ATENCAO: recusar o registro NAO quer dizer recomecar a coletar. Tudo que o clien
     if (precisaConfirmacao && pendencias.length === 0 && !motivoHumano) {
       console.warn("[ia] precisa_confirmacao marcado sem motivo; seguindo pra aprovacao normal");
       precisaConfirmacao = false;
+    }
+    // O MESMO PEDIDO NAO E EMITIDO DUAS VEZES.
+    //
+    // Na bateria de 19/08/2026 ela mandou o recibo completo duas vezes,
+    // identico, e a cliente perguntou "agora sao dois?". Nao criou dois pedidos
+    // no banco, mas quem le o WhatsApp nao sabe disso: ela ficou achando que
+    // tinha encomendado o dobro, num pedido de R$ 547.
+    //
+    // So trava quando e IGUAL. Se mudou item, quantidade ou total, registrar de
+    // novo e o jeito certo de alterar um pedido que a equipe ainda nao aprovou,
+    // e isso continua funcionando.
+    if (pedidoAberto && !pedidoAberto.impresso) {
+      const mesmoTotal = Math.abs(pedidoAberto.totalCentavos - Math.round(c.total * 100)) < 2;
+      const assinatura = (lista: { produto?: string; item?: string; qtd?: number }[]) =>
+        lista
+          .map((i) => marca(String(i.produto ?? i.item ?? "")) + ":" + (Number(i.qtd) || 0))
+          .sort()
+          .join("|");
+      if (mesmoTotal && assinatura(pedidoAberto.itens) === assinatura(itens)) {
+        return (
+          "NAO registrei de novo: este pedido JA ESTA registrado, igualzinho, e a equipe ja recebeu. " +
+          "Mandar o recibo outra vez faz o cliente achar que pediu em dobro. " +
+          "Responda o que ele perguntou numa frase, sem repetir a lista nem o total. " +
+          "Se ele quiser MUDAR alguma coisa, ai sim registre de novo com a mudanca."
+        );
+      }
     }
     estado.pedido = {
       itens,
@@ -4461,7 +4490,7 @@ async function rodarConversa(
         .filter((h) => h.role === "user")
         .map((h) => (typeof h.content === "string" ? h.content : ""))
         .filter(Boolean);
-      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemDoTurno, pedidoAguardando, ultimaFala, ultimaFalaDela, falasDela, falasDoCliente);
+      const saida = executarFerramenta(tc.function.name, args, estado, tenant.motor, falaDoCliente, montagemDoTurno, pedidoAguardando, ultimaFala, ultimaFalaDela, falasDela, falasDoCliente, pedidoAberto);
       // Sem isto, quando ela faz besteira so da pra adivinhar o que ela chamou.
       // 90 caracteres cortavam justamente a lista do que falta, que e o motivo da
       // recusa. Sem ela o log so diz que recusou, nao por que.
