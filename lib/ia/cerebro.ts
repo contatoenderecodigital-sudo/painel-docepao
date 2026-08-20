@@ -1534,6 +1534,26 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         obsItem = null;
         avisoSabor =
           " O sabor NAO foi anotado: o cliente nunca falou em " + naObs.join(" nem em ") + ". Pergunte qual ele quer, citando as opcoes (" + opsFechadas.join(", ") + "). O item ficou no pedido esperando essa resposta.";
+      } else if (naObs.length && doCliente.length && doCliente.length < naObs.length) {
+        // FICA O QUE ELE PEDIU, SAI O QUE ELA ACRESCENTOU.
+        //
+        // O rastro de 20/08/2026 pegou a pizza travando por causa disto: ela
+        // listou os sabores na pergunta, anotou a LISTA INTEIRA como
+        // observacao, e o codigo jogava fora a observacao toda. A pizza ficava
+        // sem sabor, e o pedido travava pedindo o sabor que o cliente ja tinha
+        // dado. Duas pizzas de R$ 120 paradas por isso.
+        //
+        // Agora sobra o que ELE falou. Zerar tudo por causa do que ela
+        // acrescentou punia o cliente pelo erro dela.
+        const sobrando = naObs.filter((o) => !doCliente.includes(o));
+        console.warn(
+          "[ia] sabor a mais em " + produto + ": " + sobrando.join(", ") +
+            "; fica so o que o cliente falou: " + doCliente.join(", "),
+        );
+        obsItem = doCliente.join(", ");
+        avisoSabor =
+          " Tirei da observacao o que o cliente nao pediu (" + sobrando.join(", ") + "). Ficou " +
+          doCliente.join(", ") + ". Se ele quiser algum desses a mais, ele fala.";
       }
     }
 
