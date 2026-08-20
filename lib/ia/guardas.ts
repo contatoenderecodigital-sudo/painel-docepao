@@ -374,6 +374,41 @@ export function produtoQueNinguemCitou(
   return true;
 }
 
+// ASSADO NAO E FRITO, E O CLIENTE ESCOLHEU UM DOS DOIS.
+//
+// A secretaria pediu salgados ASSADOS na segunda mensagem e a Dora ofereceu
+// "40 mini bolha, que e o pastel frito da casa". So corrigiu quando a cliente
+// reclamou. Quem pede assado costuma ter motivo (dieta, coffee break, nao quer
+// fritura), e receber frito e receber outra coisa.
+//
+// A ferramenta de sortido ja separa as duas familias corretamente. O problema e
+// que ela nem sempre chama a ferramenta: monta a lista de cabeca. Entao a
+// guarda tem que pegar o erro por QUALQUER caminho, e nao so no da ferramenta.
+//
+// Devolve "assado", "frito" ou null quando ele nao especificou.
+export function familiaQueElePediu(falasDoCliente: string[]): "assado" | "frito" | null {
+  const t = " " + falasDoCliente.map((f) => semAcMin(f)).join(" | ") + " ";
+  // O ULTIMO que ele falou manda: pode ter comecado com um e mudado.
+  let escolha: "assado" | "frito" | null = null;
+  let ondeUltimo = -1;
+  for (const [nome, re] of [
+    ["assado", /\bassad[oa]s?\b|\bde forno\b|\bsem fritura\b|\bnao (quero|pode ser) frit[oa]/g],
+    ["frito", /\bfrit[oa]s?\b|\bfritura\b/g],
+  ] as const) {
+    for (const m of t.matchAll(re)) {
+      const onde = m.index ?? -1;
+      // "nao quero frito" fala de frito mas ESCOLHE assado: ja tratado no lado
+      // do assado, entao aqui a ocorrencia dentro dessa frase e ignorada.
+      if (nome === "frito" && /\bnao (quero|pode ser|queria)\s*$/.test(t.slice(Math.max(0, onde - 20), onde))) continue;
+      if (onde > ondeUltimo) {
+        ondeUltimo = onde;
+        escolha = nome;
+      }
+    }
+  }
+  return escolha;
+}
+
 // O CLIENTE PEDIU QUE ELA ESCOLHA.
 //
 // No teste de aceitacao de 19/08/2026 a secretaria pediu TRES vezes que a Dora
@@ -562,4 +597,84 @@ export function corrigirEndereco(texto: string, enderecoCerto: string): string {
     if (!bate) saida = saida.split(m).join(certo);
   }
   return saida;
+}
+
+// O QUE O CLIENTE PEDIU COM QUANTIDADE E A CASA NAO FAZ.
+//
+// Serve pra ela dizer "isso a gente nao tem" e seguir com o resto do pedido,
+// em vez de repetir o cardapio e travar a conversa.
+//
+// O DEFEITO DA VERSAO ANTIGA, medido em 20/08/2026: ela lia QUALQUER numero
+// seguido de palavra como pedido. O cliente escreveu "ja te falei 3 vezes" e a
+// Dora respondeu "A gente nao tem vez tambem" e "Nao temos docinho vezes".
+// O cliente ja estava irritado, e levou deboche.
+//
+// O conserto antigo teria sido somar "vez" e "vezes" na lista de palavras
+// ignoradas. Isso e consertar o CASO: amanha aparece "3 tentativas", "2 horas
+// esperando", "5 minutos". A lista de tudo que NAO e comida nao acaba.
+//
+// A regra virou o contrario: so acusa quando a frase e mesmo um PEDIDO. Ou tem
+// verbo de comprar, ou tem uma palavra do cardapio junto do numero. Frase de
+// reclamacao nao tem nem um nem outro, e sai calada.
+//
+// Errar pra menos aqui e barato: quem impede produto inventado de entrar no
+// pedido e o enum de anotar_item, nao esta funcao. Errar pra mais custa cliente.
+export function pedidosQueNaoExistem(fala: string): string[] {
+  const conhecidos: string[] = [
+    ...((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]).map((i) => semAcMin(i.nome)),
+    ...((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[]).map((i) => semAcMin(i.nome)),
+    ...((catalogo.doces?.itens ?? []) as { nome: string }[]).map((i) => semAcMin(i.nome)),
+    ...((catalogo.bolos_caseiros?.itens ?? []) as { nome: string }[]).map((i) => semAcMin(i.nome)),
+    ...((catalogo.outros_produtos ?? []) as { nome: string }[]).map((i) => semAcMin(i.nome)),
+    ...(catalogo.bolos_recheados?.faixas ?? []).flatMap((f: { sabores?: string[] }) =>
+      (f.sabores ?? []).map((x) => semAcMin(x)),
+    ),
+    "salgado", "salgados", "docinho", "docinhos", "doce", "doces", "bolo", "bolos", "kg", "pessoas", "convidados",
+    "anos", "unidades", "cento", "centos", "pedaco", "pedacos", "fatia", "fatias", "torta", "tortas", "pizza", "pizzas",
+    // Palavras que aparecem coladas em numero e nao sao produto nenhum.
+    "crianca", "criancas", "adulto", "adultos", "gente", "reais", "real", "hora", "horas",
+    "minuto", "minutos", "dia", "dias", "semana", "semanas", "mes", "meses", "ano",
+    "caixa", "caixas", "litro", "litros", "gramas", "grama", "mesa", "mesas", "por cento",
+    "manha", "tarde", "noite", "meio dia", "meio-dia", "hoje", "amanha", "sabado", "domingo",
+    "segunda", "terca", "quarta", "quinta", "sexta", "feriado", "convidado",
+    "vez", "vezes", "tentativa", "tentativas", "minutinho", "minutinhos", "pessoa",
+  ];
+
+  // Data e hora saem antes: "dia 30/08 de manha" nao e pedido de "manha", e
+  // "as 16h" nao e pedido de "h". Foi assim que ela inventou que a padaria
+  // nao faz bolo de manha.
+  const texto = semAcMin(fala)
+    .replace(/[0-9]{1,2}[/.-][0-9]{1,2}(?:[/.-][0-9]{2,4})?/g, " ")
+    .replace(/[0-9]{1,2} ?(h|hs|horas?)\b/g, " ")
+    .replace(/[0-9]+ ?%/g, " ")
+    .replace(/\b(de|da|pela|pra|para) ?(manha|tarde|noite|manhazinha)\b/g, " ")
+    // Reclamacao nao e pedido: o trecho depois de "ja te falei" fala da
+    // CONVERSA, nao de comida, e ia virar produto inexistente.
+    .replace(/\b(ja|voce|vc|te|lhe)? ?(falei|disse|repeti|avisei|expliquei|perguntei|mandei|respondi|pedi) ?(ja|isso|pra voce|pra vc)?\b[^.!?]*/g, " ");
+
+  // PEDIDO ou CONVERSA? So acusa se for pedido.
+  const verboDeComprar =
+    /\b(quero|queria|quer[ií]amos|vou querer|vamos querer|preciso|precisava|gostaria|gostaríamos|me v[eê]|me da|manda|mande|fazer|faz|faria|tem|teria|encomend|or[cç]ament|pedido|leva|levar|anota|reserva|separa|coloca|custa|pre[cç]o)/;
+  const temNomeDoCardapio = conhecidos.some((c) => c.length > 3 && texto.includes(c));
+  if (!verboDeComprar.test(texto) && !temNomeDoCardapio) return [];
+
+  const achados: string[] = [];
+  const re = /([0-9]+) *(?:de |da |do )?([a-z][a-z ]{2,22})/g;
+  let m = re.exec(texto);
+  while (m) {
+    // O nome termina onde comeca a proxima ideia. Sem isso, "150 casadinho pra
+    // sabado" virava o nome "casadinho pra sabado", que contem "sabado", que
+    // esta na lista de palavras conhecidas: o produto inexistente passava batido.
+    const nome = m[2]
+      .trim()
+      .split(/ (?:pra|para|mais|ate|no dia|as) /)[0]
+      .replace(/ (de|da|do|com|e|pra|para|no|na)$/, "")
+      .trim();
+    const conhecido = conhecidos.some(
+      (c) => c.length > 2 && (nome.includes(c) || c.includes(nome) || nome.startsWith(c.slice(0, 5))),
+    );
+    if (!conhecido && nome.length > 3 && !achados.includes(nome)) achados.push(nome);
+    m = re.exec(texto);
+  }
+  return achados;
 }

@@ -33,6 +33,8 @@ import {
   pagamentoQueEleFalou,
   pediuPorEscrito,
   clienteNaoVaiComprar,
+  familiaQueElePediu,
+  pedidosQueNaoExistem,
   dataBrigaComODiaDaSemana,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
@@ -770,6 +772,35 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         "o que existe de mais parecido. Se ele insistir ou for coisa especial, chame a equipe."
       );
     }
+    // ASSADO NAO E FRITO. O cliente escolheu, e a escolha vale.
+    //
+    // A secretaria pediu ASSADOS na segunda mensagem e recebeu "40 mini bolha,
+    // que e o pastel frito da casa". Quem pede assado tem motivo, e receber
+    // frito e receber outra coisa. A ferramenta de sortido ja separa as duas
+    // familias; o problema e ela montar a lista de cabeca sem chamar a
+    // ferramenta, entao a guarda pega por qualquer caminho.
+    {
+      const querFamilia = familiaQueElePediu(falasDoCliente.length ? falasDoCliente : [falaDoCliente]);
+      const ehFrito = String(input.categoria || "") === "salgado_frito";
+      const ehAssado = String(input.categoria || "") === "salgado_assado";
+      if (querFamilia === "assado" && ehFrito) {
+        return (
+          `NAO anotei "${String(input.produto || "")}": e salgado FRITO e o cliente pediu ASSADO. ` +
+          `Quem pede assado costuma ter motivo, e frito e outra coisa. Ofereca os assados: ` +
+          (((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[]).map((i) => i.nome).join(", ")) + ". " +
+          `Se ele quiser frito tambem, ele fala.`
+        );
+      }
+      if (querFamilia === "frito" && ehAssado) {
+        return (
+          `NAO anotei "${String(input.produto || "")}": e salgado ASSADO e o cliente pediu FRITO. ` +
+          `Ofereca os fritos: ` +
+          (((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]).map((i) => i.nome).join(", ")) + ". " +
+          `Se ele quiser assado tambem, ele fala.`
+        );
+      }
+    }
+
     // PORTAO DE ESCRITA. Erro instrutivo em vez de codigo opaco: a mensagem
     // devolvida diz o que fazer no lugar, senao ela tenta a mesma coisa de novo.
     // ultimaFala, NAO falaDoCliente.
@@ -3644,8 +3675,18 @@ async function rodarConversa(
       .replace(/[̀-ͯ]/g, "");
     const quanto = Number((String(ultimaFalaDoCliente).match(/\b([0-9]{2,4})\b/) ?? [])[1]) || 0;
     const familias: ("salgado_frito" | "salgado_assado" | "docinho")[] = [];
-    if (/assad/.test(t)) familias.push("salgado_assado");
-    else if (/frito|salgad/.test(t)) familias.push("salgado_frito");
+    // ASSADO OU FRITO E ESCOLHA DA CONVERSA INTEIRA, NAO DA ULTIMA FRASE.
+    //
+    // A secretaria pediu ASSADOS na segunda mensagem e so na quinta pediu que a
+    // Dora montasse o sortido. Lendo so as duas ultimas falas, o "assad" ja
+    // tinha rolado pra tras e sobrava o /salgad/, entao a sugestao vinha frita:
+    // "40 mini bolha, que e o pastel frito da casa". Quem pede assado tem
+    // motivo, e frito e outra coisa.
+    const tudoQueEleFalou = historico.filter((h) => h.role === "user").map((h) => String(h.content ?? ""));
+    const escolhida = familiaQueElePediu(tudoQueEleFalou.length ? tudoQueEleFalou : [String(ultimaFalaDoCliente)]);
+    if (escolhida === "assado") familias.push("salgado_assado");
+    else if (escolhida === "frito") familias.push("salgado_frito");
+    else if (/salgad/.test(t)) familias.push("salgado_frito");
     if (/docinho|doce/.test(t)) familias.push("docinho");
     const sugestoes = familias
       .map((f) => ({ f, itens: sugestaoDeSortido(f, quanto || 100) }))
@@ -4911,51 +4952,6 @@ async function rodarConversa(
 }
 
 
-// O que o cliente pediu COM QUANTIDADE e nao existe no cardapio.
-//
-// So olha "150 casadinho", "2 tortas de brigadeiro": numero colado num nome.
-// E onde o erro custa caro, porque e a hora em que ele acha que fechou.
-function pedidosQueNaoExistem(fala: string): string[] {
-  const semAcento = (t: string) =>
-    String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const conhecidos: string[] = [
-    ...((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]).map((i) => semAcento(i.nome)),
-    ...((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[]).map((i) => semAcento(i.nome)),
-    ...((catalogo.doces?.itens ?? []) as { nome: string }[]).map((i) => semAcento(i.nome)),
-    ...((catalogo.bolos_caseiros?.itens ?? []) as { nome: string }[]).map((i) => semAcento(i.nome)),
-    ...((catalogo.outros_produtos ?? []) as { nome: string }[]).map((i) => semAcento(i.nome)),
-    ...(catalogo.bolos_recheados?.faixas ?? []).flatMap((f: { sabores?: string[] }) =>
-      (f.sabores ?? []).map((x) => semAcento(x)),
-    ),
-    "salgado", "salgados", "docinho", "docinhos", "doce", "doces", "bolo", "bolos", "kg", "pessoas", "convidados",
-    "anos", "unidades", "cento", "centos", "pedaco", "pedacos", "fatia", "fatias",
-    // Palavras que aparecem coladas em numero e nao sao produto nenhum.
-    "crianca", "criancas", "adulto", "adultos", "gente", "reais", "real", "hora", "horas",
-    "minuto", "minutos", "dia", "dias", "semana", "semanas", "mes", "meses", "ano",
-    "caixa", "caixas", "litro", "litros", "gramas", "grama", "mesa", "mesas", "por cento",
-    "manha", "tarde", "noite", "meio dia", "meio-dia", "hoje", "amanha", "sabado", "domingo",
-    "segunda", "terca", "quarta", "quinta", "sexta", "semana", "feriado", "convidado", "convidados",
-  ];
-  const achados: string[] = [];
-  // Data e hora saem antes: "dia 30/08 de manha" nao e pedido de "manha", e
-  // "as 16h" nao e pedido de "h". Foi assim que ela inventou que a padaria
-  // nao faz bolo de manha.
-  const texto = semAcento(fala)
-    .replace(/[0-9]{1,2}[/.-][0-9]{1,2}(?:[/.-][0-9]{2,4})?/g, " ")
-    .replace(/[0-9]{1,2} ?(h|hs|horas?)\b/g, " ")
-    .replace(/\b(de|da|pela|pra|para) ?(manha|tarde|noite|manhazinha)\b/g, " ");
-  const re = /([0-9]+) *(?:de |da |do )?([a-z][a-z ]{2,22})/g;
-  let m = re.exec(texto);
-  while (m) {
-    const nome = m[2].trim().replace(/ (de|da|do|com|e|pra|para|no|na)$/,"").trim();
-    const conhecido = conhecidos.some(
-      (c) => c.length > 2 && (nome.includes(c) || c.includes(nome) || nome.startsWith(c.slice(0, 5))),
-    );
-    if (!conhecido && nome.length > 3 && !achados.includes(nome)) achados.push(nome);
-    m = re.exec(texto);
-  }
-  return achados;
-}
 
 // PORTAO FINAL: peca de familia recusada nao sai.
 //

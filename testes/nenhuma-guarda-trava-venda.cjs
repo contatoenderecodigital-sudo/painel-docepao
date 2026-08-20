@@ -26,6 +26,7 @@ const {
   obsQueOClienteNaoDisse,
   produtoQueNinguemCitou,
   precosInventados,
+  familiaQueElePediu,
 } = require("./_guardas.cjs")();
 const catalogo = require("../lib/ia/dados/catalogo.json");
 
@@ -177,6 +178,30 @@ for (const obs of [
   conferir(obsQueOClienteNaoDisse(obs, FALA).length === 0, `rotulo "${obs}" recusou o item`);
 }
 console.log((falhas.length > antesRot ? "ERRO  " : "ok    ") + "rotulo e enchimento nao travam o pedido");
+
+// ---------------------------------------------------------------------------
+// 3b. ASSADO nao e FRITO
+// ---------------------------------------------------------------------------
+//
+// A secretaria pediu salgados ASSADOS na segunda mensagem e recebeu "40 mini
+// bolha, que e o pastel frito da casa". Quem pede assado tem motivo, e receber
+// frito e receber outra coisa.
+console.log("");
+console.log("== assado nao e frito ==");
+const antesFam = falhas.length;
+for (const [falas, esperado] of [
+  [["preciso de 200 salgados assados pra quarta"], "assado"],
+  [["quero 100 salgados fritos"], "frito"],
+  [["bom dia", "200 assados e 100 docinhos", "pode ser assim"], "assado"],
+  [["nao quero frito, so assado"], "assado"],
+  [["queria assado", "pensando bem pode ser frito mesmo"], "frito"],
+  [["quero 100 coxinhas pra sabado"], null],
+  [["bom dia, quanto custa o cento?"], null],
+]) {
+  const veio = familiaQueElePediu(falas);
+  conferir(veio === esperado, `familia de "${falas.join(" / ").slice(0, 44)}" deveria ser ${esperado}, veio ${veio}`);
+}
+console.log((falhas.length > antesFam ? "ERRO  " : "ok    ") + "a familia pedida e reconhecida, e a ultima palavra manda");
 
 // ---------------------------------------------------------------------------
 // 4. As guardas continuam GUARDANDO
