@@ -4599,6 +4599,28 @@ async function rodarConversa(
     // Se o portao de fora tirou registrar_pedido da mesa com a montagem velha,
     // ela volta agora: forcar uma ferramenta que nao esta na lista da erro na
     // API, e a conferencia de cima ja provou que da pra fechar.
+    // POR QUE NAO FECHOU: o rastro responde, eu ja errei o diagnostico duas
+    // vezes aqui adivinhando. Sai so quando o cliente mandou fechar, entao nao
+    // polui o log das conversas normais.
+    if (mandouFechar(historico.filter((h) => h.role === "user").map((h) => String(h.content ?? "")))) {
+      const faltamDados = ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento"].filter((k) => {
+        const v = (montagemDoTurno?.dados as Record<string, unknown> | undefined)?.[k];
+        return !v || String(v).trim() === "";
+      });
+      const sabores = pendenciasDeSabor(
+        montagemDoTurno?.itens ?? [],
+        ehFesta,
+        pediuBolo,
+        String(montagemDoTurno?.dados?.nao_quer ?? ""),
+      );
+      console.warn(
+        "[rastro] fechar? forcar=" + obrigarFechamento +
+          " itens=" + (montagemDoTurno?.itens ?? []).length +
+          " faltamDados=[" + faltamDados.join(",") + "]" +
+          " pendSabor=[" + sabores.join(" ; ").slice(0, 160) + "]" +
+          " jaTemPedido=" + !!estado.pedido,
+      );
+    }
     const ferramentasDaVolta =
       obrigarFechamento &&
       !ferramentas.some((f) => (f as { function?: { name?: string } })?.function?.name === "registrar_pedido")
