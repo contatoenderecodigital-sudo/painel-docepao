@@ -116,6 +116,30 @@ for (const obs of ["forminha rosa", "recheio de calabresa", "sabor morango", "co
 }
 
 console.log("");
+console.log("== os ROTULOS dela e o ENCHIMENTO nao recusam o item ==");
+// O rastro de 20/08/2026 pegou a festa travando duas vezes por isto:
+//   "isto na observacao o cliente NUNCA escreveu: aniversariante Alice 5 anos"
+//   "isto na observacao o cliente NUNCA escreveu: cor da forminha nao definida"
+// O cliente escreveu "a Alice faz 5 anos"; quem pos a palavra "aniversariante"
+// foi ela. E "nao definida ainda" e enchimento pra nao deixar campo vazio: se
+// limpa, nao se recusa o item inteiro.
+const FALA_DA_FESTA = [
+  "vai topo tema princesa, a Alice faz 5 anos, nao tenho foto",
+  "e 60 brigadeiros, forminha dourada",
+];
+for (const obs of [
+  "aniversariante Alice 5 anos",
+  "nome Alice, idade 5 anos",
+  "tema princesa",
+  "cor da forminha nao definida ainda",
+  "sabor a definir",
+  "recheio pendente",
+]) {
+  const fora = obsQueOClienteNaoDisse(obs, FALA_DA_FESTA);
+  conferir(fora.length === 0, 'nao recusa "' + obs + '"', "trava o item: " + fora.join(", "));
+}
+
+console.log("");
 console.log("== sabor que o cliente NUNCA falou tem que ser recusado ==");
 const conversaReal = [
   "bom dia, queria saber o preco da torta salgada e do empadao",

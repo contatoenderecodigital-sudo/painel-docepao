@@ -148,7 +148,16 @@ export function obsQueOClienteNaoDisse(obs: unknown, falasDoCliente: string[]): 
   // e rotulo DELA, nao invencao: quem escolheu a cor foi ele. Sem tirar esses
   // rotulos, a guarda recusava a anotacao certa e a cor se perdia, que e
   // exatamente o defeito que ela ja tinha antes de existir guarda nenhuma.
-  const ROTULOS = /\b(forminha|forminhas|recheio|recheios|sabor|sabores|cor|tema|massa|cobertura|pao de lo|com|de|do|da|e|em|no|na)\b/g;
+  const ROTULOS =
+    /\b(forminha|forminhas|recheio|recheios|sabor|sabores|cor|tema|massa|cobertura|pao de lo|aniversariante|niver|idade|anos?|nome|para|pra|com|de|do|da|e|em|no|na)\b/g;
+  // ENCHIMENTO NAO E ESCOLHA, E NAO PODE RECUSAR O ITEM.
+  //
+  // O rastro de 20/08/2026 pegou a festa travando em "cor da forminha nao
+  // definida ainda": ela escreve isso pra nao deixar o campo vazio, e a guarda
+  // tratava como sabor inventado e recusava o item INTEIRO. Enchimento se
+  // limpa, nao se recusa.
+  const ENCHIMENTO =
+    /\b(nao (definid|informad|especificad|escolhid)[oa]?|a definir|a combinar|ainda|indefinid[oa]|pendente|sem definir|por enquanto|talvez)\b/g;
   const fora: string[] = [];
   for (const pedaco of texto.split(",").map((x) => x.trim()).filter(Boolean)) {
     const p = semAcMin(pedaco);
@@ -160,6 +169,7 @@ export function obsQueOClienteNaoDisse(obs: unknown, falasDoCliente: string[]): 
     // inventou "cuca sem recheio" que ninguem pediu. Tirando o rotulo "recheio"
     // sobra so o "sem", e ele precisa continuar valendo.
     const palavras = p
+      .replace(ENCHIMENTO, " ")
       .replace(ROTULOS, " ")
       .split(/[^a-z0-9]+/)
       .filter((w) => w.length > 3 || w === "sem");
