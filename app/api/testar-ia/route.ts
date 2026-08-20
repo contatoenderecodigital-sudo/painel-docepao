@@ -109,7 +109,38 @@ export async function POST(req: NextRequest) {
     // senao o teste exercita um sistema que nao existe em producao.
     // Cada cenario do teste comeca do zero: sem isso o pedido de um vaza no
     // outro e o resultado nao quer dizer nada.
-    if (clienteId && corpo?.reiniciar) await limparMontagem(negocioId, clienteId).catch(() => {});
+    if (clienteId && corpo?.reiniciar) {
+      await limparMontagem(negocioId, clienteId).catch(() => {});
+      // O PEDIDO DA RODADA ANTERIOR TAMBEM PRECISA SAIR.
+      //
+      // A bateria do painel usa sempre este mesmo cliente de teste, entao
+      // registrar_pedido ATUALIZA o pedido da rodada passada em vez de criar
+      // um novo. O pedido velho ja tinha sido liberado pelo proprio teste, e o
+      // atualizado nascia sem a pendencia de topo: a bateria dizia "nao achei o
+      // card", e o fluxo do topo, que e o motivo dela existir, nunca era
+      // exercitado.
+      //
+      // O recorte e o telefone fixo do cliente de teste do painel, que nao e
+      // pessoa nenhuma. Em 20/08/2026 um teste apagou banco demais e levou
+      // junto o pedido que o dono ia usar: limpeza de teste mexe no que o teste
+      // criou, e em mais nada.
+      try {
+        const { query } = await import("@/lib/banco/db");
+        await query(
+          `delete from pedido_itens where pedido_id in (
+             select p.id from pedidos p join clientes c on c.id = p.cliente_id
+              where p.negocio_id = $1 and c.telefone = $2)`,
+          [negocioId, TESTE_TELEFONE],
+        );
+        await query(
+          `delete from pedidos p using clientes c
+            where p.cliente_id = c.id and p.negocio_id = $1 and c.telefone = $2`,
+          [negocioId, TESTE_TELEFONE],
+        );
+      } catch (e) {
+        console.error("[testar-ia] falha ao limpar o pedido do cliente de teste:", e);
+      }
+    }
     const montado = clienteId ? await lerMontagem(negocioId, clienteId).catch(() => null) : null;
     const emAberto = clienteId ? await pedidoEmAberto(negocioId, clienteId).catch(() => null) : null;
     resp = await responder(historico, tenant, "whatsapp", clienteId, montado, false, null, emAberto);

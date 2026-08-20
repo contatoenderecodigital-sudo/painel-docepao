@@ -67,9 +67,14 @@ const URL_PEDIDO = "/api/qa/ultimo-pedido?telefone=5500000000000&desde=" + DESDE
   console.log("\n1) Conversa com foto e topo de bolo (cria o pedido pendente)");
   // ---------------------------------------------------------------------
   const msgs = [];
+  // A primeira mensagem zera o cliente de teste: montagem e pedido da rodada
+  // anterior. Sem isso o registro ATUALIZA o pedido velho, que este mesmo teste
+  // ja tinha liberado, e a pendencia de topo nunca nasce.
+  let primeira = true;
   const falar = async (texto, comFoto) => {
     msgs.push({ de: "cliente", texto });
-    const corpo = { mensagens: msgs };
+    const corpo = { mensagens: msgs, reiniciar: primeira };
+    primeira = false;
     if (comFoto) { corpo.imagem = FOTO_1PX; corpo.imagemMime = "image/jpeg"; }
     const r = await p.request.post(BASE + "/api/testar-ia", { data: corpo, timeout: 120000 });
     const j = await r.json().catch(() => ({}));
