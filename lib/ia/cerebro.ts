@@ -3101,9 +3101,20 @@ function etapasDaFesta(
     //
     // Vale a palavra "nome", ou um rotulo de aniversario seguido de um nome
     // proprio, que e como ela escreve na pratica.
+    // O ROTULO E O NOME NEM SEMPRE ESTAO COLADOS.
+    //
+    // Isto exigia o nome logo depois do rotulo. Em 20/08/2026 a observacao
+    // dizia "aniversario da Manuela 6 anos" e a checagem deu falso: entre
+    // "aniversario" e "Manuela" tem um "da". A Dora pediu o nome do
+    // aniversariante com o nome escrito na linha, no mesmo turno em que o
+    // cliente acabou de dar.
+    //
+    // E a segunda vez que esse mesmo lugar erra pelo mesmo motivo: antes era
+    // "aniversariante Alice 5 anos", que travou uma festa ate o cliente
+    // desistir, e o conserto de la resolveu so aquele formato.
     const temNome =
       /nome/i.test(obsBolo) ||
-      /(anivers[aá]riante|nivers|para o|pra o|pra a|para a)\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zá-úâ-ûã-õç]{2,}/.test(obsBolo);
+      /(anivers\w*|nivers\w*|para|pra)\s+(?:(?:[ad][aeo]s?|[ao]s?)\s+){0,2}[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zá-úâ-ûã-õç]{2,}/.test(obsBolo);
     if (!temNome) falta.push("o NOME do aniversariante");
     // A idade pode ter sido dita na conversa, nao na observacao.
     const temIdade =

@@ -596,7 +596,15 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
             </p>
           )}
           <div className="flex flex-col gap-2">
-            {itens.map((it, i) => (
+            {/* O papel de arroz derivado do bolo nao aparece como linha
+                editavel: quem manda nele e a caixa de marcar do bolo. O indice
+                original e preservado porque mexerItem(i) aponta pra lista de
+                verdade. Da primeira vez eu filtrei a lista errada (a de leitura,
+                quando o pedido esta travado) e o dono continuou vendo a linha. */}
+            {itens
+              .map((it, i) => ({ it, i }))
+              .filter(({ it }) => !ehPapelDerivado(it, itens))
+              .map(({ it, i }) => (
               <div key={i} className="rounded-[12px] p-2.5 border border-white/8" style={{ background: "rgba(0,0,0,0.18)" }}>
                 {/* ESCOLHA EM DOIS PASSOS: primeiro a categoria, depois o
                     produto DELA. O cardápio inteiro num select só ficava com
