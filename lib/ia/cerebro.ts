@@ -4571,13 +4571,39 @@ async function rodarConversa(
       const v = (montagemDoTurno?.dados as Record<string, unknown> | undefined)?.[k];
       return !!v && String(v).trim() !== "";
     });
+    // A CONFERENCIA E REFEITA A CADA VOLTA, COM A MONTAGEM DE AGORA.
+    //
+    // podeFechar e a lista de ferramentas sao calculados UMA vez, antes do
+    // laco, com a montagem de antes da mensagem. No turno em que chega a ultima
+    // informacao que faltava, os dois nascem desatualizados: e exatamente o
+    // turno do "pode fechar", porque o cliente costuma responder a ultima
+    // pergunta e mandar fechar na mesma frase.
+    //
+    // Foi o que aconteceu no teste: "o nome dele e Theo e faz 7 anos, so o bolo
+    // mesmo, pode fechar". Ela escreveu o nome e a idade na observacao naquele
+    // turno, e a decisao de fechar continuou olhando a montagem sem eles.
+    const podeFecharAgora =
+      (montagemDoTurno?.itens?.length ?? 0) > 0 &&
+      pendenciasDeSabor(
+        montagemDoTurno?.itens ?? [],
+        ehFesta,
+        pediuBolo,
+        String(montagemDoTurno?.dados?.nao_quer ?? ""),
+      ).length === 0;
     const obrigarFechamento =
-      podeFechar &&
+      podeFecharAgora &&
       temOsDados &&
       mandouFechar(historico.filter((h) => h.role === "user").map((h) => String(h.content ?? ""))) &&
       !estado.pedido &&
-      (montagemDoTurno?.itens ?? []).length > 0 &&
-      ferramentas.some((f) => (f as { function?: { name?: string } })?.function?.name === "registrar_pedido");
+      (montagemDoTurno?.itens ?? []).length > 0;
+    // Se o portao de fora tirou registrar_pedido da mesa com a montagem velha,
+    // ela volta agora: forcar uma ferramenta que nao esta na lista da erro na
+    // API, e a conferencia de cima ja provou que da pra fechar.
+    const ferramentasDaVolta =
+      obrigarFechamento &&
+      !ferramentas.some((f) => (f as { function?: { name?: string } })?.function?.name === "registrar_pedido")
+        ? [...ferramentas, ...FERRAMENTAS.filter((f) => "function" in f && f.function.name === "registrar_pedido")]
+        : ferramentas;
     const escolhaDaFerramenta = obrigarFechamento
       ? ({ type: "function", function: { name: "registrar_pedido" } } as const)
       : undefined;
@@ -4590,7 +4616,7 @@ async function rodarConversa(
             // consulta: 4000 tokens todos no raciocínio e nada de texto).
             max_completion_tokens: 4000,
             messages,
-            tools: ferramentas,
+            tools: ferramentasDaVolta,
             ...(escolhaDaFerramenta ? { tool_choice: escolhaDaFerramenta } : {}),
           }
         : {
@@ -4598,7 +4624,7 @@ async function rodarConversa(
             max_tokens: 350, // resposta de WhatsApp é curta; corta desperdício de token
             temperature: 0.4, // menos "criatividade" = segue mais as regras (usar a ferramenta)
             messages,
-            tools: ferramentas,
+            tools: ferramentasDaVolta,
             ...(escolhaDaFerramenta ? { tool_choice: escolhaDaFerramenta } : {}),
           },
     );
