@@ -98,10 +98,29 @@ arquivos `docepao1908*` e `docepao19082*`.
 
 Nada de código na lista do plano. O que sobrou:
 
-1. **Teste de impressão com papel.** Único item que não dá pra fazer daqui. O
-   pedido `Fernanda Klein, R$ 493,00, retirada 06/09 às 15:00` está aprovado e
-   impresso no banco: é só pôr papel e clicar em Reimprimir. Ele exercita 4
-   comandas, resumo por faixa, referência cruzada e o ticket do caixa.
+1. **Teste de impressão com papel.** Único item que não dá pra fazer daqui.
+
+   O pedido da Fernanda Klein que estava separado pra isso **não existe mais**:
+   foi apagado por um teste destrutivo em 19/08, junto com o resto do banco.
+   Conferido no banco em 20/08, não adianta procurar.
+
+   No lugar dele use o pedido **Juliana Ravazzi, R$ 637,30, retirada 20/09/2026
+   às 15:00**, que está confirmado no banco e é ainda mais completo. Sete
+   linhas, e cada uma exercita uma coisa diferente da impressão:
+
+   ```
+   bolo bombom      2 kg   topo tema dinossauro, nome Theo, 7 anos, foto do tema
+   coxinha        100 un   (salgado frito)
+   mini bolha     100 un   carne
+   esfirra        100 un   calabresa  (salgado assado, outra bancada)
+   brigadeiro      75 un   forminha azul bebê
+   beijinho        75 un   forminha azul bebê
+   topo de bolo     1 un   (linha própria, valor lançado pela equipe)
+   ```
+
+   É pôr papel e clicar em Reimprimir. Se ele também sumir, qualquer pedido de
+   festa com bolo, salgado frito, salgado assado e docinho serve: o que importa
+   é ter as quatro bancadas mais o ticket do caixa.
 2. **`ADMIN_WHATSAPP` e `DONA_WHATSAPP`** no Coolify. Os dois números precisam
    ter mandado um "oi" pro número da padaria antes, senão a Meta recusa pela
    janela de 24h.

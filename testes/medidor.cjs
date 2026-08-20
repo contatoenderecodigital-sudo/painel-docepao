@@ -220,6 +220,35 @@ async function main() {
   console.log("O gabarito e o ESTADO DO BANCO, nao o texto da conversa.");
   console.log("");
 
+  // A FAIXA DO MEDIDOR E LIMPA ANTES, E SO ELA.
+  //
+  // Os telefones sao os mesmos a cada rodada (5511977770001 em diante). Sem
+  // limpar, a segunda medicao lia o pedido da PRIMEIRA: o cenario "aparecia"
+  // aprovado com o resultado de uma hora atras, e a conversa nova entrava por
+  // cima de um historico que ela nao teve. Numero de medidor mentiroso e pior
+  // que nao medir, porque a gente para de procurar.
+  //
+  // O recorte e proposital e literal: so telefone que comeca com 55119777700.
+  // Em 19/08/2026 um teste apagou o banco inteiro no meio de uma medicao e
+  // levou junto o pedido de impressao que estava sendo usado pra outra coisa.
+  // Limpeza de teste mexe no que o teste criou, e em mais nada.
+  const FAIXA = "55119777700%";
+  console.log("limpando a faixa do medidor (" + FAIXA + ")...");
+  for (const sql of [
+    "delete from docepao.pedido_itens i using docepao.pedidos p, docepao.clientes c " +
+      "where i.pedido_id=p.id and p.cliente_id=c.id and c.telefone like '" + FAIXA + "'",
+    "delete from docepao.pedidos p using docepao.clientes c " +
+      "where p.cliente_id=c.id and c.telefone like '" + FAIXA + "'",
+    "delete from docepao.pedido_montagem m using docepao.clientes c " +
+      "where m.cliente_id=c.id and c.telefone like '" + FAIXA + "'",
+    "delete from docepao.mensagens m using docepao.clientes c " +
+      "where m.cliente_id=c.id and c.telefone like '" + FAIXA + "'",
+    "delete from docepao.clientes where telefone like '" + FAIXA + "'",
+  ]) {
+    await psql(sql).catch((e) => console.log("  (aviso) " + String(e).slice(0, 80)));
+  }
+  console.log("");
+
   const resultado = [];
   let base = 5511977770000;
 
