@@ -50,6 +50,7 @@ import {
   temaDoTopoNaFala,
   chutouValorDoTopo,
   textoSemValorDoTopo,
+  mandouFechar,
   dataBrigaComODiaDaSemana,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
@@ -1974,6 +1975,38 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         "\nPergunte isso antes de falar em passar pra equipe."
       );
     }
+    // O CODIGO SABE O QUE FALTA. TEM QUE CONTAR PRA ELA.
+    //
+    // Este retorno era generico: "o resto do pedido continua guardado". Quando
+    // faltava um campo obrigatorio ela nao recebia sinal nenhum e seguia
+    // conversando, e o pedido nunca fechava.
+    //
+    // Caso real de 20/08/2026, festa de R$ 500 e poucos: a cliente deu itens,
+    // sabores, nome, data e pagamento, e nunca falou a HORA da retirada. A Dora
+    // anotou os dados, ouviu "o resto continua guardado" e foi falar de outra
+    // coisa. O pedido ficou parado na montagem, sem nunca virar pedido, com o
+    // cliente achando que tinha encomendado.
+    //
+    // Faltar hora nao e detalhe: a cozinha produz pela data E pela hora da
+    // comanda, e e por isso que o codigo se recusa a fechar sem ela. Se ele se
+    // recusa, ele precisa dizer o que quer.
+    const NOMES: Record<string, string> = {
+      cliente_nome: "o nome de quem vai retirar",
+      retirada_data: "o dia da retirada",
+      retirada_hora: "a hora da retirada",
+      forma_pagamento: "a forma de pagamento",
+    };
+    const faltando = Object.keys(NOMES).filter(
+      (k) => !juntos[k] || String(juntos[k]).trim() === "",
+    );
+    if (faltando.length) {
+      return (
+        `Anotei: ${Object.keys(dados).join(", ")}. Ainda falta ` +
+        faltando.map((k) => NOMES[k]).join(", ") +
+        ". Pergunte isso agora, numa frase, e nao fale em passar pra equipe antes de ter. " +
+        "Pedido sem esses dados nao fecha, e o cliente sai achando que encomendou."
+      );
+    }
     return `Anotei: ${Object.keys(dados).join(", ")}. O resto do pedido continua guardado.`;
   }
 
@@ -2916,6 +2949,10 @@ function etapasDaFesta(
   naoQuer = "",
   falouSalgado = false,
   falouDocinho = false,
+  // O cliente ja mandou fechar? Entao oferta deixa de ser pendencia. Ver o
+  // comentario da guarda mandouFechar: insistir depois do "pode fechar" e o
+  // oposto de atender, e foi o que fez cliente desistir duas vezes.
+  jaMandouFechar = false,
   // O que o cliente ja escreveu na conversa. A idade e o tema costumam ser
   // ditos na primeira frase ("aniversario da minha filha, 8 anos") e nao
   // chegam na observacao do bolo.
@@ -2933,7 +2970,7 @@ function etapasDaFesta(
   etapas.push({
     titulo: "SALGADOS",
     pendencias: [
-      ...(festa && !dispensou("salgado") && salgados.length === 0 && !falouSalgado
+      ...(festa && !jaMandouFechar && !dispensou("salgado") && salgados.length === 0 && !falouSalgado
         ? [
             "- o cliente NAO falou em salgado ainda. E festa: PERGUNTE se ele vai querer salgado tambem, numa frase, " +
               "sem mandar cardapio nenhum ainda. Se ele disser que nao, chame anotar_dados com nao_quer=\"salgado\".",
@@ -2962,7 +2999,7 @@ function etapasDaFesta(
   etapas.push({
     titulo: "DOCINHOS",
     pendencias: [
-      ...(festa && !dispensou("docinho|doce") && docinhos.length === 0 && !falouDocinho
+      ...(festa && !jaMandouFechar && !dispensou("docinho|doce") && docinhos.length === 0 && !falouDocinho
         ? [
             "- o cliente NAO falou em docinho ainda. E festa: PERGUNTE se ele vai querer docinho tambem, e aproveite pra citar o resto que serve festa numa frase so (docinho, bolo, pizza, torta, empadao): tem gente que so lembra da pizza quando alguem fala nela. " +
               "Se ele disser que nao, chame anotar_dados com nao_quer=\"docinho\".",
@@ -3375,7 +3412,13 @@ function descreverMontagem(
 
   // Uma etapa por vez: a lista inteira de uma vez fazia ela perguntar salgado,
   // docinho e bolo na mesma mensagem, e o cliente respondia so um.
-  const etapas = etapasDaFesta(itens, festa, pediuBolo, String(m?.dados?.nao_quer ?? ""), falouSalgado, falouDocinho, falaDoCliente);
+  // falaDoCliente aqui ja e a conversa INTEIRA dele, nao a ultima frase: o
+  // parametro foi criado justamente porque idade e tema costumam estar la atras.
+  const jaMandouFechar = mandouFechar([String(falaDoCliente ?? "")]);
+  const etapas = etapasDaFesta(
+    itens, festa, pediuBolo, String(m?.dados?.nao_quer ?? ""), falouSalgado, falouDocinho,
+    jaMandouFechar, falaDoCliente,
+  );
   const atual = etapas[0];
   const pend = atual ? atual.pendencias : [];
   const opc = atual?.opcionais ?? [];

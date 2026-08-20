@@ -65,7 +65,14 @@ function checa(id, ok, detalhe) {
     return j;
   };
 
-  await falar("quero um bolo de brigadeiro de 2 kg pra sexta 29/08");
+  // A HORA DA RETIRADA FALTAVA AQUI, E SEM ELA O PEDIDO NAO FECHA.
+  //
+  // O codigo se recusa a fechar pedido sem hora, de proposito: a cozinha produz
+  // pela data E pela hora que estao na comanda. O roteiro ia ate o "pode
+  // fechar" sem nunca falar em horario, entao a recusa estava certa e quem
+  // cobrava a coisa errada era o teste. Cliente de verdade responde isso quando
+  // ela pergunta, e agora ela pergunta.
+  await falar("quero um bolo de brigadeiro de 2 kg pra sexta 29/08, as 16h");
   await falar("pao de lo branco");
   const comPeca = await falar("me manda o cardapio de bolos");
   checa("CARDAPIO-ENFILEIRADO", (comPeca.cardapios || []).length > 0, (comPeca.cardapios || []).join(","));

@@ -1193,3 +1193,30 @@ export function textoSemValorDoTopo(texto: string): string {
     "Assim que confirmarem eu te aviso por aqui.";
   return saida ? saida + "\n\n" + verdade : verdade;
 }
+
+// O CLIENTE MANDOU FECHAR. ISSO VENCE QUALQUER OFERTA.
+//
+// Teste ao vivo de 20/08/2026, com o dono esperando a tela ficar pronta:
+//
+//   cliente: nao, so o bolo mesmo. nome Patricia Loureiro, pago no pix
+//   Dora:    So pra confirmar, vai querer algum salgado pra festa tambem?
+//   cliente: ja falei que nao quero salgado, so o bolo. pode fechar
+//   Dora:    Agora, vai querer docinho tambem pra festa? Tem ainda pizza,
+//            torta e empadao, se quiser.
+//
+// A maquina de etapas trata "ainda nao ofereci docinho" como PENDENCIA, do
+// mesmo jeito que trata "falta a data da retirada". Nao e a mesma coisa: uma e
+// informacao que a cozinha precisa, a outra e venda a mais que seria bom ter.
+//
+// Enquanto sobrasse uma oferta por fazer, o pedido nao fechava, e o cliente que
+// mandou fechar levava mais uma pergunta. Foi o que fez a secretaria desistir
+// duas vezes, com outra roupa.
+//
+// Oferecer e bom. Insistir depois de "pode fechar" e o oposto de atender.
+export function mandouFechar(falasDoCliente: string[]): boolean {
+  const t = " " + falasDoCliente.map((f) => semAcMin(f)).join(" | ") + " ";
+  if (!t.trim()) return false;
+  return /\b(pode fechar|pode registrar|pode passar|passa pra equipe|fecha o pedido|fechar o pedido|so isso|e so isso|so isso mesmo|era so isso|nada mais|mais nada|ja falei que nao quero|nao quero mais nada|pode encerrar|manda pra equipe|finaliza)\b/.test(
+    t,
+  );
+}

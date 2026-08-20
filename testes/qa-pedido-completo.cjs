@@ -30,7 +30,14 @@ const ROTEIRO = [
   "Bom dia",
   "quero fazer uma festa pro meu filho",
   "20 pessoas",
-  "dia 30/08",
+  // A HORA FALTAVA NESTE ROTEIRO, E O PEDIDO NUNCA FECHAVA.
+  //
+  // O codigo se recusa a fechar pedido sem hora de retirada, de proposito: a
+  // cozinha produz pela data E pela hora que estao na comanda. O roteiro ia ate
+  // o fim sem falar em horario, entao a recusa estava certa e o teste e que
+  // cobrava a coisa errada. Cliente de verdade responde isso quando ela
+  // pergunta, e agora ela pergunta (o retorno de anotar_dados diz o que falta).
+  "dia 30/08, as 15h",
   "quero sim",
   "me manda o cardapio de salgados",
   "quero 50 coxinha, 50 bolinha de queijo, 50 esfirra e 50 pastel assado",
