@@ -25,6 +25,26 @@ const qtdBR = (n: number) => String(Number(n) || 0).replace(".", ",");
 // linhas. Corta no fim, na ultima palavra que coube, e marca com reticencias que
 // ainda tem item. O corte e sempre no FIM: a unidade vem logo depois da
 // quantidade, no comeco de cada item, entao ela nunca e o que sobra de fora.
+// O PAPEL DE ARROZ DO BOLO NAO E UM ITEM SOLTO: E O BOTAO DO BOLO LIGADO.
+//
+// A linha existe no pedido porque o papel de arroz PRECISA ser cobrado (sao
+// R$ 12 que, sem linha, viram prejuizo na producao). So que quem manda nela e a
+// caixa de marcar do bolo, e ter as duas coisas editaveis na tela criava um
+// pedido que se contradiz.
+//
+// So esconde quando existe um BOLO pedindo papel de arroz. Papel de arroz
+// vendido sozinho, sem bolo nenhum, continua sendo item normal.
+function ehPapelDerivado(x: { produto: string }, todos: { produto: string; obs?: string | null }[]): boolean {
+  const nome = String(x.produto || "").trim().toLowerCase();
+  if (!/^papel de arroz$/.test(nome)) return false;
+  return todos.some(
+    (o) =>
+      /^bolo/i.test(String(o.produto || "").trim()) &&
+      /papel de arroz/i.test(String(o.obs || "")) &&
+      !/sem papel/i.test(String(o.obs || "")),
+  );
+}
+
 function cortarResumo(t: string, max: number) {
   if (t.length <= max) return t;
   const corte = t.slice(0, max);
@@ -351,6 +371,18 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
     try {
       const limpos = itens
         .filter((x) => x.produto.trim() !== "" && x.qtd > 0)
+        // O PAPEL DE ARROZ E CONSEQUENCIA DO BOTAO DO BOLO, NAO UM ITEM SOLTO.
+        //
+        // Ele aparecia duas vezes na tela: marcado no bolo e como linha propria
+        // embaixo. Pior que confundir quem aprova, isso cobrava errado: o motor
+        // so CRIA a linha do papel de arroz, nunca tira. Desmarcar o botao no
+        // bolo tirava a palavra da observacao, mas a linha ia junto no salvamento
+        // e os R$ 12 continuavam no total, pra sempre.
+        //
+        // Agora a linha nao e enviada. O servidor recria ela a partir da
+        // observacao do bolo: marcado, cobra; desmarcado, some. Uma fonte da
+        // verdade so, que e o botao que a pessoa clica.
+        .filter((x) => !ehPapelDerivado(x, itens))
         .map((x) => ({ ...x, produto: x.produto.trim(), obs: x.obs?.trim() || null }));
       const r = await fetch("/api/montagem", {
         method: "POST",
@@ -518,7 +550,13 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
 
       {aberto && travado && (
         <ul className="mt-2 flex flex-col gap-1">
-          {itens.map((x, i) => (
+          {/* O papel de arroz derivado do bolo nao vira linha editavel: quem
+              manda nele e a caixa de marcar do bolo. O indice original e
+              preservado porque mexerItem(i) aponta pra lista de verdade. */}
+          {itens
+            .map((x, i) => ({ x, i }))
+            .filter(({ x }) => !ehPapelDerivado(x, itens))
+            .map(({ x, i }) => (
             <li key={i} className="text-[12px] text-cream/75 leading-snug">
               {qtdBR(x.qtd)} {x.unidade === "kg" ? "kg" : "un"} de {x.produto}
               {x.obs ? <span className="text-cream/45"> ({x.obs})</span> : null}

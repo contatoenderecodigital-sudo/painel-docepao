@@ -167,7 +167,14 @@ const URL_PEDIDO = "/api/qa/ultimo-pedido?telefone=5500000000000&desde=" + DESDE
   //
   // Agora ele procura o card pelo nome que ele mesmo usou. Se nao achar, falha
   // dizendo isso, em vez de mexer no pedido do vizinho.
-  const meuCard = p.locator("li,article,section,div").filter({ hasText: /Sandro/ }).last();
+  // O container certo e o que tem o NOME e o FORMULARIO juntos. Filtrar so pelo
+  // nome pegava o div mais interno, que so tem o texto, e o campo "nao era
+  // encontrado" mesmo com o card na tela.
+  const meuCard = p
+    .locator("li,article,section,div")
+    .filter({ hasText: /Sandro/ })
+    .filter({ has: p.locator('input[placeholder="O que é"]') })
+    .last();
   const dentro = (await meuCard.count()) ? meuCard : null;
   if (!dentro) {
     checa("CARD-DO-PROPRIO-PEDIDO", false, "nao achei o card do pedido criado por este teste");
@@ -203,7 +210,11 @@ const URL_PEDIDO = "/api/qa/ultimo-pedido?telefone=5500000000000&desde=" + DESDE
   // fecha o pedido de outra pessoa por conta propria.
   await p.reload({ waitUntil: "domcontentloaded" });
   await p.waitForTimeout(3000);
-  const meuCard2 = p.locator("li,article,section,div").filter({ hasText: /Sandro/ }).last();
+  const meuCard2 = p
+    .locator("li,article,section,div")
+    .filter({ hasText: /Sandro/ })
+    .filter({ has: p.locator("button") })
+    .last();
   const botaoAceitou = (await meuCard2.count())
     ? meuCard2.locator("button").filter({ hasText: /Ele aceitou, liberar/i }).first()
     : p.locator("__nao_existe__");

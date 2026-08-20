@@ -304,13 +304,32 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
 }
 
 // Texto do orçamento pronto pro WhatsApp.
-export function formatarOrcamento(c: Cotacao, titulo = "Orçamento"): string {
+// A MESMA FUNCAO SERVIA A DOIS DONOS, E UM DELES E O CLIENTE.
+//
+// Isto e usado em dois lugares muito diferentes:
+//   1. como RESULTADO DE FERRAMENTA, que so a IA le
+//   2. como MENSAGEM DE FECHAMENTO, quando o codigo refaz o resumo porque o
+//      que ela escreveu nao batia com o pedido gravado
+//
+// No caso 2 saiu isto pra uma cliente, num pedido de R$ 199,60 (20/08/2026):
+//
+//   Seu pedido ............ 4 kg bolo laka: R$ 187,60 ... *Total: R$ 199,60*
+//   Papel de arroz estava so na observacao; lancei como item pra entrar no total.
+//
+// Duas coisas erradas. A ultima frase e recado INTERNO, escrito pra IA, e a
+// cliente leu como se fosse conversa. E a linha do bolo perdeu a observacao:
+// sumiram o pao de lo, o tema Frozen, o nome da Alice e a idade, que e
+// justamente o que ela quer conferir num bolo de aniversario.
+//
+// paraOCliente separa os dois usos: com observacao, sem recado interno.
+export function formatarOrcamento(c: Cotacao, titulo = "Orçamento", paraOCliente = false): string {
   const L: string[] = [];
   L.push(titulo);
   L.push("".padEnd(28, "."));
   for (const l of c.linhas) {
     const q = (l.unidade ?? "un") === "kg" ? `${String(l.qtd).replace(".", ",")} kg` : `${l.qtd}x`;
-    L.push(`${q} ${l.item}: ${brl(l.subtotal)}`);
+    const detalhe = paraOCliente && l.obs ? ` (${String(l.obs).trim()})` : "";
+    L.push(`${q} ${l.item}${detalhe}: ${brl(l.subtotal)}`);
   }
   L.push("".padEnd(28, "."));
   L.push(`*Total: ${brl(c.total)}*`);
@@ -319,7 +338,9 @@ export function formatarOrcamento(c: Cotacao, titulo = "Orçamento"): string {
   // repetia como se fosse condicao acertada, do mesmo jeito que ela ja tinha
   // inventado "pix" no resumo do pedido.
   if (c.estimativa) L.push("\nEssa quantidade é uma sugestão pro tamanho da festa. Se quiser mais ou menos de algo, é só falar.");
-  if (c.avisos?.length) L.push("\n" + c.avisos.join("\n"));
+  // Aviso e recado pra IA ("lancei o papel de arroz como item"). Pro cliente
+  // isso e a cozinha falando sozinha no meio da confirmacao dele.
+  if (!paraOCliente && c.avisos?.length) L.push("\n" + c.avisos.join("\n"));
   return L.join("\n");
 }
 

@@ -5502,7 +5502,7 @@ async function rodarConversa(
               .trim();
             textoFinal =
               (semAsLinhas ? semAsLinhas + String.fromCharCode(10, 10) : "") +
-              formatarOrcamento(cot, "Seu pedido");
+              formatarOrcamento(cot, "Seu pedido", true);
           }
         }
       } catch (e) {
