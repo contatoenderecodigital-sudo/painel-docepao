@@ -531,7 +531,10 @@ const marca = (t?: string | null) => String(t ?? "").trim().toLowerCase();
 function executarFerramenta(
   nome: string,
   input: Record<string, unknown>,
-  estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"]; cardapios: CardapioId[]; resumo?: string; sugestao?: string; aceitouOrcamento?: boolean; motivoEquipe?: string; montagem: MudancaMontagem[] },
+  // sugeridos: o que a ferramenta de sortido ofereceu NESTE turno. A guarda de
+  // produto fantasma consulta isto, senao ela barra a propria sugestao do
+  // sistema por "ninguem falou nesse produto".
+  estado: { precisaHumano: boolean; pedido: RespostaIA["pedidoRegistrado"]; cardapios: CardapioId[]; resumo?: string; sugestao?: string; aceitouOrcamento?: boolean; motivoEquipe?: string; sugeridos?: string[]; montagem: MudancaMontagem[] },
   motor: Motor,
   falaDoCliente = "",
   montagemAtual?: MontagemAtual | null,
@@ -680,6 +683,13 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     if (total <= 0) return "NAO montei: preciso de quantas unidades no total, maior que zero.";
     const s = sugestaoDeSortido(fam, total);
     if (!s.length) return "NAO montei: familia invalida. Use salgado_frito, salgado_assado ou docinho.";
+    // O QUE EU SUGERI, EU AUTORIZO.
+    //
+    // Sem isto, a guarda de produto fantasma barrava a propria sugestao: o
+    // cliente pediu "escolhe voce", o codigo respondeu brigadeiro, beijinho e
+    // cajuzinho, e na hora de anotar a guarda dizia "ninguem falou nesse
+    // produto". Duas coisas que eu fiz hoje se matando.
+    estado.sugeridos = [...(estado.sugeridos ?? []), ...s.map((i) => i.produto)];
     const soma = s.reduce((a, i) => a + i.qtd, 0);
     return (
       "Sugestao pronta, com a conta fechada em " + soma + ": " +
@@ -824,7 +834,14 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       produtoQueNinguemCitou(
         produto,
         falasDoCliente.length ? falasDoCliente : [falaDoCliente],
-        String(montagemAtual?.dados?.proposta ?? "") + " " + ultimaFalaDela,
+        // O que o SISTEMA sugeriu tambem autoriza: a proposta guardada da
+        // festa, o que ela ofereceu na ultima fala, e o sortido que a
+        // ferramenta acabou de montar neste turno.
+        [
+          String(montagemAtual?.dados?.proposta ?? ""),
+          ultimaFalaDela,
+          (estado.sugeridos ?? []).join(" "),
+        ].join(" "),
       )
     ) {
       return (
@@ -3235,7 +3252,7 @@ async function rodarConversa(
     timeout: 30_000,
     maxRetries: 0, // a cadeia de provedores já é a nossa retentativa
   });
-  const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"], cardapios: [] as CardapioId[], resumo: undefined as string | undefined, sugestao: undefined as string | undefined, aceitouOrcamento: false, motivoEquipe: undefined as string | undefined, montagem: [] as MudancaMontagem[] };
+  const estado = { precisaHumano: false, pedido: null as RespostaIA["pedidoRegistrado"], cardapios: [] as CardapioId[], resumo: undefined as string | undefined, sugestao: undefined as string | undefined, aceitouOrcamento: false, motivoEquipe: undefined as string | undefined, sugeridos: [] as string[], montagem: [] as MudancaMontagem[] };
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: system },
     ...historico.map((m) => ({ role: m.role, content: m.content })),

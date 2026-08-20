@@ -19,21 +19,44 @@ const nomeDia = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"][hoje.getDay()]
 console.log("hoje na padaria:", hoje.toLocaleDateString("pt-BR"), nomeDia);
 console.log("");
 
+// AS DATAS ESPERADAS SAO CALCULADAS, NAO ESCRITAS NA MAO.
+//
+// Elas eram fixas ("21/08/2026") e o teste quebrou sozinho na virada da
+// meia-noite de 19 pra 20/08/2026, sem ninguem ter mexido em codigo nenhum.
+// Teste que quebra com o calendario ensina a ignorar teste, e teste ignorado
+// nao serve pra nada.
+//
+// A regra que o codigo implementa: dia da semana e a PROXIMA ocorrencia, e se
+// o cliente falar o dia de HOJE, vai pra semana que vem. Numa padaria isso e o
+// certo: encomenda pro mesmo dia e caso de falar com a equipe, nao de anotar.
+const DIAS = { domingo: 0, segunda: 1, terça: 2, terca: 2, quarta: 3, quinta: 4, sexta: 5, sábado: 6, sabado: 6 };
+function proximo(nome) {
+  const alvo = DIAS[nome];
+  const d = new Date(hoje);
+  const falta = ((alvo - d.getDay() + 7) % 7) || 7; // hoje conta como semana que vem
+  d.setDate(d.getDate() + falta);
+  return d.toLocaleDateString("pt-BR");
+}
+
 const casos = [
-  ["sexta", "21/08/2026"],
-  ["sexta-feira", "21/08/2026"],
-  ["na sexta", "21/08/2026"],
-  ["sábado", "22/08/2026"],
-  ["sabado que vem", "22/08/2026"],
-  ["domingo", "23/08/2026"],
-  ["segunda", "24/08/2026"],
-  ["terça", "25/08/2026"],
-  ["quarta", "26/08/2026"], // hoje e quarta: tem que ir pra semana que vem
-  ["quinta", "20/08/2026"],
+  ["sexta", proximo("sexta")],
+  ["sexta-feira", proximo("sexta")],
+  ["na sexta", proximo("sexta")],
+  ["sábado", proximo("sabado")],
+  ["sabado que vem", proximo("sabado")],
+  ["domingo", proximo("domingo")],
+  ["segunda", proximo("segunda")],
+  ["terça", proximo("terca")],
+  ["quarta", proximo("quarta")],
+  ["quinta", proximo("quinta")],
+  // O dia de HOJE, seja ele qual for: tem que ir pra semana que vem.
+  [["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"][hoje.getDay()], null],
   ["30/08", null],
   ["amanha", null],
   ["banana", null],
 ];
+// O caso do dia de hoje calcula sozinho o esperado, que e sempre daqui a 7 dias.
+casos[10][1] = proximo(["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sabado"][hoje.getDay()]);
 
 let erros = 0;
 for (const [entrada, esperado] of casos) {
