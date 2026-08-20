@@ -658,6 +658,20 @@ export function pedidosQueNaoExistem(fala: string): string[] {
   const temNomeDoCardapio = conhecidos.some((c) => c.length > 3 && texto.includes(c));
   if (!verboDeComprar.test(texto) && !temNomeDoCardapio) return [];
 
+  // PALAVRA FUNCIONAL NUNCA E PRODUTO, E ESSA LISTA E FECHADA DE VERDADE.
+  //
+  // "nao 150 de cada" virava o produto "cada". Somar "cada" na lista de
+  // palavras que nao sao comida seria cair no mesmo buraco de novo, porque a
+  // lista de coisas que nao sao comida nao acaba. Ja a lista de pronomes e
+  // determinantes do portugues acaba: e classe fechada, cabe aqui inteira, e
+  // nenhuma delas vai virar nome de salgado no ano que vem.
+  const FUNCIONAIS = new RegExp(
+    "^(cada|todos?|todas?|esses?|essas?|est[ea]s?|aquel[ae]s?|isso|isto|aquilo|tudo|nada|" +
+      "mesm[ao]s?|outr[ao]s?|algum|alguns?|algum[ao]s?|nenhum[ao]?s?|ambos?|qualquer|quaisquer|" +
+      "total|totais|tipos?|sabor|sabores|cor|cores|unidades?|pe[cç]as?|itens|item|coisa|coisas|" +
+      "vez|vezes|jeito|jeitos|forma|formas|resto|restante|parte|partes)( .*)?$",
+  );
+
   const achados: string[] = [];
   const re = /([0-9]+) *(?:de |da |do )?([a-z][a-z ]{2,22})/g;
   let m = re.exec(texto);
@@ -673,8 +687,305 @@ export function pedidosQueNaoExistem(fala: string): string[] {
     const conhecido = conhecidos.some(
       (c) => c.length > 2 && (nome.includes(c) || c.includes(nome) || nome.startsWith(c.slice(0, 5))),
     );
-    if (!conhecido && nome.length > 3 && !achados.includes(nome)) achados.push(nome);
+    if (!conhecido && !FUNCIONAIS.test(nome) && nome.length > 3 && !achados.includes(nome)) achados.push(nome);
     m = re.exec(texto);
   }
   return achados;
+}
+
+// O CLIENTE MUDOU O TOTAL. A CONTA E DO CODIGO, E NAO SE PEDE LICENCA.
+//
+// Caso real de 20/08/2026, o ponto exato em que a secretaria desistiu. O
+// pedido estava fechado em 200 salgados. Ela escreveu que ia baixar pra 150.
+// A Dora perguntou se podia ajustar. Ela disse que sim. A Dora perguntou de
+// novo como queria dividir. Ela mandou dividir igual. A Dora perguntou UMA
+// TERCEIRA VEZ se podia aplicar. Seis mensagens gastas numa conta de dividir.
+//
+// Quem manda mudar ja autorizou a mudanca. Perguntar de novo nao e cuidado, e
+// empurrar o trabalho de volta pra quem pediu ajuda.
+//
+// Devolve o novo total quando ele MUDA um numero, nunca quando ele diz o
+// primeiro. Quem separa os dois e o chamador, que so usa isto se a familia ja
+// estiver no pedido com outro total.
+export function novoTotalQueElePediu(
+  fala: string,
+): { familia: "salgado" | "docinho"; total: number } | null {
+  const t = " " + semAcMin(fala) + " ";
+  const familia: "salgado" | "docinho" | null = /salgad/.test(t)
+    ? "salgado"
+    : /docinho|doce/.test(t)
+      ? "docinho"
+      : null;
+
+  // "de 200 pra 150": vale o numero DEPOIS do pra, sempre.
+  const deParaRe = /\bde ([0-9]{2,4}) (?:pra|para) ([0-9]{2,4})\b/;
+  const dePara = t.match(deParaRe);
+  if (dePara) return { familia: familia ?? "salgado", total: Number(dePara[2]) };
+
+  // Sem o "de X pra Y", precisa de um sinal de MUDANCA. Numero solto e so
+  // numero: "sao 200 convidados" nao e ordem de mudar o pedido.
+  const mudou =
+    /\b(na verdade|pensando bem|muda|mudar|mudei|troca|trocar|deixa|deixar|faz|fazer|vamos|vamo|melhor|reduz|reduzir|diminui|diminuir|baixa|baixar|aumenta|aumentar|sobe|subir|so|somente|apenas|prefiro|corrige|corrigir|ajusta|ajustar)\b/.test(
+      t,
+    );
+  if (!mudou) return null;
+
+  // O numero que vale e o que esta colado na familia, se houver. Assim
+  // "muda pra 150 salgados, sao 80 convidados" nao pega o 80.
+  const coladoRe = /\b([0-9]{2,4})\s*(?:un|unidades)?\s*(salgad\w*|docinh\w*|doce\w*)/;
+  const colado = t.match(coladoRe);
+  if (colado) {
+    return { familia: /salgad/.test(colado[2]) ? "salgado" : "docinho", total: Number(colado[1]) };
+  }
+
+  // Numero sozinho depois do sinal de mudanca: so serve se ele disse a
+  // familia em algum lugar da frase.
+  if (!familia) return null;
+  const solto = t.replace(/[0-9]{1,2}[/.-][0-9]{1,2}([/.-][0-9]{2,4})?/g, " ").match(/\b([0-9]{2,4})\b/);
+  if (!solto) return null;
+  return { familia, total: Number(solto[1]) };
+}
+
+// REESCALAR MANTENDO O QUE ELE ESCOLHEU.
+//
+// Baixar de 200 pra 150 nao pode apagar os sabores que ele ja escolheu e
+// comecar de novo: seria fazer ele repetir tudo. As mesmas linhas continuam,
+// so mudam de tamanho, na mesma proporcao.
+//
+// A soma bate com o total EXATO. Arredondar cada linha por conta e como o
+// pedido vira 149 ou 151, e quem descobre e a equipe na hora de produzir.
+export function reescalarParaOTotal(
+  itens: { produto: string; qtd: number }[],
+  novoTotal: number,
+): { produto: string; qtd: number }[] {
+  const total = Math.max(0, Math.floor(novoTotal));
+  const soma = itens.reduce((s, i) => s + Math.max(0, Math.floor(i.qtd)), 0);
+  if (!itens.length || soma <= 0 || !total) return [];
+  const bruto = itens.map((i) => ({ produto: i.produto, exato: (Math.max(0, Math.floor(i.qtd)) * total) / soma }));
+  const saida = bruto.map((b) => ({ produto: b.produto, qtd: Math.floor(b.exato) }));
+  // O resto vai pras linhas de maior fracao, que e a divisao mais justa e faz
+  // a soma fechar redondo.
+  let falta = total - saida.reduce((s, i) => s + i.qtd, 0);
+  const ordem = bruto
+    .map((b, i) => ({ i, frac: b.exato - Math.floor(b.exato) }))
+    .sort((a, b) => b.frac - a.frac);
+  let k = 0;
+  while (falta > 0 && ordem.length) {
+    saida[ordem[k % ordem.length].i].qtd += 1;
+    falta -= 1;
+    k += 1;
+  }
+  return saida.filter((i) => i.qtd > 0);
+}
+
+// ELE ACEITOU O QUE ELA OFERECEU: ANOTA, NAO PERGUNTA DE NOVO.
+//
+// Conversa real de 20/08/2026:
+//
+//   Dora: 100 coxinha, 100 mini bolha de carne e 100 esfirra de calabresa
+//         75 brigadeiro e 75 beijinho. Pode ser assim?
+//   ele:  pode ser assim. queria tambem um bolo de bombom de 2kg
+//   Dora: Te mandei o cardapio de salgados aqui. Quais salgados voce quer e
+//         quantos de cada?
+//
+// Ele aceitou a lista DELA e ela pediu a lista de volta. Nas duas mensagens
+// seguintes ele teve que repetir item por item, e escreveu "ja falei 1 vez".
+// O bolo que ele pediu na mesma frase tambem ficou pra tras.
+//
+// Aceitar oferta e a hora mais barata de fechar um pedido e era onde a
+// conversa morria. Anotar deixou de ser decisao dela: e do codigo.
+export function aceitouAOferta(fala: string): boolean {
+  const t = semAcMin(fala).trim();
+  if (!t) return false;
+  // Negativa manda mais que o "pode": "pode ser mas tira a coxinha" nao e
+  // aceite limpo, e nesse caso quem resolve e ela.
+  if (/\b(nao|nem|mas|porem|so que|tira|troca|muda|menos|sem)\b/.test(t)) return false;
+  return /\b(pode ser|pode sim|pode mandar|pode anotar|pode fazer|fechado|fechou|isso mesmo|isso ai|e isso|perfeito|show|beleza|blz|ta bom|ta otimo|tudo certo|combinado|concordo|aceito|manda ver|vamos assim|assim ta bom|ok|okay|okey|certo|confirmo|sim)\b/.test(t);
+}
+
+// O QUE ELA OFERECEU, LIDO DA PROPRIA MENSAGEM DELA.
+//
+// Nao guarda estado entre turnos de proposito: a oferta pode ter vindo da
+// ferramenta de sortido, de um lembrete do sistema ou da cabeca dela, e o que
+// vale e o que o cliente LEU. A fonte da verdade e a mensagem que ele acabou
+// de aceitar.
+//
+// So aceita "numero + produto do cardapio". A tabela de precos que ela manda
+// tem o nome ANTES do numero ("coxinha R$ 1,00"), entao cardapio nao vira
+// pedido por engano.
+export function itensQueElaOfereceu(
+  textoDela: string,
+): { produto: string; qtd: number; obs: string | null }[] {
+  const t = semAcMin(textoDela);
+  if (!t) return [];
+  const nomes: string[] = [
+    ...((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]).map((i) => semAcMin(i.nome)),
+    ...((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[]).map((i) => semAcMin(i.nome)),
+    ...((catalogo.doces?.itens ?? []) as { nome: string }[]).map((i) => semAcMin(i.nome)),
+  ].sort((a, b) => b.length - a.length);
+
+  const achados: { produto: string; qtd: number; obs: string | null }[] = [];
+  const re = /\b([0-9]{1,4}) *(?:un|unidades)? *(?:de |da |do )?([a-z][a-z çãõáéíóúâêô ]{2,28})/g;
+  let m = re.exec(t);
+  while (m) {
+    const qtd = Number(m[1]);
+    const depois = m[2];
+    const achou = nomes.find((n) => depois.startsWith(n));
+    if (achou && qtd > 0 && !achados.some((a) => a.produto === achou)) {
+      // O RECHEIO FAZ PARTE DA OFERTA. Ela ofereceu "100 mini bolha de carne";
+      // anotar so "mini bolha" joga fora a metade que a cozinha precisa, e a
+      // pergunta do recheio volta como se ele nunca tivesse respondido.
+      const sobra = depois.slice(achou.length).trim();
+      const obs = /^(de |com )/.test(sobra)
+        ? sobra
+            .replace(/^(de |com )/, "")
+            // "carne e" e o "e" que liga o proximo item da lista, nao parte do
+            // recheio. Ficaria escrito na comanda da cozinha exatamente assim.
+            .replace(/ (e|ou|mais|com)$/, "")
+            .trim()
+        : "";
+      achados.push({ produto: achou, qtd, obs: obs || null });
+    }
+    m = re.exec(t);
+  }
+  // Mais que isso nao e oferta, e tabela de preco. Melhor nao anotar nada do
+  // que anotar o cardapio inteiro no pedido de alguem.
+  if (achados.length > 8) return [];
+  return achados;
+}
+
+// QUANTOS ELE PEDIU, LIDO DA CONVERSA INTEIRA.
+//
+// Caso real de 20/08/2026. A secretaria disse na segunda mensagem "200
+// salgados assados e 100 docinhos". Duas mensagens depois pediu o sortido, sem
+// repetir o numero, e a sugestao veio com 100 salgados: o codigo procurava a
+// quantidade so na ULTIMA fala, nao achava, e usava 100 de padrao.
+//
+// Ela teve que corrigir tres vezes ("isso ai da 100 salgados so, eu preciso de
+// 200", "continua faltando salgado, ai deu 120 e eu quero 200"). Quem tem
+// pressa nao volta pra terceira correcao.
+//
+// Vale o ULTIMO numero que ele falou pra aquela familia: mudar de ideia
+// funciona, e a conta acompanha.
+export function totalQueElePediu(
+  falasDoCliente: string[],
+  familia: "salgado" | "docinho",
+): number {
+  const alvo = familia === "salgado" ? /salgad/ : /docinh|doce/;
+  let achado = 0;
+  for (const fala of falasDoCliente) {
+    const t = semAcMin(fala)
+      // Data e hora nunca sao quantidade de salgado.
+      .replace(/[0-9]{1,2}[/.-][0-9]{1,2}([/.-][0-9]{2,4})?/g, " ")
+      .replace(/[0-9]{1,2} ?(h|hs|horas?)\b/g, " ");
+    // "200 salgados", "200 salgados assados", "200 de salgado"
+    const re = /\b([0-9]{2,4})\s*(?:un|unidades)?\s*(?:de |da |do )?([a-z]+)/g;
+    for (const m of t.matchAll(re)) {
+      if (alvo.test(m[2])) achado = Number(m[1]);
+    }
+  }
+  return achado;
+}
+
+// ELE PEDIU PRA VER O PEDIDO ANTES DE FECHAR.
+//
+// Caso real de 20/08/2026: "Calma, me manda o pedido final pra eu conferir
+// antes. Quero ver item por item com as quantidades". A Dora respondeu com
+// outra pergunta de confirmacao, e depois com o cardapio. A cliente pediu duas
+// vezes e nunca viu o pedido.
+//
+// Esse e o momento em que o cliente decide se confia. Negar a conferencia num
+// pedido de centenas de reais e o jeito mais rapido de perder a venda, e o
+// resumo so existia no fechamento, nunca no meio.
+export function pediuVerOPedido(fala: string): boolean {
+  const t = semAcMin(fala);
+  if (!t) return false;
+  return /\b(me (manda|mande|passa|envia|mostra)|manda|mostra|quero ver|posso ver|deixa eu ver|como (ficou|esta|ta)|ficou como|resume|resumo|confer(ir|e)|revisar|repassa)\b[^.!?]{0,40}\b(pedido|resumo|lista|itens?|item por item|quantidades?|tudo|como ficou)\b|\b(item por item|pedido final|resumo do pedido|como ficou o pedido)\b/.test(
+    t,
+  );
+}
+
+// PORTAO FINAL DO CARDAPIO: peca recusada, ou de familia ja escolhida, nao sai.
+//
+// Existem quatro caminhos que enfileiram cardapio (a ferramenta, a promessa no
+// texto dela, a lista digitada e o pedido do cliente). Barrar em cada um deles
+// deixou passar: a ferramenta recusou e a promessa mandou assim mesmo. Aqui e o
+// unico lugar por onde a peca sai de verdade.
+//
+// Duas coisas travam a peca:
+//
+//   1. Ele DISPENSOU a familia ("nao quero docinho"). Oferecer de novo o que a
+//      pessoa acabou de recusar e o retrato do atendimento que nao escuta.
+//
+//   2. Ele JA ESCOLHEU aquela familia. Caso real de 20/08/2026: no meio de uma
+//      correcao de quantidade, com salgados e docinhos anotados, a Dora
+//      despejou as duas pecas de uma vez. A cliente tinha acabado de escrever
+//      "nao apaga os docinhos" e recebeu de volta a tabela de precos dos
+//      docinhos. Parece que a conversa recomecou do zero, que e exatamente o
+//      medo de quem esta falando com uma IA.
+//
+// Se ele pedir pra ver, ele pede, e ai o pediuAgora libera as duas travas.
+export function pecasPermitidas(
+  pecas: string[],
+  ultimaFala: string,
+  naoQuer: string,
+  jaEscolhidos: { categoria?: string | null }[] = [],
+): string[] {
+  if (pecas.length === 0) return pecas;
+  const dito = semAcMin(ultimaFala);
+  const NEGA = "(sem|nao quero|nem|nao vou querer)";
+  const recusou: [string, RegExp][] = [
+    ["salgados", new RegExp(NEGA + "[^.]{0,24}salgad")],
+    ["docinhos", new RegExp(NEGA + "[^.]{0,24}(docinho|doce)")],
+    ["bolos-festa", new RegExp(NEGA + "[^.]{0,24}bolo")],
+  ];
+  // A RECUSA GRAVADA E UMA LISTA, NAO UMA FRASE.
+  //
+  // O campo nao_quer guarda "salgado, docinho, bolo": so as palavras, sem
+  // negacao nenhuma, porque a negacao ja aconteceu quando aquilo foi gravado.
+  // A guarda juntava esse campo com a fala do cliente e passava tudo pelos
+  // regex de negacao acima, entao a recusa gravada NUNCA batia. Quem tinha
+  // dispensado docinho na mensagem anterior recebia o cardapio de docinho na
+  // seguinte, e a unica coisa que segurava era a fala do momento.
+  const guardado = semAcMin(naoQuer);
+  const recusouAntes: [string, RegExp][] = [
+    ["salgados", /salgad/],
+    ["docinhos", /docinho|doce/],
+    ["bolos-festa", /bolo/],
+  ];
+  // Pediu agora, com todas as letras: manda mesmo assim.
+  const pediuAgora = /card[áa]pio|me manda|quais|que tipos|op[çc][õo]es|que sabores/i.test(String(ultimaFala || ""));
+  if (pediuAgora) return pecas;
+  const fora = recusou.filter(([, re]) => re.test(dito)).map(([peca]) => peca);
+  for (const [peca, re] of recusouAntes) if (guardado && re.test(guardado)) fora.push(peca);
+  const temFamilia = (pref: string) => jaEscolhidos.some((i) => String(i.categoria || "").startsWith(pref));
+  if (temFamilia("salgado")) fora.push("salgados");
+  if (temFamilia("docinho")) fora.push("docinhos");
+  if (temFamilia("bolo_festa")) fora.push("bolos-festa");
+  return pecas.filter((c) => !fora.includes(c));
+}
+
+// PERGUNTA DE PRECO SE RESPONDE COM NUMERO, EM QUALQUER ORDEM DE PALAVRAS.
+//
+// Conversa real de 20/08/2026:
+//
+//   cliente: bom dia, quanto custa o cento de salgado
+//   Dora:    Salgado frito sai R$ 1,00 a unidade (R$ 100,00 o cento) e o
+//            assado R$ 1,25 (R$ 125,00 o cento).
+//   cliente: e o docinho, quanto fica
+//   Dora:    Te mandei o cardapio de docinhos aqui. Quer que eu te diga o preco
+//            de algum sabor especifico?
+//
+// A mesma pergunta, com as palavras em outra ordem, ficou sem numero. O codigo
+// tinha o preco na mao e nao entrou, porque o gatilho exigia "quanto custa o
+// docinho" nessa ordem exata. A cliente parou de responder ali.
+//
+// O outro lado importa igual: "quantos salgados por pessoa" e pergunta de
+// rendimento, e tabela de preco no meio dela e resposta errada. Por isso o
+// "quanto" sozinho fica de fora, ele casa dentro de "quantos".
+export function perguntouPrecoDeFamilia(fala: string): boolean {
+  const t = String(fala ?? "");
+  const ehPergunta = /(quanto (custa|fica|sai|ta|e|sao|vale)|qual (o|e o) (pre[çc]o|valor)|pre[çc]o d|valor d)/i.test(t);
+  const citouFamilia = /salgad|docinh|doce|bolo|cento/i.test(t);
+  return (ehPergunta && citouFamilia) || /(^|\W)(e )?o cento/i.test(t);
 }

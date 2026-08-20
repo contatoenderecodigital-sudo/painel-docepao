@@ -99,5 +99,35 @@ for (const [data, fala] of [
 }
 
 console.log("");
+console.log("== o dia da semana vale da CONVERSA, nao da ultima frase ==");
+//
+// Caso real de 20/08/2026: a cliente escreveu "quero 60 brigadeiros pra sabado
+// as 10h" na PRIMEIRA mensagem e o pedido foi registrado na terceira, quando
+// ela so mandou nome e pagamento. Lendo so a fala do momento nao havia dia da
+// semana pra conferir, e o pedido saiu com 20/08/2026, uma quinta. Ela ia
+// buscar no sabado e a padaria produzir na quinta.
+const conversaInteira = [
+  "quero 60 brigadeiros pra sabado as 10h",
+  "forminha rosa",
+  "nome Terezinha Bosco, dinheiro",
+].join(" | ");
+conferir(
+  dataBrigaComODiaDaSemana("20/08", conversaInteira, QUINTA_20) === "22/08/2026",
+  "sabado dito na primeira mensagem corrige a data no fechamento",
+  "veio: " + dataBrigaComODiaDaSemana("20/08", conversaInteira, QUINTA_20),
+);
+conferir(
+  dataBrigaComODiaDaSemana("22/08", conversaInteira, QUINTA_20) === null,
+  "e a data certa continua intocada",
+  "mexeu numa data que ja batia",
+);
+const mudouNoMeio = ["quero pra sexta", "pensando bem pode ser no sabado", "nome Ana, pix"].join(" | ");
+conferir(
+  dataBrigaComODiaDaSemana("21/08", mudouNoMeio, QUINTA_20) === "22/08/2026",
+  "mudou de ideia no meio da conversa: vale o ultimo dia",
+  "veio: " + dataBrigaComODiaDaSemana("21/08", mudouNoMeio, QUINTA_20),
+);
+
+console.log("");
 console.log(erros === 0 ? "A DATA BATE COM O DIA DA SEMANA" : erros + " FALHA(S) NA DATA");
 process.exit(erros === 0 ? 0 : 1);

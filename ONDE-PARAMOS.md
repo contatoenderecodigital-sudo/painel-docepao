@@ -1,13 +1,15 @@
-# Onde paramos, 19/08/2026 noite
+# Onde paramos, 20/08/2026 madrugada
 
 Documento de retomada. Leia isto antes de mexer em qualquer coisa.
-O plano que gerou este trabalho está em `PLANO-FINAL.md`.
+O plano que gerou este trabalho está em `PLANO-FINAL.md`. O histórico de cada
+defeito, com a frase real do cliente, está em `DIARIO-DA-IA.md` e
+`testes/casos-reais.md`.
 
 ## O que mudou hoje, em uma frase
 
-O sistema saiu de "testado por impressão" para "testado por medida": existem 19
-testes que travam o commit, um medidor que roda a mesma conversa 5 vezes e julga
-pelo estado do banco, e uma bateria de clientes simulados ao vivo.
+O sistema saiu de "testado por impressão" para "testado por medida": existem 31
+testes que travam o commit, um medidor que roda oito conversas cinco vezes cada
+e julga pelo estado do banco, e uma bateria de clientes simulados ao vivo.
 
 ## ANTES DE CULPAR A IA, LEIA O RASTRO
 
@@ -105,6 +107,29 @@ Nada de código na lista do plano. O que sobrou:
    janela de 24h.
 3. **Confirmar com a dona** que o "120" do áudio é 20 por sabor. A conta bate: 5
    sabores no cento dá 20 de cada.
+
+## O que a madrugada de 20/08 mudou no método
+
+Duas mudanças, e as duas renderam mais que qualquer correção isolada.
+
+**Consertar a classe, não o caso.** Cada defeito achado vira uma varredura do
+catálogo inteiro, com teste que cobra os dois lados: pega o defeito e deixa
+passar o legítimo. Produto novo no cardápio já nasce coberto. Foi assim que se
+descobriu que "cuca de goiaba" recusada e "pizza de forma" recusada eram o
+mesmo defeito com outra roupa, com dois dias de distância.
+
+**Ler a conversa inteira, não o pedido final.** As duas conversas longas do
+teste de aceitação fecharam com o pedido CERTO e foram atendimentos ruins:
+aceite ignorado, conferência negada, cardápio no meio de uma correção, quatro
+"a gente não tem" para coisas que não são produto. Conferir só o resultado
+teria dado alta nas duas. Por isso o medidor agora julga também a SOMA das
+quantidades, e não só se o nome do item apareceu.
+
+Uma consequência prática: **guarda que mora dentro do cerebro.ts não tem
+teste**. Toda função de decisão passou pra `lib/ia/guardas.ts`, que os testes
+importam de verdade. Duas delas, movidas nessa noite, tinham defeito parado ali
+havia semanas, e um deles (a recusa gravada em `nao_quer` que nunca bloqueava
+nada) foi achado pelo teste no minuto seguinte à mudança.
 
 ## Decisões que ficaram registradas
 

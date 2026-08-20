@@ -50,6 +50,7 @@ const psql = (sql) =>
 //  esperado.itens: o que TEM que estar anotado, por pedaco do nome
 //  esperado.proibidos: o que NAO pode aparecer (o item velho de uma troca)
 //  esperado.linhas: quantas linhas o pedido tem que ter (pega duplicata)
+//  esperado.soma: quanto as quantidades tem que somar (pega mudanca de total)
 //  esperado.fechou: se tem que existir pedido registrado no fim
 // ---------------------------------------------------------------------------
 const CENARIOS = [
@@ -102,6 +103,50 @@ const CENARIOS = [
     ],
     esperado: { itens: ["brigadeiro"], linhas: 1, obsTem: ["rosa"] },
   },
+  {
+    // O PONTO CEGO QUE EU ADMITI E NAO TINHA FECHADO.
+    //
+    // O rastro mostrou a Dora chamando anotar_item de pizza OITO vezes numa
+    // conversa so, e a guarda recusando as oito, porque o cliente escreve
+    // "pizza de forma" e o catalogo diz "pizza inteira". Toda venda de pizza
+    // estava morta e o medidor dava nota cheia, porque nao tinha cenario de
+    // pizza. Medir so o que ja funciona e o jeito mais facil de passar.
+    nome: "pizza fecha e nao e recusada",
+    fala: [
+      "boa tarde, voces fazem pizza de forma?",
+      "quero 2 de calabresa pra sexta as 19h",
+      "nome Rodrigo Zanella, pix",
+    ],
+    esperado: { itens: ["pizza"], linhas: 1, fechou: true },
+  },
+  {
+    // A secretaria pediu ASSADOS e recebeu "40 mini bolha, que e o pastel
+    // frito da casa". Quem pede assado tem motivo, e frito e outra coisa.
+    nome: "quem pede assado nao recebe frito",
+    fala: [
+      "bom dia, preciso de 200 salgados assados pra quarta as 9h",
+      "pode escolher voce os tipos, confio",
+      "isso mesmo, nome Juliana Reis, boleto faturado",
+    ],
+    esperado: {
+      itens: ["esfirra"],
+      proibidos: ["coxinha", "mini bolha", "risolis", "bolinha", "croquete"],
+      soma: 200,
+    },
+  },
+  {
+    // Ponto exato em que a secretaria desistiu: mandou baixar de 200 pra 150 e
+    // a Dora pediu licenca tres vezes. O gabarito aqui e um numero: se o banco
+    // ainda mostra 200, ela conversou e nao fez.
+    nome: "mudar o total nao vira negociacao",
+    fala: [
+      "quero 200 salgados fritos pra sexta as 18h, pode escolher os tipos",
+      "pode ser assim sim",
+      "na verdade muda pra 150 salgados",
+      "nome Marcia Fontana, pix",
+    ],
+    esperado: { soma: 150, proibidos: ["esfirra", "empadinha", "quiche"] },
+  },
 ];
 
 const alvos = CENARIOS.filter((c) => !FILTRO || c.nome.toLowerCase().includes(FILTRO));
@@ -120,12 +165,12 @@ async function rodar(cenario, fone) {
   // fechou certo aparecia como "(nada)" e era reprovado. O medidor errado teria
   // me feito consertar codigo que estava funcionando.
   const deMontagem = await psql(
-    "select coalesce(x.produto,'') || '~' || coalesce(x.obs,'') from docepao.pedido_montagem pm " +
-      "join docepao.clientes c on c.id=pm.cliente_id, jsonb_to_recordset(pm.itens) as x(produto text, obs text) " +
+    "select coalesce(x.qtd,0) || '~' || coalesce(x.produto,'') || '~' || coalesce(x.obs,'') from docepao.pedido_montagem pm " +
+      "join docepao.clientes c on c.id=pm.cliente_id, jsonb_to_recordset(pm.itens) as x(produto text, qtd numeric, obs text) " +
       "where c.telefone='" + fone + "'",
   ).catch(() => "");
   const doPedido = await psql(
-    "select coalesce(i.produto,'') || '~' || coalesce(i.obs,'') from docepao.pedido_itens i " +
+    "select coalesce(i.qtd,0) || '~' || coalesce(i.produto,'') || '~' || coalesce(i.obs,'') from docepao.pedido_itens i " +
       "join docepao.pedidos p on p.id=i.pedido_id join docepao.clientes c on c.id=p.cliente_id " +
       "where c.telefone='" + fone + "'",
   ).catch(() => "");
@@ -134,7 +179,13 @@ async function rodar(cenario, fone) {
   // Fechou? Entao o pedido e a verdade. Nao fechou? A montagem e o que existe.
   const linhas = doPed.length ? doPed : limpar(deMontagem);
   const fechou = doPed.length > 0;
-  return { linhas, fechou };
+  // A SOMA DAS QUANTIDADES E O UNICO JEITO DE JULGAR UMA MUDANCA DE TOTAL.
+  //
+  // Sem ela, o cenario da reducao de 200 pra 150 passava com 200 no banco: o
+  // medidor via as linhas certas e nao via que o numero nao mudou. Medidor que
+  // nao enxerga o defeito e pior que medidor nenhum, porque da alta.
+  const soma = linhas.reduce((s, l) => s + (Number(String(l).split("~")[0]) || 0), 0);
+  return { linhas, fechou, soma };
 }
 
 // O estado bateu com o gabarito?
@@ -154,6 +205,9 @@ function julgar(cenario, estado) {
   }
   if (e.linhas != null && estado.linhas.length !== e.linhas) {
     motivos.push("esperava " + e.linhas + " linha(s), veio " + estado.linhas.length);
+  }
+  if (e.soma != null && estado.soma !== e.soma) {
+    motivos.push("esperava somar " + e.soma + " unidade(s), somou " + estado.soma);
   }
   if (e.fechou === true && !estado.fechou) motivos.push("nao registrou o pedido");
   if (e.fechou === false && estado.fechou) motivos.push("registrou pedido de quem so perguntou");

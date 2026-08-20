@@ -295,3 +295,136 @@ cobrado na hora tem que sair no RESULTADO DA FERRAMENTA, nao no lembrete.
   real do trabalho, e sair da lista exige resolver).
 - **Gemini como reserva**: o modelo foi corrigido (2.5-flash saiu do ar pra
   conta nova), mas a conta do AI Studio está sem crédito e devolve 429.
+
+---
+
+## Atendimento da secretária, 20/08/2026 (os que fizeram desistir)
+
+Três conversas longas com persona ao vivo, lidas mensagem por mensagem. Os
+defeitos abaixo não erravam o preço: erravam o ATENDIMENTO, e o cliente saía.
+
+**Assado virando frito.** A secretária pediu 200 salgados ASSADOS na segunda
+mensagem. Cinco mensagens depois pediu que a Dora escolhesse os tipos, e a
+sugestão veio "40 mini bolha, que é o pastel frito da casa". Quem pede assado
+tem motivo, e frito é outra coisa.
+Causa: a escolha da família lia só a última fala mais a resposta anterior dela.
+O "assados" já tinha rolado pra fora dessa janela e sobrava o `/salgad/`
+genérico, que cai no frito.
+Correção: `familiaQueElePediu()` lê a conversa inteira e vale o último que ele
+falou, então mudar de ideia funciona. E `anotar_item` recusa frito pra quem
+pediu assado por qualquer caminho, porque ela nem sempre chama a ferramenta.
+Verificado em `nenhuma-guarda-trava-venda.cjs` e no cenário "quem pede assado
+não recebe frito" do medidor.
+
+**Reclamação virando pedido.** O cliente, já irritado, escreveu "já te falei 3
+vezes". A Dora respondeu "A gente não tem vez também" e, na seguinte, "Não temos
+docinho vezes". Além de burro, soou como deboche com quem estava reclamando.
+Causa: `pedidosQueNaoExistem` lia qualquer número seguido de palavra como
+pedido, e a defesa era uma lista de palavras que não são comida (hora, dia,
+criança). Lista assim não acaba: depois de "vezes" viria "tentativas".
+Correção: a regra virou o contrário. Só acusa se a frase for mesmo pedido, ou
+seja se tiver verbo de comprar ou palavra do cardápio junto do número. Errar pra
+menos aqui é barato, quem barra produto inventado é o enum de `anotar_item`.
+Verificado em `reclamacao-nao-e-pedido.cjs`.
+
+**Mudar o total virando negociação.** Pedido fechado em 200 salgados, ela mandou
+baixar pra 150. A Dora perguntou se podia ajustar; ela disse que sim; a Dora
+perguntou como dividir; ela mandou dividir igual; a Dora perguntou uma terceira
+vez se podia aplicar. Seis mensagens numa divisão, com a cliente com pressa.
+Foi aqui que ela desistiu.
+Correção: quem manda mudar já autorizou. O código refaz a conta sozinho,
+mantendo os sabores já escolhidos, reescalando na mesma proporção com a soma
+exata, e manda ela só dizer como ficou.
+Verificado em `mudou-o-total-refaz-a-conta.cjs` e no cenário "mudar o total não
+vira negociação" do medidor, julgado pela SOMA das quantidades no banco.
+
+---
+
+## Segunda leitura, agora das conversas inteiras (20/08/2026)
+
+Depois dos consertos acima eu li as duas conversas longas de ponta a ponta em
+vez de conferir o pedido final. As duas fecharam com o pedido CERTO (R$ 612,30
+e R$ 320,00) e as duas foram atendimentos ruins. Conferir so o resultado teria
+dado alta nas duas, e e por isso que o medidor agora julga soma de quantidade e
+nao so nome de item.
+
+**Aceite ignorado.** "pode ser assim. queria tambem um bolo de bombom de 2kg" e
+a resposta foi "Te mandei o cardapio de salgados aqui. Quais salgados voce quer
+e quantos de cada?". A cliente repetiu item por item nas duas mensagens
+seguintes, escrevendo "ja falei 1 vez" e "ja falei 1 vez tambem". O bolo pedido
+na mesma frase ficou pra tras.
+Correcao: anotar deixou de ser decisao dela. O codigo le a lista da propria
+mensagem dela, confere com o que o cliente pediu e grava.
+Verificado em `aceitou-a-oferta-anota.cjs`.
+
+**A conta errada dela entrando no pedido.** Ela ofereceu 100 salgados pra quem
+pediu 200, e escreveu "25 brigadeiro, 25 beijinho, 25 cajuzinho e 25 com
+forminha branca", comendo o nome do quarto sabor.
+Correcao: quando a soma da familia nao bate com o que o cliente pediu, o sortido
+do codigo entra no lugar da lista dela. Enquanto quem anotava era ela isso so
+custava mensagem; agora que o codigo anota o aceite, copiar a conta errada
+gravaria o erro no pedido.
+
+**Sortido com metade do pedido.** O total era lido so da ultima frase, e o "200
+salgados assados" tinha sido dito tres mensagens antes. A cliente corrigiu tres
+vezes ("isso ai da 100 salgados so", "continua faltando salgado, ai deu 120").
+Correcao: `totalQueElePediu` le a conversa inteira, por familia, valendo o
+ultimo numero que ele falou.
+
+**Orcamento de R$ 2,25.** Ela chamou o orcamento de festa antes de perguntar
+quantas pessoas. Com zero pessoas o motor cota uma unidade de cada linha, e o
+total foi a soma de um salgado com um docinho.
+Correcao: sem numero de convidados a ferramenta recusa e manda perguntar.
+
+**Conferencia negada.** "Calma, me manda o pedido final pra eu conferir antes.
+Quero ver item por item com as quantidades" foi ignorado duas vezes, uma delas
+respondida com cardapio.
+Correcao: o codigo monta a lista do pedido em qualquer momento da conversa e
+manda ela enviar exatamente aquilo.
+
+**Cardapio recomecando a conversa.** Com salgados e docinhos ja anotados, no
+meio de uma correcao de quantidade, ela mandou as duas pecas de cardapio. A
+cliente tinha acabado de escrever "nao apaga os docinhos".
+Correcao: cardapio nao vai pra quem ja escolheu aquela familia. Se ele pedir pra
+ver, o pedido dele libera.
+Verificado em `cardapio-nao-recomeca-a-conversa.cjs`.
+
+**Recusa gravada que nunca valeu.** Achado pelo teste, nao pela conversa: o
+campo `nao_quer` guarda "docinho", so a palavra, e a guarda passava esse campo
+pelo regex de negacao ("sem", "nao quero"). Nunca batia. Quem dispensava docinho
+numa mensagem recebia o cardapio de docinho na seguinte, e o unico freio era a
+fala do momento.
+
+---
+
+## O mesmo erro de leitura, em quatro guardas (20/08/2026)
+
+Vale mais que os defeitos separados: **quatro guardas liam so a ULTIMA mensagem
+do cliente**, e as quatro falhavam pelo mesmo motivo.
+
+**Sabado virou quinta.** "quero 60 brigadeiros pra sabado as 10h" na PRIMEIRA
+mensagem; o pedido foi registrado na terceira, quando a cliente so mandou nome e
+pagamento. A guarda que confere data contra dia da semana leu so a fala do
+momento, nao achou dia nenhum, e o pedido saiu com 20/08/2026, uma quinta. Ela
+ia buscar no sabado e a padaria produzir na quinta, e ninguem perceberia ate o
+balcao.
+Correcao: a guarda le a conversa inteira, valendo o ultimo dia que ele falou.
+Verificado em `data-bate-com-o-dia.cjs`.
+
+**Preco sem numero.** "bom dia, quanto custa o cento de salgado" foi respondido
+com os valores certos. Na mensagem seguinte, "e o docinho, quanto fica" recebeu
+so "Te mandei o cardapio de docinhos aqui". O codigo tinha o preco na mao: o
+gatilho exigia "quanto custa o docinho" NESSA ORDEM. A cliente parou de
+responder ali.
+Correcao: basta ser pergunta de preco e citar a familia, em qualquer ordem. E o
+"quanto" sozinho ficou de fora de proposito, porque casa dentro de "quantos
+salgados por pessoa", que e pergunta de rendimento.
+Verificado em `pergunta-de-preco-tem-numero.cjs`.
+
+As outras duas dessa mesma familia estao acima: a familia do sortido (assado
+virando frito) e o total do sortido (200 virando 100).
+
+**A regra que ficou:** conversa nao e a ultima mensagem. Tudo que o cliente
+disse continua valendo ate ele mudar, e o que manda e o ULTIMO que ele falou.
+Guarda que so olha a fala do momento vai falhar exatamente quando a conversa
+ficar longa, que e quando o pedido e grande.

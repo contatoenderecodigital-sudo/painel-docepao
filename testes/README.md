@@ -51,3 +51,23 @@ numero ficticio por padrao, de proposito.
 ```
 docker exec <container> node /tmp/wf.cjs 5511999990000 "me manda o cardapio de bolos" <phone_id>
 ```
+
+
+## NUNCA rode dois portões ao mesmo tempo
+
+Os testes `qa-*` e `pausa-nao-vaza` falam com a VPS de verdade e usam telefones
+de teste FIXOS (5511955550001 a 0003, entre outros). Dois `node testes/todos.cjs`
+rodando juntos disputam os mesmos clientes no banco: um limpa enquanto o outro
+mede, e o resultado é uma reprovação que não existe.
+
+Aconteceu em 20/08/2026: `pausa-nao-vaza` reprovou num portão e passou sozinho
+no minuto seguinte, sem nenhuma mudança de código. Meia hora perdida procurando
+defeito em código que estava certo.
+
+Se um teste que fala com a VPS reprovar, a primeira coisa a fazer é rodar ele
+SOZINHO antes de mexer em qualquer linha:
+
+    node testes/pausa-nao-vaza.cjs
+
+E rode o portão sem cano: `node testes/todos.cjs | tail` faz o `&&` seguinte ler
+o código de saída do `tail`, e o commit passa com teste vermelho.

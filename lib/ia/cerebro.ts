@@ -35,6 +35,14 @@ import {
   clienteNaoVaiComprar,
   familiaQueElePediu,
   pedidosQueNaoExistem,
+  novoTotalQueElePediu,
+  reescalarParaOTotal,
+  aceitouAOferta,
+  itensQueElaOfereceu,
+  totalQueElePediu,
+  pediuVerOPedido,
+  pecasPermitidas,
+  perguntouPrecoDeFamilia,
   dataBrigaComODiaDaSemana,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
@@ -580,8 +588,27 @@ function executarFerramenta(
       const c = motor.cotarPorItens((input.itens as { item: string; qtd: number }[]) || []);
       return formatarOrcamento(c);
     }
+    // SEM SABER QUANTAS PESSOAS, NAO EXISTE ORCAMENTO DE FESTA.
+    //
+    // Ela chamou esta ferramenta antes de perguntar o tamanho da festa. Com
+    // zero pessoas o motor devolve uma unidade de cada linha, e o total virou
+    // R$ 2,25: a soma de um salgado com um docinho. Foi isso que a cliente leu,
+    // logo depois de "uma base boa pra festa e 300 salgados e 150 docinhos".
+    //
+    // O numero era ridiculo o bastante pra ninguem cair, mas o estrago e o
+    // mesmo dos outros: ela afirma valor que a padaria nao cobra. Se o motor
+    // nao tem como calcular, quem pergunta e ela, e a ferramenta diz isso.
+    const quantasPessoas = Number(input.pessoas) || 0;
+    if (quantasPessoas <= 0) {
+      return (
+        "NAO orcei: pra sugerir uma base de festa eu preciso saber quantas pessoas vao. " +
+        "Sem isso a conta sai com uma unidade de cada item e o total fica ridiculo. " +
+        "Pergunte quantos convidados sao e chame de novo. Se ele ja sabe o que quer, " +
+        "use o modo itens com os produtos e as quantidades que ele falou."
+      );
+    }
     const c = motor.sugerirPorPessoas(
-      Number(input.pessoas) || 0,
+      quantasPessoas,
       (input.quer as { salgado?: boolean; doce?: boolean; bolo?: boolean }) || { salgado: true, doce: true },
     );
 
@@ -2082,7 +2109,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // padaria produzir noutro, e ninguem ia perceber ate o balcao.
     try {
       const agora = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-      const corrigida = dataBrigaComODiaDaSemana(String(input.retirada_data ?? ""), falaDoCliente, agora);
+      // A CONVERSA INTEIRA, NAO A ULTIMA FRASE.
+      //
+      // Terceira vez que este mesmo erro aparece numa noite. A cliente escreveu
+      // "quero 60 brigadeiros pra sabado as 10h" na PRIMEIRA mensagem e o
+      // pedido foi registrado na terceira, quando ela so mandou o nome e o
+      // pagamento. Lendo so a fala do momento nao havia dia da semana nenhum
+      // pra conferir, entao a data passou como veio: 20/08/2026, uma quinta.
+      // Ela ia buscar no sabado e a padaria produzir na quinta.
+      const tudoQueEleFalou = (falasDoCliente.length ? falasDoCliente : [falaDoCliente]).join(" | ");
+      const corrigida = dataBrigaComODiaDaSemana(String(input.retirada_data ?? ""), tudoQueEleFalou, agora);
       if (corrigida) {
         console.warn(
           "[ia] data nao batia com o dia da semana que o cliente falou: " +
@@ -3464,6 +3500,9 @@ async function rodarConversa(
   let montagemDoTurno = montagemAtual;
   const propostaGuardada = String(montagemAtual?.dados?.proposta ?? "");
   const ultimaFalaDoCliente = [...historico].reverse().find((h) => h.role === "user")?.content ?? "";
+  // O que o CODIGO decidiu gravar neste turno. Vai pro fim da lista de
+  // mudancas, depois das chamadas dela, porque a ultima escrita e a que vale.
+  const correcoesDoCodigo: MudancaMontagem[] = [];
   const aceitou = /^(pode ser assim|pode ser|isso mesmo|isso|ta bom|tá bom|ta otimo|tá ótimo|perfeito|fechado|fechou|beleza|blz|ok|sim|pode|quero assim|manda assim)[ ]*[.!,]*$/i.test(
     String(ultimaFalaDoCliente).trim(),
   );
@@ -3659,6 +3698,206 @@ async function rodarConversa(
     }
   }
 
+  // ELE PEDIU PRA CONFERIR: O CODIGO ESCREVE A LISTA.
+  //
+  // Caso real de 20/08/2026: "Calma, me manda o pedido final pra eu conferir
+  // antes. Quero ver item por item com as quantidades". A Dora respondeu com
+  // outra pergunta de confirmacao e depois mandou o cardapio. A cliente pediu
+  // duas vezes e nunca viu o pedido.
+  //
+  // Esse e o momento em que o cliente decide se confia. O resumo so existia no
+  // fechamento, entao no meio da conversa ela tinha que digitar de cabeca, e
+  // digitava errado ou nao digitava.
+  if (pediuVerOPedido(String(ultimaFalaDoCliente))) {
+    const itensAgora = montagemDoTurno?.itens ?? [];
+    if (itensAgora.length) {
+      const linhas = itensAgora.map(
+        (i) =>
+          "- " + fmtQtd(Number(i.qtd || 0), unidadeDoProduto(i.produto, i.categoria)) + " " +
+          comoSeEscreve(i.produto) + (i.obs ? " (" + String(i.obs).trim() + ")" : ""),
+      );
+      messages.push({
+        role: "system",
+        content:
+          "O CLIENTE PEDIU PRA CONFERIR O PEDIDO. Mande EXATAMENTE esta lista, uma linha por item, " +
+          "sem mudar nome nem quantidade:\n" + linhas.join("\n") + "\n\n" +
+          "Nao mande cardapio, nao faca pergunta de confirmacao antes de mostrar e nao resuma em uma frase: " +
+          "ele quer ver item por item. Depois da lista, pergunte se esta certo e o que falta.",
+      });
+    } else {
+      messages.push({
+        role: "system",
+        content:
+          "O CLIENTE PEDIU PRA CONFERIR O PEDIDO E NAO HA NENHUM ITEM ANOTADO AINDA. Diga isso com todas as " +
+          "letras, numa frase, e pergunte o que ele quer. NAO invente uma lista e NAO mande cardapio.",
+      });
+    }
+  }
+
+  // ELE ACEITOU O QUE ELA OFERECEU: O CODIGO ANOTA.
+  //
+  // Conversa real de 20/08/2026:
+  //
+  //   Dora: 100 coxinha, 100 mini bolha de carne e 100 esfirra de calabresa,
+  //         75 brigadeiro e 75 beijinho. Pode ser assim?
+  //   ela:  pode ser assim. queria tambem um bolo de bombom de 2kg
+  //   Dora: Te mandei o cardapio de salgados aqui. Quais salgados voce quer e
+  //         quantos de cada?
+  //
+  // Ela aceitou a lista DELE e ele pediu a lista de volta. Nas duas mensagens
+  // seguintes a cliente repetiu item por item, escrevendo "ja falei 1 vez".
+  //
+  // Aceitar oferta e a hora mais barata de fechar um pedido, e era onde a
+  // conversa morria. Anotar deixou de ser decisao dela.
+  {
+    let ofertados = aceitouAOferta(String(ultimaFalaDoCliente))
+      ? itensQueElaOfereceu(String(ultimaDelaAqui))
+      : [];
+
+    // SE A CONTA DELA NAO FECHA, VALE A DO CODIGO.
+    //
+    // Ela ofereceu "20 coxinha, 20 mini bolha, 20 risolis, 20 bolinha e 20
+    // croquete" pra quem tinha pedido 200 salgados: 100. E nos docinhos
+    // escreveu "25 brigadeiro, 25 beijinho, 25 cajuzinho e 25 com forminha
+    // branca", comendo o nome do quarto sabor.
+    //
+    // Antes isso so custava mensagem, porque quem anotava era ela e a cliente
+    // corrigia. Agora o codigo anota o que ele aceitou, entao copiar a conta
+    // errada dela seria gravar o erro no pedido. Quando a soma da familia nao
+    // bate com o que ele pediu, o sortido do codigo entra no lugar: a divisao
+    // fecha exata e nenhum nome se perde.
+    if (ofertados.length) {
+      const doCliente = historico.filter((h) => h.role === "user").map((h) => String(h.content ?? ""));
+      const familiaDe = (p: string) => {
+        const c = categoriaDoProduto(p);
+        return c === "docinho" ? "docinho" : c.startsWith("salgado") ? "salgado" : "outro";
+      };
+      const corrigidos: typeof ofertados = [];
+      for (const fam of ["salgado", "docinho"] as const) {
+        const dessa = ofertados.filter((o) => familiaDe(o.produto) === fam);
+        if (!dessa.length) continue;
+        const querido = totalQueElePediu(doCliente, fam);
+        const somou = dessa.reduce((s, o) => s + o.qtd, 0);
+        if (querido > 0 && somou !== querido) {
+          const categoria =
+            fam === "docinho"
+              ? "docinho"
+              : familiaQueElePediu(doCliente) === "assado"
+                ? "salgado_assado"
+                : "salgado_frito";
+          const refeito = sugestaoDeSortido(categoria, querido);
+          if (refeito.length) {
+            corrigidos.push(...refeito.map((r) => ({ produto: r.produto, qtd: r.qtd, obs: null })));
+            continue;
+          }
+        }
+        corrigidos.push(...dessa);
+      }
+      corrigidos.push(...ofertados.filter((o) => familiaDe(o.produto) === "outro"));
+      ofertados = corrigidos;
+    }
+    const chave = (t: unknown) =>
+      String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+    const jaTem = (p: string) => (montagemDoTurno?.itens ?? []).some((i) => chave(i.produto) === chave(p));
+    const novos = ofertados.filter((o) => !jaTem(o.produto));
+    if (novos.length) {
+      for (const o of novos) {
+        const linha = {
+          tipo: "item" as const,
+          produto: comoSeEscreve(o.produto),
+          categoria: categoriaDoProduto(o.produto),
+          qtd: o.qtd,
+          obs: o.obs,
+        };
+        estado.montagem.push(linha);
+        correcoesDoCodigo.push(linha);
+      }
+      montagemDoTurno = {
+        ...(montagemDoTurno ?? { itens: [], dados: {} }),
+        itens: [
+          ...(montagemDoTurno?.itens ?? []),
+          ...novos.map((o) => ({
+            produto: comoSeEscreve(o.produto),
+            categoria: categoriaDoProduto(o.produto),
+            qtd: o.qtd,
+            unidade: unidadeDoProduto(o.produto, categoriaDoProduto(o.produto)),
+            obs: o.obs,
+          })),
+        ],
+      } as MontagemAtual;
+      messages.push({
+        role: "system",
+        content:
+          "O CLIENTE ACEITOU A SUA SUGESTAO E O SISTEMA JA ANOTOU: " +
+          novos.map((o) => o.qtd + " " + comoSeEscreve(o.produto) + (o.obs ? " de " + o.obs : "")).join(", ") +
+          ".\n\nNAO peca a lista de novo, NAO mande o cardapio e NAO anote esses itens outra vez. " +
+          "Confirme numa frase, cuide do resto que ele falou na mesma mensagem, e siga pro que falta.",
+      });
+    }
+  }
+
+  // MUDOU O TOTAL: O CODIGO REFAZ A CONTA, SEM PEDIR LICENCA.
+  //
+  // Ponto exato em que a secretaria desistiu, em 20/08/2026. O pedido estava
+  // fechado em 200 salgados e ela mandou baixar pra 150. A Dora perguntou se
+  // podia ajustar; ela disse que sim; a Dora perguntou como dividir; ela mandou
+  // dividir igual; a Dora perguntou uma TERCEIRA vez se podia aplicar. Seis
+  // mensagens numa conta de dividir, com a cliente ja com pressa.
+  //
+  // Quem manda mudar ja autorizou. As linhas que ele escolheu ficam de pe e so
+  // mudam de tamanho, na mesma proporcao, com a soma batendo exata.
+  {
+    const mudanca = novoTotalQueElePediu(String(ultimaFalaDoCliente));
+    if (mudanca) {
+      const daFamilia = (montagemDoTurno?.itens ?? []).filter((i) =>
+        mudanca.familia === "salgado"
+          ? i.categoria === "salgado_frito" || i.categoria === "salgado_assado"
+          : i.categoria === "docinho",
+      );
+      const totalHoje = daFamilia.reduce((s, i) => s + Number(i.qtd || 0), 0);
+      // So e MUDANCA se ja existe outro total. Da primeira vez que ele fala um
+      // numero, isso e o pedido dele e quem anota e ela.
+      if (daFamilia.length && totalHoje > 0 && totalHoje !== mudanca.total) {
+        const novos = reescalarParaOTotal(
+          daFamilia.map((i) => ({ produto: i.produto, qtd: Number(i.qtd || 0) })),
+          mudanca.total,
+        );
+        if (novos.length) {
+          const porProduto = new Map(novos.map((n) => [n.produto, n.qtd]));
+          for (const i of daFamilia) {
+            const qtd = porProduto.get(i.produto);
+            if (qtd === undefined) {
+              estado.montagem.push({ tipo: "remover", produto: i.produto, categoria: i.categoria });
+              continue;
+            }
+            if (qtd === Number(i.qtd || 0)) continue;
+            estado.montagem.push({ tipo: "remover", produto: i.produto, categoria: i.categoria });
+            const linha = { tipo: "item" as const, produto: i.produto, categoria: i.categoria, qtd, obs: i.obs ?? null };
+            estado.montagem.push(linha);
+            correcoesDoCodigo.push(linha);
+          }
+          // Vale JA neste turno, senao o resto do prompt segue lendo o total
+          // velho e ela confirma um numero que nao existe mais.
+          montagemDoTurno = {
+            ...(montagemDoTurno ?? { itens: [], dados: {} }),
+            itens: (montagemDoTurno?.itens ?? [])
+              .map((i) => (daFamilia.includes(i) ? { ...i, qtd: porProduto.get(i.produto) ?? 0 } : i))
+              .filter((i) => Number(i.qtd || 0) > 0),
+          } as MontagemAtual;
+          messages.push({
+            role: "system",
+            content:
+              "O CLIENTE MUDOU O TOTAL DE " + totalHoje + " PARA " + mudanca.total + " " + mudanca.familia +
+              "s, E O PEDIDO JA FOI AJUSTADO PELO SISTEMA. Ficou assim: " +
+              novos.map((n) => n.qtd + " " + n.produto).join(", ") + ".\n\n" +
+              "NAO pergunte se pode ajustar, NAO pergunte como dividir e NAO anote esses itens de novo: " +
+              "ja esta feito. Diga numa frase como ficou e siga pro que falta.",
+          });
+        }
+      }
+    }
+  }
+
   // PEDIU QUE ELA ESCOLHA: O CODIGO MONTA A SUGESTAO.
   //
   // A secretaria pediu TRES vezes que a Dora montasse o sortido e nas tres
@@ -3673,7 +3912,6 @@ async function rodarConversa(
       .toLowerCase()
       .normalize("NFD")
       .replace(/[̀-ͯ]/g, "");
-    const quanto = Number((String(ultimaFalaDoCliente).match(/\b([0-9]{2,4})\b/) ?? [])[1]) || 0;
     const familias: ("salgado_frito" | "salgado_assado" | "docinho")[] = [];
     // ASSADO OU FRITO E ESCOLHA DA CONVERSA INTEIRA, NAO DA ULTIMA FRASE.
     //
@@ -3688,8 +3926,21 @@ async function rodarConversa(
     else if (escolhida === "frito") familias.push("salgado_frito");
     else if (/salgad/.test(t)) familias.push("salgado_frito");
     if (/docinho|doce/.test(t)) familias.push("docinho");
+    // QUANTOS SAI DA CONVERSA INTEIRA, NAO DA ULTIMA FRASE.
+    //
+    // A secretaria disse "200 salgados assados e 100 docinhos" na segunda
+    // mensagem. Duas mensagens depois pediu o sortido sem repetir o numero, e a
+    // sugestao veio com 100 salgados, porque aqui so se olhava a ultima fala e
+    // caia no padrao. Ela corrigiu tres vezes ("isso ai da 100 salgados so",
+    // "continua faltando salgado, ai deu 120 e eu quero 200"). Quem tem pressa
+    // nao volta pra terceira correcao.
+    //
+    // E o total de CADA familia e o dela: um numero so servia pras duas, entao
+    // os 100 docinhos viravam 200 junto com os salgados.
+    const quantosDe = (f: string) =>
+      totalQueElePediu(tudoQueEleFalou, f === "docinho" ? "docinho" : "salgado") || 100;
     const sugestoes = familias
-      .map((f) => ({ f, itens: sugestaoDeSortido(f, quanto || 100) }))
+      .map((f) => ({ f, itens: sugestaoDeSortido(f, quantosDe(f)) }))
       .filter((s) => s.itens.length > 0);
     if (sugestoes.length) {
       const texto = sugestoes
@@ -4426,11 +4677,19 @@ async function rodarConversa(
       }
 
       // PRECO DE SALGADO, DOCINHO E BOLO: POR UNIDADE E POR CENTO.
-      const perguntouCento =
-        /(quanto|qual|preco|preço)[^?]{0,40}(cento|cem|100)|quanto (custa|fica|sai) o (cento|salgadinho|salgado|docinho|doce|bolo)|pre[çc]o d[oa] (cento|salgado|docinho|bolo)|(^|\W)(e )?o cento/i.test(
-          String(falaDoCliente2 ?? ""),
-        );
-      if (perguntouCento && textoFinal && !/R\$\s?[0-9]/.test(textoFinal)) {
+      //
+      // A ORDEM DAS PALAVRAS NAO PODE DECIDIR SE O CLIENTE RECEBE O PRECO.
+      // A regra e a guarda perguntouPrecoDeFamilia, com o caso real no
+      // comentario dela e teste dos dois lados.
+      const perguntouCento = perguntouPrecoDeFamilia(String(falaDoCliente2 ?? ""));
+      // O TEXTO VAZIO E O PIOR CASO, NAO UM CASO A IGNORAR.
+      //
+      // Isto exigia que ja existisse texto pra completar. So que o defeito
+      // campeao e justamente ela mandar a imagem do cardapio e NAO escrever
+      // nada: aconteceu duas vezes com a mesma pergunta, "e o docinho, quanto
+      // fica". O cliente recebia uma foto de tabela e silencio. Sem texto e
+      // exatamente quando o preco do codigo tem que entrar.
+      if (perguntouCento && !/R\$\s?[0-9]/.test(textoFinal)) {
         const t = String(falaDoCliente2 ?? "").toLowerCase();
         const frito = Number(catalogo.salgados?.frito?.preco ?? 0);
         const assado = Number(catalogo.salgados?.assado?.preco ?? 0);
@@ -4447,14 +4706,14 @@ async function rodarConversa(
         }
         if (linhas.length) {
           console.warn("[ia] preco por cento respondido pelo codigo");
-          textoFinal = linhas.join(" ") + "\n\n" + textoFinal;
+          textoFinal = (linhas.join(" ") + "\n\n" + textoFinal).trim();
         }
       }
 
       // PRECO DE PRODUTO DA TABELA E RESPOSTA, NAO PROMESSA DE CONFERIR.
       const perguntouPreco =
         /(quanto (custa|fica|sai|ta|e)|qual o pre[çc]o|pre[çc]o d)/i.test(String(falaDoCliente2 ?? ""));
-      if (perguntouPreco && textoFinal && !/R\$\s?[0-9]/.test(textoFinal)) {
+      if (perguntouPreco && !/R\$\s?[0-9]/.test(textoFinal)) {
         const t = String(falaDoCliente2 ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         const tabela = ((catalogo.outros_produtos ?? []) as { nome: string; preco: number; unidade?: string }[])
           .map((i) => ({ nome: String(i.nome), preco: Number(i.preco), unidade: String(i.unidade ?? "un") }))
@@ -4868,6 +5127,17 @@ async function rodarConversa(
         const semOferta = semLista.texto.replace(oferta, "").replace(/\n{3,}/g, "\n\n").trim();
         if (semOferta) semLista.texto = semOferta;
       }
+      // A CONTA DO CODIGO E A ULTIMA A VALER.
+      //
+      // As mudancas sao aplicadas na ordem da lista, e anotar_item SUBSTITUI a
+      // quantidade da linha. Quando o codigo corrige o total (ele aceitou 200 e
+      // ela ofereceu 100) e ela chama a ferramenta na sequencia com o numero
+      // dela, a ultima escrita ganha e o conserto era desfeito calado.
+      //
+      // O prompt ja pede pra ela nao reanotar, mas prompt e sugestao. Aqui a
+      // correcao e repetida no fim: gravar de novo o mesmo item so troca a
+      // quantidade pela certa, entao repetir e barato e nao duplica linha.
+      if (correcoesDoCodigo.length) estado.montagem.push(...correcoesDoCodigo);
       return {
         texto: semLista.texto,
         precisaHumano: estado.precisaHumano,
@@ -4879,7 +5149,8 @@ async function rodarConversa(
           honrarCardapioPrometido(semLista.texto, pecasFinais, mandadasAgora),
           String(falaDoCliente2),
           String(montagemDoTurno?.dados?.nao_quer ?? ""),
-        ),
+          montagemDoTurno?.itens ?? [],
+        ) as CardapioId[],
       };
     }
 
@@ -4952,27 +5223,6 @@ async function rodarConversa(
 }
 
 
-
-// PORTAO FINAL: peca de familia recusada nao sai.
-//
-// Existem quatro caminhos que enfileiram cardapio (ferramenta, promessa no
-// texto, lista digitada, pedido do cliente). Barrar em cada um deles deixou
-// passar: a ferramenta recusou e a promessa mandou. Aqui e o unico lugar por
-// onde a peca sai de verdade.
-function pecasPermitidas(pecas: CardapioId[], ultimaFala: string, naoQuer: string): CardapioId[] {
-  if (pecas.length === 0) return pecas;
-  const dito = (String(naoQuer || "") + " " + String(ultimaFala || "")).toLowerCase();
-  const recusou: [CardapioId, RegExp][] = [
-    ["salgados", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}salgad/],
-    ["docinhos", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}(docinho|doce)/],
-    ["bolos-festa", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}bolo/],
-  ];
-  // Pediu agora, com todas as letras: manda mesmo assim.
-  const pediuAgora = /card[áa]pio|me manda|quais|que tipos|op[çc][õo]es|que sabores/i.test(String(ultimaFala || ""));
-  if (pediuAgora) return pecas;
-  const fora = recusou.filter(([, re]) => re.test(dito)).map(([peca]) => peca);
-  return pecas.filter((c) => !fora.includes(c));
-}
 
 // Quais pecas ja foram mandadas nas ultimas mensagens (a peca vai como imagem
 // com legenda "Cardapio de X", e isso fica no historico).

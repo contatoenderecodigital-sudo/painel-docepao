@@ -366,3 +366,94 @@ detalhes do bolo, tema, aniversariante, nome, hora, pagamento). Quando ela
 perde um desses, entra em laço pedindo o mesmo item. Vale testar quebrar o
 fechamento da festa em etapas com estado explícito, do jeito que o dia da
 retirada foi resolvido: no código, não no prompt.
+
+---
+
+## 20 de agosto de 2026, madrugada
+
+O método mudou, e essa foi a mudança que mais rendeu. Até aqui eu consertava o
+CASO: "cuca de goiaba" recusada virava um conserto pra cuca de goiaba, e uma
+semana depois o mesmo defeito voltava chamado "pizza de forma". Agora cada
+defeito achado vira uma varredura da CLASSE, com teste que percorre o catálogo
+inteiro, e produto novo já nasce coberto.
+
+A ideia que destravou foi do dono: **ler o rastro em vez de adivinhar**. Com o
+log de chamada de ferramenta ligado, oito defeitos caíram em uma hora, e sete
+deles eram guarda MINHA bloqueando a Dora fazendo a coisa certa.
+
+### O que estava fazendo o cliente desistir
+
+| Defeito | O que acontecia | Correção |
+|---|---|---|
+| Assado virava frito | A secretária pediu 200 salgados ASSADOS e recebeu "40 mini bolha, que é o pastel frito da casa" | A família é escolha da conversa inteira, não da última frase, e vale o último que ele falou. Além disso `anotar_item` recusa frito pra quem pediu assado por qualquer caminho |
+| Reclamação virava pedido | O cliente irritado escreveu "já te falei 3 vezes" e ela respondeu "A gente não tem vez também" e "Não temos docinho vezes" | Só acusa produto inexistente se a frase for mesmo pedido: verbo de comprar ou palavra do cardápio junto do número |
+| Mudar o total virava negociação | 200 salgados pra 150: ela pediu licença três vezes e gastou seis mensagens numa divisão | O código refaz a conta sozinho, mantendo os sabores que ele escolheu, com a soma exata |
+| Pergunta virava item | "e bolo 0% lactose vocês fazem?" criava um item, porque o "0%" era lido como quantidade | Porcentagem, data e hora saem antes de procurar quantidade, e o nome do produto casa por qualquer palavra significativa |
+| Item entrado por engano nunca saía | Ela dizia "não anotei nada" com o item ainda na tela | Guarda nova: quando ele diz que não vai comprar, o código limpa a montagem |
+| Sabor arrastava o vizinho | Pediu "bacon com brócolis" e entrou "bacon com milho" | Sabor de uma palavra só casa com sabor de uma palavra; sabor composto exige a frase inteira |
+| Data brigava com o dia | "quarta-feira, dia 27/08" numa semana em que a quarta era 26 | A palavra do cliente vence a aritmética dela |
+| Transferência não existia | Pagamento por TED ou depósito não era reconhecido | Transferência e boleto entraram, e vale sempre o último que ele falou |
+
+### O ponto cego do medidor
+
+O medidor dava nota cheia enquanto TODA venda de pizza estava morta: o rastro
+mostrou a Dora chamando `anotar_item` de pizza oito vezes numa conversa e a
+guarda recusando as oito, porque o cliente escreve "pizza de forma" e o
+catálogo diz "pizza inteira". O medidor não tinha cenário de pizza.
+
+Medir só o que já funciona é o jeito mais fácil de passar. Agora ele tem oito
+cenários, com pizza, assado que não pode virar frito, e mudança de total
+julgada pela SOMA das quantidades no banco: se ainda mostra 200, ela conversou
+e não fez.
+
+### Regra que ficou
+
+Guarda que trava venda é pior que o bug que ela evita. Toda guarda nasce com
+teste dos dois lados, e o lado "deixa passar o legítimo" varre os 86 produtos
+do catálogo, não um exemplo.
+
+### Segunda leitura, agora das conversas inteiras no banco
+
+Depois de consertar as classes acima, li as duas conversas longas de ponta a
+ponta em vez de olhar o pedido final. As duas fecharam com o pedido CERTO
+(R$ 612,30 e R$ 320,00), e as duas foram atendimentos ruins. Olhar so o
+resultado teria dado alta nas duas.
+
+| Defeito | O que acontecia | Correção |
+|---|---|---|
+| Aceite ignorado | "pode ser assim" e ela devolvia "quais salgados você quer e quantos de cada?". O cliente repetia item por item e escrevia "já falei 1 vez" | Aceitar oferta virou trabalho do código: ele lê a lista da própria mensagem dela e anota |
+| A conta dela entrando no pedido | Ela ofereceu 100 salgados pra quem pediu 200, e comeu o nome do quarto docinho | Quando a soma da família não bate com o pedido, o sortido do código entra no lugar |
+| Sortido com metade | O total era lido só da última frase; o "200 salgados" tinha sido dito três mensagens antes | O total sai da conversa inteira, e cada família tem o seu |
+| Orçamento de R$ 2,25 | Ela pediu orçamento de festa antes de perguntar quantas pessoas; com zero pessoas o motor cota uma unidade de cada | Sem número de convidados a ferramenta recusa e manda perguntar |
+| Conferência negada | "me manda o pedido final pra eu conferir, item por item" foi ignorado duas vezes | O código monta a lista e manda ela enviar exatamente aquilo |
+| Cardápio recomeçando a conversa | Com tudo anotado, ela despejou as duas peças de cardápio logo depois de "não apaga os docinhos" | Cardápio não vai pra quem já escolheu aquela família, nem pra quem recusou |
+| Recusa gravada que nunca valeu | O campo `nao_quer` guarda "docinho", uma lista, e a guarda exigia frase de negação: a recusa gravada nunca bloqueou nada | Lista é lista, e agora bloqueia. Achado pelo teste, não pela conversa |
+
+O ganho maior não foi nenhum desses sozinho. Foi descobrir que **quatro
+respostas absurdas da mesma conversa tinham uma causa só**: a função que
+detectava produto inexistente lendo qualquer número seguido de palavra. Ela
+produziu "A gente não tem vez também", "A cor azul a gente não tem", "O topo
+tema dinossauro a gente não tem" e uma acusação inventada de que o pedido tinha
+150 docinhos de cada sabor, que quase fez a cliente mandar apagar itens certos.
+
+### O mesmo erro de leitura, em quatro lugares diferentes
+
+Lendo as conversas apareceu um padrão que vale mais que os defeitos em si:
+**quatro guardas diferentes liam só a última mensagem do cliente**, e todas
+falhavam pelo mesmo motivo, cada uma de um jeito.
+
+| Guarda | O que o cliente falou e quando | O estrago |
+|---|---|---|
+| Família do sortido | "200 salgados ASSADOS", três mensagens antes | Ofereceu fritos |
+| Total do sortido | "200 salgados", três mensagens antes | Ofereceu 100 |
+| Data x dia da semana | "sábado às 10h", na primeira mensagem | Pedido saiu com quinta-feira |
+| Preço por família | "e o docinho, quanto fica" | Resposta sem número nenhum, essa por ordem das palavras |
+
+Conversa não é a última mensagem. Tudo que o cliente disse continua valendo até
+ele mudar, e é o último que ele falou que manda. As quatro passaram a ler a
+conversa inteira, e as quatro ganharam teste com a frase real.
+
+A do preço tinha ainda outro vício: o gatilho exigia "quanto custa o docinho"
+nessa ordem exata. A cliente escreveu "e o docinho, quanto fica" e recebeu de
+volta "Te mandei o cardápio de docinhos aqui", sem número, depois de ter
+recebido o preço dos salgados na mensagem anterior. Ela parou de responder ali.
