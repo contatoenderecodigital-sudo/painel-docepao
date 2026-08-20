@@ -143,8 +143,9 @@ Nada de código na lista do plano. O que sobrou:
 2. **`ADMIN_WHATSAPP` e `DONA_WHATSAPP`** no Coolify. Os dois números precisam
    ter mandado um "oi" pro número da padaria antes, senão a Meta recusa pela
    janela de 24h.
-3. **Confirmar com a dona** que o "120" do áudio é 20 por sabor. A conta bate: 5
-   sabores no cento dá 20 de cada.
+3. ~~Confirmar com a dona o "120" do áudio.~~ **Resolvido:** o dono confirmou
+   que é 20 por sabor. O "120" era erro de transcrição do áudio, o "1" não
+   existe. A conta fecha: 5 sabores no cento dá 20 de cada.
 
 ## O que a madrugada de 20/08 mudou no método
 

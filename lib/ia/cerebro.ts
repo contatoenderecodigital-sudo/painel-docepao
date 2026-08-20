@@ -46,6 +46,8 @@ import {
   obsSemDeliberacao,
   restricoesQueACasaNaoFaz,
   obsSemRestricaoInventada,
+  temaViroouSabor,
+  temaDoTopoNaFala,
   dataBrigaComODiaDaSemana,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
@@ -1171,16 +1173,18 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
 
     // TEMA DE TOPO NAO E SABOR: quem pediu topo de unicornio nao pediu bolo de
     // unicornio, e dizer que a casa nao faz esse bolo trava a conversa.
-    const temaDeTopo = String(falaDoCliente).match(/(?:topo|papel de arroz|tema)\s+(?:de\s+|do\s+|da\s+)?([\wáàâãéêíóôõúç -]{3,30})/i);
-    const soTema =
-      !!temaDeTopo &&
-      produto.toLowerCase().includes(String(temaDeTopo[1]).trim().toLowerCase().split(" ")[0]) &&
-      !/topo|papel de arroz/i.test(String(obsItem ?? ""));
-    if (soTema) {
+    //
+    // A regra mora em guardas.ts, com o caso real no comentario e teste dos
+    // dois lados. Aqui ela so recusava demais: capturava "bolo tema homem
+    // aranha", olhava a primeira palavra ("bolo") e, como TODO bolo do cardapio
+    // comeca com ela, recusava qualquer bolo de qualquer cliente que dissesse
+    // "topo de bolo". Recusava tambem o proprio topo, que tem "bolo" no nome.
+    if (temaViroouSabor(produto, String(falaDoCliente), obsItem)) {
+      const tema = temaDoTopoNaFala(String(falaDoCliente)) ?? "";
       console.warn("[ia] tema do topo veio como sabor de bolo: " + produto);
       return (
-        "NAO anotei: \"" + String(temaDeTopo[1]).trim() + "\" e o TEMA do topo, nao o sabor do bolo. Anote o topo na " +
-        "observacao do bolo (ex: obs \"topo de " + String(temaDeTopo[1]).trim() + "\") e pergunte, separado, qual SABOR de " +
+        "NAO anotei: \"" + tema + "\" e o TEMA do topo, nao o sabor do bolo. Anote o topo na " +
+        "observacao do bolo (ex: obs \"topo de " + tema + "\") e pergunte, separado, qual SABOR de " +
         "bolo ele quer. Dizer que a padaria nao faz bolo desse tema derruba a venda por engano."
       );
     }
@@ -4088,8 +4092,23 @@ async function rodarConversa(
     //
     // E o total de CADA familia e o dela: um numero so servia pras duas, entao
     // os 100 docinhos viravam 200 junto com os salgados.
+    // O TOTAL PODE TER SIDO DITO POR ELA, NAO POR ELE.
+    //
+    // Teste ao vivo de 20/08/2026. O cliente pediu orcamento pra 40 pessoas, o
+    // sistema respondeu "uma base boa e 400 salgados no total, 200 docinhos e
+    // 4 kg de bolo", e ele aceitou com "pode ser assim, escolhe voce os tipos".
+    // O sortido veio com 100 salgados: um quarto da festa.
+    //
+    // A funcao le as falas DELE, e ele nunca escreveu 400. Quem escreveu foi o
+    // orcamento, que e a fonte mais confiavel que existe aqui, porque saiu da
+    // conta do motor. Aceitar a sugestao vale como pedir aquele numero.
+    const daSugestao = (f: string) => {
+      const alvo = f === "docinho" ? /([0-9]{2,4}) *(docinho|doce)/i : /([0-9]{2,4}) *salgado/i;
+      const ondeEla = [String(montagemDoTurno?.dados?.proposta ?? ""), String(ultimaDelaAqui)].join(" ");
+      return Number((ondeEla.match(alvo) ?? [])[1]) || 0;
+    };
     const quantosDe = (f: string) =>
-      totalQueElePediu(tudoQueEleFalou, f === "docinho" ? "docinho" : "salgado") || 100;
+      totalQueElePediu(tudoQueEleFalou, f === "docinho" ? "docinho" : "salgado") || daSugestao(f) || 100;
     const sugestoes = familias
       .map((f) => ({ f, itens: sugestaoDeSortido(f, quantosDe(f)) }))
       .filter((s) => s.itens.length > 0);

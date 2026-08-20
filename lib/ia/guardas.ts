@@ -1085,3 +1085,65 @@ export function obsSemRestricaoInventada(obs: unknown): string {
     .filter((p) => restricoesQueACasaNaoFaz(p).length === 0)
     .join(", ");
 }
+
+// TEMA DO TOPO NAO E SABOR DE BOLO, MAS A PALAVRA "BOLO" NAO E TEMA.
+//
+// A guarda original existe por um motivo bom: quem pede topo de unicornio nao
+// pediu bolo de unicornio, e responder "a gente nao faz bolo de unicornio"
+// derruba a venda por engano.
+//
+// So que ela pegava a primeira palavra depois de "topo/tema" e comparava com o
+// nome do produto. Teste ao vivo de 20/08/2026:
+//
+//   cliente: de bombom, 3 kg. e queria um topo de bolo tema homem aranha
+//   Dora:    anotar_item("bolo bombom", 3 kg)     -> RECUSADO
+//   Dora:    anotar_item("topo de bolo", tema)    -> RECUSADO
+//   Dora ao cliente: "Anotei o bolo de bombom com 3 kg e o topo"
+//
+// O tema capturado foi "bolo tema homem aranha", e a primeira palavra dele e
+// "bolo". Como TODO bolo do cardapio comeca com "bolo", a guarda passou a
+// recusar qualquer bolo de qualquer cliente que dissesse "topo de bolo". E
+// recusou tambem o proprio topo, que contem "bolo" no nome.
+//
+// Resultado: pedido vazio no banco com o cliente ouvindo "anotei". E o pior
+// tipo de defeito que existe aqui, porque ninguem percebe ate a retirada.
+//
+// Devolve o tema de verdade, ou null quando nao ha tema nenhum.
+export function temaDoTopoNaFala(fala: string): string | null {
+  const t = String(fala ?? "");
+  // "tema X" e mais especifico que "topo de X": tenta primeiro.
+  const porTema = t.match(/\btema\s+(?:de\s+|do\s+|da\s+)?([\wáàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ -]{3,30})/i);
+  const porTopo = t.match(/\b(?:topo|papel de arroz)\s+(?:de\s+|do\s+|da\s+)?([\wáàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ -]{3,30})/i);
+  const cru = String((porTema ?? porTopo ?? [])[1] ?? "").trim();
+  if (!cru) return null;
+  // "topo de bolo tema homem aranha" -> o tema e "homem aranha", nao "bolo".
+  const limpo = cru
+    .replace(/^(bolo|bolos)\b\s*/i, "")
+    .replace(/^(tema|de|do|da)\b\s*/i, "")
+    .replace(/\b(por favor|pra|para|obrigad[oa])\b.*$/i, "")
+    .trim();
+  if (!limpo) return null;
+  // Palavra generica nao e tema: se sobrou so isso, nao ha tema pra proteger.
+  const GENERICO = /^(bolo|bolos|festa|aniversario|niver|crianca|menino|menina|filho|filha|cima|arroz)$/i;
+  if (GENERICO.test(limpo)) return null;
+  return limpo;
+}
+
+// O produto que ela quer anotar e, na verdade, o TEMA virando sabor?
+//
+// So acusa quando o nome do produto carrega a palavra do tema de um jeito que
+// nao existe no cardapio. Acessorio (topo, papel de arroz) nunca cai aqui: ele
+// E o item do tema, nao a confusao com ele.
+export function temaViroouSabor(produto: string, fala: string, obs: unknown): boolean {
+  const nome = semAcMin(produto).trim();
+  if (!nome) return false;
+  if (/^(topo de bolo|topo|papel de arroz)/.test(nome)) return false;
+  if (/topo|papel de arroz/.test(semAcMin(obs))) return false;
+  const tema = temaDoTopoNaFala(fala);
+  if (!tema) return false;
+  const primeira = semAcMin(tema).split(/\s+/)[0];
+  if (!primeira || primeira.length < 4) return false;
+  // "bolo" nunca serve de prova: todo bolo do cardapio comeca com ela.
+  if (/^(bolo|bolos)$/.test(primeira)) return false;
+  return nome.includes(primeira);
+}
