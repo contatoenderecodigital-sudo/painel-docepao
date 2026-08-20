@@ -4648,10 +4648,26 @@ async function rodarConversa(
         String(montagemDoTurno?.dados?.nao_quer ?? ""),
         falaToda,
       ).length === 0;
+    // NAO FALTA NADA E NAO EXISTE PEDIDO: REGISTRA, MESMO SEM O "PODE FECHAR".
+    //
+    // A trava so agia quando o cliente mandava fechar com todas as letras. O
+    // cenario de pizza da medicao e o unico em que ele nao diz isso: ele
+    // pergunta se tem pizza de forma, pede duas de calabresa pra sexta as 19h,
+    // e manda "nome Rodrigo Zanella, pix". Em uma das cinco execucoes ela nao
+    // registrou, e o banco ficou com a pizza anotada e nenhum pedido: o cliente
+    // sai achando que encomendou.
+    //
+    // Dar o nome e a forma de pagamento JA e fechar. Quando o codigo conferiu
+    // item, sabor e os quatro dados, nao sobra nada pra perguntar, e deixar a
+    // decisao com ela e apostar.
+    //
+    // Registrar cedo demais e recuperavel: e um pedido por conversa, entao item
+    // que ele acrescentar depois ATUALIZA o mesmo pedido, e nada vai pra cozinha
+    // sem a equipe aprovar. Nao registrar nao e recuperavel: ninguem descobre
+    // ate o dia da retirada.
     const obrigarFechamento =
       podeFecharAgora &&
       temOsDados &&
-      mandouFechar(historico.filter((h) => h.role === "user").map((h) => String(h.content ?? ""))) &&
       !estado.pedido &&
       (montagemDoTurno?.itens ?? []).length > 0;
     // Se o portao de fora tirou registrar_pedido da mesa com a montagem velha,

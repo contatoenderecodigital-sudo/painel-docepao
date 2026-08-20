@@ -16,7 +16,16 @@ const { join } = require("node:path");
 // falando com a IA de verdade, gasta uns 25 minutos e centenas de mensagens do
 // teto da OpenAI. Serve pra DECIDIR, rodando na mao quando a gente quer saber
 // se melhorou. Quem trava commit e este arquivo aqui, que roda em segundos.
-const FORA = ["todos.cjs", "medidor.cjs"];
+// Estes dois precisam de argumento (o pedido e o cliente) ou de um pedido com
+// bolo na fila, entao nao servem de portao: sao ferramenta de conferir na mao,
+// igual ao medidor. Deixar aqui dentro faria o portao ficar vermelho por falta
+// de argumento, e portao que reprova sem defeito ensina a ignorar portao.
+const FORA = [
+  "todos.cjs",
+  "medidor.cjs",
+  "painel-visto-de-fora.cjs",
+  "papel-de-arroz-segue-o-botao.cjs",
+];
 
 const aqui = __dirname;
 const arquivos = readdirSync(aqui)
