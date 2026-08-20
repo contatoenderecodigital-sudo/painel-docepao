@@ -116,6 +116,32 @@ for (const c of casos) {
 }
 
 console.log("");
+console.log("== a troca de BOLO acontece sozinha, sem depender dela obedecer ==");
+// O medidor de 19/08/2026 mostrou o estrago: em 3 de 5 execucoes o cliente
+// pedia "na verdade muda pra 4 leites" e o pedido continuava com o prestigio.
+// Eu devolvia "use trocar_item" e ela simplesmente nao usava. Instrucao boa pro
+// modelo e aquela que ele nao precisa obedecer.
+const blocoBolo = fonte.slice(
+  fonte.indexOf("PEDIR NAO FUNCIONA: O CODIGO TROCA SOZINHO"),
+  fonte.indexOf("NAO anotei ainda: ja existe um bolo"),
+);
+conferir(blocoBolo.length > 0, "o codigo tem o caminho de troca automatica do bolo", "voltou a so pedir");
+for (const gatilho of ["troca", "muda", "em vez de", "na verdade", "prefiro"]) {
+  conferir(
+    blocoBolo.includes(gatilho),
+    'reconhece "' + gatilho + '" como pedido de troca',
+    "o cliente fala assim e a troca nao acontece",
+  );
+}
+const posRemoverBolo = blocoBolo.indexOf('tipo: "remover"');
+const posItemBolo = blocoBolo.indexOf('tipo: "item"');
+conferir(
+  posRemoverBolo > 0 && posItemBolo > posRemoverBolo,
+  "e tira o bolo velho ANTES de por o novo",
+  "o novo entra e o velho fica, que e o bug original",
+);
+
+console.log("");
 console.log("== o executor recusa troca sem sentido ==");
 for (const [trecho, oque] of [
   ["marca(sai) === marca(entra)", "sai e entra iguais"],

@@ -824,10 +824,38 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       boloJaAnotado.produto.trim().toLowerCase() !== produto.trim().toLowerCase()
     ) {
       if (!input.dois_bolos) {
-        // A instrucao antiga mandava chamar anotar_item "com o nome do bolo
-        // velho corrigido pro sabor novo", que nao quer dizer nada, e o
-        // resultado foi cliente com DOIS bolos no pedido e pagando em dobro.
-        // Agora existe uma ferramenta que faz a troca numa operacao so.
+        // PEDIR NAO FUNCIONA: O CODIGO TROCA SOZINHO.
+        //
+        // Antes eu devolvia "use trocar_item" e ela simplesmente nao usava. O
+        // medidor mostrou o estrago: em 3 de 5 execucoes o cliente pedia "na
+        // verdade muda pra 4 leites" e o pedido continuava com o prestigio. A
+        // troca nao acontecia, o cliente ia embora com o bolo errado.
+        //
+        // Quando a fala do cliente e claramente de TROCA, o codigo aplica: tira
+        // o velho e poe o novo, na mesma resposta. Instrucao boa pro modelo e
+        // aquela que ele nao precisa obedecer.
+        const querTrocar =
+          /\b(troca|trocar|muda|mudar|mude|em vez de|no lugar de|na verdade|ao inves|prefiro|melhor)\b/i.test(
+            String(ultimaFala || falaDoCliente),
+          );
+        if (querTrocar) {
+          estado.montagem.push({
+            tipo: "remover",
+            produto: boloJaAnotado.produto,
+            categoria: String(boloJaAnotado.categoria || categoria),
+          });
+          estado.montagem.push({
+            tipo: "item",
+            produto,
+            categoria,
+            qtd: qtd || Number(boloJaAnotado.qtd) || 0,
+            obs: obsItem ?? (boloJaAnotado.obs ?? null),
+          });
+          return (
+            `Troquei: saiu "${boloJaAnotado.produto}" e entrou "${produto}". Ficou UMA linha so, e o que ja estava ` +
+            `anotado no bolo (peso, pao de lo, topo, tema) continua valendo. Confirme a troca numa frase curta.`
+          );
+        }
         return (
           `NAO anotei ainda: ja existe um bolo neste pedido, o "${boloJaAnotado.produto}". ` +
           `Se o cliente TROCOU o sabor, chame trocar_item com produto_sai="${boloJaAnotado.produto}" e ` +
