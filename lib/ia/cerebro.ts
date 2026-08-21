@@ -620,7 +620,30 @@ function executarFerramenta(
     }
     const c = motor.sugerirPorPessoas(
       quantasPessoas,
-      (input.quer as { salgado?: boolean; doce?: boolean; bolo?: boolean }) || { salgado: true, doce: true },
+      // O QUE ELE PEDIU MANDA NO QUE ENTRA NA BASE.
+      //
+      // Teste ao vivo de 21/08/2026: "vou fazer o aniversario da minha filha
+      // dia 27/09 as 16h, queria salgado docinho e bolo", 30 pessoas. A base
+      // veio com "300 salgados no total, da R$ 300,00". So salgado.
+      //
+      // A cliente pediu tres familias e recebeu uma. A festa inteira daria uns
+      // R$ 700: ela planeja a festa pelo numero errado e a padaria vende menos.
+      // Quando ela chegasse nos docinhos, o total ia subir na frente do cliente,
+      // que e o efeito que a persona manda evitar.
+      //
+      // Se ela mandar o campo, vale o dela. Se nao mandar, quem diz e a fala do
+      // cliente, e nao um padrao fixo de salgado e doce.
+      ((): { salgado?: boolean; doce?: boolean; bolo?: boolean } => {
+        const dela = input.quer as { salgado?: boolean; doce?: boolean; bolo?: boolean } | undefined;
+        if (dela && (dela.salgado || dela.doce || dela.bolo)) return dela;
+        const t = String(falaDoCliente || "").toLowerCase();
+        const pediu = {
+          salgado: /salgad|coxinh|esfirr|empadinh|risol|croquet|quich|croissant|past[eé]l/.test(t),
+          doce: /docinh|doce|brigadeir|beijinh|trufa|cajuzinh/.test(t),
+          bolo: /bolo/.test(t),
+        };
+        return pediu.salgado || pediu.doce || pediu.bolo ? pediu : { salgado: true, doce: true };
+      })(),
     );
 
     // A FRASE DA SUGESTAO E ESCRITA AQUI, nao por ela. Os numeros sao os do
@@ -5769,6 +5792,39 @@ async function rodarConversa(
       // correcao e repetida no fim: gravar de novo o mesmo item so troca a
       // quantidade pela certa, entao repetir e barato e nao duplica linha.
       if (correcoesDoCodigo.length) estado.montagem.push(...correcoesDoCodigo);
+      // ELA NAO PODE DIZER QUE MANDOU O QUE FOI BLOQUEADO.
+      //
+      // Teste ao vivo de 21/08/2026. O cliente disse que estava sem tempo e
+      // que ela escolhesse; a guarda barrou o cardapio, como devia, e o texto
+      // dela dizia assim mesmo: "Te mandei o cardapio de salgados aqui, com
+      // tudo e os precos". O cliente fica procurando uma imagem que nunca vai
+      // chegar, e a proxima mensagem dele e reclamando.
+      //
+      // Existe uma guarda que faz o CONTRARIO (se ela promete e nada foi
+      // enfileirado, enfileira a peca). Ali a promessa e honrada; aqui o
+      // bloqueio e proposital, entao quem sai e a frase.
+      const pecasQueVaoSair = pecasPermitidas(
+        honrarCardapioPrometido(semLista.texto, pecasFinais, mandadasAgora),
+        String(falaDoCliente2),
+        String(montagemDoTurno?.dados?.nao_quer ?? ""),
+        montagemDoTurno?.itens ?? [],
+        historico.filter((h) => h.role === "user").map((h) => String(h.content ?? "")),
+      ) as CardapioId[];
+      if (pecasQueVaoSair.length === 0) {
+        // Sem barra invertida na regex: o shell come a barra e o padrao vira
+        // byte de controle, defeito que ja custou quatro vezes neste projeto.
+        // As classes abaixo usam so caracteres literais.
+        const FIM_DE_FRASE = new RegExp("[^.!?]*(te mandei|mandei|estou mandando|to mandando|segue|enviei)[^.!?]{0,40}card[aá]pio[^.!?]*[.!?]", "gi");
+        const QUEBRA = String.fromCharCode(10);
+        const semPromessa = semLista.texto
+          .replace(FIM_DE_FRASE, "")
+          .split(QUEBRA)
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .join(QUEBRA)
+          .trim();
+        if (semPromessa) semLista.texto = semPromessa;
+      }
       return {
         texto: semLista.texto,
         precisaHumano: estado.precisaHumano,
@@ -5776,13 +5832,7 @@ async function rodarConversa(
         aceitouOrcamento: estado.aceitouOrcamento,
         motivoEquipe: estado.motivoEquipe,
         montagem: estado.montagem,
-        cardapiosParaEnviar: pecasPermitidas(
-          honrarCardapioPrometido(semLista.texto, pecasFinais, mandadasAgora),
-          String(falaDoCliente2),
-          String(montagemDoTurno?.dados?.nao_quer ?? ""),
-          montagemDoTurno?.itens ?? [],
-          historico.filter((h) => h.role === "user").map((h) => String(h.content ?? "")),
-        ) as CardapioId[],
+        cardapiosParaEnviar: pecasQueVaoSair,
       };
     }
 
