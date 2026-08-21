@@ -1395,6 +1395,70 @@ export function coresDeForminhaQueEleFalou(fala: string): string[] {
 //
 // Devolve os pares na ordem em que ele escreveu. Sabor que nao existe volta do
 // jeito que ele falou, pra quem chamou poder perguntar em vez de inventar.
+// PERGUNTA DE PRECO SEM O NOME DO PRODUTO AINDA E PERGUNTA DE PRECO.
+//
+// Medicao de 21/08/2026, duas conversas reais:
+//
+//   cliente: (falando da cuca recheada de goiaba) quanto custa o quilo?
+//   Dora:    A cuca recheada de goiaba e vendida por quilo. Quantos quilos?
+//
+//   cliente: (falando do franciscano) quanto custa?
+//   Dora:    Te mandei o cardapio de salgados com os precos.
+//
+// O preco estava na mao do codigo nas duas — ela usou o valor certo no
+// fechamento. A guarda filtrava o catalogo por "o nome aparece NESTA fala", e
+// ninguem repete o nome do produto que acabou de dizer. Pergunta de preco sem
+// numero mata a venda no primeiro contato, e essa e a forma MAIS COMUM da
+// pergunta.
+const PRECO_QUE_ELA_NAO_DA = /topo|entrega|taxa|frete|sinal|desconto/i;
+// Familia tem guarda propria (o bloco do cento e o do bolo de festa). Responder
+// "cuca R$ 26,90" pra "quanto custa o cento de salgado" e pior que nao responder.
+const FAMILIA_TEM_GUARDA_PROPRIA = /salgad|docinh|brigadeiro|beijinho|trufa|cento|bolo de festa|bolo recheado/i;
+
+export function perguntouOPreco(fala: string): boolean {
+  return /(quanto (custa|fica|sai|ta|e|vale|sao)|qual (o |e o )?(pre[çc]o|valor)|pre[çc]o d|valor d)/i.test(
+    String(fala ?? ""),
+  );
+}
+
+// O produto cujo preco responde a pergunta. Primeiro o nome escrito na fala (o
+// mais longo ganha, e a variante que aparece na conversa ganha do generico); se
+// ele nao escreveu nome nenhum, o produto do ASSUNTO — o ultimo citado nas
+// mensagens recentes. null quando nao da pra saber, e ai ninguem chuta.
+export function precoQueEleQuer(
+  fala: string,
+  falasRecentes: string,
+): { nome: string; preco: number; unidade: string } | null {
+  if (!perguntouOPreco(fala)) return null;
+  if (PRECO_QUE_ELA_NAO_DA.test(String(fala ?? ""))) return null;
+  const tabela = ((catalogo.outros_produtos ?? []) as { nome: string; preco?: number; unidade?: string }[])
+    .filter((i) => Number(i.preco) > 0)
+    .map((i) => ({ nome: String(i.nome), preco: Number(i.preco), unidade: String(i.unidade ?? "un") }));
+  const t = semAcMin(fala);
+  const recente = semAcMin(falasRecentes);
+  const naFala = tabela
+    .filter((i) => t.includes(semAcMin(i.nome)))
+    .sort((a, b) => b.nome.length - a.nome.length);
+  if (naFala.length) {
+    // "quanto custa a cuca?" num assunto de cuca recheada: a variante manda.
+    const variante = tabela
+      .filter((i) => {
+        const n = semAcMin(i.nome);
+        return naFala.some((x) => n.startsWith(semAcMin(x.nome)) && n !== semAcMin(x.nome)) && recente.includes(n);
+      })
+      .sort((a, b) => b.nome.length - a.nome.length);
+    return variante[0] ?? naFala[0];
+  }
+  if (FAMILIA_TEM_GUARDA_PROPRIA.test(String(fala ?? ""))) return null;
+  // So as ultimas mensagens: se o assunto mudou faz tempo, nao acha nada e
+  // nada e injetado. Chutar preco e pior que ficar calado.
+  const noAssunto = tabela
+    .filter((i) => recente.includes(semAcMin(i.nome)))
+    .map((i) => ({ i, pos: recente.lastIndexOf(semAcMin(i.nome)) }))
+    .sort((a, b) => b.pos - a.pos || b.i.nome.length - a.i.nome.length);
+  return noAssunto.length ? noAssunto[0].i : null;
+}
+
 // UM SABOR QUE MORA EM DUAS FAMILIAS NAO E DE QUALQUER UMA DELAS.
 //
 // Conversa real de 21/08/2026, numa mensagem so: "quero 100 coxinhas, 50

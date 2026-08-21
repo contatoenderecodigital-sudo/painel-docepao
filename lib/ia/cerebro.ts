@@ -45,6 +45,7 @@ import {
   naoVaiOlharCardapio,
   elaPerguntouDesteItem,
   perguntouPrecoDeFamilia,
+  precoQueEleQuer,
   perguntaElipticaDePreco,
   obsSemDeliberacao,
   obsSemONomeDeQuemRetira,
@@ -6197,43 +6198,43 @@ async function rodarConversa(
       }
 
       // PRECO DE PRODUTO DA TABELA E RESPOSTA, NAO PROMESSA DE CONFERIR.
-      const perguntouPreco =
-        /(quanto (custa|fica|sai|ta|e)|qual o pre[çc]o|pre[çc]o d)/i.test(String(falaDoCliente2 ?? ""));
-      if (perguntouPreco && !/R\$\s?[0-9]/.test(textoFinal)) {
-        const t = String(falaDoCliente2 ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const tabela = ((catalogo.outros_produtos ?? []) as { nome: string; preco: number; unidade?: string }[])
-          .map((i) => ({ nome: String(i.nome), preco: Number(i.preco), unidade: String(i.unidade ?? "un") }))
-          .filter((i) => t.includes(i.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")))
-          .sort((a, b) => b.nome.length - a.nome.length);
-        // Pergunta generica ("quanto custa a cuca?") num assunto especifico
-        // (cuca recheada): a variante da conversa manda.
-        const recente = historico
+      //
+      // O NOME DO PRODUTO NAO PRECISA ESTAR NA FALA DESTE TURNO. A versao antiga
+      // filtrava o catalogo por "o nome aparece nesta fala", e ninguem repete o
+      // nome do produto que acabou de dizer. Medido em 21/08/2026, duas vezes:
+      //
+      //   cliente: (falando da cuca) quanto custa o quilo?
+      //   Dora:    A cuca recheada de goiaba e vendida por quilo. Quantos quilos?
+      //
+      //   cliente: (falando do franciscano) quanto custa?
+      //   Dora:    Te mandei o cardapio de salgados com os precos.
+      //
+      // Ela SABIA o preco nas duas — usou o valor certo no fechamento. Pergunta
+      // de preco sem numero mata a venda no primeiro contato.
+      {
+        const recenteParaPreco = historico
           .slice(-6)
           .map((h) => (typeof h.content === "string" ? h.content : ""))
-          .join(" ")
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
-        const daConversa = ((catalogo.outros_produtos ?? []) as { nome: string; preco: number; unidade?: string }[])
-          .map((i) => ({ nome: String(i.nome), preco: Number(i.preco), unidade: String(i.unidade ?? "un") }))
-          .filter((i) => {
-            const n = i.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            // So variantes do que ele perguntou, e que aparecem na conversa.
-            return tabela.some((t) => n.startsWith(t.nome.toLowerCase()) && n !== t.nome.toLowerCase()) && recente.includes(n);
-          })
-          .sort((a, b) => b.nome.length - a.nome.length);
-        const achado = daConversa[0] ?? tabela[0];
-        if (achado && achado.preco > 0) {
-          console.warn("[ia] ela nao respondeu o preco de " + achado.nome + "; preco escrito pelo codigo");
+          .join(" ");
+        const achadoPreco = precoQueEleQuer(String(falaDoCliente2 ?? ""), recenteParaPreco);
+        if (achadoPreco && !/R\$\s?[0-9]/.test(textoFinal)) {
+          console.warn("[ia] ela nao respondeu o preco de " + achadoPreco.nome + "; preco escrito pelo codigo");
+          const QUEBRA2 = String.fromCharCode(10, 10);
           textoFinal =
-            "A " + achado.nome + " sai " + brl(achado.preco) +
-            (achado.unidade === "kg" ? " o quilo." : " cada.") +
-            // A frase dela que promete confirmar o preco sai: o valor ja esta
-            // dito, e duvidar dele na linha seguinte desfaz a resposta.
-            "\n\n" +
+            "O " + comoSeEscreve(achadoPreco.nome) + " sai " + brl(achadoPreco.preco) +
+            (achadoPreco.unidade === "kg" ? " o quilo." : " cada.") +
+            QUEBRA2 +
             textoFinal
+              // A frase dela que promete confirmar o preco sai: o valor ja esta
+              // dito, e duvidar dele na linha seguinte desfaz a resposta.
               .replace(
                 /[^.!?\n]*(n[ãa]o sei o pre[çc]o|vou confirmar (o )?(pre[çc]o|valor)|confirmo (o )?(pre[çc]o|valor) com a equipe|preciso confirmar (o )?(pre[çc]o|valor))[^.!?\n]*[.!?]/gi,
+                "",
+              )
+              // "Te mandei o cardapio com os precos" no lugar do numero E o
+              // defeito: o numero acabou de ser dito na linha de cima.
+              .replace(
+                /[^.!?\n]*(te mandei|mandei|estou mandando|to mandando|segue|enviei)[^.!?\n]{0,40}card[áa]pio[^.!?\n]*(pre[çc]o|valor)[^.!?\n]*[.!?]/gi,
                 "",
               )
               .replace(/\n{3,}/g, "\n\n")
