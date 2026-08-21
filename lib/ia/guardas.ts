@@ -580,6 +580,56 @@ export function naoVaiOlharCardapio(falasDoCliente: string[]): boolean {
 // PALAVRA DELE vence a aritmetica dela.
 //
 // Devolve a data corrigida (dd/mm/aaaa) ou null quando nao ha o que corrigir.
+// A DATA QUE ELE ESCREVEU GANHA DA QUE ELA ANOTOU.
+//
+// Medicao de 21/08/2026, conversa real de salgado assado:
+//
+//   cliente: e pro dia 06/09, retiro de manha umas 10h
+//   Dora:    Anotei ... para retirar dia 06/09 as 10h.        (o texto certo)
+//   banco:   retirada_data = 2026-08-22                        (a data de HOJE)
+//
+// Ela confirmou 06/09 na conversa e gravou 22/08. O cliente aparece na padaria
+// quinze dias antes e nao existe pedido nenhum; a padaria produz no dia errado
+// ou nao produz. E o pior tipo de erro: ninguem percebe ate o dia.
+//
+// A guarda que existia (dataBrigaComODiaDaSemana) so conferia quando o cliente
+// dizia DIA DA SEMANA ("sabado"). Data escrita em numero — que e como quase
+// todo mundo escreve — nao tinha conferencia nenhuma.
+//
+// Vale o ULTIMO dia/mes que ele escreveu: quem muda de ideia escreve de novo.
+export function dataQueEleEscreveu(falaDoCliente: string, hoje: Date): string | null {
+  const t = semAcMin(falaDoCliente);
+  // dd/mm, dd/mm/aa, dd/mm/aaaa, dd-mm, dd.mm. O ano e opcional.
+  const re = /\b(\d{1,2})\s*[\/.-]\s*(\d{1,2})(?:\s*[\/.-]\s*(\d{2,4}))?\b/g;
+  let escolhido: { d: number; m: number; a?: number } | null = null;
+  let ondeUltimo = -1;
+  for (const m of t.matchAll(re)) {
+    const d = Number(m[1]);
+    const mes = Number(m[2]);
+    if (!(d >= 1 && d <= 31 && mes >= 1 && mes <= 12)) continue;
+    // "as 10/15" nao existe, mas "10h30" e hora: o separador ja exclui, e a
+    // conferencia de faixa acima cuida do resto.
+    const onde = m.index ?? -1;
+    if (onde > ondeUltimo) {
+      ondeUltimo = onde;
+      const anoDito = m[3] ? Number(m[3].length === 2 ? "20" + m[3] : m[3]) : undefined;
+      escolhido = { d, m: mes, a: anoDito };
+    }
+  }
+  if (!escolhido) return null;
+  // Sem o ano: e a proxima vez que essa data acontece. Quem pede pra 06/09 em
+  // agosto quer este ano; quem pede pra 10/01 em dezembro quer o ano que vem.
+  const anoBase = escolhido.a ?? hoje.getFullYear();
+  const pp = (n: number) => String(n).padStart(2, "0");
+  let iso = anoBase + "-" + pp(escolhido.m) + "-" + pp(escolhido.d);
+  if (!escolhido.a) {
+    const hojeIso =
+      hoje.getFullYear() + "-" + pp(hoje.getMonth() + 1) + "-" + pp(hoje.getDate());
+    if (iso < hojeIso) iso = anoBase + 1 + "-" + pp(escolhido.m) + "-" + pp(escolhido.d);
+  }
+  return iso;
+}
+
 export function dataBrigaComODiaDaSemana(
   dataDita: string,
   falaDoCliente: string,

@@ -16,7 +16,7 @@
 // Agora a PALAVRA DO CLIENTE vence a aritmetica dela.
 //
 // Roda com: node testes/data-bate-com-o-dia.cjs
-const { dataBrigaComODiaDaSemana } = require("./_guardas.cjs")();
+const { dataBrigaComODiaDaSemana, dataQueEleEscreveu } = require("./_guardas.cjs")();
 
 let erros = 0;
 function conferir(ok, oque, detalhe) {
@@ -127,6 +127,36 @@ conferir(
   "mudou de ideia no meio da conversa: vale o ultimo dia",
   "veio: " + dataBrigaComODiaDaSemana("21/08", mudouNoMeio, QUINTA_20),
 );
+
+// ---------------------------------------------------------------------------
+// E A DATA ESCRITA EM NUMERO TAMBEM TEM QUE CONFERIR.
+//
+// Medicao de 21/08/2026, conversa real:
+//
+//   cliente: e pro dia 06/09, retiro de manha umas 10h
+//   Dora:    Anotei ... para retirar dia 06/09 as 10h.     (o texto certo)
+//   banco:   retirada_data = 2026-08-22                     (a data de HOJE)
+//
+// Ela confirmou 06/09 na conversa e gravou 22/08. O cliente aparece quinze dias
+// antes e nao existe pedido nenhum. A guarda de cima so cobria DIA DA SEMANA;
+// data em numero, que e como quase todo mundo escreve, nao tinha conferencia.
+// ---------------------------------------------------------------------------
+console.log("");
+console.log("== a data que o cliente ESCREVEU e a que vale ==");
+
+const VINTE_E_DOIS_AGO = new Date(2026, 7, 22);
+for (const [fala, esperado, oque] of [
+  ["e pro dia 06/09, retiro de manha umas 10h", "2026-09-06", "o caso medido"],
+  ["quero pra 12/09/2026", "2026-09-12", "com o ano escrito"],
+  ["pode ser dia 5/1", "2027-01-05", "data que ja passou este ano vira ano que vem"],
+  ["dia 06/09 | na verdade muda pra 13/09", "2026-09-13", "quem muda de ideia escreve de novo"],
+  ["quero 100 salgados pra sexta as 10h", null, "dia da semana e da outra guarda"],
+  ["retiro as 10h30", null, "hora nao e data"],
+  ["quero 200 salgados", null, "quantidade nao e data"],
+]) {
+  const deu = dataQueEleEscreveu(fala, VINTE_E_DOIS_AGO);
+  conferir(deu === esperado, oque + ": " + JSON.stringify(fala), "veio " + JSON.stringify(deu) + ", esperado " + JSON.stringify(esperado));
+}
 
 console.log("");
 console.log(erros === 0 ? "A DATA BATE COM O DIA DA SEMANA" : erros + " FALHA(S) NA DATA");

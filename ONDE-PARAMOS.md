@@ -5,6 +5,15 @@ O plano que gerou este trabalho está em `PLANO-FINAL.md`. O histórico de cada
 defeito, com a frase real do cliente, está em `DIARIO-DA-IA.md` e
 `testes/casos-reais.md`.
 
+> **MAIS RECENTE: `O-QUE-FIZ-NA-NOITE-DE-21.md`** — treze defeitos consertados
+> na noite de 21 para 22/08/2026, achados por agentes **comprando** nas 14
+> famílias da loja, não lendo código. Nenhum deles aparecia nos 45 testes que
+> existiam. Lá dentro estão: a lista do **que não pode ser mexido** (os seis
+> fluxos da equipe, verificados um a um na produção, com print da tela), por que
+> o portão não pegava nada (ele conferia se o preço era *maior que zero*, e
+> R$ 5,00 é maior que zero), e o que ficou aberto com o custo medido pra decidir
+> a troca de modelo.
+
 ## O que mudou hoje, em uma frase
 
 O sistema saiu de "testado por impressão" para "testado por medida": existem 31

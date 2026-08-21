@@ -67,6 +67,7 @@ import {
   coresDeForminhaQueEleFalou,
   pecasDoBoloQueEleAceitou,
   dataBrigaComODiaDaSemana,
+  dataQueEleEscreveu,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
   corrigirEndereco,
@@ -2749,6 +2750,20 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       // pra conferir, entao a data passou como veio: 20/08/2026, uma quinta.
       // Ela ia buscar no sabado e a padaria produzir na quinta.
       const tudoQueEleFalou = (falasDoCliente.length ? falasDoCliente : [falaDoCliente]).join(" | ");
+      // A DATA ESCRITA EM NUMERO TAMBEM TEM QUE CONFERIR.
+      //
+      // "e pro dia 06/09, retiro de manha umas 10h": ela confirmou 06/09 na
+      // conversa e gravou 2026-08-22, a data de HOJE. O cliente aparece quinze
+      // dias antes e nao existe pedido. A guarda de baixo so cobria dia da
+      // semana ("sabado"), e data em numero e como quase todo mundo escreve.
+      const escrita = dataQueEleEscreveu(tudoQueEleFalou, agora);
+      if (escrita && String(input.retirada_data ?? "").slice(0, 10) !== escrita) {
+        console.warn(
+          "[rastro] a data gravada nao era a que o cliente escreveu: " +
+            String(input.retirada_data) + " -> " + escrita,
+        );
+        input.retirada_data = escrita;
+      }
       const corrigida = dataBrigaComODiaDaSemana(String(input.retirada_data ?? ""), tudoQueEleFalou, agora);
       if (corrigida) {
         console.warn(
@@ -3399,10 +3414,30 @@ const TIPOS_DA_FAMILIA: Record<string, string[]> = (() => {
 // Nao basta a observacao estar preenchida: ela tem que trazer um sabor DA LISTA
 // daquele produto. A trufa passou batido com a observacao "forminha azul royal",
 // que fala da forminha e nao do sabor.
-function faltaSabor(obs: string | null | undefined, ops: string[]): boolean {
-  const t = String(obs ?? "").trim().toLowerCase();
+// SEM ACENTO DOS DOIS LADOS.
+//
+// Achado no rastro da producao em 22/08/2026, ao vivo:
+//
+//   anotar_item <- {"produto":"empadinha","qtd":50,"obs":"brocolis"}
+//   anotar_item -> "Anotei 50 de empadinha, mas FALTA O SABOR. Pergunte AGORA:
+//                   palmito, frango, carne, brócolis?"
+//
+// O sabor ESTAVA na observacao. "brocolis" nao casava com "brócolis" porque a
+// comparacao so baixava a caixa e nao tirava o acento, e no WhatsApp quase
+// ninguem digita acento. Resultado: ela perguntava o sabor que o cliente
+// acabara de dar — a pergunta repetida que mais irrita — e o pedido nao fechava
+// porque `semSabor` continuava apontando o item.
+//
+// Vale pra todo sabor acentuado da casa: brócolis, prestígio, risólis, chodó,
+// limão, café, inglês, fubá. A mesma licao ja estava escrita na guarda de sabor
+// de bolo ("o cliente escreve prestigio, pessego, maracuja") e nao tinha sido
+// aplicada aqui.
+export function faltaSabor(obs: string | null | undefined, ops: string[]): boolean {
+  const limpo = (x: unknown) =>
+    String(x ?? "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const t = limpo(obs);
   if (!t) return true;
-  return !ops.some((o) => t.includes(o.trim().toLowerCase()));
+  return !ops.some((o) => t.includes(limpo(o)));
 }
 
 // A FESTA TEM UMA ORDEM, E ELA E FIXA.
