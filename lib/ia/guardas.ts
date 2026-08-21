@@ -1011,9 +1011,23 @@ export function pecasPermitidas(
     ["bolos-festa", /bolo/],
   ];
   // Pediu agora, com todas as letras: manda mesmo assim.
+  // CITAR A PALAVRA CARDAPIO NAO E PEDIR CARDAPIO.
+  //
+  // pediuAgora procura a palavra "cardapio" na fala, e a frase da cliente era
+  // "NAO TENHO TEMPO DE OLHAR CARDAPIO NAO, to correndo". Ela dizendo que nao
+  // queria contava como pedido, e as duas imagens saiam do mesmo jeito. A
+  // guarda de cima existia e nunca chegava a rodar.
+  //
+  // A ordem passa a ser: pedido EXPLICITO ganha de tudo, recusa ganha da mencao
+  // solta, e mencao solta ainda libera pra quem so citou de passagem.
+  const pedeExplicito =
+    /(^|[^a-z])(me manda|manda (o |os )?card|pode mandar|quero ver|deixa eu ver|me mostra|envia (o |os )?card)/i.test(
+      String(ultimaFala || ""),
+    );
+  if (pedeExplicito) return pecas;
+  if (naoOlha) return [];
   const pediuAgora = /card[áa]pio|me manda|quais|que tipos|op[çc][õo]es|que sabores/i.test(String(ultimaFala || ""));
   if (pediuAgora) return pecas;
-  if (naoOlha) return [];
   const fora = recusou.filter(([, re]) => re.test(dito)).map(([peca]) => peca);
   for (const [peca, re] of recusouAntes) if (guardado && re.test(guardado)) fora.push(peca);
   const temFamilia = (pref: string) => jaEscolhidos.some((i) => String(i.categoria || "").startsWith(pref));
