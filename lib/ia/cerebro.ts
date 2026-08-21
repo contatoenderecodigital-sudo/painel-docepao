@@ -3517,9 +3517,7 @@ function descreverMontagem(
       // isso. O que sai daqui e PERGUNTAR: enquanto houver item por resolver, a
       // pergunta e sobre item. A data e excecao e vem cedo, porque ela decide se
       // a padaria consegue fazer (bolo decorado precisa de 2 dias).
-      "
-
-NAO pergunte agora o NOME de quem retira, a HORA nem a FORMA DE PAGAMENTO: eles vem no fim, juntos, " +
+      "\n\nNAO pergunte agora o NOME de quem retira, a HORA nem a FORMA DE PAGAMENTO: eles vem no fim, juntos, " +
       "numa frase so, quando os itens estiverem resolvidos. Perguntar isso no meio corta o cliente que esta " +
       "montando o pedido, e repetido faz parecer que voce nao anotou nada. Se ELE falar por conta propria, anote " +
       "na hora e siga. A DATA e excecao: essa pode perguntar agora." +

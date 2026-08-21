@@ -90,3 +90,28 @@ Pra conferir se um arquivo foi corrompido assim:
     grep -n "sua regex" arquivo.cjs | cat -A
 
 Byte de backspace aparece como `^H`.
+
+
+## Portão verde não prova que o sistema compila
+
+Em 21/08/2026 o deploy quebrou duas vezes seguidas com o portão marcando 38
+testes verdes. O erro era uma string quebrada no `cerebro.ts`, e nenhum teste
+compila o `cerebro.ts` inteiro: eles importam `guardas.ts`, `orcamento.ts`,
+`produtos.ts`.
+
+Duas coisas deixaram passar:
+
+1. A barra invertida foi comida de novo (`
+
+` virou quebra de linha de
+   verdade), pela quarta vez neste projeto.
+2. Eu encadeei o `npx tsc --noEmit` num comando em segundo plano e **nunca li a
+   saída dele**. O que eu li foi o resultado do portão, que não cobre isso.
+
+Antes de empurrar código que muda `lib/`, rode e **leia**:
+
+    npx tsc --noEmit && npx next build
+
+E confira o deploy pelo SHA do container, não pelo status do Coolify. Se o
+container não trocar, o build falhou: o log fica no banco do Coolify, em
+`application_deployment_queues`.
