@@ -1579,6 +1579,13 @@ export function chutouValorDoTopo(texto: string): string[] {
 
 // A mesma resposta, sem o numero que ela nao tinha como saber.
 export function textoSemValorDoTopo(texto: string): string {
+  // RESUMO DE PEDIDO NAO SE MEXE.
+  //
+  // Esta guarda comia a linha "1x papel de arroz: R$ 12,00" do recibo, porque a
+  // linha fala de peca do bolo e tem R$. O cerebro protegia comparando o texto
+  // com estado.resumo, e a comparacao deixa de bater assim que o resumo e
+  // refeito pelo codigo. A protecao tem que morar aqui dentro.
+  if (/\*Pedido recebido\*|\*Total:/i.test(String(texto ?? ""))) return String(texto ?? "");
   const frases = chutouValorDoTopo(texto);
   if (!frases.length) return String(texto ?? "");
   let saida = String(texto ?? "");

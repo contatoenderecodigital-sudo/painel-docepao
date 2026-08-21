@@ -6897,6 +6897,24 @@ function listaViraCardapio(
   jaNaFila: CardapioId[],
   jaMandadas: CardapioId[] = [],
 ): { texto: string; cardapios: CardapioId[] } {
+  // RESUMO DE PEDIDO NAO SE MEXE.
+  //
+  // Foi assim que o cliente da festa de 5 anos recebeu R$ 543,00 sem saber de
+  // que. A cadeia inteira, com o rastro de cada passo:
+  //
+  //   1. o codigo refez o resumo certo: 11 linhas, total 543
+  //   2. as linhas de item nao terminam em ponto ("R$ 50,00" acaba em virgula),
+  //      entao as onze viraram UMA frase so pra esta funcao
+  //   3. essa frase tinha coxinha, mini bolha, risolis, bolinha de queijo e
+  //      croquete: cinco nomes da mesma familia, o que aqui significa "lista de
+  //      cardapio", e as onze linhas viraram "te mandei o cardapio de salgados"
+  //   4. nenhuma peca ia ser enviada naquele turno, entao a guarda de cardapio
+  //      prometido tirou essa frase do texto
+  //
+  // Sobraram os dois pontilhados colados e o total. A protecao de CONFIRMANDO
+  // ja existia e nao pegou, porque ela olha frase a frase e a frase das linhas
+  // nao tem "pedido recebido" dentro.
+  if (/\*Pedido recebido\*|\*Total:/i.test(texto)) return { texto, cardapios: jaNaFila };
   const frases = texto.split(new RegExp('(?<=[.!?])', 'g'));
   let fila = [...jaNaFila];
   let mudou = false;
