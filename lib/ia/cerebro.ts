@@ -43,6 +43,7 @@ import {
   pediuVerOPedido,
   pecasPermitidas,
   naoVaiOlharCardapio,
+  elaPerguntouDesteItem,
   perguntouPrecoDeFamilia,
   obsSemDeliberacao,
   restricoesQueACasaNaoFaz,
@@ -923,7 +924,26 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     //
     // O item entra sem o recheio, e a maquina de etapas ja cobra o sabor que
     // ficou faltando: e o caminho que ja existe pra isso.
-    const inventadas = obsQueOClienteNaoDisse(input.obs, falasDoCliente.length ? falasDoCliente : [falaDoCliente]);
+    // ELE MANDOU VOCE ESCOLHER: ENTAO ESCOLHER NAO E INVENTAR.
+    //
+    // Teste ao vivo de 21/08/2026. A secretaria escreveu "e os outros voce
+    // escolhe tambem, confio". A Dora escolheu empadinha de frango, quiche de
+    // calabresa e croissant de bacon, tudo do cardapio, e esta guarda apagou os
+    // tres: o cliente nunca tinha escrito frango, calabresa nem bacon.
+    //
+    // Ela obedeceu e foi punida, e o pedido foi pra cozinha com tres itens sem
+    // recheio. E o mesmo buraco que ja aparecia no PRODUTO, onde a guarda
+    // aceita o sortido quando o cliente pede indicacao: faltava valer pro
+    // SABOR.
+    //
+    // O sabor continua tendo que existir no cardapio daquele item, o que e
+    // conferido logo acima. O que muda e quem pode escolher.
+    const mandouEscolher = pediuQueVoceEscolha(
+      (falasDoCliente.length ? falasDoCliente : [falaDoCliente]).join(" | "),
+    );
+    const inventadas = mandouEscolher
+      ? []
+      : obsQueOClienteNaoDisse(input.obs, falasDoCliente.length ? falasDoCliente : [falaDoCliente]);
     let avisoInventada = "";
     if (inventadas.length) {
       const limpa = String(input.obs ?? "")
@@ -1756,7 +1776,25 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
           // so onde nao ha ambiguidade: sabor composto exige a expressao
           // inteira na fala.
           const umaPalavra = !sabLimpo.includes(" ");
-          if (umaPalavra && palavrasDaFala.some((w) => pareceSabor(w, sabLimpo))) return true;
+          // PALAVRA SOLTA E RESPOSTA DE UMA PERGUNTA, NAO RECHEIO DE TODOS.
+          //
+          // Teste ao vivo de 21/08/2026. A Dora perguntou "qual o sabor da
+          // esfirra?" e a secretaria respondeu "carne mesmo". Carne tambem e
+          // opcao de empadinha, pastel assado e croissant, entao este bloco
+          // encheu os quatro de carne. So o quiche escapou, porque carne nao e
+          // opcao dele. O pedido foi pra cozinha com a bandeja inteira de carne
+          // e a cliente tinha falado de UM item.
+          //
+          // Agora a palavra solta so vale pro produto sobre o qual ELA acabou
+          // de perguntar. E a mesma regra da cor da forminha e da foto: a
+          // resposta do cliente pertence a pergunta que foi feita.
+          //
+          // O sabor colado no nome ("esfirra de carne") continua valendo pra
+          // qualquer item, porque ali o cliente disse de quem e.
+          // A regra mora em guardas.ts, com o caso real no comentario e uma
+          // varredura dos 21 produtos que tem sabor no cardapio.
+          const elaPerguntouDeste = elaPerguntouDesteItem(produto, ultimaFalaDela);
+          if (umaPalavra && elaPerguntouDeste && palavrasDaFala.some((w) => pareceSabor(w, sabLimpo))) return true;
           if (!umaPalavra && falaLimpa.includes(sabLimpo)) return true;
           const sab = sabLimpo;
           const re = new RegExp(alvoNome + "[a-z ]{0,12}(de|com|sabor) " + sab.replace(/[.*+?^${}()|[\\]\\\\]/g, ""), "i");

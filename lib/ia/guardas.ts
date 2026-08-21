@@ -443,7 +443,7 @@ export function familiaQueElePediu(falasDoCliente: string[]): "assado" | "frito"
 export function pediuQueVoceEscolha(fala: string): boolean {
   const t = semAcMin(fala);
   if (!t.trim()) return false;
-  return /(voce (escolhe|escolha|decide|monta|que sabe|quem sabe)|escolhe (voce|pra mim|por mim)|o que (voce|vc) (indica|recomenda|sugere|acha)|pode escolher|fica a seu criterio|do jeito que (voces|vc|voce) (acham|achar|quiser)|me (indica|sugere|recomenda)|sortido|variado|misturado|surpresa|sem tempo (de|pra) escolher|nao sei (o que|quais|os tipos)|confio (em voce|no seu|em vcs)|manda o que (for|vier) melhor|(costuma|costumam) (sair|vender|pedir)|(sai|vende|pedem) mais|mais (pedido|vendido|sai)|o que (sai|vende|leva) mais|que (voces|vcs) mais)/.test(
+  return /(voce (escolhe|escolha|decide|monta|que sabe|quem sabe)|escolhe (voce|pra mim|por mim)|o que (voce|vc) (indica|recomenda|sugere|acha)|pode escolher|fica a seu criterio|do jeito que (voces|vc|voce) (acham|achar|quiser)|me (indica|sugere|recomenda)|(sugere|indica|recomenda|escolhe|monta|manda) (ai|pra mim|para mim|o que)|sortido|variado|misturado|surpresa|sem tempo (de|pra) escolher|nao sei (o que|quais|os tipos)|confio (em voce|no seu|em vcs)|manda o que (for|vier) melhor|(costuma|costumam) (sair|vender|pedir)|(sai|vende|pedem) mais|mais (pedido|vendido|sai)|o que (sai|vende|leva) mais|que (voces|vcs) mais)/.test(
     t,
   );
 }
@@ -1319,4 +1319,29 @@ export function horaQueEleFalou(falasDoCliente: string[]): string | null {
   const periodo = t.match(/\b(de manha|pela manha|de tarde|a tarde|pela tarde|de noite|a noite)\b/g);
   if (periodo?.length) return periodo[periodo.length - 1].replace(/^(de |pela |a )/, "").trim();
   return null;
+}
+
+// PALAVRA SOLTA E RESPOSTA DE UMA PERGUNTA, NAO RECHEIO DE TODOS.
+//
+// Teste ao vivo de 21/08/2026. A Dora perguntou "qual o sabor da esfirra?" e a
+// secretaria respondeu "carne mesmo". Carne tambem e opcao de pastel assado,
+// empadinha, croissant, mini bolha e risolis: o codigo encheu todos de carne.
+// So o quiche escapou, porque carne nao e opcao dele. O pedido ia pra cozinha
+// com a bandeja inteira de carne, e a cliente tinha falado de UM item.
+//
+// Seis dos 21 produtos com sabor dividem a palavra "carne". Sete dividem
+// "frango". Enquanto a palavra solta valer pra todo mundo, uma resposta de uma
+// palavra contamina o pedido inteiro.
+//
+// A regra e a mesma que ja vale pra cor da forminha e pra foto: a resposta do
+// cliente pertence a pergunta que foi feita. Sabor colado no nome ("esfirra de
+// carne") continua valendo pra qualquer item, porque ali ele disse de quem e.
+export function elaPerguntouDesteItem(produto: string, ultimaFalaDela: unknown): boolean {
+  const nome = semAcMin(produto).trim();
+  if (!nome) return false;
+  const dela = semAcMin(ultimaFalaDela);
+  if (!dela.trim()) return false;
+  if (dela.includes(nome)) return true;
+  // O plural que ela escreve na pergunta: "qual o sabor das esfirras?".
+  return dela.includes(nome + "s") || (nome.endsWith("s") && dela.includes(nome.slice(0, -1)));
 }
