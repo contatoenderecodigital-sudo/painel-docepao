@@ -443,7 +443,7 @@ export function familiaQueElePediu(falasDoCliente: string[]): "assado" | "frito"
 export function pediuQueVoceEscolha(fala: string): boolean {
   const t = semAcMin(fala);
   if (!t.trim()) return false;
-  return /(voce (escolhe|escolha|decide|monta|que sabe|quem sabe)|escolhe (voce|pra mim|por mim)|o que (voce|vc) (indica|recomenda|sugere|acha)|pode escolher|fica a seu criterio|do jeito que (voces|vc|voce) (acham|achar|quiser)|me (indica|sugere|recomenda)|(sugere|indica|recomenda|escolhe|monta|manda) (ai|pra mim|para mim|o que)|sortido|variado|misturado|surpresa|sem tempo (de|pra) escolher|nao sei (o que|quais|os tipos)|confio (em voce|no seu|em vcs)|manda o que (for|vier) melhor|(costuma|costumam) (sair|vender|pedir)|(sai|vende|pedem) mais|mais (pedido|vendido|sai)|o que (sai|vende|leva) mais|que (voces|vcs) mais)/.test(
+  return /(voce (escolhe|escolha|decide|monta|que sabe|quem sabe)|escolhe (voce|pra mim|por mim)|(escolh|escolha|decid|monta|separa|manda) *[ae]? *(os|as|uns|umas)? *(tipo|sabor|salgado|docinho|item|iten)|o que (voce|vc) (indica|recomenda|sugere|acha)|pode escolher|fica a seu criterio|do jeito que (voces|vc|voce) (acham|achar|quiser)|me (indica|sugere|recomenda)|(sugere|indica|recomenda|escolhe|monta|manda) (ai|pra mim|para mim|o que)|sortido|variado|misturado|surpresa|sem tempo (de|pra) escolher|nao sei (o que|quais|os tipos)|confio (em voce|no seu|em vcs)|manda o que (for|vier) melhor|(costuma|costumam) (sair|vender|pedir)|(sai|vende|pedem) mais|mais (pedido|vendido|sai)|o que (sai|vende|leva) mais|que (voces|vcs) mais)/.test(
     t,
   );
 }
@@ -1114,6 +1114,32 @@ export function perguntaElipticaDePreco(fala: string, falaAnterior: string): str
   const nucleo = antes.split(" ").filter((w) => !vazias.has(w) && w.length >= 4);
   if (!nucleo.length) return null;
   return (nucleo[0] + " " + modificador.join(" ")).trim();
+}
+
+// A HORA ELE JA DISSE. TIRA A PERGUNTA DO TEXTO.
+//
+// Teste ao vivo de 21/08/2026. A cliente abriu com "dia 27/09 as 16h" e a
+// primeira resposta ja trazia "me fala o nome de quem vai retirar, QUE HORAS, e
+// como prefere pagar". A instrucao de nao perguntar existia e foi ignorada:
+// instrucao no prompt e pedido, nao garantia. Aqui a pergunta sai do texto.
+//
+// Recorte fechado de propósito. Frase que nao esta na lista fica como esta:
+// texto errado e ruim, texto mutilado e pior, e isso ja aconteceu com o valor
+// do topo.
+export function textoSemPerguntaDeHora(texto: string): string {
+  let t = String(texto ?? "");
+  if (!t.trim()) return t;
+  const cortes: [RegExp, string][] = [
+    [/, que horas,? e /gi, " e "],
+    [/, que horas( sera| e)? (a|da) retirada,? e /gi, " e "],
+    [/, (qual|que) (o )?hor[áa]rio( de retirada)?,? e /gi, " e "],
+    [/, (o |a )?hor[áa]rio (de|da) retirada,? e /gi, " e "],
+    [/ e que horas([,.?])/gi, "$1"],
+    [/ e (qual|que) (o )?hor[áa]rio( de retirada)?([,.?])/gi, "$4"],
+    [/, que horas([,.?])/gi, "$1"],
+  ];
+  for (const [de, para] of cortes) t = t.replace(de, para);
+  return t.replace(/ +/g, " ").replace(/ ([,.?])/g, "$1");
 }
 
 // A OBSERVACAO E UMA FICHA, NAO UM BILHETE PENSANDO ALTO.

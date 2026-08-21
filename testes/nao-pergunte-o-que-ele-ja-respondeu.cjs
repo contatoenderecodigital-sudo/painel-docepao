@@ -16,11 +16,14 @@ const path = require("node:path");
 const raiz = path.join(__dirname, "..");
 const catalogo = require(path.join(raiz, "lib/ia/dados/catalogo.json"));
 
-const { pediuQueVoceEscolha, perguntaElipticaDePreco, horaQueEleFalou } = require("./_guardas.cjs")();
+const { pediuQueVoceEscolha, perguntaElipticaDePreco, horaQueEleFalou, textoSemPerguntaDeHora } = require("./_guardas.cjs")();
 
 const r = {
   delega: [
     "escolhe voce os tipos, to sem tempo",
+    "pode ser assim, escolhe os tipos",
+    "escolha os sabores",
+    "decide os tipos pra mim",
     "pode escolher",
     "me indica",
     "manda o que for melhor",
@@ -43,7 +46,22 @@ const r = {
   ].map((f) => horaQueEleFalou(f)),
 };
 
+// A PERGUNTA DE HORA SAI DO TEXTO quando ele ja disse a hora, e so ela sai.
+const cortes = [
+  ["Agora me fala o nome de quem vai retirar, que horas, e como prefere pagar?", true],
+  ["Me diz o nome de quem retira e que horas?", true],
+  ["Falta o nome, o horário de retirada, e a forma de pagamento?", true],
+  ["Qual o sabor do bolo?", false],
+  ["O pedido fica pra quarta às 9h, pode ser?", false],
+];
+
 const falhas = [];
+for (const [texto, deviaMudar] of cortes) {
+  const saiu = textoSemPerguntaDeHora(texto);
+  if (deviaMudar && saiu === texto) falhas.push("a pergunta de hora continuou no texto: " + texto);
+  if (!deviaMudar && saiu !== texto) falhas.push("mexeu em texto que nao pergunta hora: " + texto + " -> " + saiu);
+  if (/que horas|hor[áa]rio de retirada/i.test(saiu) && deviaMudar) falhas.push("sobrou pergunta de hora: " + saiu);
+}
 
 // 1. DELEGACAO: quem delega tem que ser reconhecido em todas as formas.
 r.delega.forEach((ok, i) => { if (!ok) falhas.push("delegacao nao reconhecida no caso " + i); });

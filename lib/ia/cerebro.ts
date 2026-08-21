@@ -55,6 +55,7 @@ import {
   textoSemValorDoTopo,
   mandouFechar,
   horaQueEleFalou,
+  textoSemPerguntaDeHora,
   dataBrigaComODiaDaSemana,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
@@ -2520,6 +2521,12 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     if (semSabor.length) {
       const i = semSabor[0];
       const ops = opcoesDeSabor(String(i.produto));
+      // O QUE A GUARDA VIU, ESCRITO. Em 21/08/2026 ela recusou cinco vezes
+      // "falta o sabor da esfirra" com a montagem gravada no banco trazendo
+      // obs "carne". Sem este rastro, so da pra adivinhar.
+      console.log(
+        "[rastro] sem sabor: " + semSabor.map((x) => x.produto + " obs=" + JSON.stringify(x.obs ?? null)).join(" | "),
+      );
       // Ja perguntou tres vezes: insistir vira loop e some com o item. A
       // equipe resolve isso numa ligacao.
       // Se ele respondeu agora, nao e caso de equipe: e caso de anotar.
@@ -4535,12 +4542,29 @@ async function rodarConversa(
     const oQueEleQuer = perguntaElipticaDePreco(String(ultimaFalaDoCliente), anterior);
     if (oQueEleQuer) {
       console.log("[rastro] pergunta que continua a anterior: " + oQueEleQuer);
+      // O NUMERO VAI JUNTO, SENAO ELA CHUTA.
+      //
+      // Primeira versao disto mandou "responda com o numero da tabela" e ela
+      // respondeu "R$ 44,90 o quilo" pra torta salgada, que na casa e a torta
+      // fria e custa R$ 36,90. Mandar buscar preco e pedir chute: preco quem da
+      // e o codigo, sempre, e ela so escreve. Mesma regra do valor do topo.
+      const nucleo = oQueEleQuer.split(" ")[0];
+      const candidatos = ((catalogo.outros_produtos ?? []) as { nome: string; preco?: number; unidade?: string }[])
+        .filter((i) => String(i.nome).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").includes(nucleo))
+        .filter((i) => Number(i.preco) > 0)
+        .map((i) => i.nome + ": " + brl(Number(i.preco)) + " o " + (String(i.unidade ?? "un") === "kg" ? "quilo" : "unidade"));
       messages.push({
         role: "system",
         content:
-          "A PERGUNTA DELE CONTINUA A ANTERIOR: ele esta perguntando o PRECO de \"" + oQueEleQuer + "\". " + String.fromCharCode(10, 10) +
-          "RESPONDA COM O NUMERO da tabela nesta mesma mensagem, com a unidade (quilo ou unidade). Se esse nome " +
-          "nao existir igualzinho no cardapio, use o produto da casa que corresponde e diga o nome certo dele. " +
+          "A PERGUNTA DELE CONTINUA A ANTERIOR: ele esta perguntando o PRECO de " + JSON.stringify(oQueEleQuer) + "." +
+          String.fromCharCode(10, 10) +
+          (candidatos.length
+            ? "ESTES SAO OS PRECOS DE VERDADE, da tabela da casa:" + String.fromCharCode(10) +
+              candidatos.join(String.fromCharCode(10)) + String.fromCharCode(10, 10) +
+              "COPIE o numero daqui. O nome que ele usou pode nao existir igualzinho no cardapio: use o produto " +
+              "da casa que corresponde e diga o nome certo dele. NAO invente outro valor."
+            : "NAO invente valor: se o preco desse item nao esta na sua mao, diga que vai conferir com a equipe.") +
+          String.fromCharCode(10, 10) +
           "NAO pergunte o sabor antes de dar o preco: ele perguntou quanto custa, nao qual sabor.",
       });
     }
@@ -5885,6 +5909,25 @@ async function rodarConversa(
         if (antes !== textoFinal) console.warn("[ia] endereco inventado, trocado pelo certo");
       } catch (e) {
         console.error("[ia] falha na guarda de endereco (segue com o texto dela):", e);
+      }
+
+      // A HORA ELE JA DISSE: A PERGUNTA SAI DO TEXTO.
+      //
+      // A instrucao de nao perguntar ja e dada antes da chamada, e foi ignorada
+      // no teste ao vivo de 21/08/2026: "dia 27/09 as 16h" na primeira mensagem
+      // e "me fala o nome de quem vai retirar, que horas, e como prefere pagar"
+      // na resposta seguinte. Instrucao e pedido; isto aqui e garantia.
+      try {
+        const jaDita = horaQueEleFalou(
+          historico.filter((h) => h.role === "user").map((h) => String(h.content ?? "")),
+        );
+        if (jaDita) {
+          const antesH = textoFinal;
+          textoFinal = textoSemPerguntaDeHora(textoFinal);
+          if (antesH !== textoFinal) console.warn("[ia] ela perguntou a hora que ele ja tinha dito; tirei do texto");
+        }
+      } catch (e) {
+        console.error("[ia] falha na guarda de hora (segue com o texto dela):", e);
       }
 
       const mandadasAgora = pecasJaMandadas(historico);
