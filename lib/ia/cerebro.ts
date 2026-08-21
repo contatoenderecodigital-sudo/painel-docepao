@@ -1978,6 +1978,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     //
     // So preenche o que esta VAZIO. O que ela mandou continua valendo, porque
     // ela pode estar corrigindo um horario que mudou na conversa.
+    let avisoHora = "";
     {
       const jaTem = String(dados.retirada_hora ?? montagemAtual?.dados?.retirada_hora ?? "").trim();
       if (!jaTem) {
@@ -1985,6 +1986,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         if (dita) {
           console.warn("[ia] hora que o cliente falou e ela nao mandou: " + dita);
           dados.retirada_hora = dita;
+          // AVISAR QUE JA ESTA ANOTADA, senao ela pergunta mesmo assim.
+          //
+          // Na primeira versao disto o campo era preenchido e a resposta da
+          // ferramenta apenas deixava de listar a hora entre as que faltam. Nao
+          // bastou: ela perguntou "que horas voce retira?" no mesmo turno, com
+          // o horario ja gravado. Dizer o que NAO falta e mais fraco do que
+          // dizer, com todas as letras, pra nao perguntar.
+          avisoHora =
+            "\n\nA HORA JA ESTA ANOTADA (" + dita + "): o cliente falou isso na conversa e eu peguei. " +
+            "NAO pergunte a hora da retirada.";
         }
       }
     }
@@ -2010,14 +2021,14 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     );
     if (temTudo && itensAnotados.length > 0 && pendentes.length === 0) {
       return (
-        `Anotei: ${Object.keys(dados).join(", ")}. AGORA NAO FALTA MAIS NADA NESTE PEDIDO. ` +
+        `Anotei: ${Object.keys(dados).join(", ")}.${avisoHora} AGORA NAO FALTA MAIS NADA NESTE PEDIDO. ` +
         `Chame registrar_pedido nesta mesma resposta e mande a confirmacao com os itens e o total. ` +
         `Dizer que passou pra equipe sem chamar a ferramenta deixa o cliente achando que encomendou sem existir pedido.`
       );
     }
     if (temTudo && pendentes.length > 0) {
       return (
-        `Anotei: ${Object.keys(dados).join(", ")}. Ainda NAO da pra fechar, falta isto:` +
+        `Anotei: ${Object.keys(dados).join(", ")}.${avisoHora} Ainda NAO da pra fechar, falta isto:` +
         "\n" +
         pendentes.join("\n") +
         "\nPergunte isso antes de falar em passar pra equipe."
@@ -2049,13 +2060,13 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     );
     if (faltando.length) {
       return (
-        `Anotei: ${Object.keys(dados).join(", ")}. Ainda falta ` +
+        `Anotei: ${Object.keys(dados).join(", ")}.${avisoHora} Ainda falta ` +
         faltando.map((k) => NOMES[k]).join(", ") +
         ". Pergunte isso agora, numa frase, e nao fale em passar pra equipe antes de ter. " +
         "Pedido sem esses dados nao fecha, e o cliente sai achando que encomendou."
       );
     }
-    return `Anotei: ${Object.keys(dados).join(", ")}. O resto do pedido continua guardado.`;
+    return `Anotei: ${Object.keys(dados).join(", ")}.${avisoHora} O resto do pedido continua guardado.`;
   }
 
   if (nome === "chamar_humano") {
