@@ -932,19 +932,6 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // deixa de receber "sabor calabresa nao existe" impresso na comanda.
     input.obs = obsSemDeliberacao(input.obs) || null;
 
-    // DUAS CORES DE FORMINHA SAO DUAS. Caso inteiro no comentario da guarda:
-    // "pode ser rosa e dourado" fechou o pedido com forminha rosa nos quatro
-    // docinhos, e o dourado sumiu no caminho.
-    {
-      const ditas = coresDeForminhaQueEleFalou(falasDoCliente.slice(-2).join(" "));
-      const naObs = coresDeForminhaQueEleFalou(String(input.obs ?? ""));
-      if (ditas.length > 1 && naObs.length === 1 && ditas.includes(naObs[0])) {
-        const faltando = ditas.filter((c) => !naObs.includes(c));
-        input.obs = String(input.obs ?? "").trim() + " e " + faltando.join(" e ");
-        console.log("[rastro] o cliente falou " + ditas.length + " cores de forminha; completei: " + ditas.join(", "));
-      }
-    }
-
     // O NOME DE QUEM RETIRA TEM CAMPO PROPRIO, e na observacao do bolo ele vira
     // instrucao pra cozinha. Caso inteiro no comentario da guarda.
     {
@@ -1056,7 +1043,20 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const categoria = String(input.categoria || "outro");
     // PRODUTO FANTASMA: o "leite ninho" que nasceu na troca do bolo, foi negado
     // por ela e cobrado no fim. O enum nao pega, porque o produto EXISTE.
+    // ELE MANDOU VOCE ESCOLHER: ESCOLHER NAO E INVENTAR.
+    //
+    // Teste ao vivo de 21/08/2026. A cliente pediu bolo pra mae de 60 anos e
+    // escreveu "escolhe voce o sabor". A Dora respondeu "Nao posso escolher o
+    // sabor do bolo por voce" e o bolo nunca entrou no pedido: esta guarda
+    // recusou o bolo que ela escolheu porque "ninguem falou nesse produto".
+    //
+    // Recusar aqui e o oposto de atender. Delegar e um pedido, e vale pra
+    // conversa inteira, nao so pra ultima frase: ele delegou dois turnos antes.
+    const eleDelegouAEscolha = pediuQueVoceEscolha(
+      (falasDoCliente.length ? falasDoCliente : [falaDoCliente]).join(" | "),
+    );
     if (
+      !eleDelegouAEscolha &&
       produtoQueNinguemCitou(
         produto,
         falasDoCliente.length ? falasDoCliente : [falaDoCliente],
@@ -1113,6 +1113,24 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const obsBruta = input.obs ? String(input.obs).trim() : "";
     // Pode ser zerada adiante quando vier a lista de opcoes no lugar da escolha.
     let obsItem = obsBruta && !ENFEITE.test(obsBruta) ? obsBruta : null;
+
+    // DUAS CORES DE FORMINHA SAO DUAS.
+    //
+    // "pode ser rosa e dourado" fechou o pedido com forminha rosa nos quatro
+    // docinhos: o dourado sumia no caminho e a cozinha ia embrulhar tudo de uma
+    // cor. A primeira versao disto corrigia input.obs la em cima, antes de
+    // obsItem ser derivado, e a correcao nao chegava na montagem: o rastro
+    // dizia "completei" e o banco continuava com rosa. Quem manda daqui pra
+    // frente e obsItem, entao e nele que se escreve.
+    if (obsItem) {
+      const ditas = coresDeForminhaQueEleFalou(falasDoCliente.slice(-3).join(" "));
+      const naObs = coresDeForminhaQueEleFalou(obsItem);
+      if (ditas.length > 1 && naObs.length === 1 && ditas.includes(naObs[0])) {
+        const faltando = ditas.filter((c) => !naObs.includes(c));
+        obsItem = obsItem.trim() + " e " + faltando.join(" e ");
+        console.log("[rastro] o cliente falou " + ditas.length + " cores de forminha; completei: " + ditas.join(", "));
+      }
+    }
 
     // DOIS BOLOS NA MESMA FESTA SO SE O CLIENTE PEDIR DOIS.
     //
@@ -1714,7 +1732,9 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
             : /docinho|doce/.test(produto.toLowerCase()) || categoria === "docinho"
               ? "docinho"
               : null;
-      if (familiaSortido && pediuQueVoceEscolha(falaDoCliente) && qtd > 0) {
+      // A DELEGACAO VALE PRA CONVERSA INTEIRA, NAO PRA ULTIMA FRASE. Quem disse
+      // "escolhe voce" na terceira mensagem nao repete na quinta.
+      if (familiaSortido && pediuQueVoceEscolha(falasDoCliente.join(" | ")) && qtd > 0) {
         const partes = sugestaoDeSortido(familiaSortido as never, qtd);
         if (partes.length) {
           estado.sugeridos = [...(estado.sugeridos ?? []), ...partes.map((p) => p.qtd + " " + p.produto)];
@@ -1837,7 +1857,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         //
         // Agora as duas usam a MESMA regra de indicacao, e o que a ferramenta
         // sugeriu neste turno vale como citado.
-        const pediuIndicacao = pediuQueVoceEscolha(falaDoCliente);
+        const pediuIndicacao = pediuQueVoceEscolha(falasDoCliente.join(" | "));
         const euMesmoSugeri = (estado.sugeridos ?? []).some((s) => semAcP(s) === semAcP(produto));
         if (!citou && !pediuIndicacao && !euMesmoSugeri) {
           console.warn("[ia] produto nao citado pelo cliente: " + produto + "; recusado");
@@ -2597,7 +2617,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         );
       }
       return (
-        "NAO registrei: falta o sabor d" + (String(i.produto).endsWith("a") ? "a" : "o") + " " + i.produto +
+        "NAO registrei: falta o sabor d" + (String(i.produto).split(" ")[0].endsWith("a") ? "a" : "o") + " " + i.produto +
         ". As opcoes sao: " + ops.join(", ") + ". Pergunte qual ele quer e registre depois que ele responder; " +
         "a lista de opcoes NAO e a escolha dele, e a cozinha nao produz sete sabores de uma vez."
       );
@@ -4737,6 +4757,19 @@ async function rodarConversa(
           String.fromCharCode(10, 10) +
           "Anote UM item por sabor, com a quantidade dele. Pizza inteira aceita ate quatro sabores na mesma " +
           "forma, mas isso so vale quando ELE pede assim." +
+          // O SABOR QUE EXISTE TEM QUE SER DITO QUE EXISTE.
+          //
+          // Teste ao vivo de 21/08/2026: "calabresa e frango com catupiry nao
+          // estao no nosso cardapio de pizza". Os dois estao, conferidos sabor
+          // a sabor com o PDF dela. Negar produto que a casa faz e perder venda
+          // e passar por desorganizada na frente do cliente. Quando nada foi
+          // dito, ela inventa; entao aqui se diz.
+          (pares.filter((x) => x.existe).length
+            ? String.fromCharCode(10, 10) +
+              "ESTES SABORES EXISTEM NO CARDAPIO DA CASA, conferidos um a um: " +
+              pares.filter((x) => x.existe).map((x) => x.sabor).join(", ") +
+              ". NAO diga que a casa nao tem nenhum deles, NAO ofereca troca e NAO mande o cardapio por causa deles."
+            : "") +
           (naoExiste.length
             ? String.fromCharCode(10, 10) +
               "Estes nao existem com esse nome no cardapio: " + naoExiste.map((x) => x.sabor).join(", ") +
@@ -6096,6 +6129,54 @@ async function rodarConversa(
         console.error("[ia] falha na guarda de nome (segue com o texto dela):", e);
       }
 
+      // ELA NEGOU UM SABOR QUE A CASA TEM? ESCREVE NO LOG.
+      //
+      // Reescrever a frase aqui e arriscado demais (ja mutilei texto uma vez,
+      // com o valor do topo). Mas negar produto que existe e defeito grave e
+      // silencioso: sem isto, so aparece se alguem ler a conversa por acaso.
+      try {
+        if (/(nao (temos|tem|trabalhamos)|nao (esta|estao) no (nosso )?card[áa]pio|nao faz(emos)?)/i.test(textoFinal)) {
+          const todosOsSabores = [
+            ...((catalogo.pizza?.sabores_salgados ?? []) as string[]),
+            ...((catalogo.pizza?.sabores_doces ?? []) as string[]),
+          ].map((x) => String(x).toLowerCase());
+          const negadosQueExistem = todosOsSabores.filter((sab) =>
+            sab.length > 4 && textoFinal.toLowerCase().includes(sab),
+          );
+          if (negadosQueExistem.length) {
+            console.warn("[ia] ela negou sabor que EXISTE no cardapio: " + negadosQueExistem.join(", "));
+          }
+        }
+      } catch (e) {
+        console.error("[ia] falha no aviso de sabor negado:", e);
+      }
+
+      // "PODE SER ASSIM?" SOZINHO NAO DIZ NADA.
+      //
+      // Teste ao vivo de 21/08/2026, duas vezes. O codigo montou e anotou o
+      // sortido inteiro, mandou ela dizer numa frase como ficou, e a mensagem
+      // que chegou no cliente foi "Pode ser assim?" e nada mais. Quem recebe
+      // isso nao sabe do que esta falando e responde "assim como?".
+      //
+      // So entra quando o texto e curto E nao cita nenhum dos itens: mensagem
+      // que ja conta o que foi anotado fica como esta.
+      try {
+        const anotadosAgora = (estado.sugeridos ?? []).filter(Boolean);
+        if (anotadosAgora.length && textoFinal.trim().length < 60) {
+          const semAcT = (t: string) =>
+            String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+          const citou = anotadosAgora.some((x) =>
+            semAcT(textoFinal).includes(semAcT(String(x).replace(/^[0-9]+ */, "").trim())),
+          );
+          if (!citou) {
+            console.warn("[ia] ela nao disse o que foi anotado; o codigo escreveu a lista");
+            textoFinal = ("Ficou assim: " + anotadosAgora.join(", ") + ". " + textoFinal.trim()).trim();
+          }
+        }
+      } catch (e) {
+        console.error("[ia] falha ao completar a mensagem curta:", e);
+      }
+
       const mandadasAgora = pecasJaMandadas(historico);
       const semLista = listaViraCardapio(textoFinal, estado.cardapios, mandadasAgora);
       // O que o CLIENTE pediu vale por ultimo: se ele pediu a peca, ela vai.
@@ -6300,7 +6381,9 @@ async function rodarConversa(
       console.log("[rastro] o loop acabou, mas a pendencia virou pergunta: " + produtoF);
       return {
         texto:
-          "Só falta escolher o sabor d" + (produtoF.endsWith("a") ? "a " : "o ") + produtoF + ": " + opsF +
+          // "do torta especial" saiu na tela: a concordancia segue o SUBSTANTIVO,
+          // e ele e a primeira palavra do nome ("torta especial", "pao de lo").
+          "Só falta escolher o sabor d" + (produtoF.split(" ")[0].endsWith("a") ? "a " : "o ") + produtoF + ": " + opsF +
           ". Qual você prefere?",
         precisaHumano: false,
         pedidoRegistrado: estado.pedido,

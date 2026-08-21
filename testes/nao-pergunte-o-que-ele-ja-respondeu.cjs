@@ -163,6 +163,22 @@ if (/SABORES\["esfirra"\]|=== "esfirra"/.test(cerebro)) {
   falhas.push("tem conserto escrito so pra esfirra; a regra e da familia inteira");
 }
 
+// A DELEGACAO VALE PRA CONVERSA INTEIRA, NAO PRA ULTIMA FRASE.
+//
+// Tres guardas liam so a fala do turno. Quem escreveu "escolhe voce o sabor" na
+// terceira mensagem e viu a Dora responder "nao posso escolher por voce" na
+// quarta perdeu o bolo inteiro do aniversario da mae.
+{
+  const chamadas = [...cerebro.matchAll(/pediuQueVoceEscolha\(([^)]*)\)/g)].map((m) => m[1].trim());
+  const soUltimaFala = chamadas.filter((arg) => /^(falaDoCliente|String\(ultimaFala\))$/.test(arg));
+  if (soUltimaFala.length) {
+    falhas.push(
+      soUltimaFala.length + " guarda(s) de delegacao ainda leem so a ultima fala: " + soUltimaFala.join(", "),
+    );
+  }
+  console.log("Guardas de delegacao no cerebro: " + chamadas.length + ", todas lendo a conversa inteira.");
+}
+
 console.log("Produtos com lista de sabores no cardapio: " + comSabores.length);
 console.log("A regra do sabor delegado vale pra todos eles, nao pra um.");
 console.log("");

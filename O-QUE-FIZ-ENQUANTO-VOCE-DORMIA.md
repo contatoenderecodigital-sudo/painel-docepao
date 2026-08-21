@@ -55,6 +55,27 @@ Só apareceram lendo conversa.
 12. **"cor da forminha nao especificada"** ia impressa na comanda e no texto do
     cliente.
 
+13. **"escolhe voce o sabor"** do bolo da mãe de 60 anos recebeu **"Não posso
+    escolher o sabor do bolo por você"**, e o bolo nunca entrou no pedido. A
+    guarda de produto fantasma recusava justamente o bolo que ela escolheu.
+    Eram três guardas de delegação lendo só a última frase do cliente: quem
+    delegou na terceira mensagem não repete na quinta. Hoje as dez leem a
+    conversa inteira, e o teste conta isso.
+
+14. **"calabresa e frango com catupiry não estão no nosso cardápio de pizza."**
+    Os dois estão, conferidos sabor a sabor com o PDF da dona. Agora a
+    instrução diz quais existem, e o log grita quando ela nega um que existe.
+
+15. **"as 20h" virava "20 de hot dog"** na leitura de quantidade, porque "h" é
+    prefixo de "hot dog".
+
+16. **"Pode ser assim?" sozinho**, sem dizer o quê. O código montava e anotava
+    o sortido inteiro e a mensagem que chegava no cliente era essa. Quando o
+    texto é curto e não cita nenhum item anotado, o código escreve a lista.
+
+17. **"do torta especial"** virou "da torta especial": a concordância segue o
+    substantivo, que é a primeira palavra do nome.
+
 ## O que fica travado por teste
 
 `testes/nao-pergunte-o-que-ele-ja-respondeu.cjs` cobra as regras, não os casos:

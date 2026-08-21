@@ -1245,9 +1245,18 @@ export function quantidadePorSabor(
     if (!qtd) continue;
     const resto = String(m[2] ?? "").trim();
     // O sabor mais LONGO que casa vence: "frango com catupiry" antes de "frango".
-    const casou = limpos
-      .filter((x) => resto.startsWith(x.chave) || x.chave.startsWith(resto.split(" ")[0]))
-      .sort((a, b) => b.chave.length - a.chave.length)[0];
+    // "AS 20H" NAO E "20 DE HOT DOG".
+    //
+    // O rastro pegou: quantidade por sabor: 20 h (nao existe). A hora da
+    // retirada virava pedido porque "h" e prefixo de "hot dog". Fragmento de
+    // menos de tres letras nao identifica sabor nenhum.
+    const inicio = resto.split(" ")[0];
+    const casou =
+      inicio.length < 3
+        ? undefined
+        : limpos
+            .filter((x) => resto.startsWith(x.chave) || x.chave.startsWith(inicio))
+            .sort((a, b) => b.chave.length - a.chave.length)[0];
     const exato = limpos
       .filter((x) => resto.startsWith(x.chave))
       .sort((a, b) => b.chave.length - a.chave.length)[0];
