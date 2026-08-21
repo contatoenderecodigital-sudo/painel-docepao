@@ -1268,6 +1268,48 @@ export function quantidadePorSabor(
     .map(({ qtd, sabor, existe }) => ({ qtd, sabor, existe }));
 }
 
+// PERGUNTA JA FEITA NAO SE FAZ DE NOVO.
+//
+// A auditoria das 40 conversas da medicao de 21/08/2026 apontou o mesmo padrao
+// em quatro delas:
+//
+//   voce vai querer salgado tambem pra festa?
+//   ...
+//   vai querer salgado tambem pra festa?
+//
+// Repetir a mesma pergunta e o que faz a conversa soar de robo, e o cliente que
+// ja ignorou uma vez vai ignorar de novo: quem insiste esta pedindo pra ser
+// deixado no vacuo. Uma oferta se faz UMA vez.
+//
+// Compara pelo comeco da pergunta, sem acento e sem pontuacao, que e o que
+// muda quando ela reescreve a mesma coisa ("voce vai querer" / "vai querer").
+export function textoSemPerguntaJaFeita(texto: string, falasDela: string[]): string {
+  const bruto = String(texto ?? "");
+  if (!bruto.trim() || !falasDela.length) return bruto;
+  const normal = (t: string) =>
+    semAcMin(t).replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  // O nucleo da pergunta: tira o preambulo e fica com as palavras que contam.
+  const nucleo = (frase: string) => {
+    const vazias = new Set(["e", "entao", "ai", "voce", "vc", "ja", "agora", "so", "me", "diz", "fala", "mas", "ah", "o", "a", "que"]);
+    return normal(frase).split(" ").filter((w) => !vazias.has(w)).slice(0, 5).join(" ");
+  };
+  const jaFeitas = new Set(
+    falasDela
+      .flatMap((f) => String(f ?? "").match(/[^.!?]*\?/g) ?? [])
+      .map(nucleo)
+      .filter((x) => x.split(" ").length >= 3),
+  );
+  if (!jaFeitas.size) return bruto;
+  const partes = bruto.split(/(?<=[.!?])\s+/).filter((x) => x.trim());
+  const ficam = partes.filter((frase) => {
+    if (!frase.includes("?")) return true;
+    return !jaFeitas.has(nucleo(frase));
+  });
+  if (!ficam.length || ficam.length === partes.length) return bruto;
+  const saida = ficam.join(" ").replace(/ +/g, " ").trim();
+  return saida || bruto;
+}
+
 // PEDIDO VAZIO NAO PEDE NOME NEM PAGAMENTO.
 //
 // Teste ao vivo de 21/08/2026, formatura de 80 pessoas. A primeira resposta

@@ -20,6 +20,7 @@ const {
   pediuQueVoceEscolha, perguntaElipticaDePreco, horaQueEleFalou,
   textoSemPerguntaDeHora, textoSemPerguntaDeNome, obsSemONomeDeQuemRetira, obsSemDeliberacao,
   quantidadePorSabor, coresDeForminhaQueEleFalou, textoSemPedirDadosDeFechamento,
+  textoSemPerguntaJaFeita,
 } = require("./_guardas.cjs")();
 
 // "2 CALABRESA E 1 DE FRANGO" SAO TRES PIZZAS, NAO UMA COM DOIS SABORES.
@@ -86,6 +87,21 @@ const obsNome = [
 ];
 
 const falhas = [];
+// PERGUNTA JA FEITA NAO SE FAZ DE NOVO.
+//
+// A auditoria das 40 conversas da medicao apontou "vai querer salgado tambem
+// pra festa?" repetida em quatro delas. Repetir e o que faz soar de robo.
+{
+  const dela = ["Anotei o bolo. Você vai querer salgado também pra festa?"];
+  const cortado = textoSemPerguntaJaFeita("Anotei tudo certinho. Vai querer salgado também pra festa?", dela);
+  if (/salgado/i.test(cortado)) falhas.push("a pergunta repetida continuou no texto: " + cortado);
+  if (!/[.!?]$/.test(cortado.trim())) falhas.push("o corte da pergunta repetida quebrou a frase: " + cortado);
+  const outra = textoSemPerguntaJaFeita("Qual a cor da forminha?", dela);
+  if (outra !== "Qual a cor da forminha?") falhas.push("cortou pergunta que nunca tinha sido feita");
+  // Mensagem que E so a pergunta repetida fica: vazio e pior que repetido.
+  const sozinha = textoSemPerguntaJaFeita("Vai querer salgado também pra festa?", dela);
+  if (!sozinha.trim()) falhas.push("a mensagem ficou vazia");
+}
 // PEDIDO VAZIO NAO PEDE DADO DE FECHAMENTO, E O CORTE NUNCA QUEBRA A FRASE.
 //
 // A primeira versao recortava pedacos e deixou isto na tela do cliente:

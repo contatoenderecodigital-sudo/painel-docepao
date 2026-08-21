@@ -95,6 +95,28 @@ Só apareceram lendo conversa.
     quem, como vai pagar e quem retira?"** — sem um item anotado. Pedido vazio
     não pede dado de fechamento.
 
+22. **O pedido não fechava por causa de uma oferta.** A cliente do bolo da mãe
+    deu nome, data, hora, pagamento e tema na mesma mensagem, e a resposta foi
+    "Temos docinho, bolo, pizza, torta e empadão para festa. Pode ser?". O
+    rastro respondeu de primeira: `pendSabor=[- o cliente NAO falou em salgado
+    ainda]`. Oferecer não é produzir: sem o sabor a cozinha não assa, sem
+    oferecer salgado ela assa do mesmo jeito. Quem entrega os quatro dados
+    mandou fechar sem dizer.
+
+23. **Ela anotou 100 salgados que ninguém pediu.** A cliente queria só o bolo.
+    A Dora perguntou "vai querer salgado também?", ela respondeu "escolhe você
+    o sabor" falando do bolo, e o código leu o "salgado" da pergunta **dela**
+    como pedido dele. Item que aparece assim vira cobrança que o cliente não
+    reconhece no balcão.
+
+24. **"Quantos quilos de bolo bombom você quer?", duas vezes**, com o próprio
+    orçamento tendo dito "2,5 kg de bolo" três mensagens antes. Travou um
+    pedido de R$ 523,50.
+
+25. **O teste de concorrência media a coisa errada:** lia o banco no instante
+    seguinte ao envio, então falhava por tempo, não por mistura. Teste que só
+    passa quando roda sozinho não é portão.
+
 ## O que fica travado por teste
 
 `testes/nao-pergunte-o-que-ele-ja-respondeu.cjs` cobra as regras, não os casos:

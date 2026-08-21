@@ -59,6 +59,7 @@ import {
   textoSemPerguntaDeHora,
   textoSemPerguntaDeNome,
   textoSemPedirDadosDeFechamento,
+  textoSemPerguntaJaFeita,
   quantidadePorSabor,
   coresDeForminhaQueEleFalou,
   dataBrigaComODiaDaSemana,
@@ -4563,6 +4564,26 @@ async function rodarConversa(
     };
     const quantosDe = (f: string) =>
       totalQueElePediu(tudoQueEleFalou, f === "docinho" ? "docinho" : "salgado") || daSugestao(f) || 100;
+    // "QUERO TUDO" NAO TEM A PALAVRA SALGADO DENTRO.
+    //
+    // Tirar a fala dela da conta consertou o bolo que virava 100 salgados, e
+    // quebrou o caso oposto: a mae que escreveu "quero tudo" e depois "escolhe
+    // tudo voce" ficou sem salgado nenhum e com 83 docinhos inventados por ela,
+    // quando a base dizia 250 salgados e 125 docinhos.
+    //
+    // A diferenca entre os dois casos nao e quem falou: e O QUE. Pergunta dela
+    // ("vai querer salgado tambem?") nao e pedido. ORCAMENTO e outra coisa: e
+    // conta do codigo, com numero, e so existe porque o cliente pediu festa.
+    // Entao a familia tambem entra quando o orcamento ja tem numero pra ela.
+    for (const f of ["salgado_frito", "salgado_assado", "docinho"] as const) {
+      if (familias.includes(f)) continue;
+      const daBase = daSugestao(f === "docinho" ? "docinho" : "salgado");
+      if (daBase <= 0) continue;
+      // Assado so entra se ELE pediu assado; na duvida a casa sugere frito.
+      if (f === "salgado_assado" && escolhida !== "assado") continue;
+      if (f === "salgado_frito" && escolhida === "assado") continue;
+      familias.push(f);
+    }
     const sugestoes = familias
       .map((f) => ({ f, itens: sugestaoDeSortido(f, quantosDe(f)) }))
       .filter((s) => s.itens.length > 0);
@@ -6357,6 +6378,23 @@ async function rodarConversa(
         }
       } catch (e) {
         console.error("[ia] falha na guarda de dados de fechamento:", e);
+      }
+
+      // PERGUNTA JA FEITA NAO SE FAZ DE NOVO.
+      //
+      // A auditoria das 40 conversas da medicao apontou "vai querer salgado
+      // tambem pra festa?" repetida em quatro delas. Repetir e o que faz a
+      // conversa soar de robo, e quem ja ignorou uma vez ignora de novo.
+      try {
+        const falasDela = historico
+          .filter((h) => h.role === "assistant")
+          .map((h) => String(h.content ?? ""))
+          .filter(Boolean);
+        const antesR = textoFinal;
+        textoFinal = textoSemPerguntaJaFeita(textoFinal, falasDela);
+        if (antesR !== textoFinal) console.warn("[ia] ela repetiu uma pergunta ja feita; tirei do texto");
+      } catch (e) {
+        console.error("[ia] falha na guarda de pergunta repetida:", e);
       }
 
       const mandadasAgora = pecasJaMandadas(historico);
