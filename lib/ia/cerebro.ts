@@ -42,6 +42,7 @@ import {
   totalQueElePediu,
   pediuVerOPedido,
   pecasPermitidas,
+  pecaCoerenteComOProduto,
   naoVaiOlharCardapio,
   elaPerguntouDesteItem,
   perguntouPrecoDeFamilia,
@@ -6793,11 +6794,37 @@ async function rodarConversa(
       const pecasAntesDoAssunto = anunciadoNoTexto.length
         ? Array.from(new Set([...escolhidas.filter((x) => anunciadoNoTexto.includes(x)), ...anunciadoNoTexto]))
         : escolhidas;
+      // O QUE O CLIENTE NOMEOU GANHA DO QUE ELA ESCREVEU.
+      //
+      // "me manda o cardapio de empadinha": o cliente nomeou salgados (empadinha
+      // e salgado assado), e a frase DELA dizia "cardapio de empadinha", que a
+      // regex de anuncio casava como tortas-empadao. O anuncio sobrescrevia a
+      // escolha derivada do produto, entao saia a peca da frase dela em vez da
+      // do produto que ele pediu. Quando ele nomeou a familia, ele manda.
+      const pecasComOClienteMandando = nomeouAFamilia.length ? escolhidas : pecasAntesDoAssunto;
       // Assunto pizza: o cardapio de salgados de festa nao tem nada a ver com
       // "quais sabores salgados tem" de uma pizza.
-      const pecasFinais = querSaborDePizza
-        ? pecasAntesDoAssunto.filter((x) => x !== "salgados")
-        : pecasAntesDoAssunto;
+      const pecasAntesDaCoerencia = querSaborDePizza
+        ? pecasComOClienteMandando.filter((x) => x !== "salgados")
+        : pecasComOClienteMandando;
+      // A PECA TEM QUE TER O PRODUTO QUE ELE PERGUNTOU.
+      //
+      // Portao final. Medido em 21/08/2026: franciscano recebeu a peca de
+      // salgados (ele mora em cupcakes-franciscano), empadinha recebeu
+      // tortas-empadao (e salgado assado), bolo salgado recebeu salgados e
+      // depois bolos-festa (sai na peca das tortas). A escolha da peca era 100%
+      // do modelo e ninguem conferia. Se ele nao nomeou produto nenhum, a
+      // escolha do modelo fica de pe — trocar ali seria um chute por outro.
+      const pecasFinais = pecaCoerenteComOProduto(
+        pecasAntesDaCoerencia,
+        String(falaDoCliente2 ?? ""),
+      ) as CardapioId[];
+      if (pecasFinais.join() !== pecasAntesDaCoerencia.join()) {
+        console.warn(
+          "[rastro] peca trocada pela do produto perguntado: " +
+            pecasAntesDaCoerencia.join(",") + " -> " + pecasFinais.join(","),
+        );
+      }
       // A peca ja vai junto desta resposta: perguntar se pode mandar e pedir
       // permissao pra uma coisa que ja saiu.
       if (pecasFinais.length) {

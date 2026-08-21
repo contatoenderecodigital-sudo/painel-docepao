@@ -1395,6 +1395,84 @@ export function coresDeForminhaQueEleFalou(fala: string): string[] {
 //
 // Devolve os pares na ordem em que ele escreveu. Sabor que nao existe volta do
 // jeito que ele falou, pra quem chamou poder perguntar em vez de inventar.
+// ===========================================================================
+//  QUAL PECA RESPONDE ESSE PRODUTO. O MAPA QUE NUNCA EXISTIU.
+//
+//  Medicao de 21/08/2026, cinco conversas reais:
+//    - perguntaram do FRANCISCANO e receberam a peca de salgados
+//    - perguntaram de EMPADINHA e receberam tortas-empadao
+//    - perguntaram de BOLO SALGADO e receberam salgados, depois bolos-festa
+//
+//  A causa e a mesma nas tres: a peca era escolhida pelo MODELO, no enum da
+//  ferramenta enviar_cardapio, e nenhuma linha conferia se aquela peca tem o
+//  produto que o cliente perguntou. O que existia no lugar do mapa eram QUATRO
+//  tabelas de FAMILIA, divergentes entre si, e nenhuma sabe que empadinha e
+//  salgado assado, que franciscano e vendido na peca dos cupcakes, e que bolo
+//  salgado sai por quilo na peca das tortas.
+//
+//  A ORDEM E A REGRA: do nome mais especifico pro mais generico, e o nome que
+//  bate CONSOME as palavras da frase. Depois que "bolo salgado" bate, "salgado"
+//  e "bolo" nao podem mais bater no mesmo pedaco — sem isso "bolo salgado" cai
+//  em tres pecas ao mesmo tempo e ganha a que o modelo chutou.
+//
+//  Sai como string[] de proposito: guardas.ts nao importa lib/whatsapp/api.ts,
+//  porque o teste compila este arquivo sozinho. Quem chama converte.
+// ===========================================================================
+export const PECA_DO_PRODUTO: [RegExp, string][] = [
+  // --- nomes compostos que colidem com uma familia maior, PRIMEIRO ---
+  [/bolo salgado/, "tortas-empadao"],
+  [/mini bolha doce|pastel bolha doce|pastel doce/, "salgados"],
+  [/mini pizza/, "salgados"],
+  [/mini pao de queijo|pao de queijo|pao de batata/, "salgados"],
+  [/empadinha/, "salgados"],
+  [/franciscano/, "cupcakes-franciscano"],
+  [/cupcake/, "cupcakes-franciscano"],
+  [/torta fria|torta salgada|torta doce|torta especial|tortinha/, "tortas-empadao"],
+  [/empad[ao]o/, "tortas-empadao"],
+  [/calzone|pizza/, "pizza"],
+  [/cuca/, "cucas-paes"],
+  [/pao doce|pao frances|pao de x|cachorro.?quente|bisnagui/, "cucas-paes"],
+  // O sabor separa bolo caseiro de bolo de festa: nao ha nome em comum entre as
+  // duas listas do catalogo, entao da pra decidir pelo sabor.
+  [/bolo caseiro|bolos caseiros|bolo (de )?(aipim|cenoura|fuba|banana caramelizada|prestigio com ganache|chocolate preto|formigueiro|nega maluca|red velvet|floresta negra|churros|ingles|laranja|cafe|limao)/, "bolos-caseiros"],
+  [/bolo de festa|bolos de festa|bolo recheado|bolo de anivers|bolo de comemora|bolo decorado|bolo (de )?(4 leites|brigadeiro|dois amores|laka|mineira|prestigio|porto alegre|bombom|biz|morango|marta rocha|strogonoff)/, "bolos-festa"],
+  // --- as familias amplas, POR ULTIMO ---
+  [/coxinha|esfirra|esfiha|risol|croquete|almofadinha|salsicha|chodo|bolinha de queijo|mini bolha|quiche|croissant|enroladinho|mini x|mini sandu|pastel|kibe|quibe|salgad|frito|assado/, "salgados"],
+  [/brigadeiro|beijinho|cajuzinho|camafeu|bicho de pe|olho de sogra|ourico|leite ninho|churros|trufa|docinho/, "docinhos"],
+  [/torta/, "tortas-empadao"],
+  [/bolo/, "bolos-festa"],
+  [/paes|pao/, "cucas-paes"],
+  [/doces?\b/, "docinhos"],
+];
+
+// As pecas que os produtos citados NESTA fala realmente tem. A primeira e a do
+// nome mais especifico da frase. Vazio = ele nao nomeou produto nenhum.
+export function pecasDoQueEleCitou(fala: string): string[] {
+  let t = " " + semAcMin(fala).replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ") + " ";
+  const achadas: string[] = [];
+  for (const [re, peca] of PECA_DO_PRODUTO) {
+    if (!new RegExp(re.source, "g").test(t)) continue;
+    t = t.replace(new RegExp(re.source, "g"), " ");
+    if (!achadas.includes(peca)) achadas.push(peca);
+  }
+  return achadas;
+}
+
+// PORTAO DA PECA CERTA. A escolha do modelo so vale se a peca tiver o produto.
+// Ele nao nomeou produto ("me manda o cardapio")? Entao nao ha o que corrigir: a
+// escolha dele fica de pe. Mexer ali seria trocar um chute por outro.
+export function pecaCoerenteComOProduto(pecas: string[], fala: string): string[] {
+  if (!pecas.length) return pecas;
+  const certas = pecasDoQueEleCitou(fala);
+  if (!certas.length) return pecas;
+  // A PRIMEIRA correspondencia e o nome mais especifico da frase, e e ela que
+  // manda: "bolo de festa de brigadeiro" e bolo, nao docinho de brigadeiro.
+  const principal = certas[0];
+  const ok = pecas.filter((p) => certas.includes(p));
+  if (!ok.length) return [principal];
+  return ok.includes(principal) ? ok : [principal];
+}
+
 // PERGUNTA DE PRECO SEM O NOME DO PRODUTO AINDA E PERGUNTA DE PRECO.
 //
 // Medicao de 21/08/2026, duas conversas reais:
