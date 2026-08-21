@@ -1043,6 +1043,27 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       return variantes[0] ?? anotado;
     })();
     const categoria = String(input.categoria || "outro");
+    // A PIZZA GENERICA NAO ENTRA DEPOIS DAS PIZZAS POR SABOR.
+    //
+    // O codigo anota "pizza inteira calabresa" e "pizza inteira frango com
+    // catupiry" com as quantidades certas. Quando ela anotava tambem uma
+    // "pizza inteira" solta, o pedido ficava as vezes com R$ 360,00 e as vezes
+    // com R$ 120,00, dependendo da ordem em que as linhas caiam: o resultado
+    // mudava de conversa pra conversa com a mesma frase do cliente.
+    //
+    // Decisao que custa dinheiro nao pode depender de sorte.
+    if (String(categoria) === "pizza" && !/pizza (inteira|meia) +\S/i.test(produto)) {
+      const jaPorSabor = itensAgora().filter((i) => /^pizza (inteira|meia) +\S/i.test(String(i.produto ?? "")));
+      if (jaPorSabor.length) {
+        console.warn("[ia] pizza generica recusada: as por sabor ja estao no pedido");
+        return (
+          "NAO anotei: as pizzas ja estao no pedido, uma linha por sabor: " +
+          jaPorSabor.map((i) => i.qtd + " de " + String(i.produto).replace(/^pizza (inteira|meia) */i, "")).join(", ") +
+          ". Nao anote pizza de novo. Se ele quiser trocar um sabor, use trocar_item."
+        );
+      }
+    }
+
     // PRODUTO FANTASMA: o "leite ninho" que nasceu na troca do bolo, foi negado
     // por ela e cobrado no fim. O enum nao pega, porque o produto EXISTE.
     // ELE MANDOU VOCE ESCOLHER: ESCOLHER NAO E INVENTAR.
@@ -4817,12 +4838,34 @@ async function rodarConversa(
     const delegouTudo = pediuQueVoceEscolha(tudoDele);
     const querBolo = /bolo/i.test(tudoDele);
     const jaTemBolo = (montagemDoTurno?.itens ?? []).some((i) => /bolo/i.test(String(i.produto ?? "")));
-    if (delegouTudo && querBolo && !jaTemBolo) {
+    // ELE JA DISSE O SABOR E O BOLO CONTINUOU FORA DO PEDIDO.
+    //
+    // Teste ao vivo de 21/08/2026, festa de 5 anos. A mae escreveu "o bolo de
+    // bombom, tema homem aranha, nome Theo, 5 anos", a Dora respondeu "Anotei o
+    // bolo bombom com o tema Homem Aranha" e nunca chamou a ferramenta. O
+    // rastro do fechamento:
+    //
+    //   fechar? forcar=false itens=9 faltamDados=[]
+    //   pendSabor=[- o cliente falou em bolo e nao tem bolo nenhum anotado]
+    //
+    // Nove itens anotados, todos os dados na mao, e a festa inteira travada
+    // pelo item mais caro dela. Delegar nao e a unica porta: escolher tambem e.
+    const saborDitoPorEle = SABORES_DE_BOLO.map((x) => String(x))
+      .filter((sab) => {
+        const limpo = sab.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+        return limpo.length > 3 && tudoDele.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").includes(limpo);
+      })
+      .sort((x, y) => y.length - x.length)[0];
+    if ((delegouTudo || saborDitoPorEle) && querBolo && !jaTemBolo) {
       const kgDito = Number((tudoDele.match(/([0-9]+(?:[.,][0-9]+)?) *(?:kg|quilos?)/i) ?? [])[1]?.replace(",", ".")) || 0;
       const pessoas = Number((tudoDele.match(/([0-9]{1,3}) *(?:pessoas|convidados)/i) ?? [])[1]) || 0;
       const kg = kgDito || (pessoas ? Math.max(1, Math.round(pessoas * 0.1)) : 0);
       const faixas = (catalogo.bolos_recheados?.faixas ?? []) as { sabores?: string[] }[];
-      const sabor = String((faixas[0]?.sabores ?? [])[1] ?? (faixas[0]?.sabores ?? [])[0] ?? "").trim();
+      // O sabor que ELE disse tem prioridade; so quando ele delegou e que a
+      // casa escolhe, e ai o primeiro da faixa mais pedida.
+      const sabor = saborDitoPorEle
+        ? String(saborDitoPorEle).trim()
+        : String((faixas[0]?.sabores ?? [])[1] ?? (faixas[0]?.sabores ?? [])[0] ?? "").trim();
       if (kg > 0 && sabor) {
         const nomeBolo = "bolo " + sabor;
         estado.montagem.push({ tipo: "item", produto: nomeBolo, categoria: "bolo_festa", qtd: kg, obs: null });
