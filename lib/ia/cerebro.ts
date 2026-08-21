@@ -48,6 +48,7 @@ import {
   perguntaElipticaDePreco,
   obsSemDeliberacao,
   obsSemONomeDeQuemRetira,
+  obsSemRepeticao,
   restricoesQueACasaNaoFaz,
   obsSemRestricaoInventada,
   temaViroouSabor,
@@ -756,6 +757,19 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       };
       if (i >= 0) base[i] = { ...base[i], ...novo };
       else base.push(novo);
+      // A MESMA COISA DUAS VEZES E UMA COISA SO.
+      //
+      // A observacao cresce quando o codigo completa o que ela escreveu e ela
+      // reescreve por cima no turno seguinte. A linha do bolo chegou assim no
+      // cliente e na comanda:
+      //
+      //   bolo bombom (tema homem aranha, nome Theo, 5 anos, papel de arroz,
+      //                topo de bolo, tema homem aranha, nome Theo, 5 anos)
+      //
+      // Aqui e o funil por onde todo item passa antes de virar pedido, resumo e
+      // comanda: limpar num lugar so vale pros tres.
+      const alvo = i >= 0 ? base[i] : base[base.length - 1];
+      if (alvo?.obs) alvo.obs = obsSemRepeticao(alvo.obs) || null;
     }
     return base;
   };
@@ -933,6 +947,17 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // existe no cardapio, e a venda morria pela redacao dela. E a cozinha
     // deixa de receber "sabor calabresa nao existe" impresso na comanda.
     input.obs = obsSemDeliberacao(input.obs) || null;
+
+    // A MESMA COISA DUAS VEZES E UMA COISA SO. A linha do bolo chegou com tema,
+    // nome e idade repetidos, porque o codigo completa e ela reescreve por cima
+    // no turno seguinte. Caso inteiro no comentario da guarda.
+    {
+      const semRepetir = obsSemRepeticao(input.obs);
+      if (semRepetir !== String(input.obs ?? "").trim()) {
+        console.log("[rastro] tirei a repeticao da observacao de " + String(input.produto ?? ""));
+        input.obs = semRepetir || null;
+      }
+    }
 
     // O NOME DE QUEM RETIRA TEM CAMPO PROPRIO, e na observacao do bolo ele vira
     // instrucao pra cozinha. Caso inteiro no comentario da guarda.

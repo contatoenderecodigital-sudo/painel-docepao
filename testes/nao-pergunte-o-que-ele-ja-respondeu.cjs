@@ -20,7 +20,7 @@ const {
   pediuQueVoceEscolha, perguntaElipticaDePreco, horaQueEleFalou,
   textoSemPerguntaDeHora, textoSemPerguntaDeNome, obsSemONomeDeQuemRetira, obsSemDeliberacao,
   quantidadePorSabor, coresDeForminhaQueEleFalou, textoSemPedirDadosDeFechamento,
-  textoSemPerguntaJaFeita,
+  textoSemPerguntaJaFeita, obsSemRepeticao,
 } = require("./_guardas.cjs")();
 
 // "2 CALABRESA E 1 DE FRANGO" SAO TRES PIZZAS, NAO UMA COM DOIS SABORES.
@@ -87,6 +87,23 @@ const obsNome = [
 ];
 
 const falhas = [];
+// A MESMA COISA DUAS VEZES NA OBSERVACAO E UMA COISA SO.
+//
+// A linha do bolo chegou no cliente com tema, nome e idade repetidos, porque o
+// codigo completa o que ela escreveu e ela reescreve por cima no turno seguinte.
+{
+  const sujo = "tema homem aranha, nome Theo, 5 anos, papel de arroz, topo de bolo, tema homem aranha, nome Theo, 5 anos";
+  const limpo = obsSemRepeticao(sujo);
+  if ((limpo.match(/tema homem aranha/g) ?? []).length !== 1) {
+    falhas.push("a observacao continua repetindo o tema: " + limpo);
+  }
+  for (const parte of ["papel de arroz", "topo de bolo", "nome Theo", "5 anos"]) {
+    if (!limpo.includes(parte)) falhas.push("a limpeza da observacao comeu \"" + parte + "\"");
+  }
+  if (obsSemRepeticao("pao de lo branco, sem topo") !== "pao de lo branco, sem topo") {
+    falhas.push("mexeu em observacao que nao repete nada");
+  }
+}
 // RESUMO DE PEDIDO NAO SE MEXE.
 //
 // O cliente da festa de 5 anos recebeu "Seu pedido ......... *Total: R$ 543,00*"

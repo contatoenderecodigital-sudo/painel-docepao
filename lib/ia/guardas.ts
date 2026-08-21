@@ -1268,6 +1268,33 @@ export function quantidadePorSabor(
     .map(({ qtd, sabor, existe }) => ({ qtd, sabor, existe }));
 }
 
+// A MESMA COISA DUAS VEZES NA OBSERVACAO E UMA COISA SO.
+//
+// Caso real de 21/08/2026, festa de 5 anos. A linha do bolo chegou assim no
+// cliente e na comanda:
+//
+//   bolo bombom (tema homem aranha, nome Theo, 5 anos, papel de arroz,
+//                topo de bolo, tema homem aranha, nome Theo, 5 anos)
+//
+// O tema, o nome e a idade duas vezes cada. A observacao cresce quando o codigo
+// completa o que ela escreveu e ela reescreve por cima no turno seguinte. Quem
+// le isso na cozinha para pra conferir se sao duas pecas.
+export function obsSemRepeticao(obs: unknown): string {
+  const bruto = String(obs ?? "").trim();
+  if (!bruto) return "";
+  const vistos = new Set<string>();
+  const partes: string[] = [];
+  for (const p of bruto.split(",")) {
+    const limpo = p.trim();
+    if (!limpo) continue;
+    const chave = semAcMin(limpo).replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+    if (!chave || vistos.has(chave)) continue;
+    vistos.add(chave);
+    partes.push(limpo);
+  }
+  return partes.join(", ");
+}
+
 // PERGUNTA JA FEITA NAO SE FAZ DE NOVO.
 //
 // A auditoria das 40 conversas da medicao de 21/08/2026 apontou o mesmo padrao
