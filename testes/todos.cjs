@@ -20,12 +20,24 @@ const { join } = require("node:path");
 // bolo na fila, entao nao servem de portao: sao ferramenta de conferir na mao,
 // igual ao medidor. Deixar aqui dentro faria o portao ficar vermelho por falta
 // de argumento, e portao que reprova sem defeito ensina a ignorar portao.
+// GUARDAR-CONVERSAS NAO E TESTE, E FERRAMENTA — E DESTRUTIVA.
+//
+// Ele GRAVA POR CIMA de conversas-da-medicao.txt com o que a faixa do medidor
+// tiver no banco naquele instante. Rodando o portao com a faixa vazia, ele
+// salvou zero byte por cima de 37 KB de conversa real, e o arquivo e ignorado
+// pelo git: nao havia de onde recuperar.
+//
+// Aconteceu em 21/08/2026, e o cabecalho do proprio arquivo ja avisava que a
+// mesma coisa tinha acontecido em 20/08. Duas vezes e padrao, nao azar: quem
+// apaga evidencia nao pode rodar sozinho a cada portao. Rode na mao, logo
+// depois da medicao, que e pra isso que ele existe.
 const FORA = [
   "todos.cjs",
   "medidor.cjs",
   "painel-visto-de-fora.cjs",
   "papel-de-arroz-segue-o-botao.cjs",
   "auditoria-do-atendimento.cjs",
+  "guardar-conversas.cjs",
 ];
 
 const aqui = __dirname;

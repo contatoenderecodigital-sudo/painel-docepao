@@ -62,7 +62,7 @@ const CENARIOS = [
       "na verdade muda pra 4 leites",
       "as 16h, nome Patricia Bonfanti, pix",
     ],
-    esperado: { itens: ["4 leites"], proibidos: ["prestigio"], linhas: 1 },
+    esperado: { itens: ["4 leites"], proibidos: ["prestigio"], linhas: 1, fechou: true },
   },
   {
     nome: "pergunta de preco nao vira item",
@@ -81,7 +81,7 @@ const CENARIOS = [
       "entao me ve 30 brigadeiros mesmo, pra sexta as 15h",
       "forminha rosa, nome Camila Souza, cartao",
     ],
-    esperado: { itens: ["brigadeiro"], proibidos: ["lactose", "vegano"], linhas: 1 },
+    esperado: { itens: ["brigadeiro"], proibidos: ["lactose", "vegano"], linhas: 1, fechou: true },
   },
   {
     nome: "festa com quatro familias fecha",
@@ -101,7 +101,7 @@ const CENARIOS = [
       "forminha rosa",
       "nome Terezinha Bosco, dinheiro",
     ],
-    esperado: { itens: ["brigadeiro"], linhas: 1, obsTem: ["rosa"] },
+    esperado: { itens: ["brigadeiro"], linhas: 1, obsTem: ["rosa"], fechou: true },
   },
   {
     // O PONTO CEGO QUE EU ADMITI E NAO TINHA FECHADO.
@@ -132,6 +132,7 @@ const CENARIOS = [
       itens: ["esfirra"],
       proibidos: ["coxinha", "mini bolha", "risolis", "bolinha", "croquete"],
       soma: 200,
+      fechou: true,
     },
   },
   {
@@ -145,7 +146,27 @@ const CENARIOS = [
       "na verdade muda pra 150 salgados",
       "nome Marcia Fontana, pix",
     ],
-    esperado: { soma: 150, proibidos: ["esfirra", "empadinha", "quiche"] },
+    esperado: { soma: 150, proibidos: ["esfirra", "empadinha", "quiche"], fechou: true },
+  },
+  {
+    // A CONVERSA DO PRINT DE 21/08, com o cliente de verdade.
+    //
+    //   Dora:    "Quais e quantos voce quer de coxinha, empadinha e mini bolha?"
+    //   cliente: "50 de cada"                            -> 150 salgados
+    //   Dora:    "Anotei 50 empadinhas e 50 mini bolhas." -> 100 salgados
+    //
+    // A coxinha sumiu. Nenhuma guarda a barrou: o modelo chamou anotar_item uma
+    // vez em vez de tres, e nada no sistema era capaz de perceber. Sao 50
+    // salgados nao faturados e uma festa com comida faltando, descoberto no dia
+    // da retirada. Os tres produtos vem na fala DELE pra soma ser deterministica.
+    nome: "de cada vale pra todos, nao so pros que tem sabor",
+    fala: [
+      "boa tarde, quero coxinha, empadinha e mini bolha pra uma festa de 15 pessoas dia 10/10",
+      "50 de cada",
+      "eu quero o bolha de carne e a empadinha de frango",
+      "as 16h, nome Ana Beatriz Rocha, pix",
+    ],
+    esperado: { itens: ["coxinha", "empadinha", "bolha"], soma: 150, linhas: 3, fechou: true },
   },
 ];
 

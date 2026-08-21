@@ -72,6 +72,20 @@ console.log("");
 // ---------------------------------------------------------------------------
 const semPreco = [];
 const unidadeTrocada = [];
+// PRECO MAIOR QUE ZERO NAO PROVA NADA.
+//
+// Era so isto que este teste conferia, e por isso ele passou por cima do
+// defeito de 21/08/2026: a cliente pediu 30 "cupcake grande recheado" (R$ 7,00),
+// o motor cotou "cupcake grande" (R$ 5,00), e R$ 5,00 e maior que zero. Saiu
+// R$ 150,00 no lugar de R$ 210,00 e a cozinha recebeu ordem de fazer cupcake
+// SEM recheio. O produto virou OUTRO produto e o portao aplaudiu.
+//
+// Agora se confere IDENTIDADE e PRECO. Isso cobre a classe inteira: qualquer
+// par curto/longo do cardapio ("cupcake grande" / "cupcake grande recheado",
+// "cuca" / "cuca recheada") nasce protegido, e produto novo tambem.
+const trocado = [];
+const semAc = (t) => String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+const precoDoCatalogo = (nome) => (catalogo.outros_produtos.find((x) => x.nome === nome) ?? {}).preco;
 for (const p of tudo) {
   const c = cotarPorItens([{ item: p.nome, qtd: p.qtd }]);
   const linha = c.linhas[0];
@@ -81,9 +95,30 @@ for (const p of tudo) {
   }
   const u = linha.unidade ?? "un";
   if (u !== p.unidade) unidadeTrocada.push(`${p.nome}: catálogo diz ${p.unidade}, orçamento diz ${u}`);
+  // O motor pode devolver um nome MAIS COMPLETO que o pedido — "bolo cenoura"
+  // resolve pra "bolo caseiro cenoura", e isso e certo: o catalogo guarda com o
+  // prefixo da familia. O que nao pode e o SABOR mudar. Por isso a conferencia
+  // e por palavra: toda palavra do que foi pedido tem que estar no que foi
+  // cotado. Foi assim que apareceu "bolo banana caramelizada" sendo cotado como
+  // "bolo caseiro LARANJA caramelizada" — o cliente pede banana e a cozinha
+  // recebe laranja.
+  const VAZIAS = new Set(["bolo", "de", "do", "da", "com", "e", "caseiro"]);
+  const pedidas = semAc(p.nome).split(/\s+/).filter((w) => w.length > 2 && !VAZIAS.has(w));
+  const cotadas = semAc(linha.item);
+  const faltando = pedidas.filter((w) => !cotadas.includes(w));
+  if (faltando.length) {
+    trocado.push(`${p.nome} -> o motor cotou "${linha.item}" (R$ ${linha.unit}), perdeu: ${faltando.join(", ")}`);
+  } else if (semAc(linha.item) === semAc(p.nome)) {
+    const esperado = precoDoCatalogo(p.nome);
+    if (esperado != null && Math.abs(Number(linha.unit) - Number(esperado)) > 0.001) {
+      trocado.push(`${p.nome}: catálogo R$ ${esperado}, motor R$ ${linha.unit}`);
+    }
+  }
 }
 conferir(semPreco.length === 0, "produto sem preço no motor: " + semPreco.join(" | "));
 conferir(unidadeTrocada.length === 0, "unidade divergente: " + unidadeTrocada.join(" | "));
+conferir(trocado.length === 0, "o produto virou OUTRO produto no motor: " + trocado.join(" | "));
+console.log((trocado.length ? "ERRO  " : "ok    ") + "nenhum produto vira outro produto no motor de preço");
 console.log((semPreco.length ? "ERRO  " : "ok    ") + "todo produto tem preço no motor de orçamento");
 console.log((unidadeTrocada.length ? "ERRO  " : "ok    ") + "a unidade do orçamento bate com a do catálogo");
 

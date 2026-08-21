@@ -17,7 +17,7 @@ import { motorPadrao, formatarOrcamento, brl, citadoDeVerdade, type Motor, type 
 import { registrarUsoIA, type UsoTurno } from "./uso";
 import catalogo from "./dados/catalogo.json";
 import { padariaAberta } from "@/lib/padaria-aberta";
-import { enumDeProdutos, FORA_DO_CARDAPIO, comoSeEscreve } from "./produtos";
+import { enumDeProdutos, FORA_DO_CARDAPIO, comoSeEscreve, existeNoCardapio } from "./produtos";
 import { fatosDaCasa, afirmacoesNaoAutorizadas, RECADO_DA_EQUIPE } from "./fatos";
 // As guardas moram em arquivo proprio pra os testes importarem de verdade,
 // em vez de recortar texto deste arquivo (o que quebrava a cada mudanca).
@@ -73,6 +73,10 @@ import {
   PENDURADA,
   ficouOrfa,
   corteEhSeguro,
+  // A conferencia cliente<->pedido, que nao existia: as tres que havia
+  // comparavam resumo<->pedido e montagem<->pedido, artefato interno contra
+  // artefato interno. Ninguem olhava o cliente.
+  itensQueSumiram,
 } from "./guardas";
 
 const MODELO = process.env.MODELO_IA || "gpt-4o-mini";
@@ -1585,6 +1589,26 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       const partes = pedido.split(/ com | e /).map((x) => x.trim()).filter(Boolean);
       const existe = combina(pedido) || (partes.length > 1 && partes.every(combina));
       if (pedido && !existe) {
+        // A CASA FAZ, SO QUE NAO E BOLO DE FESTA.
+        //
+        // Conversa real de 21/08/2026: o cliente pediu BOLO SALGADO, que a casa
+        // faz a R$ 29,90 o quilo, e ouviu CINCO vezes seguidas "bolo salgado a
+        // gente nao faz de festa, so doce" — porque a Dora repetiu pro cliente,
+        // palavra por palavra, a recusa que estava escrita aqui. O pedido
+        // terminou VAZIO e ela ainda perguntou a forma de pagamento.
+        //
+        // O erro era de CATEGORIA, nao de produto. Negar produto que existe e a
+        // pior recusa possivel: manda o cliente embora e ele nao volta. Aqui a
+        // guarda passa a distinguir as duas coisas, e vale pra qualquer produto
+        // que chegue na categoria errada, nao so pro bolo salgado.
+        if (existeNoCardapio(produto)) {
+          console.warn("[rastro] produto existe mas veio na categoria errada: " + produto);
+          return (
+            "NAO anotei NESSA CATEGORIA: \"" + produto + "\" EXISTE no cardapio, so nao e um bolo de festa. " +
+            "Chame anotar_item de novo com a categoria certa (quase sempre por_quilo, e ai a qtd e o PESO em kg). " +
+            "NAO diga ao cliente que a padaria nao faz esse produto: ela faz, e dizer isso derruba a venda."
+          );
+        }
         return (
           "NAO anotei: a padaria nao faz bolo de festa de " + pedido + ". Fechar um sabor que a casa nao tem faz o pedido sair com outro bolo e outro preco. Mande a peca do cardapio de bolos de festa (enviar_cardapio) e diga que temos: " + doCardapio.slice(0, 8).join(", ") + ". Anote o que ele escolher."
         );
@@ -3407,6 +3431,13 @@ function faltaNoItem(i: MontagemAtual["itens"][number]): string | null {
   return null;
 }
 
+// Ela ja ofereceu topo/papel de arroz nesta conversa? Olha o que ELA escreveu,
+// nao o que o cliente respondeu: a oferta existe mesmo sem resposta.
+function jaOfereceuArte(falasDela: string[]): boolean {
+  const t = (falasDela ?? []).join(" | ").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return /topo de bolo|papel de arroz/.test(t);
+}
+
 function etapasDaFesta(
   itens: MontagemAtual["itens"],
   festa = false,
@@ -3422,6 +3453,7 @@ function etapasDaFesta(
   // ditos na primeira frase ("aniversario da minha filha, 8 anos") e nao
   // chegam na observacao do bolo.
   falaDoCliente = "",
+  falasDela: string[] = [],
 ): Etapa[] {
   // O cliente pode dispensar uma parte inteira da festa, e ai ela para de
   // cobrar aquilo em vez de perguntar a mesma coisa pra sempre.
@@ -3489,7 +3521,20 @@ function etapasDaFesta(
 
   // Acompanhamento do bolo: e aqui que a padaria ganha os R$ 12 do papel de
   // arroz e o valor do topo, e e a ultima hora de perguntar.
-  const bolo = bolos[0];
+  //
+  // SO BOLO DE FESTA TEM DECORACAO.
+  //
+  // `bolos` pega tudo que comeca com "bolo" — inclui bolo_caseiro e
+  // bolo_salgado. Conversa real de 21/08/2026: o cliente pediu DOIS BOLOS
+  // CASEIROS pra receber visita em casa ("daqueles simples de cafe da tarde") e
+  // ouviu, cinco vezes, "qual o nome do aniversariante, a idade e o tema da
+  // festa?". Nao havia aniversario nenhum. O pedido nunca fechou, um dos dois
+  // bolos sumiu, e a conversa terminou com ela dizendo "nao entendi".
+  //
+  // Bolo caseiro e bolo salgado nao levam topo, papel de arroz, tema nem nome:
+  // a peca nao existe pra eles. Perguntar isso e inventar pendencia e travar
+  // venda que estava pronta.
+  const bolo = bolos.find((b) => String(b.categoria || "") === "bolo_festa");
   // A arte do bolo pode estar na linha do BOLO ou nas linhas do topo e do papel
   // de arroz, que agora sao itens proprios. Ela anotou tema, nome e idade no
   // topo, e a regra, olhando so o bolo, mandava perguntar tudo de novo.
@@ -3519,11 +3564,27 @@ function etapasDaFesta(
           ]
         : []),
       ...(bolos.map(faltaNoItem).filter(Boolean) as string[]),
+      // UMA OFERTA SE FAZ UMA VEZ.
+      //
+      // Medido numa conversa real de 21/08/2026: esta pendencia era reinjetada
+      // em TODO turno e ela recitou "Ah, e o bolo, vai querer topo de bolo ou
+      // papel de arroz?" TRES vezes, palavra por palavra — a terceira vez
+      // respondendo a um cliente que tinha perguntado "quanto fica tudo?".
+      // A propria linha antiga confessava o loop: "senao eu pergunto de novo".
+      //
+      // Topo e papel de arroz sao OPCIONAIS: nao travam pedido nenhum. Depois de
+      // oferecidos uma vez, se o cliente nao respondeu, ele nao quer — e insistir
+      // e o que faz ele parar de responder.
       ...(bolo && !jaTratouArte
-        ? [
-            "- falta oferecer TOPO DE BOLO e PAPEL DE ARROZ pro bolo. Pergunte os dois de uma vez. " +
-              "Se ele nao quiser, anote na observacao do bolo \"sem topo e sem papel de arroz\", senao eu pergunto de novo.",
-          ]
+        ? jaOfereceuArte(falasDela)
+          ? [
+              "- voce JA ofereceu topo de bolo e papel de arroz e ele nao respondeu. NAO ofereca de novo, " +
+                "nem de outro jeito: quem nao respondeu duas vezes nao quer. Siga o pedido sem eles.",
+            ]
+          : [
+              "- o bolo ainda nao tem topo nem papel de arroz definidos. Ofereca os dois de uma vez, UMA vez so, " +
+                "com as suas palavras. Se ele nao quiser, anote na observacao do bolo \"sem topo e sem papel de arroz\".",
+            ]
         : []),
     ],
   });
@@ -3856,6 +3917,10 @@ function descreverMontagem(
   // A conversa inteira do cliente: idade e tema costumam estar la, nao na
   // observacao do bolo.
   falaDoCliente = "",
+  // O QUE ELA JA DISSE. Uma oferta se faz UMA vez: sem isto, a pendencia do topo
+  // de bolo era reinjetada em todo turno e ela recitava a MESMA pergunta tres
+  // vezes palavra por palavra, enquanto o cliente perguntava o preco.
+  falasDela: string[] = [],
 ): string {
   // PEDIDO JA REGISTRADO ESPERANDO O ACEITE NAO SE MONTA DE NOVO.
   //
@@ -3954,7 +4019,7 @@ function descreverMontagem(
   const jaMandouFechar = mandouFechar([String(falaDoCliente ?? "")]);
   const etapas = etapasDaFesta(
     itens, festa, pediuBolo, String(m?.dados?.nao_quer ?? ""), falouSalgado, falouDocinho,
-    jaMandouFechar, falaDoCliente,
+    jaMandouFechar, falaDoCliente, falasDela,
   );
   const atual = etapas[0];
   const pend = atual ? atual.pendencias : [];
@@ -4293,7 +4358,7 @@ async function rodarConversa(
         content:
           "A cor da forminha JA FOI ANOTADA como " + inteira + " em " +
           semCor.map((i) => i.produto).join(", ") + ". NAO pergunte a cor de novo e NAO anote esses " +
-          "itens outra vez: confirme numa frase curta e siga pro que falta.",
+          "itens outra vez: Isso ja esta anotado. NAO anuncie que anotou e NAO comece a mensagem com \"Anotei\": siga a conversa pro que falta, com as suas palavras.",
       });
     }
   }
@@ -4355,7 +4420,7 @@ async function rodarConversa(
         role: "system",
         content:
           "A forma de pagamento JA FOI ANOTADA como " + forma + ". NAO pergunte de novo: " +
-          "confirme numa frase curta e siga pro que falta.",
+          "Isso ja esta anotado. NAO anuncie que anotou e NAO comece a mensagem com \"Anotei\": siga a conversa pro que falta, com as suas palavras.",
       });
     }
   }
@@ -4401,7 +4466,7 @@ async function rodarConversa(
         role: "system",
         content:
           "A FOTO JA FOI RESOLVIDA e esta anotada como \"" + marcaFoto + "\". NAO pergunte de foto de novo, " +
-          "nem uma vez: confirme numa frase curta e siga pro que falta.",
+          "nem uma vez: Isso ja esta anotado. NAO anuncie que anotou e NAO comece a mensagem com \"Anotei\": siga a conversa pro que falta, com as suas palavras.",
       });
     }
   }
@@ -5453,7 +5518,7 @@ async function rodarConversa(
           (entrouNoLugar.length
             ? "E JA COLOQUEI no lugar, com a mesma quantidade: " +
               entrouNoLugar.map((x) => x.qtd + " " + x.produto + (x.obs ? " (" + x.obs + ")" : "")).join(", ") +
-              ". Confirme numa frase curta e siga."
+              ". Isso ja esta anotado. NAO anuncie que anotou e NAO comece a mensagem com \"Anotei\": siga a conversa pro que falta, com as suas palavras."
             : "Confirme numa frase curta que saiu e anote o que ele quer no lugar, se ele disse.") +
           " Nao pergunte de novo o que ele acabou de cancelar."
       });
@@ -5528,7 +5593,7 @@ async function rodarConversa(
     }
   }
 
-  messages.push({ role: "system", content: descreverMontagem(montagemDoTurno, pedidoAguardando, ehFesta, pediuBolo, falouSalgado, falouDocinho, falaToda) });
+  messages.push({ role: "system", content: descreverMontagem(montagemDoTurno, pedidoAguardando, ehFesta, pediuBolo, falouSalgado, falouDocinho, falaToda, falasDelaAgora) });
 
   // FERRAMENTA QUE NAO CABE AGORA NEM E OFERECIDA.
   //
@@ -5602,6 +5667,7 @@ async function rodarConversa(
   // depois de todos os passos — o ponto unico que faltava. Uma refeita so: se
   // ainda vier quebrada, o problema nao e a IA e o alarme tem que aparecer no log.
   let jaRefezPorOrfa = false;
+  let jaCobreiItemQueSumiu = false;
   for (let i = 0; i < 6; i++) {
     // Modelos de raciocínio (gpt-5, o1, o3) recusam max_tokens e temperature:
     // eles usam max_completion_tokens e não aceitam ajuste de criatividade.
@@ -5874,7 +5940,7 @@ async function rodarConversa(
         // que e onde essa informacao serve.
         console.warn("[ia] pendencia interna NAO foi pro cliente:", faltando[0] ?? "(nenhuma)");
         textoFinal =
-          "Deixa eu confirmar uns detalhes do seu pedido com a equipe antes de fechar, pra nao te passar nada errado. Ja te falo por aqui.";
+          "Deixa eu confirmar uns detalhes do seu pedido com a equipe antes de fechar, pra não te passar nada errado. Já te falo por aqui.";
         estado.precisaHumano = true;
       }
 
@@ -5986,7 +6052,7 @@ async function rodarConversa(
           if (!jaCitou) {
             console.warn("[ia] sabor de pizza respondido pelo codigo");
             textoFinal =
-              "Os sabores " + (doces ? "doces" : "salgados") + " da pizza sao: " + lista.join(", ") + "." +
+              "Os sabores " + (doces ? "doces" : "salgados") + "" + " da pizza são: " + lista.join(", ") + "." +
               "\n\n" + textoFinal;
           }
         }
@@ -6033,7 +6099,7 @@ async function rodarConversa(
             textoFinal =
               "O " + nome + " a gente faz de " + ops.slice(0, -1).join(", ") +
               (ops.length > 1 ? " ou " + ops[ops.length - 1] : String(ops[0])) +
-              ". Os outros sabores que apareceram aqui sao de outro produto." +
+              ". Os outros sabores que apareceram aqui são de outro produto." +
               "\n\n" + textoFinal;
             break;
           }
@@ -6482,7 +6548,7 @@ async function rodarConversa(
           const sobrou = frases.join("").replace(/[ ]{2,}/g, " ").trim();
           textoFinal =
             (sobrou ? sobrou + String.fromCharCode(10, 10) : "") +
-            "Esse valor eu vou confirmar certinho com a equipe pra nao te passar nada errado.";
+            "Esse valor eu vou confirmar certinho com a equipe pra não te passar nada errado.";
           estado.precisaHumano = true;
         }
       } catch (e) {
@@ -6783,6 +6849,40 @@ async function rodarConversa(
           .trim();
         if (semPromessa) semLista.texto = semPromessa;
       }
+      // O ITEM NAO SOME EM SILENCIO.
+      //
+      // "Quais e quantos voce quer de coxinha, empadinha e mini bolha?" seguido
+      // de "50 de cada" sao 150 salgados. O modelo chamou anotar_item uma vez em
+      // vez de tres e fechou com 100: a coxinha sumiu, e nada no sistema era
+      // capaz de perceber. Sao 50 salgados que a padaria nao fatura e uma festa
+      // de 15 pessoas com comida faltando, descoberto no dia da retirada.
+      //
+      // O codigo NAO anota sozinho: anotar o que o cliente nao pediu vira
+      // cobranca que ele nao reconhece no balcao. Ele manda ela anotar ou
+      // perguntar, que e o unico caminho honesto.
+      if (!jaCobreiItemQueSumiu && !estado.pedido && i < 5) {
+        const noPedidoAgora = [
+          ...(montagemAtual?.itens ?? []).map((it) => String(it.produto ?? "")),
+          ...estado.montagem.filter((m) => m.tipo === "item").map((m) => String(m.produto ?? "")),
+        ].filter(Boolean);
+        const sumiram = itensQueSumiram(String(ultimaDelaAgora), String(falaDoCliente2), noPedidoAgora);
+        if (sumiram.length) {
+          jaCobreiItemQueSumiu = true;
+          console.warn("[rastro] item que o cliente pediu e nao foi anotado:", sumiram.join(", "));
+          messages.push({
+            role: "system",
+            content:
+              'O cliente respondeu uma quantidade "de cada" sobre os produtos que VOCE listou, e ' +
+              "estes ficaram de fora do pedido: " + sumiram.join(", ") + ". " +
+              '"De cada" quer dizer essa quantidade para CADA um que voce ofereceu. ' +
+              "Anote os que faltam agora com anotar_item, ou, se tiver duvida do que ele quis dizer, " +
+              "pergunte numa frase curta. Nao siga adiante deixando item de fora: ele so descobre " +
+              "no dia da retirada, com a festa montada.",
+          });
+          continue;
+        }
+      }
+
       // NENHUMA MENSAGEM ORFA SAI DAQUI.
       //
       // Chegou num cliente de verdade em 21/08: "Se sim, qual sabor: carne,

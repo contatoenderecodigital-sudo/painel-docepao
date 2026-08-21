@@ -81,6 +81,29 @@ const COMO_ESCREVE: Record<string, string> = {
   chodo: "chodó",
 };
 
+// A CASA FAZ ISSO, OU NAO FAZ MESMO?
+//
+// Distinguir as duas coisas e o que separa "vou te oferecer o parecido" de
+// "some daqui". Em 21/08/2026 um cliente pediu bolo salgado — que a casa faz,
+// a R$ 29,90 o quilo — e ouviu CINCO vezes seguidas que a padaria nao faz.
+// A causa: ele chegou na guarda de sabor de BOLO DE FESTA, "salgado" nao esta
+// entre os sabores de bolo recheado, e a recusa saiu como "a padaria nao faz".
+// Era categoria errada, nao produto inexistente.
+//
+// Compara pelas duas pontas porque o cliente escreve o nome curto ("cupcake")
+// e o catalogo tem o longo ("cupcake grande recheado"), e vice-versa.
+export function existeNoCardapio(nome: unknown): boolean {
+  const limpo = (t: unknown) =>
+    String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  const n = limpo(nome).replace(/^(bolo|torta|pizza) (de |do |da )?/, "$1 ");
+  if (n.length < 4) return false;
+  return produtosDoCardapio().some((p) => {
+    const c = limpo(p);
+    return c === n || c.startsWith(n + " ") || n.startsWith(c + " ") || c.includes(n) || n.includes(c);
+  });
+}
+
 export function comoSeEscreve(nome: unknown): string {
   const t = String(nome ?? "").trim();
   return COMO_ESCREVE[t.toLowerCase()] ?? t;

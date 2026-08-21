@@ -132,10 +132,26 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
       // "bolo de brigadeiro" precisa virar "bolo brigadeiro" antes de qualquer
       // busca. Sem isso o "de" atrapalha o casamento e sobra só "brigadeiro",
       // que existe como docinho de R$ 1,25: o bolo de 2 kg virava R$ 2,50.
-      const chave = norm(item)
+      const chaveCheia = norm(item)
         .replace(/^bolo (de |do |da )/, "bolo ")
-        .replace(/^torta (de |do |da )/, "torta ")
-        .replace(/ recheado$| de festa$| de anivers[áa]rio$/, "");
+        .replace(/^torta (de |do |da )/, "torta ");
+      // " RECHEADO" SO SE JOGA FORA QUANDO O CARDAPIO NAO TEM O RECHEADO.
+      //
+      // O corte existe pro BOLO: "bolo de brigadeiro recheado" precisa virar
+      // "bolo brigadeiro", porque a familia se chama "bolo <sabor>". Mas ele
+      // valia pra TODO produto, e ai "cupcake grande recheado" (R$ 7,00) virava
+      // "cupcake grande" (R$ 5,00) ANTES de qualquer busca, batia no match
+      // exato aqui embaixo, e a ordenacao pelo nome mais longo nem chegava a
+      // rodar.
+      //
+      // Medido em 21/08/2026: a cliente disse "recheado" tres vezes, o pedido
+      // fechou com 30 unidades por R$ 150,00 em vez de R$ 210,00, e a cozinha
+      // recebeu ordem de fazer cupcake SEM recheio. O mesmo acontecia com o
+      // "cupcake pequeno recheado". A "cuca recheada" so escapou por acaso: o
+      // regex e "recheado" no masculino.
+      const chave = PRECOS[chaveCheia]
+        ? chaveCheia
+        : chaveCheia.replace(/ recheado$| de festa$| de anivers[áa]rio$/, "");
       // Bolo disfarçado de docinho: tenta o mesmo sabor na família dos bolos.
       if (obs && MARCA_DE_BOLO.test(obs) && !chave.startsWith("bolo")) {
         const comoBolo =
@@ -173,7 +189,28 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
           const ultima = pn.split(" ").pop() || "";
           return ultima.length > 3 && chave.includes(ultima);
         });
-        ref = candidatos.sort((a, b) => norm(b.nome).length - norm(a.nome).length)[0];
+        // QUEM CASA MAIS PALAVRA GANHA, NAO QUEM TEM O NOME MAIOR.
+        //
+        // O criterio era so o comprimento, e a filtragem aceita candidato que
+        // compartilhe apenas a ULTIMA palavra. Resultado medido no catalogo de
+        // hoje: "bolo banana caramelizada" era cotado como "bolo caseiro
+        // LARANJA caramelizada", porque as duas terminam em "caramelizada" e
+        // laranja tem uma letra a mais. O cliente pede banana e a cozinha assa
+        // laranja — e o preco ainda por cima e outro.
+        //
+        // Vale pra qualquer par que termine igual, hoje e quando entrar produto
+        // novo: conta quantas palavras do pedido aparecem no candidato, e o
+        // comprimento so desempata.
+        const VAZIAS_MATCH = new Set(["bolo", "caseiro", "de", "do", "da", "com", "e"]);
+        const palavrasDoPedido = chave.split(" ").filter((w) => w.length > 2 && !VAZIAS_MATCH.has(w));
+        const quantoCasa = (nome: string) => {
+          const pn = norm(nome);
+          return palavrasDoPedido.filter((w) => pn.includes(w)).length;
+        };
+        ref = candidatos.sort((a, b) => {
+          const d = quantoCasa(b.nome) - quantoCasa(a.nome);
+          return d !== 0 ? d : norm(b.nome).length - norm(a.nome).length;
+        })[0];
       }
       // Ainda nao achou: tenta por aproximacao (plural e erro de digitacao ou de
       // transcricao de audio). So aceita quando ha UM candidato claro; empate

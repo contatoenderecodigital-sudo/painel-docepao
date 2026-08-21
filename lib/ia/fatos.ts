@@ -135,4 +135,4 @@ export function afirmacoesNaoAutorizadas(texto: string, fatos: FatosDaCasa): str
 
 // A verdade que entra no lugar do que foi cortado.
 export const RECADO_DA_EQUIPE =
-  "Isso eu prefiro confirmar com a equipe pra nao te passar nada errado, ja te falo.";
+  "Isso eu prefiro confirmar com a equipe pra não te passar nada errado, já te falo.";

@@ -899,6 +899,101 @@ export function aceitouAOferta(fala: string): boolean {
 // So aceita "numero + produto do cardapio". A tabela de precos que ela manda
 // tem o nome ANTES do numero ("coxinha R$ 1,00"), entao cardapio nao vira
 // pedido por engano.
+// ===========================================================================
+//  O ITEM NAO PODE SUMIR EM SILENCIO.
+//
+//  Conversa real de 21/08/2026:
+//
+//    Dora:    "Quais e quantos voce quer de coxinha, empadinha e mini bolha?"
+//    cliente: "50 de cada"                                    -> 150 salgados
+//    Dora:    "Anotei 50 empadinhas e 50 mini bolhas."        -> 100 salgados
+//
+//  A COXINHA SUMIU. Nenhuma das 30 guardas de recusa a barrou: o modelo
+//  simplesmente chamou a ferramenta uma vez em vez de tres. E nada percebeu.
+//
+//  As tres conferencias que existiam comparavam resumo<->pedido e
+//  montagem<->pedido: sempre artefato interno contra artefato interno. Ninguem
+//  olhava o CLIENTE. E a lista de pendencias parava de cobrar salgado assim que
+//  UM salgado entrasse no pedido.
+//
+//  "N de cada" nao e ambiguo: "cada" sao os produtos que ELA acabou de listar.
+//  Se ela listou tres e o pedido ganhou dois, falta um — e o cliente descobre
+//  isso no dia da retirada, com a festa montada.
+// ===========================================================================
+
+// Nome de FAMILIA nao e peca: "salgado", "docinho", "bolo" casam com quase
+// qualquer frase da conversa e fariam a conferencia cobrar item que ninguem
+// ofereceu de verdade.
+const GENERICO_DEMAIS = /^(salgado|salgados|docinho|docinhos|doce|doces|bolo|bolos|torta|tortas|pizza|pizzas|pao|paes)$/;
+
+// Os produtos que ELA listou na pergunta, mesmo sem numero nenhum.
+// `itensQueElaOfereceu` exige "50 coxinha" pra reconhecer; aqui a pergunta e
+// "quais e quantos voce quer de coxinha, empadinha e mini bolha?", sem numero.
+export function produtosQueElaListou(textoDela: string): string[] {
+  // O QUE ELA POE ENTRE PARENTESES E EXPLICACAO, NAO ITEM NOVO.
+  //
+  // A pergunta real era "coxinha, empadinha e mini bolha (pastel bolha)?" —
+  // tres produtos, e o parenteses so diz como a casa tambem chama a mini bolha.
+  // Lendo o parenteses como oferta, a conferencia achava QUATRO e passava a
+  // cobrar um "pastel" que ninguem ofereceu. Cobrar item inexistente e tao ruim
+  // quanto perder item: nos dois casos o cliente recebe o que nao pediu.
+  const t = semAcMin(String(textoDela ?? "").replace(/\([^)]*\)/g, " "));
+  if (!t) return [];
+  // O CATALOGO INTEIRO, nao tres familias.
+  //
+  // A primeira versao disto lia so salgados frito/assado e doces — as familias
+  // que apareciam na conversa que eu estava consertando. Rodando contra produto
+  // que NAO estava naquelas conversas (cuca, calzone, cupcake, torta fria), a
+  // conferencia devolvia "nao falta nada" e o item sumia igualzinho. Consertar
+  // o caso em vez da regra e exatamente o que fez sete dias nao convergirem.
+  // ELA ESCREVE O NOME CURTO. O catalogo tem "cupcake pequeno" e "cupcake
+  // grande"; a pergunta dela e "voce quer cupcake, quiche e croquete?". Sem o
+  // apelido, o cupcake sumia do pedido sem ninguem ver — o mesmo defeito da
+  // coxinha, so que num produto que eu nao tinha testado.
+  const doCatalogo = produtosDoCardapio().map((n) => semAcMin(n));
+  const apelidos = doCatalogo.map((n) => n.split(" ")[0]);
+  const nomes = [...new Set([...doCatalogo, ...apelidos])]
+    // "salgado", "docinho", "bolo" sao categorias, nao pecas: casariam com
+    // qualquer frase e fariam a conferencia cobrar item que ninguem ofereceu.
+    .filter((n) => n.length >= 4 && !GENERICO_DEMAIS.test(n))
+    // Do mais longo pro mais curto: "mini bolha" tem que ser achado antes de
+    // "bolha", senao a mesma peca conta duas vezes.
+    .sort((a, b) => b.length - a.length);
+  const achados: string[] = [];
+  for (const n of nomes) {
+    if (!t.includes(n)) continue;
+    if (achados.some((a) => a.includes(n))) continue;
+    achados.push(n);
+  }
+  return achados;
+}
+
+// "50 de cada", "manda 50 de cada um". Devolve o numero, ou null.
+export function quantidadeParaCadaUm(fala: string): number | null {
+  const t = semAcMin(fala);
+  if (!/\bde cada\b/.test(t)) return null;
+  const m = t.match(/\b([0-9]{1,4})\b[^0-9]{0,14}\bde cada\b/) ?? t.match(/\bde cada\b[^0-9]{0,14}\b([0-9]{1,4})\b/);
+  const n = m ? Number(m[1]) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+// A CONFERENCIA QUE NAO EXISTIA: o que ele pediu contra o que esta no pedido.
+//
+// Devolve os produtos que ela listou, que o "de cada" do cliente cobriu, e que
+// NAO estao no pedido. Lista vazia = nada faltando.
+export function itensQueSumiram(
+  textoDela: string,
+  falaDoCliente: string,
+  produtosNoPedido: string[],
+): string[] {
+  if (quantidadeParaCadaUm(falaDoCliente) === null) return [];
+  const listados = produtosQueElaListou(textoDela);
+  // "de cada" so quer dizer alguma coisa se ela ofereceu mais de um.
+  if (listados.length < 2) return [];
+  const noPedido = produtosNoPedido.map((p) => semAcMin(p)).filter(Boolean);
+  return listados.filter((n) => !noPedido.some((p) => p.includes(n) || n.includes(p)));
+}
+
 export function itensQueElaOfereceu(
   textoDela: string,
 ): { produto: string; qtd: number; obs: string | null }[] {
@@ -1140,7 +1235,14 @@ export function perguntaElipticaDePreco(fala: string, falaAnterior: string): str
   // Curta e comecando por "e": e assim que a continuacao aparece. Frase longa
   // ja se explica sozinha e cai nas outras guardas.
   const palavras = atual.split(" ");
-  if (palavras.length > 5 || palavras[0] !== "e") return null;
+  // O TETO ERA DE CINCO PALAVRAS, e "e o cuca recheada quanto fica" tem seis.
+  //
+  // Todo produto de nome composto ficava de fora: torta fria, bolo salgado,
+  // cuca recheada, pao de batata. A guarda nao disparava, o preco nao ia junto
+  // na instrucao, e ela chutava o numero — que e como um bolo de R$ 36,90 virou
+  // R$ 44,90 uma vez. O teto existe pra frase longa nao virar elipse, entao
+  // quem manda e a quantidade de palavras COM CONTEUDO, nao o tamanho bruto.
+  if (palavras.length > 8 || palavras[0] !== "e") return null;
   // A anterior tinha que ser pergunta de preco: sem isso nao ha o que herdar.
   if (!/(quanto (custa|fica|sai|ta|e)|qual (o|e o) (preco|valor)|preco d|valor d)/.test(antes)) return null;
   // ARTIGO NAO E MODIFICADOR. Sobra o que ele trocou: "salgada", "frito".
@@ -1150,7 +1252,9 @@ export function perguntaElipticaDePreco(fala: string, falaAnterior: string): str
   const conversa = /(^| )(ai|tudo|bem|blz|beleza|obrigad|valeu|entao|certo|sim|nao|ok|oi|ola)( |$)/;
   if (conversa.test(atual)) return null;
   const modificador = palavras.filter((w) => !vazias.has(w) && w.length >= 3);
-  if (!modificador.length) return null;
+  // Duas palavras de conteudo cobrem "torta fria" e "pao de batata". Tres ou
+  // mais ja e frase, e frase se explica sozinha: cai nas outras guardas.
+  if (!modificador.length || modificador.length > 2) return null;
   // NEM TODA CONTINUACAO E ELIPSE: AS VEZES ELE TROCOU O PRODUTO INTEIRO.
   //
   // Medicao de 21/08/2026, 4 rodadas de 5. "quanto custa a torta doce?" seguido
@@ -1291,6 +1395,48 @@ export function coresDeForminhaQueEleFalou(fala: string): string[] {
 //
 // Devolve os pares na ordem em que ele escreveu. Sabor que nao existe volta do
 // jeito que ele falou, pra quem chamou poder perguntar em vez de inventar.
+// UM SABOR QUE MORA EM DUAS FAMILIAS NAO E DE QUALQUER UMA DELAS.
+//
+// Conversa real de 21/08/2026, numa mensagem so: "quero 100 coxinhas, 50
+// brigadeiros, um bolo de brigadeiro de 3 kg e uma pizza inteira de calabresa".
+// Os 50 brigadeiros (docinho, R$ 1,25 cada = R$ 62,50) foram gravados como
+// "pizza inteira brigadeiro", 50 unidades a R$ 120,00: R$ 6.000,00 numa comanda
+// de R$ 62,50. E a pizza de calabresa que ele pediu sumiu.
+//
+// "brigadeiro" e docinho, E sabor de bolo recheado, E sabor de pizza doce. Nao
+// existia no codigo nenhuma funcao que decidisse de QUE PRODUTO um sabor e: a
+// lista de sabores de pizza era consultada chapada, e bastava a palavra "pizza"
+// ter aparecido UMA vez em qualquer ponto da conversa pra toda dupla
+// "<numero> <palavra>" da mensagem virar pizza.
+//
+// A lista se refaz sozinha quando o catalogo muda: hoje pega "brigadeiro" e
+// "prestigio".
+function saboresDeDuasFamilias(): Set<string> {
+  const fora = new Set<string>();
+  const por = (n: unknown) => { const c = semAcMin(n).trim(); if (c) fora.add(c); };
+  for (const i of catalogo.doces?.itens ?? []) por((i as { nome?: string }).nome);
+  for (const f of catalogo.bolos_recheados?.faixas ?? [])
+    for (const s of (f as { sabores?: string[] }).sabores ?? []) por(s);
+  for (const i of catalogo.bolos_caseiros?.itens ?? []) por((i as { nome?: string }).nome);
+  for (const i of catalogo.salgados?.frito?.itens ?? []) por((i as { nome?: string }).nome);
+  for (const i of catalogo.salgados?.assado?.itens ?? []) por((i as { nome?: string }).nome);
+  for (const p of (catalogo.outros_produtos ?? []) as { nome?: string }[]) por(p.nome);
+  const doisLados = new Set<string>();
+  for (const s of [
+    ...((catalogo.pizza?.sabores_salgados ?? []) as string[]),
+    ...((catalogo.pizza?.sabores_doces ?? []) as string[]),
+  ]) {
+    const c = semAcMin(s).trim();
+    if (fora.has(c)) doisLados.add(c);
+  }
+  return doisLados;
+}
+
+// SUBSTANTIVO DE PEDIDO NAO E SABOR. "um bolo de brigadeiro de 3 kg" virava um
+// fantasma "1 de bolo (nao existe)", porque "bolo" e prefixo de "bolonhesa".
+const NUNCA_E_SABOR =
+  /^(bolo|bolos|torta|tortas|pizza|pizzas|cento|centos|kg|quilo|quilos|un|unidade|unidades|pessoa|pessoas|real|reais|hora|horas|dia|dias|minuto|minutos)$/;
+
 export function quantidadePorSabor(
   fala: string,
   sabores: string[],
@@ -1298,6 +1444,18 @@ export function quantidadePorSabor(
   const t = semAcMin(fala);
   if (!t.trim() || !sabores.length) return [];
   const limpos = sabores.map((x) => ({ certo: x, chave: semAcMin(x) }));
+  const ambiguos = saboresDeDuasFamilias();
+  // O PEDACO DA FRASE onde o par foi achado: da virgula (ou " e ") anterior ate
+  // a proxima. E nesse pedaco que se pergunta se ele falou de pizza — nao na
+  // conversa inteira, que era o erro.
+  const trecho = (onde: number) => {
+    const antes = t.slice(0, onde);
+    const ini = Math.max(antes.lastIndexOf(","), antes.lastIndexOf(" e "), antes.lastIndexOf(";"));
+    const virgula = t.indexOf(",", onde);
+    const eComercial = t.indexOf(" e ", onde);
+    const fim = Math.min(virgula === -1 ? t.length : virgula, eComercial === -1 ? t.length : eComercial);
+    return t.slice(ini + 1, fim);
+  };
   const achados: { qtd: number; sabor: string; existe: boolean; onde: number }[] = [];
   // "2 calabresa", "2 de calabresa", "2x calabresa", "duas calabresa".
   const numero: Record<string, number> = {
@@ -1306,7 +1464,13 @@ export function quantidadePorSabor(
   // O SABOR PARA NA CONJUNCAO. Guloso demais, "2 calabresa e 1 de frango"
   // engolia o segundo numero e virava uma pizza so. No maximo tres palavras.
   const re =
-    /(\d{1,3}|uma|um|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez) *x? *(?:de +)?([a-z0-9]+(?: (?!e |com o|pra |para |no |na |as |ate )[a-z0-9]+){0,2})/g;
+    // O SUBSTANTIVO ENTRE O NUMERO E O SABOR TEM QUE SER PULADO.
+    //
+    // "uma pizza inteira de calabresa": a janela de tres palavras engolia
+    // "pizza inteira de" e nunca chegava em "calabresa". A pizza que o cliente
+    // pediu simplesmente nao existia pro codigo — sumiu do pedido e so voltou
+    // quando ele mesmo perguntou "e a pizza de calabresa, entrou?".
+    /(\d{1,3}|uma|um|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez) *x? *(?:de +)?(?:pizzas? +(?:(?:inteiras?|meias?|grandes?|redondas?|de forma) +)*)?(?:de +)?([a-z0-9]+(?: (?!e |com o|pra |para |no |na |as |ate )[a-z0-9]+){0,2})/g;
   for (const m of t.matchAll(re)) {
     const qtd = Number(m[1]) || numero[m[1]] || 0;
     if (!qtd) continue;
@@ -1318,6 +1482,7 @@ export function quantidadePorSabor(
     // retirada virava pedido porque "h" e prefixo de "hot dog". Fragmento de
     // menos de tres letras nao identifica sabor nenhum.
     const inicio = resto.split(" ")[0];
+    if (NUNCA_E_SABOR.test(inicio)) continue;
     const casou =
       inicio.length < 3
         ? undefined
@@ -1327,6 +1492,11 @@ export function quantidadePorSabor(
     const exato = limpos
       .filter((x) => resto.startsWith(x.chave))
       .sort((a, b) => b.chave.length - a.chave.length)[0];
+    // O SABOR DE DUAS FAMILIAS SO E PIZZA SE O PEDACO DA FRASE DISSER PIZZA.
+    // "50 brigadeiros" e docinho; "2 pizzas de brigadeiro" e pizza. A diferenca
+    // esta na clausula, nao na conversa inteira.
+    const escolhido = exato ?? casou;
+    if (escolhido && ambiguos.has(escolhido.chave) && !/pizza/.test(trecho(m.index ?? 0))) continue;
     if (exato) achados.push({ qtd, sabor: exato.certo, existe: true, onde: m.index ?? 0 });
     else if (casou) achados.push({ qtd, sabor: resto.split(" ")[0], existe: false, onde: m.index ?? 0 });
   }
@@ -1352,16 +1522,30 @@ export function pecasDoBoloQueEleAceitou(fala: string): { topo: boolean; papel: 
   const t = semAcMin(fala);
   if (!t.trim()) return { topo: false, papel: false };
   // "sem topo" e o contrario de aceitar, e vem antes de tudo.
-  const negouTopo = /(sem|nao quero|nao vou querer|dispensa) *(o |um )?topo/.test(t);
-  const negouPapel = /(sem|nao quero|nao vou querer|dispensa) *(o |um )?papel/.test(t);
-  const falouTopo = /topo/.test(t) && !negouTopo;
-  const falouPapel = /papel de arroz|papel arroz/.test(t) && !negouPapel;
+  // "NEM" E NEGACAO, E VALE PROS DOIS LADOS DA FRASE.
+  //
+  // Caso real de 21/08/2026: "nao quero topo nem papel de arroz" fechou com a
+  // observacao "pao de lo branco, PAPEL DE ARROZ, sem topo" — a negacao do
+  // segundo item virou afirmacao e somou R$ 12,00 que o cliente tinha acabado
+  // de recusar. A negacao so era lida colada no substantivo, e "topo nem "
+  // ficava no meio. Trocar "nem" por "sem" resolve os dois sentidos de uma vez
+  // ("nao quero papel de arroz nem topo" quebrava igual, ao contrario).
+  const n = t.replace(/\bnem\b/g, " sem ");
+  const negouTopo = /(sem|nao quero|nao vou querer|dispensa) *(o |um )?topo/.test(n);
+  const negouPapel = /(sem|nao quero|nao vou querer|dispensa) *(o |um )?(papel|de arroz)/.test(n);
+  const falouTopo = /topo/.test(n) && !negouTopo;
+  const falouPapel = /papel de arroz|papel arroz/.test(n) && !negouPapel;
   // A palavra sozinha ja e aceite quando ela veio numa resposta afirmativa:
   // "papel de arroz e topo sim", "quero os dois", "pode por os dois".
-  const disseSim = /(sim|quero|pode|isso|manda|ok|claro|com certeza|os dois|as duas|so o|somente|apenas)/.test(t);
+  //
+  // O "QUERO" DE "NAO QUERO" NAO E ACEITE. Sem \b e sem tirar a negacao, a
+  // propria recusa satisfazia o portao do aceite: a frase que dizia "nao quero"
+  // era lida como "quero".
+  const semNegado = n.replace(/\b(nao|nunca|jamais)\s+(quero|vou querer|vou|preciso|precisa|quer)\b/g, " ");
+  const disseSim = /\b(sim|quero|pode|isso|manda|ok|claro|com certeza|os dois|as duas|so o|somente|apenas)\b/.test(semNegado);
   return {
-    topo: falouTopo && (disseSim || /topo (de bolo|sim)/.test(t)),
-    papel: falouPapel && (disseSim || /papel de arroz sim/.test(t)),
+    topo: falouTopo && (disseSim || /topo (de bolo|sim)/.test(n)),
+    papel: falouPapel && (disseSim || /papel de arroz sim/.test(n)),
   };
 }
 
