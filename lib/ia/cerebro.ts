@@ -68,6 +68,11 @@ import {
   pediuQueVoceEscolha,
   sugestaoDeSortido,
   corrigirEndereco,
+  // O portao unico de toda guarda que corta texto: cortou, confere se o que
+  // sobra se sustenta sozinho. Uma definicao so, usada aqui e la dentro.
+  PENDURADA,
+  ficouOrfa,
+  corteEhSeguro,
 } from "./guardas";
 
 const MODELO = process.env.MODELO_IA || "gpt-4o-mini";
@@ -509,7 +514,62 @@ const CORTESIA = /tudo bem|tudo certo|como vai|bom dia|boa tarde|boa noite/i;
 // virava só "E dos croissants?", que não diz nada. Nos outros casos a primeira
 // é a longa mesmo ("quais docinhos você quer?" vs "quer que eu mande?"), então
 // a regra do comprimento acerta os dois.
-function perguntaQueVale(bloco: string): string {
+// A INDICACAO DE FESTA: O QUE ELE ACEITA E O QUE FICA ANOTADO SAO A MESMA LISTA.
+//
+// Medicao de 21/08/2026, 3 rodadas de 5. O cliente escreveu "preciso de 200
+// salgados ASSADOS pra quarta as 9h", recebeu "67 coxinha, 67 mini bolha de
+// carne e 66 esfirra de calabresa" — coxinha e mini bolha sao FRITOS — disse
+// "isso mesmo, nome Juliana Reis, boleto faturado", e o pedido fechou com
+// empadinha, quiche e croissant. Nem o que ele pediu, nem o que ele aceitou.
+//
+// Eram duas fontes pra mesma lista: os nomes escritos na mao aqui (sempre os
+// mesmos tres, com recheio ja decidido) e `sugestaoDeSortido`, que respeita a
+// familia e era usada pela ferramenta. Agora e uma so.
+//
+// Exportada porque o defeito estava na LIGACAO, nao nas funcoes: as duas pecas
+// sozinhas sempre passaram no teste. Teste que so olha as pecas nao teria
+// pegado isto — e nao pegou, por sete dias.
+export function indicacaoDeFesta(
+  falasDoCliente: string[],
+  base: string,
+): { linhas: string[]; propostos: { produto: string; categoria: string; qtd: number; obs?: string | null }[] } {
+  const b = String(base ?? "");
+  const salg = Number((b.match(/([0-9]+) *salgados/i) ?? [])[1] ?? 0);
+  const doc = Number((b.match(/([0-9]+) *docinhos/i) ?? [])[1] ?? 0);
+  const kg = Number(String((b.match(/([0-9]+(?:[.,][0-9]+)?) *kg/i) ?? [])[1] ?? "").replace(",", "."));
+  const linhas: string[] = [];
+  const propostos: { produto: string; categoria: string; qtd: number; obs?: string | null }[] = [];
+  if (!(salg > 0 || doc > 0 || kg > 0)) return { linhas, propostos };
+
+  // A conversa INTEIRA, nao so a ultima fala: quem escreveu "assados" na
+  // primeira mensagem nao repete isso na quinta.
+  const familiaSalgado = familiaQueElePediu(falasDoCliente) === "assado" ? "salgado_assado" : "salgado_frito";
+  const sortido = salg > 0 ? sugestaoDeSortido(familiaSalgado, salg) : [];
+  if (sortido.length) {
+    const partes = sortido.map((s) => s.qtd + " " + s.produto);
+    linhas.push(partes.slice(0, -1).join(", ") + (partes.length > 1 ? " e " : "") + partes[partes.length - 1]);
+    // Sem `obs`: o recheio era decidido aqui, e o cliente recebia na comanda um
+    // sabor que nunca escolheu. Sabor se pergunta.
+    for (const s of sortido) propostos.push({ produto: s.produto, categoria: familiaSalgado, qtd: s.qtd, obs: null });
+  }
+  if (doc > 0) {
+    const a = Math.round(doc / 2);
+    linhas.push(a + " brigadeiro e " + (doc - a) + " beijinho");
+    propostos.push({ produto: "brigadeiro", categoria: "docinho", qtd: a, obs: null });
+    propostos.push({ produto: "beijinho", categoria: "docinho", qtd: doc - a, obs: null });
+  }
+  if (kg > 0) {
+    linhas.push(String(kg).replace(".", ",") + " kg de bolo de brigadeiro");
+    propostos.push({ produto: "bolo brigadeiro", categoria: "bolo_festa", qtd: kg, obs: null });
+  }
+  return { linhas, propostos };
+}
+
+// Exportadas porque o teste tem que rodar a FUNCAO, nao ler o arquivo. O teste
+// que deveria cobrir isto (`testes/o-resumo-chega-inteiro.cjs`) conferia se um
+// comentario ainda estava no fonte — e foi por isso que a mensagem orfa passou
+// pelos 43 testes e chegou no cliente.
+export function perguntaQueVale(bloco: string): string {
   if ((bloco.match(/\?/g) || []).length < 2) return bloco;
   const frases = bloco.split(/(?<=\?)\s+/).filter((f) => f.trim());
   const perguntas = frases.filter((f) => f.includes("?"));
@@ -522,22 +582,46 @@ function perguntaQueVale(bloco: string): string {
   // E pergunta que COMEÇA pendurada na anterior ("Se sim, ...", "E o resto?")
   // não pode ser a escolhida: sozinha ela não diz do que está falando. O
   // cliente já recebeu "Se sim, quer que eu divida igual?" sem nada antes.
-  const pendurada = /^(se\s|então|entao|e\s|ou\s|certo\b|pode ser\b|qual (você|voce) prefere)/i;
-  const soltas = perguntas.filter((f) => !pendurada.test(f.trim()));
-  const candidatas = soltas.length ? soltas : perguntas;
-  const substancial = candidatas.find((f) => / ou |quais|quantos|qual sabor|que recheio/i.test(f) && f.length >= 20);
-  const melhor = substancial ?? candidatas.reduce((a, b) => (b.length > a.length ? b : a));
+  //
+  // TODAS PENDURADAS: NAO CORTA NADA.
+  //
+  // Era aqui que a mensagem do cliente de 21/08 nascia. A IA escreveu
+  // "E o pastel bolha, vai querer? Se sim, qual sabor: carne, queijo, presunto
+  // ou frango?". As duas comecam penduradas, `soltas` ficava vazia, o codigo
+  // voltava pra lista cheia (`soltas.length ? soltas : perguntas`) e escolhia
+  // justamente a orfa, porque e a que tem " ou " e mais de 20 letras. A guarda
+  // fazia exatamente o que ela propria proibia tres linhas acima.
+  //
+  // Sem uma pergunta que se sustente sozinha, o texto dela vai inteiro: duas
+  // perguntas incomodam, uma frase orfa derruba a venda.
+  const soltas = perguntas.filter((f) => !PENDURADA.test(f.trim()));
+  if (!soltas.length) return bloco;
+  const substancial = soltas.find((f) => / ou |quais|quantos|qual sabor|que recheio/i.test(f) && f.length >= 20);
+  const melhor = substancial ?? soltas.reduce((a, b) => (b.length > a.length ? b : a));
   const antes = frases.slice(0, frases.indexOf(perguntas[0])).join(" ");
-  return (antes ? antes + " " : "") + melhor.trim();
+  const cortado = (antes ? antes + " " : "") + melhor.trim();
+  return corteEhSeguro(bloco, cortado) ? cortado : bloco;
 }
 
-function umaPerguntaSo(texto: string): string {
+// APAGAR UM BLOCO INTEIRO APAGA O QUE O CLIENTE PRECISAVA LER.
+//
+// Este era o defeito dominante da medicao de 21/08: em onze das quarenta
+// conversas o cliente entregou item, data, hora, nome e pagamento, e recebeu
+// de volta so "E pro bolo, quer topo de bolo e papel de arroz?". O bloco que
+// dizia "Anotei o nome, a hora e o pagamento" tinha sido deletado aqui, por
+// conter um "?" e nao ser o ultimo. O cliente sai sem saber se encomendou.
+//
+// O corte continua acontecendo quando e seguro; quando nao e, o texto dela vai
+// inteiro. Quem decide e `corteEhSeguro`, a mesma regra usada pelas guardas de
+// guardas.ts — antes cada uma tinha a sua nocao de "frase quebrada".
+export function umaPerguntaSo(texto: string): string {
   const blocos = texto.split(/\n\s*\n/).map(perguntaQueVale);
   const indices = blocos
     .map((b, i) => (b.includes("?") && !CORTESIA.test(b) ? i : -1))
     .filter((i) => i >= 0);
   const manter = indices.length >= 2 ? indices[indices.length - 1] : -1;
-  const limpo = manter < 0 ? blocos : blocos.filter((_, i) => !indices.includes(i) || i === manter);
+  const cortado = manter < 0 ? blocos : blocos.filter((_, i) => !indices.includes(i) || i === manter);
+  const limpo = corteEhSeguro(texto, cortado.join("\n\n")) ? cortado : blocos;
   // Jargão interno vazando pro cliente: ela já escreveu "o bolo brigadeiro é
   // faixa B". Faixa é como a padaria organiza preço, não é assunto de quem
   // está pedindo bolo.
@@ -5512,6 +5596,12 @@ async function rodarConversa(
     void registrarUsoIA(tenant.negocioId, prov.modelo, uso, origem, clienteId);
   };
 
+  // A cadeia de texto tem 36 passos que editam a MESMA mensagem, e nenhum deles
+  // via o resultado dos outros: guarda que consertava o estrago de outra estava
+  // posicionada ANTES dela e nunca executou uma vez. Esta e a conferencia final,
+  // depois de todos os passos — o ponto unico que faltava. Uma refeita so: se
+  // ainda vier quebrada, o problema nao e a IA e o alarme tem que aparecer no log.
+  let jaRefezPorOrfa = false;
   for (let i = 0; i < 6; i++) {
     // Modelos de raciocínio (gpt-5, o1, o3) recusam max_tokens e temperature:
     // eles usam max_completion_tokens e não aceitam ajuste de criatividade.
@@ -5702,42 +5792,12 @@ async function rodarConversa(
       const nadaAnotado = (montagemAtual?.itens?.length ?? 0) === 0;
       if (pediuIndicacao && nadaAnotado && !estado.pedido) {
         const base = String(estado.sugestao || ultimaDelaAgora || "");
-        const salg = Number((base.match(/([0-9]+) *salgados/i) ?? [])[1] ?? 0);
-        const doc = Number((base.match(/([0-9]+) *docinhos/i) ?? [])[1] ?? 0);
-        const kg = Number(String((base.match(/([0-9]+(?:[.,][0-9]+)?) *kg/i) ?? [])[1] ?? "").replace(",", "."));
-        if (salg > 0 || doc > 0 || kg > 0) {
-          const linhas: string[] = [];
-          if (salg > 0) {
-            const a = Math.round(salg / 3);
-            const b = Math.round(salg / 3);
-            const c2 = salg - a - b;
-            linhas.push(a + " coxinha, " + b + " mini bolha de carne e " + c2 + " esfirra de calabresa");
-          }
-          if (doc > 0) {
-            const a = Math.round(doc / 2);
-            linhas.push(a + " brigadeiro e " + (doc - a) + " beijinho");
-          }
-          if (kg > 0) linhas.push(String(kg).replace(".", ",") + " kg de bolo de brigadeiro");
-          // A INDICACAO FICA GUARDADA PRA VALER QUANDO ELE ACEITAR.
-          //
-          // O cliente respondia "pode ser assim" e so os salgados entravam: o
-          // modelo anotava a primeira linha e seguia perguntando dos docinhos
-          // que ELE mesmo tinha acabado de aceitar. Quem escreveu a proposta
-          // (este codigo) e quem anota quando o aceite vem.
-          const propostos: { produto: string; categoria: string; qtd: number; obs?: string | null }[] = [];
-          if (salg > 0) {
-            const a = Math.round(salg / 3);
-            const b = Math.round(salg / 3);
-            propostos.push({ produto: "coxinha", categoria: "salgado_frito", qtd: a, obs: null });
-            propostos.push({ produto: "mini bolha", categoria: "salgado_frito", qtd: b, obs: "carne" });
-            propostos.push({ produto: "esfirra", categoria: "salgado_assado", qtd: salg - a - b, obs: "calabresa" });
-          }
-          if (doc > 0) {
-            const a = Math.round(doc / 2);
-            propostos.push({ produto: "brigadeiro", categoria: "docinho", qtd: a, obs: null });
-            propostos.push({ produto: "beijinho", categoria: "docinho", qtd: doc - a, obs: null });
-          }
-          if (kg > 0) propostos.push({ produto: "bolo brigadeiro", categoria: "bolo_festa", qtd: kg, obs: null });
+        const falasDeleAteAqui = historico
+          .filter((h) => h.role === "user")
+          .map((h) => (typeof h.content === "string" ? h.content : ""))
+          .filter(Boolean);
+        const { linhas, propostos } = indicacaoDeFesta(falasDeleAteAqui, base);
+        if (linhas.length) {
           if (propostos.length) {
             estado.montagem.push({ tipo: "dados", dados: { proposta: JSON.stringify(propostos) } });
           }
@@ -6722,6 +6782,25 @@ async function rodarConversa(
           .join(QUEBRA)
           .trim();
         if (semPromessa) semLista.texto = semPromessa;
+      }
+      // NENHUMA MENSAGEM ORFA SAI DAQUI.
+      //
+      // Chegou num cliente de verdade em 21/08: "Se sim, qual sabor: carne,
+      // queijo, presunto ou frango?", mensagem inteira. Cada guarda da cadeia
+      // agora confere o proprio corte, mas esta e a rede embaixo de todas: se
+      // alguma combinacao futura quebrar a frase, a IA refaz em vez de o cliente
+      // receber. So uma vez, pra nao virar custo em toda conversa.
+      if (!jaRefezPorOrfa && ficouOrfa(semLista.texto) && i < 5) {
+        jaRefezPorOrfa = true;
+        console.warn("[ia] a cadeia deixou a mensagem orfa, refazendo:", String(semLista.texto).slice(0, 140));
+        messages.push({
+          role: "system",
+          content:
+            "Sua ultima mensagem comecou pendurada numa frase que o cliente nao tem (ex: \"Se sim, ...\", \"E o ...\"). " +
+            "Escreva de novo com um texto que se sustenta sozinho: diga de QUAL produto voce esta falando antes de " +
+            "perguntar o sabor, e confirme o que voce ja anotou. Faca UMA pergunta so.",
+        });
+        continue;
       }
       return {
         texto: semLista.texto,

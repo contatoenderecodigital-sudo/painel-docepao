@@ -12,6 +12,7 @@
 // ============================================================================
 
 import catalogo from "./dados/catalogo.json";
+import { produtosDoCardapio } from "./produtos";
 // TODOS OS PRECOS UNITARIOS QUE A PADARIA PRATICA, em centavos.
 // Fonte unica: o catalogo. O que nao esta aqui, ela nao pode dizer que cobra.
 function precosDaCasa(): Set<number> {
@@ -1150,10 +1151,36 @@ export function perguntaElipticaDePreco(fala: string, falaAnterior: string): str
   if (conversa.test(atual)) return null;
   const modificador = palavras.filter((w) => !vazias.has(w) && w.length >= 3);
   if (!modificador.length) return null;
+  // NEM TODA CONTINUACAO E ELIPSE: AS VEZES ELE TROCOU O PRODUTO INTEIRO.
+  //
+  // Medicao de 21/08/2026, 4 rodadas de 5. "quanto custa a torta doce?" seguido
+  // de "e o empadao, quanto fica?" virava o nucleo "torta" + "empadao" =
+  // "torta empadao". O cerebro entao filtrava o catalogo por "torta", o empadao
+  // NAO entrava na lista, e a instrucao mandava "COPIE o numero daqui". Ela
+  // copiou: respondeu R$ 36,90, que e o preco da torta fria. O empadao custa
+  // R$ 34,90. Dois reais por quilo que a padaria come em reclamacao — e a IA
+  // acertou, obedecendo a uma lista errada que o codigo deu pra ela.
+  //
+  // A diferenca e simples: "salgada" nao e produto nenhum e precisa herdar o
+  // "torta"; "empadao" ja e um produto inteiro e nao herda nada.
+  const alvo = modificador.join(" ");
+  if (ehProdutoInteiro(alvo)) return alvo;
   // O NUCLEO E O SUBSTANTIVO DA PERGUNTA ANTERIOR, o que ela nao trocou.
   const nucleo = antes.split(" ").filter((w) => !vazias.has(w) && w.length >= 4);
   if (!nucleo.length) return null;
-  return (nucleo[0] + " " + modificador.join(" ")).trim();
+  return (nucleo[0] + " " + alvo).trim();
+}
+
+// O nome, sozinho, ja identifica um produto da casa? Compara pelas duas pontas
+// porque o cliente escreve o nome curto ("empadao") e o catalogo tem o longo
+// ("empadao de palmito"), e vice-versa ("mini bolha" / "bolha").
+function ehProdutoInteiro(nome: string): boolean {
+  const n = semAcMin(nome).replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  if (n.length < 4) return false;
+  return produtosDoCardapio().some((p) => {
+    const c = semAcMin(p).replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+    return c === n || c.startsWith(n + " ") || n.startsWith(c + " ");
+  });
 }
 
 // A HORA ELE JA DISSE. TIRA A PERGUNTA DO TEXTO.
@@ -1367,6 +1394,97 @@ export function obsSemRepeticao(obs: unknown): string {
 
 // PERGUNTA JA FEITA NAO SE FAZ DE NOVO.
 //
+// ===========================================================================
+//  A MENSAGEM TEM QUE CHEGAR DE PE.
+//
+//  Chegou num cliente de verdade em 21/08/2026, mensagem inteira:
+//
+//      "Se sim, qual sabor: carne, queijo, presunto ou frango?"
+//
+//  A IA tinha escrito certo — "E o pastel bolha, vai querer? Se sim, qual
+//  sabor: ..." — e TRES guardas minhas, cada uma certa sozinha, amputaram a
+//  primeira metade: `umaPerguntaSo` guardou so o ultimo bloco com "?",
+//  `perguntaQueVale` reabilitou a pendurada quando todas eram penduradas, e
+//  `textoSemPerguntaJaFeita` apagou a pergunta-mae por ja ter sido feita.
+//
+//  Na mesma medicao, outras onze conversas morreram assim: o cliente entregou
+//  item, data, hora, nome e pagamento, e recebeu de volta so
+//  "E pro bolo, quer topo de bolo e papel de arroz?" — o bloco que dizia
+//  "Anotei o nome..." tinha sido deletado junto.
+//
+//  A regra que sai disso, e que vale pra TODA guarda que corta texto:
+//
+//    CORTAR SO E PERMITIDO SE O QUE SOBRA SE SUSTENTA SOZINHO.
+//
+//  Duas perguntas chegando no cliente e um incomodo. Uma frase orfa derruba a
+//  venda, e um "Anotei" apagado faz o cliente achar que nao encomendou nada.
+//  Na duvida, o texto dela vai inteiro.
+// ===========================================================================
+
+// DUAS PERGUNTAS DIFERENTES, DUAS LISTAS DIFERENTES.
+//
+// `PENDURADA` responde "esta frase se apoia na anterior?", e serve pra ESCOLHER
+// entre perguntas irmas. Ali "E o pastel bolha, vai querer?" conta como
+// pendurada, porque existe uma irma melhor.
+//
+// `ORFA` responde "esta mensagem, sozinha no WhatsApp do cliente, e
+// incompreensivel?", e e uma lista muito menor. "E o pastel bolha, vai querer?"
+// abrindo uma resposta e portugues normal — quem le entende. "Se sim, qual
+// sabor: carne, queijo, presunto ou frango?" nao: nao existe o "sim".
+//
+// Confundir as duas custa dinheiro nos dois sentidos: lista larga demais manda
+// refazer mensagem que estava boa (token a mais em toda conversa), lista
+// estreita demais deixa a frase quebrada chegar no cliente.
+export const PENDURADA =
+  /^(se\s+(sim|n[ãa]o|quiser|for|preferir)|ent[ãa]o\b|e\s|ou\s|certo\b|pode ser\b|isso\b|qual (você|voce) prefere)/i;
+
+const ORFA =
+  /^(se\s+(sim|n[ãa]o|quiser|for|preferir)|ent[ãa]o[,\s]|isso\b|qual (você|voce) prefere|pode ser( assim)?\s*\?)/i;
+
+const primeiraFrase = (t: string) => (String(t ?? "").trim().split(/(?<=[.!?])\s+/).find((f) => f.trim()) ?? "").trim();
+
+// A mensagem abre pendurada em alguma coisa que o cliente nao tem?
+export function ficouOrfa(texto: string): boolean {
+  const t = String(texto ?? "").trim();
+  return t ? ORFA.test(primeiraFrase(t)) : false;
+}
+
+// O CORTE CRIOU O PENDURADO QUE NAO EXISTIA.
+//
+// Esta e a conferencia precisa, e nao tem falso positivo: se o texto dela ja
+// comecava com "E ..." e continua comecando, a guarda nao estragou nada. Se ele
+// comecava com "Vai querer esfirra?" e passou a comecar com "Se sim...", quem
+// quebrou foi o corte.
+function corteCriouPendurada(antes: string, depois: string): boolean {
+  return PENDURADA.test(primeiraFrase(depois)) && !PENDURADA.test(primeiraFrase(antes));
+}
+
+// O QUE O CLIENTE PRECISA LER NUNCA PODE SAIR NO CORTE.
+//
+// "Anotei" e a unica confirmacao que ele recebe de que o pedido existe, e o
+// R$ e a unica forma de ele saber quanto vai pagar. Guarda que come uma dessas
+// duas transforma uma venda fechada num cliente que some.
+function pedacosQueNaoPodemSumir(t: string): string[] {
+  return String(t ?? "")
+    .split(/(?<=[.!?])\s+|\n/)
+    .map((f) => f.trim())
+    .filter((f) => /anotei|R\$\s?[0-9]|\*Total/i.test(f));
+}
+
+export function cortePerdeuOQueImporta(antes: string, depois: string): boolean {
+  const d = String(depois ?? "");
+  return pedacosQueNaoPodemSumir(antes).some((p) => !d.includes(p));
+}
+
+// O portao unico de toda guarda que corta: cortou, confere se pode.
+export function corteEhSeguro(antes: string, depois: string): boolean {
+  const d = String(depois ?? "").trim();
+  if (!d) return false;
+  if (ficouOrfa(d)) return false;
+  if (corteCriouPendurada(antes, d)) return false;
+  return !cortePerdeuOQueImporta(antes, d);
+}
+
 // A auditoria das 40 conversas da medicao de 21/08/2026 apontou o mesmo padrao
 // em quatro delas:
 //
@@ -1406,6 +1524,12 @@ export function textoSemPerguntaJaFeita(texto: string, falasDela: string[]): str
   });
   if (!ficam.length || ficam.length === partes.length) return bruto;
   const saida = ficam.join(" ").replace(/ +/g, " ").trim();
+  // CORTOU, CONFERE SE PODE. Apagar "Vai querer esfirra?" deixava
+  // "Se sim, qual sabor: carne, queijo, presunto ou frango?" sozinha no
+  // WhatsApp do cliente. Repetir pergunta e feio; mandar a filha sem a mae e
+  // incompreensivel — e apagar um "Anotei" faz o cliente achar que nao
+  // encomendou nada.
+  if (!corteEhSeguro(bruto, saida)) return bruto;
   return saida || bruto;
 }
 
@@ -1446,6 +1570,12 @@ export function textoSemPedirDadosDeFechamento(texto: string): string {
   const ficam = partes.filter((frase) => !PEDE_DADO.test(frase));
   if (!ficam.length || ficam.length === partes.length) return bruto;
   const saida = ficam.join(" ").replace(/ +/g, " ").trim();
+  // CORTOU, CONFERE SE PODE. Apagar "Vai querer esfirra?" deixava
+  // "Se sim, qual sabor: carne, queijo, presunto ou frango?" sozinha no
+  // WhatsApp do cliente. Repetir pergunta e feio; mandar a filha sem a mae e
+  // incompreensivel — e apagar um "Anotei" faz o cliente achar que nao
+  // encomendou nada.
+  if (!corteEhSeguro(bruto, saida)) return bruto;
   return saida || bruto;
 }
 

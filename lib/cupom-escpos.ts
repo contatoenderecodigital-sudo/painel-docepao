@@ -34,7 +34,7 @@
 //  da memória).
 // ============================================================================
 
-import { deptoDe, deptosDoPedido, nomeDaComanda, qtdDoTicket, unidadeDoItem, type DeptoId } from "./departamentos";
+import { deptoDe, deptoDoTexto, deptosDoPedido, nomeDaComanda, qtdDoTicket, unidadeDoItem, type DeptoId } from "./departamentos";
 
 export type ItemCupom = {
   produto: string;
@@ -117,9 +117,21 @@ function quebrar(texto: string, marca = ""): string {
 // A Dora escreve separando por virgula ("com morango, pao de lo de chocolate,
 // sem topo e sem papel de arroz"). Cortando ali, a producao le uma coisa por
 // linha e nenhuma negacao fica orfa da palavra que ela nega.
-function observacaoDoItem(obs: string, produto: string): string {
+//
+// `outrosNomes` sao as outras LINHAS desta mesma comanda. Visto no papel em
+// 21/08: o bolo trazia "> topo de bolo" e "> papel de arroz" na observacao e,
+// logo abaixo, saiam "1 un topo de bolo" e "1 un papel de arroz" como linha
+// propria, com quantidade. Quem monta le duas vezes e faz dois de cada.
+function observacaoDoItem(obs: string, produto: string, outrosNomes: string[] = []): string {
   const chave = (t: string) => semAcento(t).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
   const nome = chave(produto);
+  const outros = outrosNomes.map(chave).filter((n) => n && n !== nome);
+  // O trecho so cai fora quando NAO acrescenta nada ao que a linha propria ja
+  // diz. "topo tema futebol" fica, porque diz o tema. E o trecho tem que
+  // nomear uma peca de verdade: "calabresa" e o recheio da esfirra e nao pode
+  // sumir so porque a bancada tambem faz "coxinha de calabresa".
+  const soRepeteOutraLinha = (f: string) =>
+    outros.some((n) => n === f || (n.includes(f) && deptoDoTexto(f) !== null));
   return String(obs)
     .split(",")
     .map((x) => x.trim())
@@ -128,7 +140,7 @@ function observacaoDoItem(obs: string, produto: string): string {
     // "bolo brigadeiro com morango" e logo abaixo "> com morango".
     .filter((x) => {
       const f = chave(x);
-      return f.length > 2 && !nome.includes(f);
+      return f.length > 2 && !nome.includes(f) && !soRepeteOutraLinha(f);
     })
     .map((x) => quebrar(x, "  > "))
     .join("");
@@ -158,10 +170,11 @@ function cabecalho(titulo: string, p: PedidoCupom): string {
 // da forminha, o tema do topo, o nome e a idade do aniversariante. Cada uma na
 // comanda do seu item, então a forminha não vaza pra comanda do bolo.
 function listaItens(itens: ItemCupom[]): string {
+  const nomes = itens.map((i) => i.produto);
   let t = "";
   for (const i of itens) {
     t += NEGRITO_ON + qtdDoTicket(i).padEnd(8) + NEGRITO_OFF + semAcento(i.produto) + "\n";
-    if (i.obs) t += observacaoDoItem(i.obs, i.produto);
+    if (i.obs) t += observacaoDoItem(i.obs, i.produto, nomes);
   }
   return t;
 }
@@ -195,9 +208,44 @@ function resumoPorFaixa(itens: ItemCupom[]): { texto: string; total: number; tem
   return { texto, total, temKg };
 }
 
-function observacaoDoPedido(p: PedidoCupom): string {
+// A OBSERVACAO DO PEDIDO NAO E DE TODA BANCADA.
+//
+// Visto no papel em 21/08: "OBS: tema homem aranha, nome Theo, 5 anos" impresso
+// tambem na comanda dos SALGADOS e na dos DOCINHOS. Quem frita coxinha nao tem
+// o que fazer com o tema do bolo, e papel cheio de recado que nao e da bancada
+// ensina a bancada a nao ler o papel.
+//
+// A leitura segue a ordem em que a frase foi escrita: o trecho que nomeia um
+// produto manda nele E nos seguintes, ate outro produto ser nomeado. E assim
+// que ela sai da conversa — em "bolo tema homem aranha, nome Theo, 5 anos" o
+// nome e a idade sao do bolo, nao do pedido.
+//
+// Trecho que nao nomeia nada e nao vem depois de nenhum produto ("buzinar na
+// frente") e recado da casa e vai em todas.
+function trechosDaObservacao(obs: string): { texto: string; depto: DeptoId | null }[] {
+  let atual: DeptoId | null = null;
+  return String(obs)
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map((texto) => {
+      atual = deptoDoTexto(texto) ?? atual;
+      return { texto, depto: atual };
+    });
+}
+
+// `id` null e o caixa: la vai a observacao inteira, porque quem entrega o
+// pedido na retirada le tudo o que foi combinado.
+//
+// Trecho que fala de uma comanda que este pedido nao tem vai pra todas: perder
+// recado no papel e pior do que repetir.
+function observacaoDaComanda(p: PedidoCupom, id: DeptoId | null, doPedido: DeptoId[]): string {
   if (!p.observacoes) return "";
-  return risco("-") + NEGRITO_ON + "OBS:\n" + NEGRITO_OFF + quebrar(p.observacoes);
+  const meus = trechosDaObservacao(p.observacoes)
+    .filter((t) => id === null || t.depto === null || t.depto === id || !doPedido.includes(t.depto))
+    .map((t) => t.texto);
+  if (!meus.length) return "";
+  return risco("-") + NEGRITO_ON + "OBS:\n" + NEGRITO_OFF + quebrar(meus.join(", "));
 }
 
 // "CLIENTE TAMBEM PEDIU": sem isso a pessoa da bancada pega o papel dela e vai
@@ -222,7 +270,7 @@ function comanda(p: PedidoCupom, id: DeptoId, itens: ItemCupom[], outras: DeptoI
   const r = resumoPorFaixa(itens);
   t += r.texto;
   t += NEGRITO_ON + "Subtotal" + (r.temKg ? " (aprox)" : "") + ": " + dinheiro(r.total) + "\n" + NEGRITO_OFF;
-  t += observacaoDoPedido(p);
+  t += observacaoDaComanda(p, id, [id, ...outras]);
   t += referenciaCruzada(outras);
   return t + "\n\n\n" + CORTAR;
 }
@@ -240,7 +288,7 @@ function caixa(p: PedidoCupom): string {
   // Sem forma combinada vale o padrão da casa: paga na retirada.
   const forma = String(p.formaPagamento || "").trim();
   t += NEGRITO_ON + (forma ? "Pagamento: " + semAcento(forma).toUpperCase() : "Pagamento na RETIRADA") + "\n" + NEGRITO_OFF;
-  t += observacaoDoPedido(p);
+  t += observacaoDaComanda(p, null, []);
   return t + "\n\n\n" + CORTAR;
 }
 

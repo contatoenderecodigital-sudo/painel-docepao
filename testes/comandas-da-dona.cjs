@@ -223,6 +223,70 @@ conferir(!linhasObs.some((l) => l.trim() === "> topo e sem papel de arroz"), "ne
 conferir(!papelDoBolo.includes("> com morango"), "a observacao nao repete o que ja esta no nome do item");
 conferir(papelDoBolo.includes("bolo brigadeiro com morango"), "e o nome do item continua completo");
 
+// ---------------------------------------------------------------------------
+// O PAPEL SO DIZ O QUE E DA BANCADA, E NAO CONTA A MESMA PECA DUAS VEZES.
+//
+// Dois defeitos vistos no papel impresso em 21/08/2026:
+//
+//   a) o bolo listava "> topo de bolo" e "> papel de arroz" na observacao E os
+//      dois saiam de novo logo abaixo como linha propria, com quantidade
+//      ("1 un topo de bolo"). Quem monta le duas vezes e faz dois de cada.
+//
+//   b) "OBS: tema homem aranha, nome Theo, 5 anos" saia tambem na comanda dos
+//      SALGADOS e na dos DOCINHOS. Quem frita coxinha nao tem o que fazer com
+//      o tema do bolo, e papel cheio de recado que nao e da bancada ensina a
+//      bancada a nao ler o papel.
+// ---------------------------------------------------------------------------
+console.log("");
+console.log("== o papel so diz o que e da bancada ==");
+const doTheo = montarCupons({
+  ...pedidoDela,
+  totalCentavos: 34500,
+  // O recado da casa vem primeiro, o do bolo depois: e assim que a frase sai
+  // da conversa, e e por isso que a leitura respeita a ordem.
+  observacoes: "buzinar na frente, bolo tema homem aranha, nome Theo, 5 anos",
+  itens: [
+    { produto: "coxinha", categoria: "salgado_frito", qtd: 50, obs: null, unidade: "un", unitCentavos: 100, subtotalCentavos: 5000 },
+    { produto: "brigadeiro", categoria: "docinho", qtd: 30, obs: "forminha azul", unidade: "un", unitCentavos: 125, subtotalCentavos: 3750 },
+    { produto: "bolo bombom", categoria: "bolo_festa", qtd: 2.5, obs: "pao de lo branco, topo de bolo, papel de arroz", unidade: "kg", unitCentavos: 4990, subtotalCentavos: 12475 },
+    { produto: "topo de bolo", categoria: "adicional_bolo", qtd: 1, obs: "tema homem aranha, nome Theo, 5 anos", unidade: "un", unitCentavos: 3500, subtotalCentavos: 3500 },
+    { produto: "papel de arroz", categoria: "papel_de_arroz", qtd: 1, obs: null, unidade: "un", unitCentavos: 1200, subtotalCentavos: 1200 },
+  ],
+});
+const theoBolo = limpo(doTheo.find((c) => limpo(c).includes("== BOLO FESTA ==")) || "");
+const theoSalg = limpo(doTheo.find((c) => limpo(c).includes("== SALGADOS ==")) || "");
+const theoDoce = limpo(doTheo.find((c) => limpo(c).includes("== DOCINHOS ==")) || "");
+const theoCx = limpo(doTheo.find((c) => limpo(c).includes("== CAIXA ==")) || "");
+
+// (a) a peca aparece UMA vez: como linha, com quantidade.
+const obsDoBoloTheo = theoBolo
+  .split("\n")
+  .filter((l) => l.trim().startsWith(">"))
+  .map((l) => l.replace(/^\s*>\s*/, "").trim());
+conferir(/1 un\s+topo de bolo/.test(theoBolo), "o topo de bolo continua como linha propria, com quantidade");
+conferir(/1 un\s+papel de arroz/.test(theoBolo), "o papel de arroz continua como linha propria, com quantidade");
+conferir(!obsDoBoloTheo.includes("topo de bolo"), "e NAO se repete como observacao do bolo");
+conferir(!obsDoBoloTheo.includes("papel de arroz"), "nem o papel de arroz se repete como observacao");
+conferir(obsDoBoloTheo.includes("pao de lo branco"), "o que so a observacao diz continua la (pao de lo branco)");
+conferir((theoBolo.match(/topo de bolo/g) ?? []).length === 1, "'topo de bolo' aparece uma unica vez no papel do bolo");
+
+// (b) a observacao do PEDIDO vai pra bancada de quem ela fala.
+const blocoObs = (papel) => {
+  const i = papel.indexOf("OBS:");
+  return i < 0 ? "" : papel.slice(i + 4).split("CLIENTE TAMBEM PEDIU")[0];
+};
+conferir(!tem(blocoObs(theoSalg), "homem aranha"), "o tema do bolo NAO sai na comanda dos salgados");
+conferir(!tem(blocoObs(theoSalg), "Theo") && !tem(blocoObs(theoSalg), "5 anos"), "nem o nome e a idade do aniversariante");
+conferir(!tem(blocoObs(theoDoce), "homem aranha"), "nem na comanda dos docinhos");
+conferir(tem(blocoObs(theoBolo), "homem aranha") && tem(blocoObs(theoBolo), "Theo"), "mas sai inteiro na comanda do bolo");
+// O recado da casa nao tem dono: e de todo mundo que toca o pedido.
+conferir(tem(blocoObs(theoSalg), "buzinar na frente"), "o recado da casa continua na comanda dos salgados");
+conferir(tem(blocoObs(theoDoce), "buzinar na frente"), "e na dos docinhos");
+// O caixa recebe o cliente na retirada: la vai a observacao inteira, sempre.
+conferir(tem(blocoObs(theoCx), "buzinar na frente") && tem(blocoObs(theoCx), "homem aranha"), "o caixa fica com a observacao inteira");
+// A cor da forminha e do docinho, e continua sendo observacao DELE.
+conferir(tem(theoDoce, "forminha azul"), "a cor da forminha continua na comanda dos docinhos");
+
 console.log("");
 console.log(erros === 0 ? "TODOS OS CASOS PASSARAM" : erros + " CASO(S) FALHARAM");
 process.exit(erros === 0 ? 0 : 1);

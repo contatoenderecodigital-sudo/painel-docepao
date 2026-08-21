@@ -52,6 +52,18 @@ const r = {
     ["e o assado?", "quanto custa o salgado frito?"],
     ["e a especial?", "qual o preco da torta doce"],
   ].map(([a, b]) => perguntaElipticaDePreco(a, b)),
+  // TROCOU O PRODUTO INTEIRO, NAO E ELIPSE.
+  //
+  // Medicao de 21/08/2026, 4 rodadas de 5: "quanto custa a torta doce?" e
+  // depois "e o empadao, quanto fica?" virava "torta empadao". O cerebro
+  // filtrava o catalogo por "torta", o empadao ficava de fora, e a instrucao
+  // mandava a IA COPIAR o numero da lista. Ela copiou R$ 36,90 (torta fria).
+  // O empadao e R$ 34,90.
+  produtoInteiro: [
+    ["e o empadao, quanto fica?", "quanto custa a torta doce?"],
+    ["e a coxinha?", "quanto custa o empadao?"],
+    ["e o brigadeiro?", "qual o preco da esfirra"],
+  ].map(([a, b]) => perguntaElipticaDePreco(a, b)),
   conversa: [
     ["e ai, tudo bem?", "quanto custa a torta doce?"],
     ["e a salgada?", "quero 200 salgados"],
@@ -284,6 +296,16 @@ r.delega.forEach((ok, i) => { if (!ok) falhas.push("delegacao nao reconhecida no
 
 // 2. ELIPSE: continua a pergunta -> devolve o termo remontado.
 r.eliptica.forEach((v, i) => { if (!v) falhas.push("pergunta que continua a anterior nao reconhecida no caso " + i); });
+// O nucleo da anterior NAO pode grudar quando o cliente trocou o produto todo.
+// "torta empadao" faz o cerebro filtrar o catalogo pela torta e cotar o preco
+// dela: dois reais por quilo a mais, e o cliente descobre no balcao.
+const PRODUTO_INTEIRO_ESPERADO = ["empadao", "coxinha", "brigadeiro"];
+r.produtoInteiro.forEach((v, i) => {
+  const esperado = PRODUTO_INTEIRO_ESPERADO[i];
+  if (String(v ?? "").trim() !== esperado) {
+    falhas.push('produto trocado virou elipse: "' + esperado + '" saiu como "' + String(v) + '"');
+  }
+});
 r.conversa.forEach((v, i) => { if (v) falhas.push("conversa virou pergunta de preco no caso " + i + ": " + v); });
 
 // 3. HORA: o que o cliente escreve de todo jeito.

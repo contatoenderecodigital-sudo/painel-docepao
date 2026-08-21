@@ -140,6 +140,27 @@ const POR_NOME: [RegExp, DeptoId][] = [
   ],
 ];
 
+// Tema, nome e idade do aniversariante existem por causa do topo e do papel de
+// arroz, que sao pecas da comanda do bolo. Sao as palavras da ARTE da peca, e
+// nao o nome de um produto, entao elas nao cabem em POR_NOME.
+const ARTE_DA_PECA = /\btema\b|aniversariante|\bfoto\b|\bnome\b|\b\d+\s*anos?\b/;
+
+// DE QUAL COMANDA UM TEXTO FALA — OU DE NENHUMA.
+//
+// Diferente de `deptoDe`, que sempre devolve uma comanda porque todo ITEM tem
+// que sair em algum papel. Aqui a entrada e uma FRASE da observacao, e frase
+// que nao nomeia produto nenhum ("buzinar na frente") e recado pra casa toda.
+// Chutar uma comanda mandaria ela so pros docinhos, e o resto da cozinha nunca
+// leria o recado — por isso aqui existe o null.
+export function deptoDoTexto(texto: string): DeptoId | null {
+  const t = norm(texto);
+  if (!t) return null;
+  for (const [rx, id] of POR_NOME) if (rx.test(t)) return id;
+  if (ACESSORIO_DE_BOLO.test(t)) return "bolo_festa";
+  if (ARTE_DA_PECA.test(t)) return "bolo_festa";
+  return null;
+}
+
 // De qual comanda um item sai.
 export function deptoDe(item: { categoria?: string | null; produto: string }): DeptoId {
   const c = norm(item.categoria);
