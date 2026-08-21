@@ -63,6 +63,7 @@ import {
   textoSemPerguntaJaFeita,
   quantidadePorSabor,
   coresDeForminhaQueEleFalou,
+  pecasDoBoloQueEleAceitou,
   dataBrigaComODiaDaSemana,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
@@ -4940,6 +4941,45 @@ async function rodarConversa(
             "pergunte SO se pode ser. Se ele quiser outro sabor, troca e pronto. Continue de onde parou no resto " +
             "do pedido.",
         });
+      }
+    }
+  }
+
+  // AS PECAS DO BOLO QUE ELE ACEITOU ENTRAM NO PEDIDO.
+  //
+  // A mae escreveu "papel de arroz e topo sim" e o pedido fechou so com o
+  // papel. O topo e a peca que a equipe cota a parte e que a cozinha manda
+  // fazer fora: sumir com ele e o pedido chegar sem a peca no dia da festa.
+  // Numa rodada entrava, na outra nao, com a mesma frase: decisao que depende
+  // de sorte sai do prompt e vem pro codigo.
+  {
+    const querem = pecasDoBoloQueEleAceitou(String(ultimaFalaDoCliente));
+    if (querem.topo || querem.papel) {
+      const bolos = (montagemDoTurno?.itens ?? []).filter((i) => /bolo/i.test(String(i.produto ?? "")));
+      for (const b of bolos) {
+        const obsB = String(b.obs ?? "");
+        const semAcB = obsB.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+        const faltam: string[] = [];
+        if (querem.topo && !/topo/.test(semAcB)) faltam.push("topo de bolo");
+        if (querem.papel && !/papel de arroz/.test(semAcB)) faltam.push("papel de arroz");
+        if (!faltam.length) continue;
+        const obsNova = obsB.trim() ? obsB.trim() + ", " + faltam.join(", ") : faltam.join(", ");
+        estado.montagem.push({
+          tipo: "item",
+          produto: String(b.produto),
+          categoria: String(b.categoria ?? "bolo_festa"),
+          qtd: Number(b.qtd) || 0,
+          obs: obsNova,
+        });
+        correcoesDoCodigo.push({
+          tipo: "item",
+          produto: String(b.produto),
+          categoria: String(b.categoria ?? "bolo_festa"),
+          qtd: Number(b.qtd) || 0,
+          obs: obsNova,
+        });
+        b.obs = obsNova;
+        console.log("[rastro] peca do bolo que ele aceitou e nao estava: " + faltam.join(", "));
       }
     }
   }

@@ -20,7 +20,7 @@ const {
   pediuQueVoceEscolha, perguntaElipticaDePreco, horaQueEleFalou,
   textoSemPerguntaDeHora, textoSemPerguntaDeNome, obsSemONomeDeQuemRetira, obsSemDeliberacao,
   quantidadePorSabor, coresDeForminhaQueEleFalou, textoSemPedirDadosDeFechamento,
-  textoSemPerguntaJaFeita, obsSemRepeticao,
+  textoSemPerguntaJaFeita, obsSemRepeticao, pecasDoBoloQueEleAceitou,
 } = require("./_guardas.cjs")();
 
 // "2 CALABRESA E 1 DE FRANGO" SAO TRES PIZZAS, NAO UMA COM DOIS SABORES.
@@ -87,6 +87,27 @@ const obsNome = [
 ];
 
 const falhas = [];
+// AS PECAS DO BOLO QUE ELE ACEITOU ENTRAM NO PEDIDO.
+//
+// "papel de arroz e topo sim" fechou o pedido so com o papel. O topo e a peca
+// que a equipe cota a parte e que a cozinha manda fazer fora.
+{
+  const casos = [
+    ["papel de arroz e topo sim, forminha azul, nome Amanda, pix", true, true],
+    ["sem topo e sem papel de arroz", false, false],
+    ["so o topo, sem papel", true, false],
+    ["nome Ana, pix", false, false],
+  ];
+  for (const [fala, topo, papel] of casos) {
+    const r = pecasDoBoloQueEleAceitou(fala);
+    if (r.topo !== topo) falhas.push("topo lido errado em: " + fala);
+    if (r.papel !== papel) falhas.push("papel de arroz lido errado em: " + fala);
+  }
+  const cerebroAqui = require("node:fs").readFileSync(path.join(raiz, "lib/ia/cerebro.ts"), "utf8");
+  if (!/peca do bolo que ele aceitou e nao estava/.test(cerebroAqui)) {
+    falhas.push("o codigo parou de completar as pecas do bolo que o cliente aceitou");
+  }
+}
 // A MESMA COISA DUAS VEZES NA OBSERVACAO E UMA COISA SO.
 //
 // A linha do bolo chegou no cliente com tema, nome e idade repetidos, porque o

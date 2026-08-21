@@ -1268,6 +1268,36 @@ export function quantidadePorSabor(
     .map(({ qtd, sabor, existe }) => ({ qtd, sabor, existe }));
 }
 
+// AS PECAS DO BOLO QUE ELE ACEITOU.
+//
+// Caso real de 21/08/2026. A mae escreveu "papel de arroz e topo sim, forminha
+// azul, nome Amanda, pix" e o pedido fechou com o papel de arroz e SEM o topo:
+//
+//   bolo bombom :: tema homem aranha, nome Theo, 5 anos, papel de arroz
+//
+// O topo e a peca que a equipe cota a parte e que a cozinha manda fazer fora.
+// Sumir com ele e o pedido chegar sem a peca no dia da festa, e a padaria
+// deixar de faturar o que ja tinha sido combinado.
+//
+// Numa rodada ele entrava e na outra nao, com a mesma frase do cliente: quando
+// a decisao depende de sorte, ela sai do prompt e vem pro codigo.
+export function pecasDoBoloQueEleAceitou(fala: string): { topo: boolean; papel: boolean } {
+  const t = semAcMin(fala);
+  if (!t.trim()) return { topo: false, papel: false };
+  // "sem topo" e o contrario de aceitar, e vem antes de tudo.
+  const negouTopo = /(sem|nao quero|nao vou querer|dispensa) *(o |um )?topo/.test(t);
+  const negouPapel = /(sem|nao quero|nao vou querer|dispensa) *(o |um )?papel/.test(t);
+  const falouTopo = /topo/.test(t) && !negouTopo;
+  const falouPapel = /papel de arroz|papel arroz/.test(t) && !negouPapel;
+  // A palavra sozinha ja e aceite quando ela veio numa resposta afirmativa:
+  // "papel de arroz e topo sim", "quero os dois", "pode por os dois".
+  const disseSim = /(sim|quero|pode|isso|manda|ok|claro|com certeza|os dois|as duas|so o|somente|apenas)/.test(t);
+  return {
+    topo: falouTopo && (disseSim || /topo (de bolo|sim)/.test(t)),
+    papel: falouPapel && (disseSim || /papel de arroz sim/.test(t)),
+  };
+}
+
 // A MESMA COISA DUAS VEZES NA OBSERVACAO E UMA COISA SO.
 //
 // Caso real de 21/08/2026, festa de 5 anos. A linha do bolo chegou assim no
