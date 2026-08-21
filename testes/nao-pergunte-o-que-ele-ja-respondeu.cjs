@@ -19,7 +19,18 @@ const catalogo = require(path.join(raiz, "lib/ia/dados/catalogo.json"));
 const {
   pediuQueVoceEscolha, perguntaElipticaDePreco, horaQueEleFalou,
   textoSemPerguntaDeHora, textoSemPerguntaDeNome, obsSemONomeDeQuemRetira, obsSemDeliberacao,
+  quantidadePorSabor, coresDeForminhaQueEleFalou,
 } = require("./_guardas.cjs")();
+
+// "2 CALABRESA E 1 DE FRANGO" SAO TRES PIZZAS, NAO UMA COM DOIS SABORES.
+// O pedido real fechou com uma pizza de R$ 120,00 tendo o cliente pedido tres.
+const saboresPizza = (catalogo.pizza?.sabores_salgados ?? []).concat(catalogo.pizza?.sabores_doces ?? []);
+const pizzas = [
+  ["2 calabresa e 1 de frango pra hoje a noite", 3, 2],
+  ["quero 3 portuguesa", 3, 1],
+  ["duas de bacon com milho", 2, 1],
+  ["quero uma pizza", 0, 0],
+];
 
 const r = {
   delega: [
@@ -73,6 +84,33 @@ const obsNome = [
 ];
 
 const falhas = [];
+// DUAS CORES DE FORMINHA SAO DUAS: "rosa e dourado" fechou pedido so com rosa.
+{
+  const duas = coresDeForminhaQueEleFalou("pode ser rosa e dourado");
+  if (duas.length !== 2) falhas.push("nao leu as duas cores de forminha: " + JSON.stringify(duas));
+  if (duas[0] !== "rosa") falhas.push("as cores sairam fora da ordem que ele falou: " + JSON.stringify(duas));
+  if (coresDeForminhaQueEleFalou("quero 100 docinhos").length) falhas.push("achou cor onde nao tem");
+}
+// A PERGUNTA DE HORA COM VERBO NO MEIO tambem sai.
+{
+  const t = textoSemPerguntaDeHora("E o pedido fica no nome de quem, que horas você retira e como prefere pagar?");
+  if (/que horas/i.test(t)) falhas.push("a pergunta de hora com verbo no meio escapou: " + t);
+}
+for (const [fala, totalEsperado, itensEsperados] of pizzas) {
+  const pares = quantidadePorSabor(fala, saboresPizza);
+  const total = pares.reduce((a, b) => a + b.qtd, 0);
+  if (pares.length !== itensEsperados) {
+    falhas.push("quantidade por sabor leu " + pares.length + " item(ns) em vez de " + itensEsperados + ": " + fala);
+  }
+  if (total !== totalEsperado) {
+    falhas.push("quantidade por sabor somou " + total + " em vez de " + totalEsperado + ": " + fala);
+  }
+}
+// O sabor mais longo vence: "bacon com milho" nao pode virar "bacon".
+{
+  const p = quantidadePorSabor("duas de bacon com milho", saboresPizza)[0];
+  if (p && p.sabor !== "bacon com milho") falhas.push("o sabor foi cortado no meio: " + p.sabor);
+}
 for (const [texto, deviaMudar] of cortesNome) {
   const saiu = textoSemPerguntaDeNome(texto);
   if (deviaMudar && saiu === texto) falhas.push("a pergunta de nome continuou no texto: " + texto);

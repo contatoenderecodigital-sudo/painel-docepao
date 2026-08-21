@@ -1134,6 +1134,10 @@ export function textoSemPerguntaDeHora(texto: string): string {
     [/, que horas( sera| e)? (a|da) retirada,? e /gi, " e "],
     [/, (qual|que) (o )?hor[áa]rio( de retirada)?,? e /gi, " e "],
     [/, (o |a )?hor[áa]rio (de|da) retirada,? e /gi, " e "],
+    // "e o pedido fica no nome de quem, QUE HORAS VOCE RETIRA, e como prefere
+    // pagar?" escapou do recorte anterior por causa do verbo no meio.
+    [/,? que horas (voc[êe] )?(vai )?(retira|retirar|busca|buscar|pega|pegar)( o pedido)?,? e /gi, " e "],
+    [/,? que horas (voc[êe] )?(vai )?(retira|retirar|busca|buscar|pega|pegar)( o pedido)?([,.?])/gi, "$5"],
     [/ e que horas([,.?])/gi, "$1"],
     [/ e (qual|que) (o )?hor[áa]rio( de retirada)?([,.?])/gi, "$4"],
     [/, que horas([,.?])/gi, "$1"],
@@ -1174,6 +1178,85 @@ export function obsSemDeliberacao(obs: unknown): string {
     // tema, hora, nome.
     .filter((p) => !DELIBERACAO.test(semAcMin(p)));
   return partes.join(", ");
+}
+
+// DUAS CORES DE FORMINHA SAO DUAS, NAO UMA.
+//
+// Teste ao vivo de 21/08/2026. A cliente respondeu "pode ser rosa e dourado" e
+// o pedido fechou com "brigadeiro (forminha rosa)" nos quatro docinhos. O
+// dourado sumiu no caminho, e quem monta a bandeja na cozinha ia embrulhar
+// tudo de rosa.
+//
+// Devolve as cores que ele falou, na ordem, sem repetir.
+export function coresDeForminhaQueEleFalou(fala: string): string[] {
+  const t = semAcMin(fala);
+  if (!t.trim()) return [];
+  const cores = [
+    "amarelo", "azul", "branco", "dourado", "laranja", "lilas", "marrom", "pink",
+    "prata", "preto", "rosa", "roxo", "verde", "vermelho", "laminado",
+  ];
+  const achadas: { cor: string; onde: number }[] = [];
+  for (const c of cores) {
+    const raiz = c.slice(0, Math.max(4, c.length - 1));
+    const onde = t.indexOf(raiz);
+    // NA ORDEM EM QUE ELE FALOU: "rosa e dourado" nao vira "dourado e rosa".
+    // A cozinha le a observacao como a pessoa ditou.
+    if (onde >= 0 && !achadas.some((x) => x.cor === c)) achadas.push({ cor: c, onde });
+  }
+  return achadas.sort((x, y) => x.onde - y.onde).map((x) => x.cor);
+}
+
+// NUMERO ANTES DO SABOR E QUANTIDADE, NAO SABOR A MAIS.
+//
+// Teste ao vivo de 21/08/2026, o pior caso do dia. O cliente escreveu:
+//
+//   quero fazer um pedido de pizza
+//   2 calabresa e 1 de frango pra hoje a noite
+//
+// Ele pediu TRES pizzas. A Dora anotou "2 pizzas inteiras, uma com calabresa
+// acebolada e outra com sabor que voce ainda vai escolher" e o pedido fechou
+// com UMA pizza de R$ 120,00, observacao "calabresa, frango". O cliente ia
+// receber uma pizza tendo pedido tres, e a padaria ia faturar 120 em vez de
+// 360.
+//
+// Pizza aceita ate quatro sabores na mesma forma, e foi por isso que os
+// numeros viraram sabores. Mas "2 calabresa" nao e sabor: e a conta dele.
+//
+// Devolve os pares na ordem em que ele escreveu. Sabor que nao existe volta do
+// jeito que ele falou, pra quem chamou poder perguntar em vez de inventar.
+export function quantidadePorSabor(
+  fala: string,
+  sabores: string[],
+): { qtd: number; sabor: string; existe: boolean }[] {
+  const t = semAcMin(fala);
+  if (!t.trim() || !sabores.length) return [];
+  const limpos = sabores.map((x) => ({ certo: x, chave: semAcMin(x) }));
+  const achados: { qtd: number; sabor: string; existe: boolean; onde: number }[] = [];
+  // "2 calabresa", "2 de calabresa", "2x calabresa", "duas calabresa".
+  const numero: Record<string, number> = {
+    uma: 1, um: 1, duas: 2, dois: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10,
+  };
+  // O SABOR PARA NA CONJUNCAO. Guloso demais, "2 calabresa e 1 de frango"
+  // engolia o segundo numero e virava uma pizza so. No maximo tres palavras.
+  const re =
+    /(\d{1,3}|uma|um|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez) *x? *(?:de +)?([a-z0-9]+(?: (?!e |com o|pra |para |no |na |as |ate )[a-z0-9]+){0,2})/g;
+  for (const m of t.matchAll(re)) {
+    const qtd = Number(m[1]) || numero[m[1]] || 0;
+    if (!qtd) continue;
+    const resto = String(m[2] ?? "").trim();
+    // O sabor mais LONGO que casa vence: "frango com catupiry" antes de "frango".
+    const casou = limpos
+      .filter((x) => resto.startsWith(x.chave) || x.chave.startsWith(resto.split(" ")[0]))
+      .sort((a, b) => b.chave.length - a.chave.length)[0];
+    const exato = limpos
+      .filter((x) => resto.startsWith(x.chave))
+      .sort((a, b) => b.chave.length - a.chave.length)[0];
+    if (exato) achados.push({ qtd, sabor: exato.certo, existe: true, onde: m.index ?? 0 });
+    else if (casou) achados.push({ qtd, sabor: resto.split(" ")[0], existe: false, onde: m.index ?? 0 });
+  }
+  return achados
+    .sort((a, b) => a.onde - b.onde)
+    .map(({ qtd, sabor, existe }) => ({ qtd, sabor, existe }));
 }
 
 // O NOME ELE JA DEU. TIRA A PERGUNTA DO TEXTO.

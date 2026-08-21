@@ -58,6 +58,8 @@ import {
   horaQueEleFalou,
   textoSemPerguntaDeHora,
   textoSemPerguntaDeNome,
+  quantidadePorSabor,
+  coresDeForminhaQueEleFalou,
   dataBrigaComODiaDaSemana,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
@@ -929,6 +931,19 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // existe no cardapio, e a venda morria pela redacao dela. E a cozinha
     // deixa de receber "sabor calabresa nao existe" impresso na comanda.
     input.obs = obsSemDeliberacao(input.obs) || null;
+
+    // DUAS CORES DE FORMINHA SAO DUAS. Caso inteiro no comentario da guarda:
+    // "pode ser rosa e dourado" fechou o pedido com forminha rosa nos quatro
+    // docinhos, e o dourado sumiu no caminho.
+    {
+      const ditas = coresDeForminhaQueEleFalou(falasDoCliente.slice(-2).join(" "));
+      const naObs = coresDeForminhaQueEleFalou(String(input.obs ?? ""));
+      if (ditas.length > 1 && naObs.length === 1 && ditas.includes(naObs[0])) {
+        const faltando = ditas.filter((c) => !naObs.includes(c));
+        input.obs = String(input.obs ?? "").trim() + " e " + faltando.join(" e ");
+        console.log("[rastro] o cliente falou " + ditas.length + " cores de forminha; completei: " + ditas.join(", "));
+      }
+    }
 
     // O NOME DE QUEM RETIRA TEM CAMPO PROPRIO, e na observacao do bolo ele vira
     // instrucao pra cozinha. Caso inteiro no comentario da guarda.
@@ -4694,6 +4709,44 @@ async function rodarConversa(
     }
   }
 
+  // "2 CALABRESA E 1 DE FRANGO" SAO TRES PIZZAS.
+  //
+  // O caso inteiro esta no comentario da guarda quantidadePorSabor: o pedido
+  // fechou com uma pizza de R$ 120,00 tendo o cliente pedido tres.
+  {
+    const sabores = ((catalogo.pizza?.sabores_salgados ?? []) as string[]).concat(
+      (catalogo.pizza?.sabores_doces ?? []) as string[],
+    );
+    const falouPizza = /pizza/i.test(
+      historico.filter((h) => h.role === "user").map((h) => String(h.content ?? "")).join(" ") +
+        " " + String(ultimaFalaDoCliente),
+    );
+    const pares = falouPizza ? quantidadePorSabor(String(ultimaFalaDoCliente), sabores) : [];
+    if (pares.length) {
+      const total = pares.reduce((a, b) => a + b.qtd, 0);
+      const naoExiste = pares.filter((x) => !x.existe);
+      console.log(
+        "[rastro] quantidade por sabor: " + pares.map((x) => x.qtd + " " + x.sabor + (x.existe ? "" : " (nao existe)")).join(" | "),
+      );
+      messages.push({
+        role: "system",
+        content:
+          "O NUMERO ANTES DO SABOR E QUANTIDADE, NAO SABOR A MAIS. O cliente pediu " +
+          pares.map((x) => x.qtd + " de " + x.sabor).join(", ") + ": sao " + total +
+          " pizzas no total, cada uma com o seu sabor, e NAO uma pizza com varios sabores." +
+          String.fromCharCode(10, 10) +
+          "Anote UM item por sabor, com a quantidade dele. Pizza inteira aceita ate quatro sabores na mesma " +
+          "forma, mas isso so vale quando ELE pede assim." +
+          (naoExiste.length
+            ? String.fromCharCode(10, 10) +
+              "Estes nao existem com esse nome no cardapio: " + naoExiste.map((x) => x.sabor).join(", ") +
+              ". Diga qual e o parecido que a casa faz e pergunte se serve, sem anotar antes da resposta. " +
+              "NAO diga que a casa nao tem um sabor que esta no cardapio."
+            : ""),
+      });
+    }
+  }
+
   // A IMAGEM NAO CHEGOU: ESCREVE.
   //
   // A ferramenta de mandar cardapio ja foi tirada da mesa neste turno. Falta
@@ -6218,8 +6271,44 @@ async function rodarConversa(
     }
   }
 
-  // Saiu do loop (fim das iterações ou msg vazia): ainda houve consumo, grava.
+  // ACABOU O LOOP SEM RESPOSTA: PERGUNTE O QUE FALTA, NAO DESISTA.
+  //
+  // Teste ao vivo de 21/08/2026. O cliente escreveu "quero 2 kg da especial pra
+  // sexta as 18h, nome Ana, pix" e recebeu "Deixa eu chamar alguem da equipe
+  // pra te ajudar com isso". A torta especial tem tres sabores e ele nao disse
+  // qual: a guarda recusou o registro (certo, a cozinha nao assa sem sabor), ela
+  // insistiu em registrar ate esgotar as voltas, e caiu aqui.
+  //
+  // O cliente deu TUDO e ouviu que a IA nao sabe o que fazer. A pergunta que
+  // faltava estava escrita na propria recusa, e ninguem a leu em voz alta.
+  //
+  // Aqui o codigo le a ultima recusa da ferramenta e devolve ela como pergunta.
+  // Chamar a equipe continua valendo quando nao ha pendencia nenhuma: ai e
+  // defeito de verdade e alguem tem que olhar.
   gravarUso();
+  {
+    const ultimaRecusa = [...messages]
+      .reverse()
+      .find((m) => m.role === "tool" && /^(NAO |Não |Nao )/.test(String((m as { content?: string }).content ?? "")));
+    const texto = String((ultimaRecusa as { content?: string } | undefined)?.content ?? "");
+    // "NAO registrei: falta o sabor do torta especial. As opcoes sao: oreo,
+    // mousse de 4 leites, mousse morango." vira a pergunta que ele precisa ler.
+    const faltaSabor2 = texto.match(/falta o sabor d[oa] (.+?)\. As opcoes sao: ([^.]+)\./i);
+    if (faltaSabor2) {
+      const produtoF = String(faltaSabor2[1]).trim();
+      const opsF = String(faltaSabor2[2]).trim();
+      console.log("[rastro] o loop acabou, mas a pendencia virou pergunta: " + produtoF);
+      return {
+        texto:
+          "Só falta escolher o sabor d" + (produtoF.endsWith("a") ? "a " : "o ") + produtoF + ": " + opsF +
+          ". Qual você prefere?",
+        precisaHumano: false,
+        pedidoRegistrado: estado.pedido,
+        cardapiosParaEnviar: estado.cardapios,
+      };
+    }
+    if (texto) console.log("[rastro] o loop acabou com recusa sem pergunta pronta: " + texto.slice(0, 120));
+  }
   return {
     texto: "Deixa eu chamar alguém da equipe pra te ajudar com isso.",
     precisaHumano: true,
@@ -6328,11 +6417,40 @@ function cardapioPedidoPeloCliente(fala: string, jaNaFila: CardapioId[]): Cardap
 }
 
 // Os nomes que o cardapio de cada familia ja mostra em imagem.
+// A LISTA INTEIRA VIRA CARDAPIO EM TODA FAMILIA, NAO SO EM DUAS.
+//
+// Teste ao vivo de 21/08/2026. O cliente pediu pizza e recebeu isto no
+// WhatsApp, numa frase so:
+//
+//   O pizza a gente faz de bacon, bacon com milho, bacon com brocolis, 4
+//   queijos, file ao molho madeira com fritas, file acebolado, frango com
+//   catupiry, alho e oleo, hot dog, moda da casa, lombinho, ... (31 sabores)
+//
+// A guarda que troca lista por imagem de cardapio ja existia e cobria salgado
+// e docinho. Pizza, bolo, cuca e torta nao estavam na conta, entao a lista
+// passava inteira. Trinta e um sabores numa mensagem de WhatsApp ninguem le.
 const NOMES_DA_FAMILIA: [CardapioId, string[]][] = [
   ["salgados", ((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[])
     .concat((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[])
     .map((i) => String(i.nome).toLowerCase())],
   ["docinhos", ((catalogo.doces?.itens ?? []) as { nome: string }[]).map((i) => String(i.nome).toLowerCase())],
+  ["pizza", ((catalogo.pizza?.sabores_salgados ?? []) as string[])
+    .concat((catalogo.pizza?.sabores_doces ?? []) as string[])
+    .map((x) => String(x).toLowerCase())],
+  ["bolos-festa", ((catalogo.bolos_recheados?.faixas ?? []) as { sabores?: string[] }[])
+    .flatMap((f) => f.sabores ?? [])
+    .map((x) => String(x).toLowerCase())],
+  ["bolos-caseiros", ((catalogo.bolos_caseiros?.itens ?? []) as { nome: string }[])
+    .map((i) => String(i.nome).toLowerCase())
+    .filter(Boolean)],
+  ["tortas-empadao", ((catalogo.outros_produtos ?? []) as { nome: string; categoria?: string; sabores?: string[] }[])
+    .filter((i) => /torta|empad/i.test(String(i.nome)))
+    .flatMap((i) => [String(i.nome), ...(i.sabores ?? [])])
+    .map((x) => String(x).toLowerCase())],
+  ["cucas-paes", ((catalogo.outros_produtos ?? []) as { nome: string; sabores?: string[] }[])
+    .filter((i) => /cuca|p[ãa]o/i.test(String(i.nome)))
+    .flatMap((i) => [String(i.nome), ...(i.sabores ?? [])])
+    .map((x) => String(x).toLowerCase())],
 ];
 
 // Enumerou a familia inteira em texto? Manda a peca e corta a lista da frase.
