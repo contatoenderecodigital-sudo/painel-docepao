@@ -87,6 +87,31 @@ const obsNome = [
 ];
 
 const falhas = [];
+// O CLIENTE ESCREVE COMO FALA, E O CARDAPIO ESCREVE COMO IMPRIME.
+//
+// "muda pra 50 coxinha e 50 risoles" e "e o risoles de frango": o cardapio
+// escreve RISOLIS e a guarda comparava letra a letra. Os 50 risoles foram
+// recusados duas vezes e o pedido fechou com R$ 50,00 no lugar de R$ 100,00.
+{
+  const { produtoQueNinguemCitou } = require("./_guardas.cjs")();
+  const casos = [
+    ["risólis", ["muda pra 50 coxinha e 50 risoles"], false],
+    ["esfirra", ["quero 50 esfihas de carne"], false],
+    ["croissant", ["me ve 20 croassant"], false],
+    ["leite ninho", ["quero 100 coxinhas e 50 esfirras"], true],
+    ["coxinha", ["quero 100 coxinhas"], false],
+  ];
+  for (const [prod, falas, recusaEsperada] of casos) {
+    const r = produtoQueNinguemCitou(prod, falas, "");
+    if (r !== recusaEsperada) {
+      falhas.push("produtoQueNinguemCitou errou em \"" + prod + "\" com " + JSON.stringify(falas) + ": recusa=" + r);
+    }
+  }
+  const cerebroT = require("node:fs").readFileSync(path.join(raiz, "lib/ia/cerebro.ts"), "utf8");
+  if (!/o bolo que eu sugeri saiu pro bolo que ele pediu/.test(cerebroT)) {
+    falhas.push("o bolo sugerido pelo codigo voltou a bloquear o bolo que o cliente escolheu");
+  }
+}
 // O DOCINHO DELE NAO VIRA O BOLO DELE.
 //
 // Regressao minha, pega pela medicao em 21/08/2026: o cliente pediu "um bolo

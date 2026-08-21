@@ -348,6 +348,41 @@ export function produtoQueNinguemCitou(
   if (!palavras.length) return false;
   if (palavras.every((w) => tudo.includes(w))) return false;
 
+  // O CLIENTE ESCREVE COMO FALA, E O CARDAPIO ESCREVE COMO IMPRIME.
+  //
+  // Caso real de 21/08/2026: "na verdade muda pra 50 coxinha e 50 risoles" e,
+  // depois, "e o risoles de frango". O cardapio escreve RISOLIS, e esta guarda
+  // compara letra a letra: os 50 risoles foram recusados duas vezes e o pedido
+  // fechou com R$ 50,00 no lugar de R$ 100,00. Metade do pedido perdida por
+  // causa de uma letra.
+  //
+  // Ninguem digita "risólis" no WhatsApp. Aqui a comparacao aceita a distancia
+  // de duas letras, que cobre risoles/risolis, esfiha/esfirra, croasan e o
+  // resto do que a gente ve chegar todo dia. Duas letras e pouco o bastante
+  // pra nao confundir produto com produto: nenhum par do cardapio esta a essa
+  // distancia um do outro.
+  const perto = (a: string, b: string): boolean => {
+    if (a === b) return true;
+    if (Math.abs(a.length - b.length) > 2) return false;
+    const linha = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      let anterior = linha[0];
+      linha[0] = i;
+      for (let j = 1; j <= b.length; j++) {
+        const guardado = linha[j];
+        linha[j] = Math.min(
+          linha[j] + 1,
+          linha[j - 1] + 1,
+          anterior + (a[i - 1] === b[j - 1] ? 0 : 1),
+        );
+        anterior = guardado;
+      }
+    }
+    return linha[b.length] <= 2;
+  };
+  const ditas = tudo.split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+  if (palavras.every((w) => w.length < 5 || ditas.some((d) => perto(w, d)))) return false;
+
   // O NOME DO CATALOGO NAO E O NOME QUE O CLIENTE USA.
   //
   // Ele pede "cuca de goiaba"; o produto do catalogo chama "cuca recheada".
@@ -374,6 +409,11 @@ export function produtoQueNinguemCitou(
     "pizza redonda": ["redonda", "pizza redonda", "de 30", "30 cm"],
     "mini bolha": ["pastel frito", "pastel", "bolha"],
     "cuca recheada": ["cuca"],
+    // Esfiha e esfirra sao a mesma coisa e estao a tres letras de distancia,
+    // que e mais do que a tolerancia de digitacao aceita. Sinonimo de verdade
+    // se resolve aqui, na lista, nao afrouxando a comparacao.
+    esfirra: ["esfiha", "esfihas", "esfia", "esfias"],
+    "risólis": ["risoles", "risole", "rissoles", "rissole"],
     "torta fria com palmito": ["torta fria"],
     "empadao com palmito": ["empadao", "empadão"],
   };

@@ -1278,7 +1278,23 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
           /\b(troca|trocar|muda|mudar|mude|em vez de|no lugar de|na verdade|ao inves|prefiro|melhor)\b/i.test(
             (falasDoCliente.length ? falasDoCliente : [String(ultimaFala || falaDoCliente)]).join(" | "),
           );
-        if (querTrocar) {
+        // O BOLO QUE EU ESCOLHI CEDE LUGAR AO QUE ELE ESCOLHEU.
+        //
+        // Caso real de 21/08/2026. A cliente disse "escolhe tudo voce", o
+        // codigo anotou o bolo brigadeiro (o mais pedido da casa) e, duas
+        // mensagens depois, ela pediu "bolo de bombom, tema princesa". A
+        // resposta foi a recusa de dois bolos no mesmo pedido, e a festa travou
+        // ali.
+        //
+        // Ela nao trocou de ideia: ela escolheu, e quem tinha escolhido antes
+        // era eu. Palpite meu nao disputa lugar com pedido dele.
+        const oQueEuSugeri = (estado.sugeridos ?? []).some((x) =>
+          String(x).toLowerCase().includes(String(boloJaAnotado.produto).toLowerCase()),
+        );
+        if (querTrocar || oQueEuSugeri) {
+          if (oQueEuSugeri && !querTrocar) {
+            console.log("[rastro] o bolo que eu sugeri saiu pro bolo que ele pediu: " + boloJaAnotado.produto + " -> " + produto);
+          }
           estado.montagem.push({
             tipo: "remover",
             produto: boloJaAnotado.produto,
