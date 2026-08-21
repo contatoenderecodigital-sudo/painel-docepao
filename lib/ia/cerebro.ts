@@ -3472,9 +3472,25 @@ function descreverMontagem(
     "E quando o cliente disser que NAO ENTENDE ou pedir a sua indicacao, INDIQUE: monte a festa inteira com tipos e " +
     "quantidades (salgados, docinhos e bolo, na base do numero de pessoas) e pergunte se pode ser assim, em vez de devolver a pergunta pra ele.";
 
+  // A REGRA DE NAO PEDIR NOME E PAGAMENTO PRECISA VALER AQUI TAMBEM.
+  //
+  // Este retorno acontece com o pedido VAZIO, que e a primeira mensagem da
+  // conversa: exatamente onde a pergunta atrapalha mais. Eu tinha posto a regra
+  // so no bloco das etapas, la embaixo, e este return sai antes dele.
+  //
+  // Teste ao vivo de 21/08/2026, primeira mensagem da secretaria ("preciso de
+  // 200 salgados assados pra quarta as 9h"):
+  //   "E quantos de cada tipo? Me fala tambem o nome pra quem fica o pedido e
+  //    como prefere pagar."
+  //
+  // Ela ainda nem escolheu o salgado e ja levou duas perguntas de fechamento.
+  const naoPecaFechamento =
+    "\n\nNAO pergunte agora o NOME de quem retira, a HORA nem a FORMA DE PAGAMENTO: " +
+    "eles vem no fim, juntos, numa frase so, depois que os itens estiverem resolvidos. " +
+    "Se ELE falar por conta propria, anote na hora e siga. A DATA e excecao: essa pode perguntar agora.";
   if (linhas.length === 0 && dados.length === 0) {
     return (
-      "# PEDIDO EM MONTAGEM: NADA ANOTADO AINDA" + "\n" + ordem + linhaRecusados
+      "# PEDIDO EM MONTAGEM: NADA ANOTADO AINDA" + "\n" + ordem + linhaRecusados + naoPecaFechamento
     );
   }
 
