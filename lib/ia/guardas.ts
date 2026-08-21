@@ -1235,3 +1235,36 @@ export function mandouFechar(falasDoCliente: string[]): boolean {
     t,
   );
 }
+
+// A HORA QUE ELE FALOU, QUANDO ELA ESQUECEU DE ANOTAR.
+//
+// Teste ao vivo de 21/08/2026. A secretaria abriu a conversa com "preciso de
+// 200 salgados assados pra quarta AS 9H". A Dora anotou a data certinha
+// (26/08/2026, a quarta seguinte) e mandou a hora como null. Tres mensagens
+// depois ela perguntou "que horas voce retira?", com o 9h escrito na primeira
+// linha da conversa.
+//
+// Perguntar de novo o que o cliente ja disse e a reclamacao numero um do dono
+// sobre esta IA, e o codigo tem como resolver: se ele falou, o sistema anota.
+//
+// Vale o ULTIMO horario que ele falou, porque mudar de ideia funciona.
+export function horaQueEleFalou(falasDoCliente: string[]): string | null {
+  const t = semAcMin(falasDoCliente.join(" | "))
+    // Data nao e hora: "26/08" e "26/08/2026" saem antes pra nao virar "26h".
+    .replace(/[0-9]{1,2}[/.-][0-9]{1,2}([/.-][0-9]{2,4})?/g, " ");
+  let achado: string | null = null;
+  // "as 9h", "9h", "9hs", "as 9 horas", "9:30", "as 15:00"
+  for (const m of t.matchAll(/\b([0-9]{1,2})\s*(?::\s*([0-9]{2})|h(?:s|oras?)?)\b/g)) {
+    const hora = Number(m[1]);
+    if (!Number.isFinite(hora) || hora > 23) continue;
+    // A padaria nao marca retirada de madrugada: numero baixo demais costuma
+    // ser quantidade ("2 horas antes"), nao horario de balcao.
+    if (hora < 5) continue;
+    achado = m[2] ? `${hora}:${m[2]}` : `${hora}h`;
+  }
+  if (achado) return achado;
+  // Periodo tambem serve: a persona aceita "de manha" e a comanda sai com isso.
+  const periodo = t.match(/\b(de manha|pela manha|de tarde|a tarde|pela tarde|de noite|a noite)\b/g);
+  if (periodo?.length) return periodo[periodo.length - 1].replace(/^(de |pela |a )/, "").trim();
+  return null;
+}

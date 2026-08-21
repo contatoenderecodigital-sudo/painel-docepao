@@ -51,6 +51,7 @@ import {
   chutouValorDoTopo,
   textoSemValorDoTopo,
   mandouFechar,
+  horaQueEleFalou,
   dataBrigaComODiaDaSemana,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
@@ -1964,6 +1965,28 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     for (const k of ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento", "observacoes", "nao_quer"]) {
       const v = input[k];
       if (v !== undefined && v !== null && String(v).trim() !== "") dados[k] = String(v);
+    }
+    // A HORA QUE ELE FALOU E ELA ESQUECEU DE MANDAR.
+    //
+    // Teste ao vivo de 21/08/2026: a secretaria abriu com "200 salgados assados
+    // pra quarta AS 9H". A Dora anotou a data certa e mandou retirada_hora
+    // null. Tres mensagens depois perguntou "que horas voce retira?", com o 9h
+    // escrito na primeira linha da conversa.
+    //
+    // Perguntar de novo o que o cliente ja disse e a reclamacao numero um do
+    // dono sobre esta IA. Se ele falou, o codigo anota: nao depende dela.
+    //
+    // So preenche o que esta VAZIO. O que ela mandou continua valendo, porque
+    // ela pode estar corrigindo um horario que mudou na conversa.
+    {
+      const jaTem = String(dados.retirada_hora ?? montagemAtual?.dados?.retirada_hora ?? "").trim();
+      if (!jaTem) {
+        const dita = horaQueEleFalou(falasDoCliente.length ? falasDoCliente : [falaDoCliente]);
+        if (dita) {
+          console.warn("[ia] hora que o cliente falou e ela nao mandou: " + dita);
+          dados.retirada_hora = dita;
+        }
+      }
     }
     if (Object.keys(dados).length === 0) return "Nada pra anotar: não veio nenhum dado preenchido.";
     estado.montagem.push({ tipo: "dados", dados });
