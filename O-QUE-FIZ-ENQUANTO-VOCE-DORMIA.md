@@ -117,6 +117,23 @@ Só apareceram lendo conversa.
     seguinte ao envio, então falhava por tempo, não por mistura. Teste que só
     passa quando roda sozinho não é portão.
 
+26. **O cliente recebeu R$ 543,00 sem saber de quê.** Onze itens, e a mensagem
+    chegou com os dois pontilhados colados e nada entre eles. A cadeia levou
+    quatro guardas minhas, todas certas sozinhas: o código refez o resumo certo
+    (11 linhas), a guarda que troca lista por cardápio viu cinco nomes de
+    salgado numa "frase" só (linha de item não termina em ponto), trocou tudo
+    por "te mandei o cardápio", e outra guarda removeu essa frase porque nenhuma
+    peça ia ser enviada. Resumo de pedido não se mexe, e agora a proteção mora
+    dentro de cada guarda.
+
+27. **"papel de arroz e topo sim" fechou o pedido só com o papel.** O topo é a
+    peça que a equipe cota à parte e que a cozinha manda fazer fora. Numa
+    rodada entrava, na outra não, com a mesma frase do cliente.
+
+28. **Tema, nome e idade duas vezes cada na comanda do bolo.** A observação
+    cresce quando o código completa o que ela escreveu e ela reescreve por cima
+    no turno seguinte.
+
 ## O que fica travado por teste
 
 `testes/nao-pergunte-o-que-ele-ja-respondeu.cjs` cobra as regras, não os casos:
@@ -124,7 +141,11 @@ conta os produtos com sabor, exige que a delegação seja reconhecida em todas a
 formas, que o corte de texto nunca deixe frase quebrada, e que "2 calabresa e
 1 de frango" some três.
 
-Portão inteiro: `node testes/todos.cjs`.
+`testes/o-resumo-chega-inteiro.cjs` passa o resumo por todas as guardas de
+texto e cobra que nenhuma linha de dinheiro se perca.
+
+Portão inteiro: `node testes/todos.cjs` (43 testes). Rode-o **sozinho**: dois
+em paralelo brigam pelos mesmos telefones de teste no servidor.
 
 ## O que ainda não está feito
 

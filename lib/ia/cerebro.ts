@@ -1195,7 +1195,13 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // obsItem ser derivado, e a correcao nao chegava na montagem: o rastro
     // dizia "completei" e o banco continuava com rosa. Quem manda daqui pra
     // frente e obsItem, entao e nele que se escreve.
-    if (obsItem) {
+    // COR DE FORMINHA SO EXISTE EM DOCINHO.
+    //
+    // Regressao minha, pega pela medicao: a observacao do bolo era "pao de lo
+    // branco", o cliente tinha falado "forminha dourada" pros docinhos, e o
+    // bolo foi pra cozinha como "pao de lo branco e dourado". Branco ali e a
+    // massa, nao a forminha. Bolo nao vai em forminha.
+    if (obsItem && String(categoria) === "docinho") {
       const ditas = coresDeForminhaQueEleFalou(falasDoCliente.slice(-3).join(" "));
       const naObs = coresDeForminhaQueEleFalou(obsItem);
       if (ditas.length > 1 && naObs.length === 1 && ditas.includes(naObs[0])) {
@@ -4876,12 +4882,33 @@ async function rodarConversa(
     //
     // Nove itens anotados, todos os dados na mao, e a festa inteira travada
     // pelo item mais caro dela. Delegar nao e a unica porta: escolher tambem e.
-    const saborDitoPorEle = SABORES_DE_BOLO.map((x) => String(x))
-      .filter((sab) => {
-        const limpo = sab.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-        return limpo.length > 3 && tudoDele.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").includes(limpo);
-      })
-      .sort((x, y) => y.length - x.length)[0];
+    // O SABOR DO BOLO E O QUE ELE DISSE JUNTO DA PALAVRA BOLO.
+    //
+    // Regressao minha, pega pela medicao: o cliente pediu "um bolo de 3 kg de
+    // laka" e o pedido fechou com BOLO BRIGADEIRO, cinco vezes em cinco. Duas
+    // mensagens antes ele tinha pedido "60 brigadeiros", e brigadeiro tambem e
+    // sabor de bolo: eu escolhia o sabor mais LONGO da conversa inteira, e
+    // brigadeiro tem dez letras contra quatro de laka.
+    //
+    // O docinho dele virava o bolo dele. Sabor de bolo se le na frase que fala
+    // de bolo, depois da palavra bolo, e a ultima frase manda.
+    const limpoP = (t: string) => String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const saborDitoPorEle = (() => {
+      const sabores = SABORES_DE_BOLO.map((x) => String(x)).filter((x) => limpoP(x).length > 3);
+      // Da ultima fala pra primeira: quem corrige o sabor corrige no fim.
+      for (const fala of [String(ultimaFalaDoCliente), ...[...falasDele].reverse()]) {
+        const t = limpoP(fala);
+        const onde = t.indexOf("bolo");
+        if (onde < 0) continue;
+        const depois = t.slice(onde);
+        const achados = sabores
+          .map((sab) => ({ sab, pos: depois.indexOf(limpoP(sab)) }))
+          .filter((x) => x.pos >= 0)
+          .sort((x, y) => x.pos - y.pos);
+        if (achados.length) return achados[0].sab;
+      }
+      return undefined;
+    })();
     if (querBolo && !jaTemBolo) {
       console.log(
         "[rastro] bolo? delegou=" + delegouTudo + " saborDele=" + JSON.stringify(saborDitoPorEle ?? null) +

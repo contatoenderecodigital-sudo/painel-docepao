@@ -87,6 +87,26 @@ const obsNome = [
 ];
 
 const falhas = [];
+// O DOCINHO DELE NAO VIRA O BOLO DELE.
+//
+// Regressao minha, pega pela medicao em 21/08/2026: o cliente pediu "um bolo
+// de 3 kg de laka" e o pedido fechou com BOLO BRIGADEIRO, cinco vezes em
+// cinco. Duas mensagens antes ele tinha pedido "60 brigadeiros", e brigadeiro
+// tambem e sabor de bolo: o codigo escolhia o sabor mais LONGO da conversa
+// inteira, e brigadeiro tem dez letras contra quatro de laka.
+{
+  const cerebroL = require("node:fs").readFileSync(path.join(raiz, "lib/ia/cerebro.ts"), "utf8");
+  if (/\.sort\(\(x, y\) => y\.length - x\.length\)\[0\];/.test(cerebroL)) {
+    falhas.push("o sabor do bolo voltou a ser o mais longo da conversa; o docinho vira o bolo");
+  }
+  if (!/O SABOR DO BOLO E O QUE ELE DISSE JUNTO DA PALAVRA BOLO/.test(cerebroL)) {
+    falhas.push("a regra do sabor do bolo sumiu do cerebro");
+  }
+  // COR DE FORMINHA SO EXISTE EM DOCINHO: "pao de lo branco" nao e forminha.
+  if (!/COR DE FORMINHA SO EXISTE EM DOCINHO/.test(cerebroL)) {
+    falhas.push("a cor de forminha voltou a valer pra qualquer item; o pao de lo branco vira forminha");
+  }
+}
 // AS PECAS DO BOLO QUE ELE ACEITOU ENTRAM NO PEDIDO.
 //
 // "papel de arroz e topo sim" fechou o pedido so com o papel. O topo e a peca
