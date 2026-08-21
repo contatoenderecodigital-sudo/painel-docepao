@@ -4864,8 +4864,29 @@ async function rodarConversa(
     }
     if ((delegouTudo || saborDitoPorEle) && querBolo && !jaTemBolo) {
       const kgDito = Number((tudoDele.match(/([0-9]+(?:[.,][0-9]+)?) *(?:kg|quilos?)/i) ?? [])[1]?.replace(",", ".")) || 0;
-      const pessoas = Number((tudoDele.match(/([0-9]{1,3}) *(?:pessoas|convidados)/i) ?? [])[1]) || 0;
-      const kg = kgDito || (pessoas ? Math.max(1, Math.round(pessoas * 0.1)) : 0);
+      // FESTA DE CRIANCA TEM CRIANCA, NAO "PESSOAS".
+      //
+      // O rastro mostrou o bloco enxergando tudo e nao anotando nada:
+      //
+      //   [rastro] bolo? delegou=true saborDele="bombom" jaTem=false
+      //
+      // Faltava so o peso, e o peso nao vinha porque a mae escreveu "25
+      // criancas". Quem escreve pra uma festa de aniversario de 5 anos conta
+      // criancas, e a palavra nao estava na lista. O caso irmao, no anotar_item,
+      // ja conhecia; este nao. Mesmo defeito em dois lugares, de novo.
+      const pessoas =
+        Number((tudoDele.match(/([0-9]{1,3}) *(?:pessoas|pessoa|convidados|convidado|criancas|crian[çc]as|crian[çc]a|adultos|gente)/i) ?? [])[1]) || 0;
+      // O PESO DA BASE MANDA, e ele nao se arredonda: a base disse 2,5 kg de
+      // bolo pra 25 criancas, e arredondar pra 3 kg cobra meio quilo a mais.
+      const kgDaBase =
+        Number(
+          (
+            [String(montagemDoTurno?.dados?.proposta ?? ""), String(ultimaDelaAqui)]
+              .join(" ")
+              .match(/([0-9]+(?:[.,][0-9]+)?) *(?:kg|quilos?) de bolo/i) ?? []
+          )[1]?.replace(",", "."),
+        ) || 0;
+      const kg = kgDito || kgDaBase || (pessoas ? Math.max(1, Math.round(pessoas * 0.1 * 10) / 10) : 0);
       const faixas = (catalogo.bolos_recheados?.faixas ?? []) as { sabores?: string[] }[];
       // O sabor que ELE disse tem prioridade; so quando ele delegou e que a
       // casa escolhe, e ai o primeiro da faixa mais pedida.

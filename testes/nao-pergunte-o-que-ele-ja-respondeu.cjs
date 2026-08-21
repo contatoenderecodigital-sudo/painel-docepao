@@ -234,6 +234,22 @@ if (/SABORES\["esfirra"\]|=== "esfirra"/.test(cerebro)) {
   if (!/peso do bolo veio da conta da casa/.test(cerebro)) {
     falhas.push("o codigo parou de preencher o peso do bolo; a conversa trava perguntando quilos");
   }
+  // FESTA DE CRIANCA TEM CRIANCA, NAO "PESSOAS".
+  //
+  // A lição que mais se repetiu na noite de 20 para 21/08/2026: o mesmo defeito
+  // existia em DOIS lugares e so um foi consertado. Aqui os dois contadores de
+  // gente sao varridos: quem contar so "pessoas" deixa a festa de 5 anos sem
+  // bolo, porque a mae escreveu "25 criancas".
+  {
+    const contadores = [...cerebro.matchAll(/pessoas\|pessoa\?|pessoas\|convidados[^)]*/g)].map((m) => m[0]);
+    const contamGente = [...cerebro.matchAll(/\(\?:pessoas[^)]*\)/g)].map((m) => m[0]);
+    const cegos = contamGente.filter((x) => !/crian/.test(x));
+    if (cegos.length) {
+      falhas.push(cegos.length + " contador(es) de gente ainda ignoram crianca: " + cegos.join(" | ").slice(0, 160));
+    }
+    void contadores;
+    console.log("Contadores de gente no cerebro: " + contamGente.length + ", todos contando crianca.");
+  }
   // O SABOR VAI NO NOME DA PIZZA, senao as tres viram uma na juncao do pedido.
   if (!/pizza inteira " \+ String\(par\.sabor\)/.test(cerebro)) {
     falhas.push("as pizzas voltaram a ter o mesmo nome; uma sobrescreve a outra");
