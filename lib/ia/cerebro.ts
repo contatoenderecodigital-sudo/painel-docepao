@@ -4856,6 +4856,12 @@ async function rodarConversa(
         return limpo.length > 3 && tudoDele.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").includes(limpo);
       })
       .sort((x, y) => y.length - x.length)[0];
+    if (querBolo && !jaTemBolo) {
+      console.log(
+        "[rastro] bolo? delegou=" + delegouTudo + " saborDele=" + JSON.stringify(saborDitoPorEle ?? null) +
+          " jaTem=" + jaTemBolo,
+      );
+    }
     if ((delegouTudo || saborDitoPorEle) && querBolo && !jaTemBolo) {
       const kgDito = Number((tudoDele.match(/([0-9]+(?:[.,][0-9]+)?) *(?:kg|quilos?)/i) ?? [])[1]?.replace(",", ".")) || 0;
       const pessoas = Number((tudoDele.match(/([0-9]{1,3}) *(?:pessoas|convidados)/i) ?? [])[1]) || 0;
