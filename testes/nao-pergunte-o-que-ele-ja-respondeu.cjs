@@ -19,7 +19,7 @@ const catalogo = require(path.join(raiz, "lib/ia/dados/catalogo.json"));
 const {
   pediuQueVoceEscolha, perguntaElipticaDePreco, horaQueEleFalou,
   textoSemPerguntaDeHora, textoSemPerguntaDeNome, obsSemONomeDeQuemRetira, obsSemDeliberacao,
-  quantidadePorSabor, coresDeForminhaQueEleFalou,
+  quantidadePorSabor, coresDeForminhaQueEleFalou, textoSemPedirDadosDeFechamento,
 } = require("./_guardas.cjs")();
 
 // "2 CALABRESA E 1 DE FRANGO" SAO TRES PIZZAS, NAO UMA COM DOIS SABORES.
@@ -86,6 +86,24 @@ const obsNome = [
 ];
 
 const falhas = [];
+// PEDIDO VAZIO NAO PEDE DADO DE FECHAMENTO, E O CORTE NUNCA QUEBRA A FRASE.
+//
+// A primeira versao recortava pedacos e deixou isto na tela do cliente:
+//   "E o pedido fica no nome de quem, que horas voce retira Pode ser assim?"
+{
+  const casos = [
+    ["Anotei que é pra retirar no domingo. E o pedido fica no nome de quem, que horas você retira e como prefere pagar?", true],
+    ["Pra 80 pessoas, a base é 800 salgados. Dá R$ 1.675,20. E o pedido fica no nome de quem, como vai pagar e quem retira?", true],
+    ["Qual o sabor do bolo?", false],
+  ];
+  for (const [texto, deviaMudar] of casos) {
+    const saiu = textoSemPedirDadosDeFechamento(texto);
+    if (deviaMudar && saiu === texto) falhas.push("o pedido de dado continuou com o pedido vazio: " + texto);
+    if (!deviaMudar && saiu !== texto) falhas.push("mexeu em texto que nao pede dado: " + texto);
+    // Sentenca inteira sai ou fica: o que sobra tem que terminar em pontuacao.
+    if (saiu !== texto && !/[.!?]$/.test(saiu.trim())) falhas.push("o corte deixou a frase pendurada: " + saiu);
+  }
+}
 // DUAS CORES DE FORMINHA SAO DUAS: "rosa e dourado" fechou pedido so com rosa.
 {
   const duas = coresDeForminhaQueEleFalou("pode ser rosa e dourado");
@@ -187,6 +205,10 @@ if (/SABORES\["esfirra"\]|=== "esfirra"/.test(cerebro)) {
   }
   if (!/bolo escolhido pelo codigo/.test(cerebro)) {
     falhas.push("o codigo parou de escolher o bolo quando o cliente delega");
+  }
+  // O SABOR VAI NO NOME DA PIZZA, senao as tres viram uma na juncao do pedido.
+  if (!/pizza inteira " \+ String\(par\.sabor\)/.test(cerebro)) {
+    falhas.push("as pizzas voltaram a ter o mesmo nome; uma sobrescreve a outra");
   }
   console.log("Guardas de delegacao no cerebro: " + chamadas.length + ", todas lendo a conversa inteira.");
 }

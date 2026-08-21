@@ -4818,10 +4818,18 @@ async function rodarConversa(
             (i) => /pizza/.test(chaveQ(i.produto)) && chaveQ(i.obs) === chaveQ(par.sabor),
           );
           if (jaTem) continue;
-          estado.montagem.push({ tipo: "item", produto: "pizza inteira", categoria: "pizza", qtd: par.qtd, obs: par.sabor });
-          correcoesDoCodigo.push({ tipo: "item", produto: "pizza inteira", categoria: "pizza", qtd: par.qtd, obs: par.sabor });
+          // O SABOR VAI NO NOME, senao as tres pizzas viram uma.
+          //
+          // Elas tinham o mesmo produto e a mesma categoria, e a juncao do
+          // pedido casa justamente por produto mais categoria: a de frango
+          // sobrescrevia as duas de calabresa e sobrava uma linha so. O preco
+          // por sabor esta na tabela desde 21/08/2026, e e o mesmo da pizza
+          // inteira, porque o sabor nao muda o valor.
+          const nomeDaPizza = "pizza inteira " + String(par.sabor).toLowerCase();
+          estado.montagem.push({ tipo: "item", produto: nomeDaPizza, categoria: "pizza", qtd: par.qtd, obs: par.sabor });
+          correcoesDoCodigo.push({ tipo: "item", produto: nomeDaPizza, categoria: "pizza", qtd: par.qtd, obs: par.sabor });
           novasPizzas.push({
-            produto: "pizza inteira",
+            produto: nomeDaPizza,
             categoria: "pizza",
             qtd: par.qtd,
             unidade: unidadeDoProduto("pizza inteira", "pizza"),

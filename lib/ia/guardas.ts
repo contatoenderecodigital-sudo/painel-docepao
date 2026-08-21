@@ -1282,19 +1282,23 @@ export function quantidadePorSabor(
 // Devolve o texto sem essas perguntas. Se o corte deixar a frase quebrada,
 // volta o original.
 export function textoSemPedirDadosDeFechamento(texto: string): string {
-  let t = String(texto ?? "");
-  if (!t.trim()) return t;
-  const cortes: RegExp[] = [
-    / *E? ?o pedido fica no nome de quem,? (como vai pagar|como prefere pagar) e quem retira\??/gi,
-    / *E? ?o pedido fica no nome de quem,? e? ?(como|qual) (vai pagar|prefere pagar|a forma de pagamento)\??/gi,
-    / *(Agora )?me (fala|diz|passa) o nome de quem vai retirar e como prefere pagar\??/gi,
-    / *Falta (so |só )?o nome de quem vai retirar e a forma de pagamento[^.?!]*[.?!]/gi,
-    / *E? ?como (voc[êe] )?prefere pagar\??/gi,
-  ];
-  for (const de of cortes) t = t.replace(de, "");
-  t = t.replace(/ +/g, " ").replace(/ ([,.?!])/g, "$1").replace(/,+ *([.?!])/g, "$1").replace(/,+ *$/g, "").trim();
-  if (/^(e|ou|,)( |$)/i.test(t) || / (e|ou|,)$/i.test(t) || !t) return String(texto ?? "");
-  return t;
+  const bruto = String(texto ?? "");
+  if (!bruto.trim()) return bruto;
+  // POR SENTENCA INTEIRA, NAO POR PEDACO.
+  //
+  // A primeira versao recortava trechos e deixou isto na tela do cliente:
+  //
+  //   E o pedido fica no nome de quem, que horas voce retira Pode ser assim?
+  //
+  // Frase quebrada e pior que frase errada, e o defeito era meu. Aqui a
+  // sentenca inteira sai ou fica: nao existe meio termo.
+  const PEDE_DADO =
+    /(o pedido fica (no|em) nome de quem|nome de quem vai retirar|nome de quem retira|como (voc[êe] )?(vai |prefere )?pagar|forma de pagamento|quem retira)/i;
+  const partes = bruto.split(/(?<=[.!?])\s+/).filter((x) => x.trim());
+  const ficam = partes.filter((frase) => !PEDE_DADO.test(frase));
+  if (!ficam.length || ficam.length === partes.length) return bruto;
+  const saida = ficam.join(" ").replace(/ +/g, " ").trim();
+  return saida || bruto;
 }
 
 // O NOME ELE JA DEU. TIRA A PERGUNTA DO TEXTO.

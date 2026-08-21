@@ -369,6 +369,22 @@ function produtosDoCatalogo(): Produto[] {
     p.push({ nome: "bolo caseiro " + b.nome, preco: b.preco, categoria: "bolo_caseiro" });
   p.push({ nome: "pizza inteira", preco: catalogo.pizza.inteira.preco, categoria: "pizza" });
   p.push({ nome: "pizza meia", preco: catalogo.pizza.meia.preco, categoria: "pizza" });
+  // CADA SABOR DE PIZZA COM NOME PROPRIO, igual ao bolo recheado.
+  //
+  // Teste ao vivo de 21/08/2026: "2 calabresa e 1 de frango com catupiry"
+  // fechou com UMA pizza de R$ 120,00. O codigo anotava as tres certinho, mas
+  // as tres tinham o mesmo nome ("pizza inteira") e a mesma categoria, entao
+  // uma sobrescrevia a outra na hora de juntar o pedido: sobrava a ultima.
+  //
+  // Com o sabor no nome, cada linha e uma linha, e o preco continua o mesmo,
+  // porque na pizza o sabor nao muda o valor.
+  for (const s of [
+    ...((catalogo.pizza.sabores_salgados ?? []) as string[]),
+    ...((catalogo.pizza.sabores_doces ?? []) as string[]),
+  ]) {
+    p.push({ nome: "pizza inteira " + String(s).toLowerCase(), preco: catalogo.pizza.inteira.preco, categoria: "pizza" });
+    p.push({ nome: "pizza meia " + String(s).toLowerCase(), preco: catalogo.pizza.meia.preco, categoria: "pizza" });
+  }
   // Produtos novos (tortas, empadão, bolo salgado, cupcake, franciscano, pão francês),
   // cada um com sua unidade (kg pros por quilo, un pros por unidade).
   for (const o of catalogo.outros_produtos) {
