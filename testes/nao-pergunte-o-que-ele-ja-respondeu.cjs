@@ -16,7 +16,10 @@ const path = require("node:path");
 const raiz = path.join(__dirname, "..");
 const catalogo = require(path.join(raiz, "lib/ia/dados/catalogo.json"));
 
-const { pediuQueVoceEscolha, perguntaElipticaDePreco, horaQueEleFalou, textoSemPerguntaDeHora } = require("./_guardas.cjs")();
+const {
+  pediuQueVoceEscolha, perguntaElipticaDePreco, horaQueEleFalou,
+  textoSemPerguntaDeHora, textoSemPerguntaDeNome, obsSemONomeDeQuemRetira, obsSemDeliberacao,
+} = require("./_guardas.cjs")();
 
 const r = {
   delega: [
@@ -55,7 +58,37 @@ const cortes = [
   ["O pedido fica pra quarta às 9h, pode ser?", false],
 ];
 
+// O NOME QUE ELE JA DEU sai do texto, e frase quebrada nunca sai.
+const cortesNome = [
+  ["Ja passei pra equipe. So me diz: o pedido fica no nome de quem?", true],
+  ["Me fala o nome de quem vai retirar e como prefere pagar?", true],
+  ["Qual o sabor do bolo?", false],
+];
+
+// O NOME DE QUEM RETIRA nao fica na observacao do item quando o bolo nao leva
+// peca, e FICA quando leva, porque ai e o nome do aniversariante.
+const obsNome = [
+  ["pao de lo branco, sem topo e sem papel de arroz, nome Marcia", "Marcia", false],
+  ["topo de bolo, tema princesa, nome Marcia, 5 anos", "Marcia", true],
+];
+
 const falhas = [];
+for (const [texto, deviaMudar] of cortesNome) {
+  const saiu = textoSemPerguntaDeNome(texto);
+  if (deviaMudar && saiu === texto) falhas.push("a pergunta de nome continuou no texto: " + texto);
+  if (!deviaMudar && saiu !== texto) falhas.push("mexeu em texto que nao pergunta nome: " + texto);
+  if (/^(e|ou|,)( |$)/i.test(saiu) || / (e|ou|,)$/i.test(saiu)) falhas.push("o corte quebrou a frase: " + saiu);
+}
+for (const [obs, nome, deviaFicar] of obsNome) {
+  const saiu = obsSemONomeDeQuemRetira(obs, nome);
+  const ficou = saiu.toLowerCase().includes(nome.toLowerCase());
+  if (deviaFicar && !ficou) falhas.push("o nome do aniversariante sumiu da peca: " + obs);
+  if (!deviaFicar && ficou) falhas.push("o nome de quem retira ficou na observacao do item: " + saiu);
+}
+// Deliberacao nao vira ficha da cozinha nem texto do cliente.
+if (obsSemDeliberacao("brigadeiro, cor da forminha nao especificada").includes("nao especificada")) {
+  falhas.push("observacao interna de forminha continua indo pro cliente e pra cozinha");
+}
 for (const [texto, deviaMudar] of cortes) {
   const saiu = textoSemPerguntaDeHora(texto);
   if (deviaMudar && saiu === texto) falhas.push("a pergunta de hora continuou no texto: " + texto);

@@ -1165,7 +1165,7 @@ export function obsSemDeliberacao(obs: unknown): string {
   const bruto = String(obs ?? "").trim();
   if (!bruto) return "";
   const DELIBERACAO =
-    /\?|\bnao (existe|tem|temos|ha)\b|\bofere[cç]|\bsugiro\b|\bsugerir\b|\bpode ser\b|\bconfirmar\b|\bperguntar\b|\bverificar\b|\bavisar\b|\bopcoes?\b|\bou\b.*\bou\b|\bprecisa\b|\bfalta escolher\b|\bnao informad/i;
+    /\?|\bnao (existe|tem|temos|ha)\b|\bofere[cç]|\bsugiro\b|\bsugerir\b|\bpode ser\b|\bconfirmar\b|\bperguntar\b|\bverificar\b|\bavisar\b|\bopcoes?\b|\bou\b.*\bou\b|\bprecisa\b|\bfalta escolher\b|\bnao informad|\bnao especificad|\bnao definid|\ba definir\b|\bnao escolhid/i;
   const partes = bruto
     .split(",")
     .map((p) => p.trim())
@@ -1173,6 +1173,77 @@ export function obsSemDeliberacao(obs: unknown): string {
     // Fragmento que e frase de pensamento sai. O que sobra e ficha: sabor, cor,
     // tema, hora, nome.
     .filter((p) => !DELIBERACAO.test(semAcMin(p)));
+  return partes.join(", ");
+}
+
+// O NOME ELE JA DEU. TIRA A PERGUNTA DO TEXTO.
+//
+// Teste ao vivo de 21/08/2026. A cliente escreveu "sem topo e sem papel de
+// arroz, nome Marcia, pix" e recebeu o pedido fechado terminando assim:
+//
+//   Ja passei pra nossa equipe. So me diz: o pedido fica no nome de quem?
+//
+// O nome estava na mesma mensagem que fechou o pedido, e ele foi gravado
+// certo: ela perguntou o que ja tinha na mao. Mesma classe da pergunta de
+// hora, mesmo remedio, e pelo mesmo motivo: instrucao no prompt e pedido, isto
+// aqui e garantia. Recorte fechado, frase fora da lista fica como esta.
+export function textoSemPerguntaDeNome(texto: string): string {
+  let t = String(texto ?? "");
+  if (!t.trim()) return t;
+  const cortes: [RegExp, string][] = [
+    // Primeiro os que deixam a frase de pe: o nome sai e o resto continua.
+    [/,? e o pedido fica (no|em) nome de quem\??/gi, ""],
+    [/o nome de quem vai retirar,? e /gi, ""],
+    [/o nome de quem retira,? e /gi, ""],
+    [/,? o nome de quem vai retirar([,.?])/gi, "$1"],
+    [/ *(s[óo] )?me diz:? o pedido fica no nome de quem\??/gi, ""],
+    [/ *(s[óo] )?me (diz|fala|passa) o nome de quem vai retirar\??/gi, ""],
+    [/ *o pedido fica (no nome de quem|em nome de quem)\??/gi, ""],
+    [/,? e (o pedido fica )?no nome de quem\??/gi, ""],
+    [/,? (qual|que) (o )?nome de quem vai retirar\??/gi, ""],
+  ];
+  for (const [de, para] of cortes) t = t.replace(de, para);
+  t = t.replace(/ +/g, " ").replace(/ ([,.?])/g, "$1").trim();
+  // Virgula que ficou pendurada depois do corte: "Anotei tudo," vira "Anotei
+  // tudo". Sem isto a validacao abaixo desiste do corte por causa da virgula.
+  t = t.replace(/,+ *([.?!])/g, "$1").replace(/,+ *$/g, "").trim();
+  // FRASE QUEBRADA E PIOR QUE FRASE ERRADA. Se o corte deixou o texto comecando
+  // com conjuncao ou terminando pendurado, devolve o original: o defeito de
+  // mutilar texto ja aconteceu uma vez, com o valor do topo.
+  if (/^(e|ou|,)( |$)/i.test(t) || / (e|ou|,)$/i.test(t) || /,$/.test(t) || !t) return String(texto ?? "");
+  return t;
+}
+
+// O NOME DE QUEM RETIRA NAO E OBSERVACAO DO BOLO.
+//
+// Teste ao vivo de 21/08/2026. A cliente escreveu "sem topo e sem papel de
+// arroz, nome Marcia, pix" e o pedido fechou assim:
+//
+//   bolo morango (pao de lo branco, sem topo e sem papel de arroz, nome Marcia)
+//
+// O nome dela e dado do PEDIDO e tem campo proprio. Na observacao do bolo ele
+// vira instrucao pra cozinha, e cozinha que le "nome Marcia" num bolo escreve
+// Marcia no bolo. Este bolo nem leva peca: foi pedido sem topo e sem papel.
+//
+// Quando o bolo TEM topo ou papel de arroz o nome fica, porque ai ele e o nome
+// do aniversariante e a peca precisa dele.
+export function obsSemONomeDeQuemRetira(obs: unknown, nomeDoCliente: unknown): string {
+  const bruto = String(obs ?? "").trim();
+  const nome = String(nomeDoCliente ?? "").trim();
+  if (!bruto || !nome) return bruto;
+  const temPeca = /topo|papel de arroz/i.test(semAcMin(bruto)) && !/sem topo|sem papel de arroz/i.test(semAcMin(bruto));
+  if (temPeca) return bruto;
+  const primeiro = semAcMin(nome).split(" ")[0];
+  if (!primeiro || primeiro.length < 3) return bruto;
+  const partes = bruto
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .filter((p) => {
+      const t = semAcMin(p);
+      // So sai o fragmento que E o nome: "nome Marcia", "em nome de Marcia".
+      return !(/^(no |em )?nome( de| da| do)? /.test(t) && t.includes(primeiro));
+    });
   return partes.join(", ");
 }
 

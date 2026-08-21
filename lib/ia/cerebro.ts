@@ -47,6 +47,7 @@ import {
   perguntouPrecoDeFamilia,
   perguntaElipticaDePreco,
   obsSemDeliberacao,
+  obsSemONomeDeQuemRetira,
   restricoesQueACasaNaoFaz,
   obsSemRestricaoInventada,
   temaViroouSabor,
@@ -56,6 +57,7 @@ import {
   mandouFechar,
   horaQueEleFalou,
   textoSemPerguntaDeHora,
+  textoSemPerguntaDeNome,
   dataBrigaComODiaDaSemana,
   pediuQueVoceEscolha,
   sugestaoDeSortido,
@@ -927,6 +929,19 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // existe no cardapio, e a venda morria pela redacao dela. E a cozinha
     // deixa de receber "sabor calabresa nao existe" impresso na comanda.
     input.obs = obsSemDeliberacao(input.obs) || null;
+
+    // O NOME DE QUEM RETIRA TEM CAMPO PROPRIO, e na observacao do bolo ele vira
+    // instrucao pra cozinha. Caso inteiro no comentario da guarda.
+    {
+      const nomeJaDado = String(montagemAtual?.dados?.cliente_nome ?? "").trim();
+      if (nomeJaDado) {
+        const limpa = obsSemONomeDeQuemRetira(input.obs, nomeJaDado);
+        if (limpa !== String(input.obs ?? "").trim()) {
+          console.log("[rastro] tirei o nome de quem retira da observacao do item");
+          input.obs = limpa || null;
+        }
+      }
+    }
 
     // PROMESSA QUE A COZINHA NAO CUMPRE NAO ENTRA NO PEDIDO.
     //
@@ -2076,6 +2091,30 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // perguntar a cor da forminha sem perguntar o sabor da trufa.
 
     const opcoes = SABORES[produto.toLowerCase()];
+    // ELE JA DELEGOU: NAO PERGUNTE, ESCOLHA.
+    //
+    // Esta e a RAIZ do loop do coffee break. Havia conserto pra quando o item
+    // ja estava anotado sem sabor, mas ela pergunta o sabor no MESMO turno em
+    // que anota, e ai o item ainda nao existia pra ser corrigido. O cliente
+    // recebia "Qual o sabor da esfirra?" logo depois de dizer que nao tinha
+    // tempo de escolher, tres vezes seguidas, ate desistir.
+    //
+    // Vale pros 13 produtos com lista de sabores. O sabor e o primeiro do
+    // cardapio, que e a ordem em que a casa lista, e ela OFERECE: trocar
+    // depois e uma frase, perguntar de novo custa a venda.
+    if (opcoes && faltaSabor(obsItem, opcoes) && pediuQueVoceEscolha(falasDoCliente.join(" | "))) {
+      const sabor = String(opcoes[0] ?? "").trim();
+      if (sabor) {
+        const obsNova = String(obsItem ?? "").trim() ? String(obsItem).trim() + ", " + sabor : sabor;
+        estado.montagem.push({ tipo: "item", produto, categoria, qtd, obs: obsNova });
+        console.log("[rastro] delegou e eu escolhi na hora de anotar: " + qtd + " " + produto + " de " + sabor);
+        return (
+          `Anotei ${qtd} de ${produto} de ${sabor}. O cliente ja disse que nao quer escolher, entao EU escolhi ` +
+          `o sabor: NAO pergunte o sabor deste item e NAO anote ele de novo. Diga numa frase como ficou e siga. ` +
+          `Se ele quiser outro sabor, troca e pronto.` + avisoDivisao
+        );
+      }
+    }
     if (opcoes && faltaSabor(obsItem, opcoes)) {
       return (
         `Anotei ${qtd} de ${produto}, mas FALTA O SABOR. Pergunte AGORA citando as opcoes na propria mensagem, ` +
@@ -4459,6 +4498,48 @@ async function rodarConversa(
         ...(estado.sugeridos ?? []),
         ...sugestoes.flatMap((s) => s.itens.map((i) => i.qtd + " " + i.produto)),
       ];
+      // OFERECER NAO BASTA: QUEM ANOTA E O CODIGO.
+      //
+      // Teste ao vivo de 21/08/2026. A sugestao era 300 salgados em cinco tipos
+      // de 60. Ela escreveu "Anotei 60 coxinha, 60 bolinha de queijo e 60
+      // croquete" e foi perguntar o sabor do risolis: 120 salgados sumiram do
+      // pedido de uma festa de 30 pessoas, e a conta que o codigo fechou em 300
+      // chegou na cozinha como 180.
+      //
+      // A conta e do codigo, entao o registro tambem e. O sabor vai junto pelo
+      // mesmo motivo: perguntar o sabor de cinco tipos, um a um, pra quem acabou
+      // de dizer que nao tem tempo de escolher, e cinco chances de desistir.
+      const chaveP = (x: unknown) =>
+        String(x ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+      const jaNoPedido = (nomeProduto: string) =>
+        (montagemDoTurno?.itens ?? []).some((i) => chaveP(i.produto) === chaveP(nomeProduto));
+      const anotados: string[] = [];
+      const novosDoSortido: MontagemAtual["itens"] = [];
+      for (const s2 of sugestoes) {
+        for (const it of s2.itens) {
+          if (jaNoPedido(it.produto) || novosDoSortido.some((n) => chaveP(n.produto) === chaveP(it.produto))) continue;
+          const ops = SABORES[String(it.produto).toLowerCase()] ?? [];
+          const sabor = ops.length ? String(ops[0]).trim() : "";
+          const cat = categoriaDoProduto(it.produto);
+          estado.montagem.push({ tipo: "item", produto: comoSeEscreve(it.produto), categoria: cat, qtd: it.qtd, obs: sabor || null });
+          correcoesDoCodigo.push({ tipo: "item", produto: comoSeEscreve(it.produto), categoria: cat, qtd: it.qtd, obs: sabor || null });
+          novosDoSortido.push({
+            produto: comoSeEscreve(it.produto),
+            categoria: cat,
+            qtd: it.qtd,
+            unidade: unidadeDoProduto(it.produto, cat),
+            obs: sabor || null,
+          });
+          anotados.push(it.qtd + " " + it.produto + (sabor ? " de " + sabor : ""));
+        }
+      }
+      if (novosDoSortido.length) {
+        montagemDoTurno = {
+          ...(montagemDoTurno ?? { itens: [], dados: {} }),
+          itens: [...(montagemDoTurno?.itens ?? []), ...novosDoSortido],
+        };
+        console.log("[rastro] sortido anotado pelo codigo: " + anotados.join(" | "));
+      }
       const texto = sugestoes
         .map((s) => s.itens.map((i) => i.qtd + " " + i.produto).join(", "))
         .join(" e ");
@@ -4466,10 +4547,17 @@ async function rodarConversa(
         role: "system",
         content:
           "O CLIENTE PEDIU QUE VOCE ESCOLHA. Nao devolva a pergunta: ele ja disse que nao quer escolher, e " +
-          "insistir e o oposto de atender.\n\n" +
-          "OFERECA EXATAMENTE ISTO, que ja esta com a conta certa: " + texto + ".\n\n" +
-          "Diga numa frase que essa e a sua sugestao, pergunte SO se pode ser assim, e anote quando ele " +
-          "aceitar. Se ele quiser trocar um tipo, troca e pronto.",
+          "insistir e o oposto de atender." + String.fromCharCode(10, 10) +
+          (anotados.length
+            ? "EU JA ESCOLHI E JA ANOTEI TUDO, com a conta fechada: " + anotados.join(", ") + "." +
+              String.fromCharCode(10, 10) +
+              "NAO anote esses itens de novo, NAO pergunte o sabor de nenhum deles e NAO pergunte como dividir. " +
+              "Diga numa frase como ficou, com todos os itens, e pergunte SO se pode ser assim. Se ele quiser " +
+              "trocar um tipo ou um sabor, troca e pronto."
+            : "OFERECA EXATAMENTE ISTO, que ja esta com a conta certa: " + texto + "." +
+              String.fromCharCode(10, 10) +
+              "Diga numa frase que essa e a sua sugestao, pergunte SO se pode ser assim, e anote quando ele " +
+              "aceitar. Se ele quiser trocar um tipo, troca e pronto."),
       });
     }
   }
@@ -4538,7 +4626,20 @@ async function rodarConversa(
   // guarda perguntaElipticaDePreco.
   {
     const dele = historico.filter((h) => h.role === "user").map((h) => String(h.content ?? ""));
-    const anterior = dele.length >= 2 ? dele[dele.length - 2] : "";
+    // A CADEIA DE ELIPSES: "e a especial?" veio depois de "e a salgada?".
+    //
+    // Olhando so a fala anterior, a anterior tambem era elipse e nao tinha
+    // verbo de preco, entao a terceira pergunta ficava sem numero: ela
+    // respondeu "quer quantos quilos da torta especial?" e prometeu conferir o
+    // valor com a equipe. O cliente perguntou o preco tres vezes e recebeu duas
+    // respostas. A pergunta de verdade e a ULTIMA que teve verbo, e e dela que
+    // todas as seguintes herdam o nucleo.
+    const comVerbo = /(quanto (custa|fica|sai|ta|e)|qual (o|e o) (pre[çc]o|valor)|pre[çc]o d|valor d)/i;
+    let anterior = "";
+    for (let k = dele.length - 2; k >= 0; k--) {
+      if (comVerbo.test(String(dele[k] ?? ""))) { anterior = String(dele[k]); break; }
+    }
+    if (!anterior) anterior = dele.length >= 2 ? dele[dele.length - 2] : "";
     const oQueEleQuer = perguntaElipticaDePreco(String(ultimaFalaDoCliente), anterior);
     if (oQueEleQuer) {
       console.log("[rastro] pergunta que continua a anterior: " + oQueEleQuer);
@@ -5928,6 +6029,18 @@ async function rodarConversa(
         }
       } catch (e) {
         console.error("[ia] falha na guarda de hora (segue com o texto dela):", e);
+      }
+
+      // O NOME ELE JA DEU: A PERGUNTA SAI DO TEXTO. Mesma classe da hora.
+      try {
+        const nomeJaDado = String(montagemDoTurno?.dados?.cliente_nome ?? "").trim();
+        if (nomeJaDado) {
+          const antesN = textoFinal;
+          textoFinal = textoSemPerguntaDeNome(textoFinal);
+          if (antesN !== textoFinal) console.warn("[ia] ela pediu o nome que ele ja tinha dado; tirei do texto");
+        }
+      } catch (e) {
+        console.error("[ia] falha na guarda de nome (segue com o texto dela):", e);
       }
 
       const mandadasAgora = pecasJaMandadas(historico);
