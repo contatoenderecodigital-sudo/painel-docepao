@@ -5334,7 +5334,17 @@ async function rodarConversa(
     // POR QUE NAO FECHOU: o rastro responde, eu ja errei o diagnostico duas
     // vezes aqui adivinhando. Sai so quando o cliente mandou fechar, entao nao
     // polui o log das conversas normais.
-    if (mandouFechar(historico.filter((h) => h.role === "user").map((h) => String(h.content ?? "")))) {
+    // O RASTRO SAI QUANDO DAVA PRA FECHAR, nao so quando ele mandou fechar.
+    //
+    // A cliente do bolo da mae deu nome, hora, pagamento e tema na mesma
+    // mensagem, e a resposta foi "Temos docinho, bolo, pizza, torta e empadao
+    // para festa. Pode ser?". O pedido nao fechou e nao havia rastro nenhum,
+    // porque ela nunca escreveu "pode fechar": quem tem tudo na mao ja mandou
+    // fechar sem dizer.
+    if (
+      temOsDados ||
+      mandouFechar(historico.filter((h) => h.role === "user").map((h) => String(h.content ?? "")))
+    ) {
       const faltamDados = ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento"].filter((k) => {
         const v = (montagemDoTurno?.dados as Record<string, unknown> | undefined)?.[k];
         return !v || String(v).trim() === "";
