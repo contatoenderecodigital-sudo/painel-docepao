@@ -87,6 +87,32 @@ const obsNome = [
 ];
 
 const falhas = [];
+// RESUMO DE PEDIDO NAO SE MEXE.
+//
+// O cliente da festa de 5 anos recebeu "Seu pedido ......... *Total: R$ 543,00*"
+// com os dois pontilhados colados e nenhuma linha entre eles: total cego. E a
+// linha "*Forma de pagamento:* pix" sumia por casar com o recorte de dados.
+{
+  const nl = String.fromCharCode(10);
+  const resumo = [
+    "*Pedido recebido*", "*Nome:* Amanda", "*Forma de pagamento:* pix",
+    "*Retirada:* 30/08/2026 às 15:00", "Seu pedido", "............................",
+    "50x coxinha: R$ 50,00", "............................", "*Total: R$ 543,00*",
+  ].join(nl);
+  const passou = [
+    ["dados de fechamento", textoSemPedirDadosDeFechamento(resumo)],
+    ["pergunta de nome", textoSemPerguntaDeNome(resumo)],
+    ["pergunta repetida", textoSemPerguntaJaFeita(resumo, ["Qual a cor da forminha?"])],
+  ];
+  for (const [nome, saiu] of passou) {
+    if (saiu !== resumo) falhas.push("a guarda de " + nome + " mexeu no resumo do pedido");
+  }
+  const fs2 = require("node:fs");
+  const cer = fs2.readFileSync(path.join(raiz, "lib/ia/cerebro.ts"), "utf8");
+  if (!/o resumo refeito saiu sem item/.test(cer)) {
+    falhas.push("o resumo refeito voltou a poder sair sem nenhuma linha de item");
+  }
+}
 // PERGUNTA JA FEITA NAO SE FAZ DE NOVO.
 //
 // A auditoria das 40 conversas da medicao apontou "vai querer salgado tambem

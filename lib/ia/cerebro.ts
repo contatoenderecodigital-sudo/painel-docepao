@@ -6373,9 +6373,25 @@ async function rodarConversa(
               .join(String.fromCharCode(10))
               .replace(/\n{3,}/g, String.fromCharCode(10, 10))
               .trim();
-            textoFinal =
-              (semAsLinhas ? semAsLinhas + String.fromCharCode(10, 10) : "") +
-              formatarOrcamento(cot, "Seu pedido", true);
+            // O RESUMO REFEITO PRECISA TER ITEM.
+            //
+            // O cliente da festa de 5 anos recebeu isto no WhatsApp:
+            //
+            //   Seu pedido
+            //   ...........................................
+            //   *Total: R$ 543,00*
+            //
+            // Os dois pontilhados colados, e nenhuma linha entre eles: R$ 543
+            // sem dizer de que. Se o refazer nao produzir linha, o texto dela
+            // fica como estava, que e pior de ler e melhor que um total cego.
+            const refeito = formatarOrcamento(cot, "Seu pedido", true);
+            console.log("[rastro] resumo refeito: " + (cot.linhas ?? []).length + " linha(s), total " + cot.total);
+            if (!(cot.linhas ?? []).length) {
+              console.warn("[ia] o resumo refeito saiu sem item; mantive o texto dela");
+            } else {
+              textoFinal =
+                (semAsLinhas ? semAsLinhas + String.fromCharCode(10, 10) : "") + refeito;
+            }
           }
         }
       } catch (e) {

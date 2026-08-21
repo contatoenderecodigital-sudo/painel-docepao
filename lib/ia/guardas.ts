@@ -1284,6 +1284,8 @@ export function quantidadePorSabor(
 // Compara pelo comeco da pergunta, sem acento e sem pontuacao, que e o que
 // muda quando ela reescreve a mesma coisa ("voce vai querer" / "vai querer").
 export function textoSemPerguntaJaFeita(texto: string, falasDela: string[]): string {
+  // Resumo de pedido nao se mexe: os numeros sao do motor, nao dela.
+  if (/\*Pedido recebido\*|\*Total:/i.test(String(texto ?? ""))) return String(texto ?? "");
   const bruto = String(texto ?? "");
   if (!bruto.trim() || !falasDela.length) return bruto;
   const normal = (t: string) =>
@@ -1336,6 +1338,13 @@ export function textoSemPedirDadosDeFechamento(texto: string): string {
   // sentenca inteira sai ou fica: nao existe meio termo.
   const PEDE_DADO =
     /(o pedido fica (no|em) nome de quem|nome de quem vai retirar|nome de quem retira|como (voc[êe] )?(vai |prefere )?pagar|forma de pagamento|quem retira)/i;
+  // RESUMO DE PEDIDO NAO SE MEXE.
+  //
+  // A linha "*Forma de pagamento:* pix" casa com o recorte e sumia do recibo do
+  // cliente. Resumo e montado pelo codigo com os numeros do motor: guarda de
+  // texto nao tem o que fazer ali, e quando mexe quem inventa passa a ser a
+  // guarda. Ja aconteceu antes, com o valor do topo.
+  if (/\*Pedido recebido\*|\*Total:/i.test(bruto)) return bruto;
   const partes = bruto.split(/(?<=[.!?])\s+/).filter((x) => x.trim());
   const ficam = partes.filter((frase) => !PEDE_DADO.test(frase));
   if (!ficam.length || ficam.length === partes.length) return bruto;
@@ -1355,6 +1364,8 @@ export function textoSemPedirDadosDeFechamento(texto: string): string {
 // hora, mesmo remedio, e pelo mesmo motivo: instrucao no prompt e pedido, isto
 // aqui e garantia. Recorte fechado, frase fora da lista fica como esta.
 export function textoSemPerguntaDeNome(texto: string): string {
+  // Resumo de pedido nao se mexe: os numeros sao do motor, nao dela.
+  if (/\*Pedido recebido\*|\*Total:/i.test(String(texto ?? ""))) return String(texto ?? "");
   let t = String(texto ?? "");
   if (!t.trim()) return t;
   const cortes: [RegExp, string][] = [
