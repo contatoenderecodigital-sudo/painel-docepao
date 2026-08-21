@@ -1011,7 +1011,31 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     let qtd = Number(input.qtd) || 0;
     let avisoDivisao = "";
     let avisoSabor = "";
-    if (!produto || qtd <= 0) return "Não anotei: preciso do produto e de uma quantidade maior que zero.";
+    // QUANTIDADE ZERO NUMA FAMILIA E PEDIDO DE ORCAMENTO, NAO ERRO DE DIGITACAO.
+    //
+    // Teste ao vivo de 21/08/2026. A cliente escreveu "vou fazer o aniversario
+    // da minha filha dia 27/09 as 16h, queria salgado docinho e bolo". Ela nao
+    // disse quantidade nenhuma, porque nao sabe: e pra isso que existe a conta
+    // por pessoa.
+    //
+    // A Dora tentou anotar salgado 0, docinho 0 e bolo 0, levou tres recusas
+    // secas, e respondeu pra cliente "Anotei o aniversario dia 27/09 as 16h.
+    // Pode ser?" Sem orcamento, sem sugestao, e com um "pode ser?" que nao
+    // responde nada. A cliente pediu uma festa e nao recebeu uma festa.
+    //
+    // A recusa passa a ensinar o caminho em vez de so dizer nao.
+    if (!produto || qtd <= 0) {
+      const familia = /^(salgado|docinho|doce|bolo|salgados|docinhos|doces|bolos)$/i.test(String(produto || "").trim());
+      if (familia) {
+        return (
+          "NAO anotei: sem quantidade nao da pra anotar, e ele nao disse quantos. Isso e pedido de ORCAMENTO, " +
+          "nao item: pergunte QUANTAS PESSOAS vao na festa, numa frase, e chame montar_orcamento com esse numero. " +
+          "A conta da casa e 10 salgados e 5 docinhos por pessoa e 100 g de bolo. Depois que ele aceitar a base, " +
+          "ai sim voce anota os tipos."
+        );
+      }
+      return "Não anotei: preciso do produto e de uma quantidade maior que zero.";
+    }
     // "sem sabor especificado", "a definir": ela preenche o campo pra nao deixar
     // vazio, e isso desce pra comanda como se fosse instrucao da cozinha.
     // Observacao de enfeite nao e observacao: melhor vazia e cobrada.
@@ -2101,7 +2125,19 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       return (
         `Anotei: ${Object.keys(dados).join(", ")}.${avisoHora} Ainda falta ` +
         faltando.map((k) => NOMES[k]).join(", ") +
-        ". Pergunte isso agora, numa frase, e nao fale em passar pra equipe antes de ter. " +
+        ". " +
+        // ORDEM CONTRADITORIA ERA MINHA.
+        //
+        // Esta linha mandava PERGUNTAR AGORA o nome e o pagamento, enquanto a
+        // instrucao da etapa mandava nao perguntar enquanto houvesse item por
+        // resolver. Duas ordens opostas no mesmo prompt, que e exatamente o que
+        // eu vinha consertando nas guardas.
+        //
+        // A data e a hora continuam podendo ser perguntadas na hora: elas
+        // decidem se a padaria consegue fazer. Nome e pagamento sao fechamento.
+        (itensAnotados.length === 0 || faltando.every((k) => k === "retirada_data" || k === "retirada_hora")
+          ? "Pergunte isso agora, numa frase. "
+          : "NAO pergunte o nome nem o pagamento agora: eles vem no fim, juntos, quando os itens estiverem resolvidos. ") +
         "Pedido sem esses dados nao fecha, e o cliente sai achando que encomendou."
       );
     }

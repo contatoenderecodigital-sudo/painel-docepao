@@ -1058,7 +1058,18 @@ export function pecasPermitidas(
 export function perguntouPrecoDeFamilia(fala: string): boolean {
   const t = String(fala ?? "");
   const ehPergunta = /(quanto (custa|fica|sai|ta|e|sao|vale)|qual (o|e o) (pre[çc]o|valor)|pre[çc]o d|valor d)/i.test(t);
-  const citouFamilia = /salgad|docinh|doce|bolo|cento/i.test(t);
+  // "DOCE" DENTRO DE OUTRO PRODUTO NAO E A FAMILIA DOCINHO.
+  //
+  // Teste ao vivo de 21/08/2026. O cliente perguntou "quanto custa a TORTA
+  // DOCE?" e recebeu "Docinho sai R$ 1,25 cada (R$ 125,00 o cento)". A torta
+  // doce e vendida por quilo e custa dezenas de reais: a resposta estava
+  // errada em ordem de grandeza, e saiu com a confianca de quem sabe.
+  //
+  // A palavra doce aparece dentro de torta doce, pizza doce e mini bolha
+  // doce, e todos tem preco proprio. Quando o produto vem antes, quem manda
+  // e o produto.
+  const outroProduto = /(torta|pizza|mini bolha|cuca|bolo salgado)[a-z ]{0,10}doce/i.test(t);
+  const citouFamilia = !outroProduto && /salgad|docinh|doce|bolo|cento/i.test(t);
   return (ehPergunta && citouFamilia) || /(^|\W)(e )?o cento/i.test(t);
 }
 
