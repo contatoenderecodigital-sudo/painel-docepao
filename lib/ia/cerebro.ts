@@ -634,15 +634,30 @@ function executarFerramenta(
       // Se ela mandar o campo, vale o dela. Se nao mandar, quem diz e a fala do
       // cliente, e nao um padrao fixo de salgado e doce.
       ((): { salgado?: boolean; doce?: boolean; bolo?: boolean } => {
-        const dela = input.quer as { salgado?: boolean; doce?: boolean; bolo?: boolean } | undefined;
-        if (dela && (dela.salgado || dela.doce || dela.bolo)) return dela;
-        const t = String(falaDoCliente || "").toLowerCase();
+        const dela = (input.quer as { salgado?: boolean; doce?: boolean; bolo?: boolean } | undefined) ?? {};
+        // A CONVERSA INTEIRA, e SOMANDO com o que ela mandou.
+        //
+        // A primeira versao disto deixava o valor DELA vencer quando vinha
+        // preenchido. Nao resolveu nada: ela mandou quer={salgado:true} pra uma
+        // cliente que tinha escrito "queria salgado docinho e bolo", e a base
+        // saiu com 300 salgados e R$ 300,00 de novo. Incompleto dela ganhava do
+        // que o cliente pediu.
+        //
+        // Agora e uniao: o que ela marcou continua valendo, e a fala do cliente
+        // ACRESCENTA o que ela esqueceu. Familia que ninguem citou continua de
+        // fora, entao quem pediu so salgado nao leva docinho junto.
+        const t = (falasDoCliente.length ? falasDoCliente : [falaDoCliente]).join(" ").toLowerCase();
         const pediu = {
           salgado: /salgad|coxinh|esfirr|empadinh|risol|croquet|quich|croissant|past[eé]l/.test(t),
           doce: /docinh|doce|brigadeir|beijinh|trufa|cajuzinh/.test(t),
           bolo: /bolo/.test(t),
         };
-        return pediu.salgado || pediu.doce || pediu.bolo ? pediu : { salgado: true, doce: true };
+        const uniao = {
+          salgado: !!dela.salgado || pediu.salgado,
+          doce: !!dela.doce || pediu.doce,
+          bolo: !!dela.bolo || pediu.bolo,
+        };
+        return uniao.salgado || uniao.doce || uniao.bolo ? uniao : { salgado: true, doce: true };
       })(),
     );
 
@@ -1181,7 +1196,21 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         const mesmoProduto = String(x.produto ?? "").trim().toLowerCase() === produto.trim().toLowerCase();
         return mesmoProduto && escolhido ? String(x.obs ?? "").toLowerCase().includes(escolhido.trim().toLowerCase()) : false;
       });
-      if (escolhido && !jaTemEsseRecheio && !cliente.includes(escolhido.trim().toLowerCase())) {
+      // A TERCEIRA GUARDA DE SABOR, E TAMBEM NAO SABIA QUE ELE DELEGOU.
+      //
+      // Teste ao vivo de 21/08/2026: "preciso de 200 salgados assados pra
+      // quarta as 9h. ESCOLHE VOCE OS TIPOS, to sem tempo". A Dora escolheu, e
+      // esta guarda recusou com "o cliente nunca falou carne pra croissant".
+      // Ele mandou escolher e ela apanhou por ter escolhido; o pedido ficou
+      // vazio e ela ainda perguntou "qual o recheio de cada um?", sem ter
+      // nenhum item anotado. O cliente nao faz ideia de que "cada um" e esse.
+      //
+      // E a terceira guarda de sabor com o mesmo buraco. As outras duas ja
+      // aceitam a delegacao; faltava esta.
+      const eleMandouEscolher = pediuQueVoceEscolha(
+        (falasDoCliente.length ? falasDoCliente : [falaDoCliente]).join(" | "),
+      );
+      if (escolhido && !jaTemEsseRecheio && !eleMandouEscolher && !cliente.includes(escolhido.trim().toLowerCase())) {
         return (
           `NAO anotei: o cliente nunca falou "${escolhido}" pra ${produto}. Escolher o recheio por ele faz a cozinha ` +
           `produzir o sabor errado e ele so descobrir na festa. PERGUNTE agora qual ele quer, entre ${opcoesDoProduto.join(", ")}, ` +
@@ -1208,10 +1237,23 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       // cardapio guarda com acento. Recusar por acento e recusar o que ele pediu.
       const semAcentoSabor = (t: string) =>
         String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+      // VARREDURA DAS GUARDAS QUE RECUSAM POR "O CLIENTE NAO FALOU".
+      //
+      // Sao sete no arquivo. Cinco ja aceitavam a delegacao ("escolhe voce",
+      // "confio", "sugere ai"); duas nao, e as duas apareceram em conversa: o
+      // sabor do bolo e o pao de lo. Em vez de esperar a proxima aparecer, esta
+      // e a varredura que eu tinha prometido.
+      //
+      // Quem manda escolher recebe escolha. O sabor continua tendo que existir
+      // no cardapio, o que e conferido logo acima.
+      const delegouAEscolha = pediuQueVoceEscolha(
+        (falasDoCliente.length ? falasDoCliente : [falaDoCliente]).join(" | "),
+      );
       if (
         !boloJaNoPedido &&
         sabor &&
         sabor.length > 3 &&
+        !delegouAEscolha &&
         !semAcentoSabor(falaDoCliente).includes(semAcentoSabor(sabor))
       ) {
         return (
@@ -1236,7 +1278,12 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         String(x.obs ?? "").toLowerCase().includes("pão de ló " + tipo) ||
         String(x.obs ?? "").toLowerCase().includes("pao de lo " + tipo),
       );
-      if (!jaTinha && !falaDoCliente.toLowerCase().includes(tipo)) {
+      // Mesma varredura: quem mandou escolher recebe escolha. O pao de lo so
+      // tem branco e chocolate, entao nao ha o que inventar aqui.
+      const delegouOPao = pediuQueVoceEscolha(
+        (falasDoCliente.length ? falasDoCliente : [falaDoCliente]).join(" | "),
+      );
+      if (!jaTinha && !delegouOPao && !falaDoCliente.toLowerCase().includes(tipo)) {
         return (
           "NAO anotei: o cliente nunca falou em pao de lo " + tipo + ". Ele nao respondeu a sua pergunta, e escolher " +
             "por ele faz a cozinha assar a massa errada. Pergunte de novo, numa frase, e anote o que ele responder. " +
