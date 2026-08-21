@@ -4919,6 +4919,50 @@ async function rodarConversa(
     }
   }
 
+  // A COR DA FORMINHA QUE ELE DISSE VALE PRA TODOS OS DOCINHOS.
+  //
+  // Teste ao vivo de 21/08/2026, festa de 5 anos. A mae escreveu "papel de
+  // arroz e topo sim, forminha azul, nome Amanda, pix" e o pedido fechou com os
+  // quatro docinhos sem cor nenhuma:
+  //
+  //   brigadeiro 32un | -   beijinho 31un | -   cajuzinho 31un | -
+  //
+  // Sem a cor a cozinha nao sabe em que forminha embrulhar, e alguem vai ter
+  // que ligar pra perguntar o que a cliente ja tinha respondido. A guarda irma
+  // completava a SEGUNDA cor quando a primeira ja estava escrita; faltava o
+  // caso de nenhuma estar.
+  {
+    const falasDele2 = historico.filter((h) => h.role === "user").map((h) => String(h.content ?? ""));
+    const cores = coresDeForminhaQueEleFalou([...falasDele2, String(ultimaFalaDoCliente)].slice(-3).join(" "));
+    if (cores.length) {
+      const semCor = (montagemDoTurno?.itens ?? []).filter(
+        (i) => String(i.categoria ?? "") === "docinho" && !coresDeForminhaQueEleFalou(String(i.obs ?? "")).length,
+      );
+      if (semCor.length) {
+        const texto = "forminha " + cores.join(" e ");
+        for (const i of semCor) {
+          const obsNova = String(i.obs ?? "").trim() ? String(i.obs).trim() + ", " + texto : texto;
+          estado.montagem.push({
+            tipo: "item",
+            produto: String(i.produto),
+            categoria: String(i.categoria),
+            qtd: Number(i.qtd) || 0,
+            obs: obsNova,
+          });
+          correcoesDoCodigo.push({
+            tipo: "item",
+            produto: String(i.produto),
+            categoria: String(i.categoria),
+            qtd: Number(i.qtd) || 0,
+            obs: obsNova,
+          });
+          i.obs = obsNova;
+        }
+        console.log("[rastro] cor da forminha escrita em " + semCor.length + " docinho(s): " + texto);
+      }
+    }
+  }
+
   // "2 CALABRESA E 1 DE FRANGO" SAO TRES PIZZAS.
   //
   // O caso inteiro esta no comentario da guarda quantidadePorSabor: o pedido

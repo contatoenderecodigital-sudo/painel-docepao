@@ -250,6 +250,13 @@ if (/SABORES\["esfirra"\]|=== "esfirra"/.test(cerebro)) {
     void contadores;
     console.log("Contadores de gente no cerebro: " + contamGente.length + ", todos contando crianca.");
   }
+  // A COR DA FORMINHA QUE ELE DISSE VALE PRA TODOS OS DOCINHOS.
+  //
+  // A festa de 5 anos fechou com "forminha azul" dita pela mae e os quatro
+  // docinhos sem cor nenhuma na comanda.
+  if (!/cor da forminha escrita em/.test(cerebro)) {
+    falhas.push("o codigo parou de escrever a cor da forminha nos docinhos");
+  }
   // O SABOR VAI NO NOME DA PIZZA, senao as tres viram uma na juncao do pedido.
   if (!/pizza inteira " \+ String\(par\.sabor\)/.test(cerebro)) {
     falhas.push("as pizzas voltaram a ter o mesmo nome; uma sobrescreve a outra");
