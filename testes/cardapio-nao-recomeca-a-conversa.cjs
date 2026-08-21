@@ -17,7 +17,7 @@
 // quebra sozinho e nao pega defeito.
 //
 // Roda com: node testes/cardapio-nao-recomeca-a-conversa.cjs
-const { pecasPermitidas } = require("./_guardas.cjs")();
+const { pecasPermitidas, naoVaiOlharCardapio } = require("./_guardas.cjs")();
 
 let erros = 0;
 function conferir(ok, oque, detalhe) {
@@ -65,6 +65,37 @@ for (const fala of [
   const r = pecasPermitidas(TODAS, fala, "docinho", tudoAnotado);
   conferir(r.length === TODAS.length, '"' + fala.slice(0, 38) + '" recebe tudo que foi pedido', JSON.stringify(r));
 }
+
+console.log("");
+console.log("== quem disse que NAO VAI OLHAR nao recebe cardapio ==");
+//
+// Teste ao vivo de 21/08/2026: a secretaria escreveu "nao tenho tempo de olhar
+// cardapio nao, to correndo, escolhe voce" e recebeu DUAS imagens do cardapio
+// de salgados. Quem esta correndo e recebe cardapio pela segunda vez larga o
+// celular: a pessoa pediu ajuda e recebeu tarefa.
+for (const fala of [
+  "nao tenho tempo de olhar cardapio nao, to correndo. escolhe voce e me diz o que ficou",
+  "pode escolher voce os tipos, confio",
+  "to correndo aqui",
+  "nao precisa mandar cardapio",
+]) {
+  conferir(naoVaiOlharCardapio([fala]), '"' + fala.slice(0, 40) + '" dispensa cardapio', "nao reconheceu");
+  conferir(
+    pecasPermitidas(TODAS, "e agora?", "", [], [fala]).length === 0,
+    '"' + fala.slice(0, 40) + '" nao recebe peca nenhuma',
+    JSON.stringify(pecasPermitidas(TODAS, "e agora?", "", [], [fala])),
+  );
+}
+
+console.log("");
+console.log("== mas se ele MUDAR DE IDEIA e pedir, vai ==");
+// Sem isto a guarda vira o defeito: ele dispensou no comeco, mudou de ideia, e
+// nunca mais consegue ver o cardapio.
+conferir(
+  pecasPermitidas(TODAS, "me manda o cardapio de docinhos", "", [], ["to correndo", "me manda o cardapio de docinhos"]).length === TODAS.length,
+  "dispensou antes, pediu agora: recebe",
+  "ficou preso sem cardapio",
+);
 
 console.log("");
 console.log("== lixo na entrada nao quebra nada ==");

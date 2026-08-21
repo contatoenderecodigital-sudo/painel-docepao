@@ -501,6 +501,31 @@ export function pediuPorEscrito(fala: string): boolean {
   return naoChegou || porEscrito;
 }
 
+// ELE DISSE QUE NAO VAI OLHAR CARDAPIO. MANDAR DE NOVO E TEIMOSIA.
+//
+// Teste ao vivo de 21/08/2026, com a secretaria com pressa:
+//
+//   cliente: nao tenho tempo de olhar cardapio nao, to correndo. escolhe voce
+//   Dora:    (Cardapio de salgados) (Cardapio de salgados)
+//            Te mandei o cardapio de salgados aqui, com tudo e os precos.
+//
+// Duas imagens, pra quem tinha acabado de dizer que nao ia olhar. Quem esta
+// correndo e recebe cardapio pela segunda vez larga o celular, e com razao: a
+// pessoa pediu ajuda e recebeu tarefa.
+//
+// Isto e diferente de pediuPorEscrito, que trata "a imagem nao chegou". Aqui a
+// imagem chegou e ele nao quer.
+export function naoVaiOlharCardapio(falasDoCliente: string[]): boolean {
+  const t = semAcMin(falasDoCliente.join(" | "));
+  if (!t.trim()) return false;
+  const dispensou =
+    /\b(nao|n) (tenho tempo|vou|consigo|da(?: pra)?|posso|quero)\b[^.!?|]{0,30}\b(olhar|ver|abrir|escolher|analisar)\b/.test(t) ||
+    /\b(sem tempo|to correndo|estou correndo|to na correria|nao precisa (de |do )?cardapio|nao quero cardapio|nao precisa mandar)\b/.test(t);
+  const pediuQueEscolha =
+    /\b(escolhe (voce|vc|pra mim)|voce escolhe|pode escolher|escolha voce|confio (em voce|no seu)|o que voce (indicar|sugerir)|me manda o que|monta (voce|pra mim)|sugere voce)\b/.test(t);
+  return dispensou || pediuQueEscolha;
+}
+
 // A DATA TEM QUE CAIR NO DIA DA SEMANA QUE O CLIENTE FALOU.
 //
 // A secretaria pediu pra QUARTA-FEIRA. A Dora escreveu "quarta-feira, dia
@@ -950,8 +975,20 @@ export function pecasPermitidas(
   ultimaFala: string,
   naoQuer: string,
   jaEscolhidos: { categoria?: string | null }[] = [],
+  // A conversa inteira do cliente: e nela que ele diz que nao vai olhar
+  // cardapio nenhum, e isso vale pro resto do atendimento, nao so pro turno.
+  falasDoCliente: string[] = [],
 ): string[] {
   if (pecas.length === 0) return pecas;
+  // ELE DISSE QUE NAO VAI OLHAR: nao manda, nem a primeira vez.
+  //
+  // Teste ao vivo de 21/08/2026: a secretaria escreveu "nao tenho tempo de
+  // olhar cardapio nao, to correndo, escolhe voce" e recebeu DUAS imagens do
+  // cardapio de salgados. Quem esta correndo e recebe cardapio pela segunda vez
+  // larga o celular: a pessoa pediu ajuda e recebeu tarefa.
+  //
+  // Se ele mudar de ideia e pedir, o pediuAgora logo abaixo libera.
+  const naoOlha = naoVaiOlharCardapio(falasDoCliente.length ? falasDoCliente : [ultimaFala]);
   const dito = semAcMin(ultimaFala);
   const NEGA = "(sem|nao quero|nem|nao vou querer)";
   const recusou: [string, RegExp][] = [
@@ -976,6 +1013,7 @@ export function pecasPermitidas(
   // Pediu agora, com todas as letras: manda mesmo assim.
   const pediuAgora = /card[áa]pio|me manda|quais|que tipos|op[çc][õo]es|que sabores/i.test(String(ultimaFala || ""));
   if (pediuAgora) return pecas;
+  if (naoOlha) return [];
   const fora = recusou.filter(([, re]) => re.test(dito)).map(([peca]) => peca);
   for (const [peca, re] of recusouAntes) if (guardado && re.test(guardado)) fora.push(peca);
   const temFamilia = (pref: string) => jaEscolhidos.some((i) => String(i.categoria || "").startsWith(pref));

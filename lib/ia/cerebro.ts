@@ -42,6 +42,7 @@ import {
   totalQueElePediu,
   pediuVerOPedido,
   pecasPermitidas,
+  naoVaiOlharCardapio,
   perguntouPrecoDeFamilia,
   obsSemDeliberacao,
   restricoesQueACasaNaoFaz,
@@ -5681,6 +5682,7 @@ async function rodarConversa(
           String(falaDoCliente2),
           String(montagemDoTurno?.dados?.nao_quer ?? ""),
           montagemDoTurno?.itens ?? [],
+          historico.filter((h) => h.role === "user").map((h) => String(h.content ?? "")),
         ) as CardapioId[],
       };
     }
