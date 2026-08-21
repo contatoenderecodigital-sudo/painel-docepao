@@ -45,6 +45,7 @@ import {
   naoVaiOlharCardapio,
   elaPerguntouDesteItem,
   perguntouPrecoDeFamilia,
+  perguntaElipticaDePreco,
   obsSemDeliberacao,
   restricoesQueACasaNaoFaz,
   obsSemRestricaoInventada,
@@ -4462,6 +4463,108 @@ async function rodarConversa(
           "OFERECA EXATAMENTE ISTO, que ja esta com a conta certa: " + texto + ".\n\n" +
           "Diga numa frase que essa e a sua sugestao, pergunte SO se pode ser assim, e anote quando ele " +
           "aceitar. Se ele quiser trocar um tipo, troca e pronto.",
+      });
+    }
+  }
+
+  // DELEGOU A ESCOLHA: O SABOR PENDENTE QUEM ESCOLHE E O CODIGO.
+  //
+  // Teste ao vivo de 21/08/2026, coffee break de 200 salgados assados. O
+  // cliente escreveu "escolhe voce os tipos, to sem tempo" e recebeu tres vezes
+  // a MESMA pergunta, palavra por palavra:
+  //
+  //   Qual o sabor da esfirra: carne, frango, calabresa, brocolis ou bacon?
+  //
+  // O bloco de cima ja resolve quando falta escolher os TIPOS da familia. Nao
+  // resolvia quando o tipo ja estava escolhido e faltava o SABOR daquele item,
+  // que e outra pendencia, calculada em faltaNoItem. Duas pendencias parecidas,
+  // uma tratada e a outra nao, e o cliente preso no meio.
+  //
+  // A correcao vale pra QUALQUER produto com lista de sabores no cardapio, nao
+  // pra esfirra: quem delega uma vez delegou o pedido inteiro. O codigo escreve
+  // o primeiro sabor da lista do cardapio, que e a ordem em que a casa lista, e
+  // ela OFERECE. Trocar depois e uma frase; perguntar de novo custa a venda.
+  {
+    const falasDele = historico.filter((h) => h.role === "user").map((h) => String(h.content ?? ""));
+    const delegou = [...falasDele, String(ultimaFalaDoCliente)].some((f) => pediuQueVoceEscolha(f));
+    if (delegou) {
+      const escritos: string[] = [];
+      for (const i of montagemDoTurno?.itens ?? []) {
+        const nome = String(i.produto || "").trim();
+        if (!nome || semTipo(nome)) continue;
+        const ops = SABORES[nome.toLowerCase()];
+        if (!ops || !ops.length || !faltaSabor(i.obs, ops)) continue;
+        const sabor = String(ops[0]).trim();
+        if (!sabor) continue;
+        const obsNova = String(i.obs ?? "").trim() ? String(i.obs).trim() + ", " + sabor : sabor;
+        const linha = {
+          tipo: "item" as const,
+          produto: nome,
+          categoria: String(i.categoria ?? categoriaDoProduto(nome)),
+          qtd: Number(i.qtd) || 0,
+          obs: obsNova,
+        };
+        estado.montagem.push(linha);
+        correcoesDoCodigo.push(linha);
+        i.obs = obsNova;
+        escritos.push(i.qtd + " " + nome + " de " + sabor);
+      }
+      if (escritos.length) {
+        console.log("[rastro] delegou o sabor, o codigo escolheu: " + escritos.join(" | "));
+        messages.push({
+          role: "system",
+          content:
+            "O CLIENTE PEDIU QUE VOCE ESCOLHA e ainda faltava o sabor de item que ja esta anotado. " +
+            "EU JA ESCOLHI E JA ANOTEI: " + escritos.join(", ") + ". " + String.fromCharCode(10, 10) +
+            "NAO pergunte o sabor desses itens de novo, NAO anote eles outra vez e NAO devolva a escolha pra " +
+            "ele: ele acabou de dizer que nao quer escolher. Diga numa frase como ficou e siga pro que falta. " +
+            "Se ele quiser outro sabor, troca e pronto.",
+        });
+      }
+    }
+  }
+
+  // ELE CONTINUOU A PERGUNTA: RESPONDA O QUE ELE PERGUNTOU.
+  //
+  // "e a salgada?" depois de "quanto custa a torta doce?" e pergunta de PRECO,
+  // e ela respondia perguntando o sabor. O caso inteiro esta no comentario da
+  // guarda perguntaElipticaDePreco.
+  {
+    const dele = historico.filter((h) => h.role === "user").map((h) => String(h.content ?? ""));
+    const anterior = dele.length >= 2 ? dele[dele.length - 2] : "";
+    const oQueEleQuer = perguntaElipticaDePreco(String(ultimaFalaDoCliente), anterior);
+    if (oQueEleQuer) {
+      console.log("[rastro] pergunta que continua a anterior: " + oQueEleQuer);
+      messages.push({
+        role: "system",
+        content:
+          "A PERGUNTA DELE CONTINUA A ANTERIOR: ele esta perguntando o PRECO de \"" + oQueEleQuer + "\". " + String.fromCharCode(10, 10) +
+          "RESPONDA COM O NUMERO da tabela nesta mesma mensagem, com a unidade (quilo ou unidade). Se esse nome " +
+          "nao existir igualzinho no cardapio, use o produto da casa que corresponde e diga o nome certo dele. " +
+          "NAO pergunte o sabor antes de dar o preco: ele perguntou quanto custa, nao qual sabor.",
+      });
+    }
+  }
+
+  // A HORA JA ESTA NA CONVERSA: NAO PERGUNTE DE NOVO.
+  //
+  // Teste ao vivo de 21/08/2026. A cliente abriu com "vou fazer o aniversario da
+  // minha filha dia 27/09 as 16h" e, seis mensagens depois, ouviu "me diz o nome
+  // de quem vai retirar, QUE HORAS, e como prefere pagar". A guarda
+  // horaQueEleFalou pegava o "16h" desde a primeira mensagem; o aviso existia so
+  // dentro de anotar_dados, quando ela ja tinha decidido perguntar. Perguntar
+  // duas vezes o que a pessoa ja respondeu e o jeito mais rapido de parecer que
+  // ninguem leu a conversa.
+  {
+    const dele = historico.filter((h) => h.role === "user").map((h) => String(h.content ?? ""));
+    const dita = horaQueEleFalou([...dele, String(ultimaFalaDoCliente)]);
+    const jaAnotada = String(montagemDoTurno?.dados?.retirada_hora ?? "").trim();
+    if (dita && !jaAnotada) {
+      messages.push({
+        role: "system",
+        content:
+          "A HORA DA RETIRADA JA ESTA NA CONVERSA: o cliente escreveu \"" + dita + "\". NAO pergunte a hora de " +
+          "novo. Anote ela com anotar_dados em retirada_hora e siga pro que realmente falta.",
       });
     }
   }

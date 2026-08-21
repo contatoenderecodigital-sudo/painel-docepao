@@ -25,6 +25,7 @@ const FORA = [
   "medidor.cjs",
   "painel-visto-de-fora.cjs",
   "papel-de-arroz-segue-o-botao.cjs",
+  "auditoria-do-atendimento.cjs",
 ];
 
 const aqui = __dirname;

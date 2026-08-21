@@ -1073,6 +1073,49 @@ export function perguntouPrecoDeFamilia(fala: string): boolean {
   return (ehPergunta && citouFamilia) || /(^|\W)(e )?o cento/i.test(t);
 }
 
+// A PERGUNTA CURTA CONTINUA A ANTERIOR.
+//
+// Teste ao vivo de 21/08/2026:
+//
+//   cliente: quanto custa a torta doce?
+//   Dora:    A torta doce sai R$ 33,90 o quilo. Qual sabor voce quer?
+//   cliente: e a salgada?
+//   Dora:    Qual sabor de torta salgada voce quer?
+//
+// A segunda pergunta e a mesma da primeira. Em portugues a elipse guarda o
+// nucleo ("torta") e troca so o modificador ("doce" -> "salgada"), e todo mundo
+// entende menos o codigo, que procurava verbo de preco e nome de produto na
+// frase e nao achava nenhum dos dois. Quem pergunta preco duas vezes e recebe
+// numero uma vez fica achando que a segunda coisa e cara.
+//
+// Devolve o termo remontado ("torta salgada"), pra quem chamou saber DO QUE ele
+// esta falando. null quando nao e continuacao.
+export function perguntaElipticaDePreco(fala: string, falaAnterior: string): string | null {
+  const limpo = (t: string) =>
+    String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  const atual = limpo(fala);
+  const antes = limpo(falaAnterior);
+  if (!atual || !antes) return null;
+  // Curta e comecando por "e": e assim que a continuacao aparece. Frase longa
+  // ja se explica sozinha e cai nas outras guardas.
+  const palavras = atual.split(" ");
+  if (palavras.length > 5 || palavras[0] !== "e") return null;
+  // A anterior tinha que ser pergunta de preco: sem isso nao ha o que herdar.
+  if (!/(quanto (custa|fica|sai|ta|e)|qual (o|e o) (preco|valor)|preco d|valor d)/.test(antes)) return null;
+  // ARTIGO NAO E MODIFICADOR. Sobra o que ele trocou: "salgada", "frito".
+  const vazias = new Set(["e", "o", "a", "os", "as", "de", "do", "da", "um", "uma", "custa", "fica", "sai", "quanto", "qual", "preco", "valor"]);
+  // CONVERSA NAO E CONTINUACAO. "e ai, tudo bem?" comeca com "e" e e curta, e
+  // virava "torta tudo bem". Lista fechada, que palavra de conversa e pouca.
+  const conversa = /(^| )(ai|tudo|bem|blz|beleza|obrigad|valeu|entao|certo|sim|nao|ok|oi|ola)( |$)/;
+  if (conversa.test(atual)) return null;
+  const modificador = palavras.filter((w) => !vazias.has(w) && w.length >= 3);
+  if (!modificador.length) return null;
+  // O NUCLEO E O SUBSTANTIVO DA PERGUNTA ANTERIOR, o que ela nao trocou.
+  const nucleo = antes.split(" ").filter((w) => !vazias.has(w) && w.length >= 4);
+  if (!nucleo.length) return null;
+  return (nucleo[0] + " " + modificador.join(" ")).trim();
+}
+
 // A OBSERVACAO E UMA FICHA, NAO UM BILHETE PENSANDO ALTO.
 //
 // Rastro do medidor de 20/08/2026, cenario de pizza (nota 1/5). A Dora chamou
