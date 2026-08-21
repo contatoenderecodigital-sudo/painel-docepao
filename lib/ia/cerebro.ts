@@ -1095,6 +1095,30 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // responde nada. A cliente pediu uma festa e nao recebeu uma festa.
     //
     // A recusa passa a ensinar o caminho em vez de so dizer nao.
+    // O PESO DO BOLO JA ESTAVA NA CONTA DA CASA.
+    //
+    // Teste ao vivo de 21/08/2026, festa de 5 anos com 25 criancas. O orcamento
+    // dizia "250 salgados, 125 docinhos e 2,5 kg de bolo", a mae escolheu o
+    // sabor ("o bolo de bombom, tema homem aranha, nome Theo, 5 anos") e a
+    // resposta foi "Quantos quilos de bolo bombom voce quer?", duas vezes. O
+    // pedido de R$ 523,50 travou ali, perguntando um numero que o proprio
+    // sistema tinha calculado tres mensagens antes.
+    //
+    // A conta da casa e 100 g por pessoa. Se ele nao deu o peso e a festa tem
+    // gente, o peso ja existe.
+    if (produto && qtd <= 0 && /bolo/i.test(String(produto)) && String(categoria).startsWith("bolo")) {
+      const tudoDele2 = falasDoCliente.join(" ") + " " + String(montagemAtual?.dados?.proposta ?? "");
+      const pessoas2 = Number((tudoDele2.match(/([0-9]{1,3}) *(?:pessoas|convidados|criancas|crian[çc]as)/i) ?? [])[1]) || 0;
+      const kgDaBase = Number(
+        (String(montagemAtual?.dados?.proposta ?? "").match(/([0-9]+(?:[.,][0-9]+)?) *(?:kg|quilos?) de bolo/i) ?? [])[1]
+          ?.replace(",", "."),
+      ) || 0;
+      const kg2 = kgDaBase || (pessoas2 ? Math.max(1, Math.round(pessoas2 * 0.1 * 10) / 10) : 0);
+      if (kg2 > 0) {
+        console.log("[rastro] peso do bolo veio da conta da casa: " + kg2 + " kg (" + produto + ")");
+        qtd = kg2;
+      }
+    }
     if (!produto || qtd <= 0) {
       const familia = /^(salgado|docinho|doce|bolo|salgados|docinhos|doces|bolos)$/i.test(String(produto || "").trim());
       if (familia) {
@@ -4469,7 +4493,18 @@ async function rodarConversa(
   // A conta e do codigo: a soma das partes bate com o total, sempre. Ela so
   // OFERECE o que ja veio pronto.
   if (pediuQueVoceEscolha(String(ultimaFalaDoCliente))) {
-    const t = String(String(ultimaFalaDoCliente) + " " + String(ultimaDelaAqui))
+    // A FAMILIA SAI DA BOCA DELE, NAO DA DELA.
+    //
+    // Teste ao vivo de 21/08/2026. A cliente queria SO bolo pra mae de 60 anos.
+    // A Dora perguntou "vai querer salgado tambem para a festa?", a cliente
+    // respondeu "escolhe voce o sabor" (falando do BOLO), e o codigo leu o
+    // "salgado" da pergunta DELA como se fosse pedido dele: anotou 100 salgados
+    // que ninguem pediu, R$ 100,00 numa conta que a cliente nao ia reconhecer.
+    //
+    // O que ela perguntou nao e pedido. Familia so entra aqui se ele falou.
+    const falasDeleAgora = historico.filter((h) => h.role === "user").map((h) => String(h.content ?? ""));
+    const t = [...falasDeleAgora, String(ultimaFalaDoCliente)]
+      .join(" ")
       .toLowerCase()
       .normalize("NFD")
       .replace(/[̀-ͯ]/g, "");

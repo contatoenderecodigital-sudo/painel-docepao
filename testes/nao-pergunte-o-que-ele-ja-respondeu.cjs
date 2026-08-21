@@ -206,6 +206,18 @@ if (/SABORES\["esfirra"\]|=== "esfirra"/.test(cerebro)) {
   if (!/bolo escolhido pelo codigo/.test(cerebro)) {
     falhas.push("o codigo parou de escolher o bolo quando o cliente delega");
   }
+  // A FAMILIA DO SORTIDO SAI DA BOCA DELE, NAO DA DELA.
+  //
+  // A cliente queria so bolo. A Dora perguntou "vai querer salgado tambem?",
+  // ela respondeu "escolhe voce o sabor" falando do bolo, e o codigo anotou
+  // 100 salgados que ninguem pediu.
+  if (/const t = String\(String\(ultimaFalaDoCliente\) \+ " " \+ String\(ultimaDelaAqui\)\)/.test(cerebro)) {
+    falhas.push("a familia do sortido voltou a ler a fala dela; anota item que o cliente nao pediu");
+  }
+  // O PESO DO BOLO JA ESTA NA CONTA DA CASA: 100 g por pessoa.
+  if (!/peso do bolo veio da conta da casa/.test(cerebro)) {
+    falhas.push("o codigo parou de preencher o peso do bolo; a conversa trava perguntando quilos");
+  }
   // O SABOR VAI NO NOME DA PIZZA, senao as tres viram uma na juncao do pedido.
   if (!/pizza inteira " \+ String\(par\.sabor\)/.test(cerebro)) {
     falhas.push("as pizzas voltaram a ter o mesmo nome; uma sobrescreve a outra");
