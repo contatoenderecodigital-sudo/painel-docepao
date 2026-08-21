@@ -77,17 +77,32 @@ async function main() {
     CLIENTES.map((c) => ssh("/root/conversa.sh " + c.fone + " '" + c.diz + "' >/dev/null 2>&1").catch(() => null)),
   );
 
-  const linhas = (
-    await psql(
-      "select c.telefone, x.produto from docepao.pedido_montagem pm " +
-        "join docepao.clientes c on c.id=pm.cliente_id, " +
-        "jsonb_to_recordset(pm.itens) as x(produto text) order by 1",
+  // ESPERAR O BANCO E PARTE DO TESTE.
+  //
+  // A leitura vinha no instante seguinte ao envio. Com o servidor ocupado (uma
+  // conversa de festa rodando ao lado, por exemplo), um dos tres ainda nao
+  // tinha gravado e o teste acusava "nao anotou o que ele pediu": falha de
+  // TEMPO num teste que existe pra medir MISTURA. Rodando sozinho passava, e
+  // isso e o retrato de um teste que mede a coisa errada.
+  const lerMontagem = async () =>
+    (
+      await psql(
+        "select c.telefone, x.produto from docepao.pedido_montagem pm " +
+          "join docepao.clientes c on c.id=pm.cliente_id, " +
+          "jsonb_to_recordset(pm.itens) as x(produto text) order by 1",
+      )
     )
-  )
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => l.split("|"));
+      .split(String.fromCharCode(10))
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((l) => l.split("|"));
+
+  let linhas = await lerMontagem();
+  for (let tentativa = 0; tentativa < 12; tentativa++) {
+    if (CLIENTES.every((c) => linhas.some(([fone]) => fone === c.fone))) break;
+    await new Promise((r) => setTimeout(r, 5000));
+    linhas = await lerMontagem();
+  }
 
   let falhas = 0;
   for (const c of CLIENTES) {

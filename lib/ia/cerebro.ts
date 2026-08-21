@@ -3475,8 +3475,21 @@ function pendenciasDeSabor(
   //   pendSabor=[bolo bombom: falta a IDADE]
   // O pedido nao fechava por um dado que o cliente tinha acabado de dar.
   falaDoCliente = "",
+  // QUEM JA DEU NOME, DATA, HORA E PAGAMENTO ESTA FECHANDO.
+  //
+  // Teste ao vivo de 21/08/2026, bolo da mae de 60 anos. O rastro:
+  //
+  //   fechar? forcar=false itens=1 faltamDados=[]
+  //   pendSabor=[- o cliente NAO falou em salgado ainda. E festa: PERGUNTE...]
+  //
+  // A cliente deu tudo na mesma mensagem e o pedido nao fechou, travado por uma
+  // pendencia de OFERTA. Oferecer nao e produzir: sem o sabor a cozinha nao
+  // assa, sem oferecer salgado ela assa do mesmo jeito. A guarda mandouFechar
+  // ja tratava disso quando ele escrevia "pode fechar"; quem entrega os quatro
+  // dados mandou fechar sem dizer.
+  fechando = false,
 ): string[] {
-  return etapasDaFesta(itens, festa, pediuBolo, naoQuer, false, false, false, falaDoCliente).flatMap(
+  return etapasDaFesta(itens, festa, pediuBolo, naoQuer, false, false, fechando, falaDoCliente).flatMap(
     (e) => e.pendencias,
   );
 }
@@ -5305,6 +5318,10 @@ async function rodarConversa(
         pediuBolo,
         String(montagemDoTurno?.dados?.nao_quer ?? ""),
         falaToda,
+        // Oferta deixa de travar quando ele ja entregou os quatro dados: o
+        // comentario da funcao tem o rastro do bolo que nao fechou por causa
+        // de "o cliente NAO falou em salgado ainda".
+        temOsDados,
       ).length === 0;
     // NAO FALTA NADA E NAO EXISTE PEDIDO: REGISTRA, MESMO SEM O "PODE FECHAR".
     //
@@ -5355,6 +5372,7 @@ async function rodarConversa(
         pediuBolo,
         String(montagemDoTurno?.dados?.nao_quer ?? ""),
         falaToda,
+        temOsDados,
       );
       console.warn(
         "[rastro] fechar? forcar=" + obrigarFechamento +
