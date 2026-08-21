@@ -3506,6 +3506,23 @@ function descreverMontagem(
       "ANOTAR O QUE ELE ACABOU DE INFORMAR VALE SEMPRE, mesmo que nao seja desta etapa: data, hora, nome e " +
       "pagamento entram com anotar_dados na hora em que ele fala, e o que ele ja escolheu entra com anotar_item " +
       "agora, sem perguntar de novo. Pergunte so o que sobrou desta etapa, de uma vez so." +
+      // QUEM RETIRA, QUE HORAS E COMO PAGA VEM DEPOIS DOS ITENS.
+      //
+      // Medido em 20/08/2026 lendo as conversas da medicao: a Dora pediu o nome
+      // de quem retira 2 a 3 vezes por conversa de festa, 29 vezes numa rodada,
+      // com a cliente no meio de escolher salgado, docinho e bolo. O pedido saia
+      // certo, e por isso a nota nao pegava: quem pega isso e ler a conversa.
+      //
+      // Anotar o que ele falar continua valendo sempre, a linha acima manda
+      // isso. O que sai daqui e PERGUNTAR: enquanto houver item por resolver, a
+      // pergunta e sobre item. A data e excecao e vem cedo, porque ela decide se
+      // a padaria consegue fazer (bolo decorado precisa de 2 dias).
+      "
+
+NAO pergunte agora o NOME de quem retira, a HORA nem a FORMA DE PAGAMENTO: eles vem no fim, juntos, " +
+      "numa frase so, quando os itens estiverem resolvidos. Perguntar isso no meio corta o cliente que esta " +
+      "montando o pedido, e repetido faz parecer que voce nao anotou nada. Se ELE falar por conta propria, anote " +
+      "na hora e siga. A DATA e excecao: essa pode perguntar agora." +
       (faltaDepois > 0 ? ` Depois desta ainda faltam ${faltaDepois} etapas, mas NAO fale delas agora.` : "")
     : "";
 

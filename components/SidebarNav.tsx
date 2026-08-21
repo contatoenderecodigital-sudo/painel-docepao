@@ -24,6 +24,9 @@ const ITENS: Item[] = [
   { href: "/clientes", label: "Clientes", icon: "clientes" },
   { href: "/recuperar", label: "Recuperar", icon: "restore", tipos: ["padaria"] },
   { href: "/resultados", label: "Resultados", icon: "chart", tipos: ["padaria"] },
+  // O botao Reportar gravava no banco e nenhuma tela lia: o botao que existe
+  // pra tornar o problema visivel estava tornando ele invisivel.
+  { href: "/reportes", label: "Reportes da equipe", icon: "chat", owner: true },
   { href: "/conectar", label: "Conectar WhatsApp", icon: "whatsapp", owner: true },
   { href: "/configuracoes", label: "Configurações", icon: "config" },
 ];
