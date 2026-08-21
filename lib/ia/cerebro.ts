@@ -58,6 +58,7 @@ import {
   horaQueEleFalou,
   textoSemPerguntaDeHora,
   textoSemPerguntaDeNome,
+  textoSemPedirDadosDeFechamento,
   quantidadePorSabor,
   coresDeForminhaQueEleFalou,
   dataBrigaComODiaDaSemana,
@@ -4729,6 +4730,56 @@ async function rodarConversa(
     }
   }
 
+  // DELEGOU E QUER BOLO: O CODIGO ESCOLHE O BOLO TAMBEM.
+  //
+  // Teste ao vivo de 21/08/2026, duas rodadas seguidas. A cliente pediu bolo
+  // pra mae de 60 anos, escreveu "escolhe voce o sabor", e o bolo nunca entrou
+  // no pedido: numa vez a guarda de fantasma recusou, na outra ela simplesmente
+  // foi falar de salgado. A festa inteira ia sair sem bolo.
+  //
+  // A regra ja valia pro sortido de salgado e docinho e pro sabor de item. O
+  // bolo faltava, e o bolo e o item mais caro da festa.
+  //
+  // So anota com PESO conhecido: kg dito por ele ou 100 g por pessoa, que e a
+  // conta da casa. Sem peso nao da pra produzir nem cobrar.
+  {
+    const falasDele = historico.filter((h) => h.role === "user").map((h) => String(h.content ?? ""));
+    const tudoDele = [...falasDele, String(ultimaFalaDoCliente)].join(" | ");
+    const delegouTudo = pediuQueVoceEscolha(tudoDele);
+    const querBolo = /bolo/i.test(tudoDele);
+    const jaTemBolo = (montagemDoTurno?.itens ?? []).some((i) => /bolo/i.test(String(i.produto ?? "")));
+    if (delegouTudo && querBolo && !jaTemBolo) {
+      const kgDito = Number((tudoDele.match(/([0-9]+(?:[.,][0-9]+)?) *(?:kg|quilos?)/i) ?? [])[1]?.replace(",", ".")) || 0;
+      const pessoas = Number((tudoDele.match(/([0-9]{1,3}) *(?:pessoas|convidados)/i) ?? [])[1]) || 0;
+      const kg = kgDito || (pessoas ? Math.max(1, Math.round(pessoas * 0.1)) : 0);
+      const faixas = (catalogo.bolos_recheados?.faixas ?? []) as { sabores?: string[] }[];
+      const sabor = String((faixas[0]?.sabores ?? [])[1] ?? (faixas[0]?.sabores ?? [])[0] ?? "").trim();
+      if (kg > 0 && sabor) {
+        const nomeBolo = "bolo " + sabor;
+        estado.montagem.push({ tipo: "item", produto: nomeBolo, categoria: "bolo_festa", qtd: kg, obs: null });
+        correcoesDoCodigo.push({ tipo: "item", produto: nomeBolo, categoria: "bolo_festa", qtd: kg, obs: null });
+        estado.sugeridos = [...(estado.sugeridos ?? []), kg + " kg de " + nomeBolo];
+        montagemDoTurno = {
+          ...(montagemDoTurno ?? { itens: [], dados: {} }),
+          itens: [
+            ...(montagemDoTurno?.itens ?? []),
+            { produto: nomeBolo, categoria: "bolo_festa", qtd: kg, unidade: "kg", obs: null },
+          ],
+        };
+        console.log("[rastro] bolo escolhido pelo codigo: " + kg + " kg de " + nomeBolo);
+        messages.push({
+          role: "system",
+          content:
+            "O CLIENTE PEDIU QUE VOCE ESCOLHA e o bolo ainda nao estava no pedido. EU JA ESCOLHI E JA ANOTEI: " +
+            kg + " kg de " + nomeBolo + "." + String.fromCharCode(10, 10) +
+            "NAO anote esse bolo de novo e NAO pergunte o sabor dele. Diga numa frase que sugeriu esse bolo e " +
+            "pergunte SO se pode ser. Se ele quiser outro sabor, troca e pronto. Continue de onde parou no resto " +
+            "do pedido.",
+        });
+      }
+    }
+  }
+
   // "2 CALABRESA E 1 DE FRANGO" SAO TRES PIZZAS.
   //
   // O caso inteiro esta no comentario da guarda quantidadePorSabor: o pedido
@@ -4748,6 +4799,45 @@ async function rodarConversa(
       console.log(
         "[rastro] quantidade por sabor: " + pares.map((x) => x.qtd + " " + x.sabor + (x.existe ? "" : " (nao existe)")).join(" | "),
       );
+      // QUEM ANOTA A PIZZA E O CODIGO.
+      //
+      // A instrucao "sao tres pizzas, uma por sabor" foi dada e ignorada duas
+      // rodadas seguidas: o pedido fechou com UMA pizza de R$ 120,00 e
+      // observacao "calabresa, frango com catupiry", com o cliente tendo pedido
+      // tres. Sao R$ 240,00 que a padaria deixa de faturar e duas pizzas que o
+      // cliente nao recebe na festa dele.
+      //
+      // Instrucao no prompt e pedido. Aqui vira registro: um item por sabor,
+      // com a quantidade dele, so pros sabores que existem no cardapio.
+      {
+        const chaveQ = (x: unknown) =>
+          String(x ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+        const novasPizzas: MontagemAtual["itens"] = [];
+        for (const par of pares.filter((x) => x.existe)) {
+          const jaTem = [...(montagemDoTurno?.itens ?? []), ...novasPizzas].some(
+            (i) => /pizza/.test(chaveQ(i.produto)) && chaveQ(i.obs) === chaveQ(par.sabor),
+          );
+          if (jaTem) continue;
+          estado.montagem.push({ tipo: "item", produto: "pizza inteira", categoria: "pizza", qtd: par.qtd, obs: par.sabor });
+          correcoesDoCodigo.push({ tipo: "item", produto: "pizza inteira", categoria: "pizza", qtd: par.qtd, obs: par.sabor });
+          novasPizzas.push({
+            produto: "pizza inteira",
+            categoria: "pizza",
+            qtd: par.qtd,
+            unidade: unidadeDoProduto("pizza inteira", "pizza"),
+            obs: par.sabor,
+          });
+        }
+        if (novasPizzas.length) {
+          montagemDoTurno = {
+            ...(montagemDoTurno ?? { itens: [], dados: {} }),
+            itens: [...(montagemDoTurno?.itens ?? []), ...novasPizzas],
+          };
+          console.log(
+            "[rastro] pizzas anotadas pelo codigo: " + novasPizzas.map((x) => x.qtd + " " + x.obs).join(" | "),
+          );
+        }
+      }
       messages.push({
         role: "system",
         content:
@@ -4766,9 +4856,10 @@ async function rodarConversa(
           // dito, ela inventa; entao aqui se diz.
           (pares.filter((x) => x.existe).length
             ? String.fromCharCode(10, 10) +
-              "ESTES SABORES EXISTEM NO CARDAPIO DA CASA, conferidos um a um: " +
-              pares.filter((x) => x.existe).map((x) => x.sabor).join(", ") +
-              ". NAO diga que a casa nao tem nenhum deles, NAO ofereca troca e NAO mande o cardapio por causa deles."
+              "ESTES SABORES EXISTEM NO CARDAPIO DA CASA, conferidos um a um, e EU JA ANOTEI cada um deles: " +
+              pares.filter((x) => x.existe).map((x) => x.qtd + " de " + x.sabor).join(", ") +
+              ". NAO anote de novo, NAO diga que a casa nao tem nenhum deles, NAO ofereca troca e NAO mande o " +
+              "cardapio por causa deles. Diga numa frase como ficou."
             : "") +
           (naoExiste.length
             ? String.fromCharCode(10, 10) +
@@ -6175,6 +6266,26 @@ async function rodarConversa(
         }
       } catch (e) {
         console.error("[ia] falha ao completar a mensagem curta:", e);
+      }
+
+      // PEDIDO VAZIO NAO PEDE NOME NEM PAGAMENTO. Caso inteiro no comentario da
+      // guarda: formatura de R$ 1.675,20 orcada e, na mesma frase, "o pedido
+      // fica no nome de quem, como vai pagar e quem retira?", sem um item
+      // anotado.
+      try {
+        const semItens = (montagemDoTurno?.itens ?? []).length === 0 && !estado.pedido;
+        if (semItens) {
+          const antesD = textoFinal;
+          textoFinal = textoSemPedirDadosDeFechamento(textoFinal);
+          if (antesD !== textoFinal) {
+            console.warn("[ia] ela pediu dado de fechamento com o pedido vazio; tirei do texto");
+            // Mensagem sem pergunta nenhuma trava a conversa: quem tem que
+            // perguntar aqui e o codigo, e o que falta e o ITEM.
+            if (!/\?/.test(textoFinal)) textoFinal = (textoFinal + " Pode ser assim?").trim();
+          }
+        }
+      } catch (e) {
+        console.error("[ia] falha na guarda de dados de fechamento:", e);
       }
 
       const mandadasAgora = pecasJaMandadas(historico);

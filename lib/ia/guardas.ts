@@ -443,7 +443,7 @@ export function familiaQueElePediu(falasDoCliente: string[]): "assado" | "frito"
 export function pediuQueVoceEscolha(fala: string): boolean {
   const t = semAcMin(fala);
   if (!t.trim()) return false;
-  return /(voce (escolhe|escolha|decide|monta|que sabe|quem sabe)|escolhe (voce|pra mim|por mim)|(escolh|escolha|decid|monta|separa|manda) *[ae]? *(os|as|uns|umas)? *(tipo|sabor|salgado|docinho|item|iten)|o que (voce|vc) (indica|recomenda|sugere|acha)|pode escolher|fica a seu criterio|do jeito que (voces|vc|voce) (acham|achar|quiser)|me (indica|sugere|recomenda)|(sugere|indica|recomenda|escolhe|monta|manda) (ai|pra mim|para mim|o que)|sortido|variado|misturado|surpresa|sem tempo (de|pra) escolher|nao sei (o que|quais|os tipos)|confio (em voce|no seu|em vcs)|manda o que (for|vier) melhor|(costuma|costumam) (sair|vender|pedir)|(sai|vende|pedem) mais|mais (pedido|vendido|sai)|o que (sai|vende|leva) mais|que (voces|vcs) mais)/.test(
+  return /(voce (escolhe|escolha|decide|monta|que sabe|quem sabe)|escolhe (voce|pra mim|por mim)|(escolh|escolha|decid|monta|separa|manda) *[ae]? *(os|as|uns|umas)? *(tipo|sabor|salgado|docinho|item|iten)|(escolh|decid|mont|faz|faca) *[ae]? *tudo|o que (voce|vc) (indica|recomenda|sugere|acha)|pode escolher|fica a seu criterio|do jeito que (voces|vc|voce) (acham|achar|quiser)|me (indica|sugere|recomenda)|(sugere|indica|recomenda|escolhe|monta|manda) (ai|pra mim|para mim|o que)|sortido|variado|misturado|surpresa|sem tempo (de|pra) escolher|nao sei (o que|quais|os tipos)|confio (em voce|no seu|em vcs)|manda o que (for|vier) melhor|(costuma|costumam) (sair|vender|pedir)|(sai|vende|pedem) mais|mais (pedido|vendido|sai)|o que (sai|vende|leva) mais|que (voces|vcs) mais)/.test(
     t,
   );
 }
@@ -1266,6 +1266,35 @@ export function quantidadePorSabor(
   return achados
     .sort((a, b) => a.onde - b.onde)
     .map(({ qtd, sabor, existe }) => ({ qtd, sabor, existe }));
+}
+
+// PEDIDO VAZIO NAO PEDE NOME NEM PAGAMENTO.
+//
+// Teste ao vivo de 21/08/2026, formatura de 80 pessoas. A primeira resposta
+// trouxe o orcamento de R$ 1.675,20 e ja emendou:
+//
+//   E o pedido fica no nome de quem, como vai pagar e quem retira?
+//
+// Nao havia um item anotado. Pedir dado de fechamento antes de existir pedido
+// e o que faz a pessoa achar que caiu num formulario, e a regra de deixar isso
+// pro fim ja estava escrita no prompt: escrita e ignorada.
+//
+// Devolve o texto sem essas perguntas. Se o corte deixar a frase quebrada,
+// volta o original.
+export function textoSemPedirDadosDeFechamento(texto: string): string {
+  let t = String(texto ?? "");
+  if (!t.trim()) return t;
+  const cortes: RegExp[] = [
+    / *E? ?o pedido fica no nome de quem,? (como vai pagar|como prefere pagar) e quem retira\??/gi,
+    / *E? ?o pedido fica no nome de quem,? e? ?(como|qual) (vai pagar|prefere pagar|a forma de pagamento)\??/gi,
+    / *(Agora )?me (fala|diz|passa) o nome de quem vai retirar e como prefere pagar\??/gi,
+    / *Falta (so |só )?o nome de quem vai retirar e a forma de pagamento[^.?!]*[.?!]/gi,
+    / *E? ?como (voc[êe] )?prefere pagar\??/gi,
+  ];
+  for (const de of cortes) t = t.replace(de, "");
+  t = t.replace(/ +/g, " ").replace(/ ([,.?!])/g, "$1").replace(/,+ *([.?!])/g, "$1").replace(/,+ *$/g, "").trim();
+  if (/^(e|ou|,)( |$)/i.test(t) || / (e|ou|,)$/i.test(t) || !t) return String(texto ?? "");
+  return t;
 }
 
 // O NOME ELE JA DEU. TIRA A PERGUNTA DO TEXTO.

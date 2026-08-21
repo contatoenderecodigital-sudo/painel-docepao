@@ -76,6 +76,25 @@ Só apareceram lendo conversa.
 17. **"do torta especial"** virou "da torta especial": a concordância segue o
     substantivo, que é a primeira palavra do nome.
 
+18. **"2 calabresa e 1 de frango com catupiry" fechou com UMA pizza de
+    R$ 120,00.** São R$ 240,00 que a padaria não fatura e duas pizzas que o
+    cliente não recebe na festa. A instrução "são três pizzas" foi dada e
+    ignorada duas rodadas seguidas, então agora quem anota é o código: um item
+    por sabor, com a quantidade dele.
+
+19. **A formatura de 80 pessoas, R$ 1.675,20, não anotou um item.** A cliente
+    escreveu "pode ser, escolhe tudo voce" e isso não contava como delegação,
+    porque a guarda só conhecia "escolhe você" e "escolhe os tipos".
+
+20. **O bolo da mãe de 60 anos ficava de fora do pedido.** Delegou o sabor, e
+    o bolo é o item mais caro da festa. Agora, quando o cliente delega e há
+    peso conhecido (kg dito ou 100 g por pessoa, que é a conta da casa), o
+    código escolhe o bolo e anota.
+
+21. **Orçamento de R$ 1.675,20 e, na mesma frase, "o pedido fica no nome de
+    quem, como vai pagar e quem retira?"** — sem um item anotado. Pedido vazio
+    não pede dado de fechamento.
+
 ## O que fica travado por teste
 
 `testes/nao-pergunte-o-que-ele-ja-respondeu.cjs` cobra as regras, não os casos:

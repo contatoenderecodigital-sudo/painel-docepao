@@ -38,6 +38,8 @@ const r = {
     "pode ser assim, escolhe os tipos",
     "escolha os sabores",
     "decide os tipos pra mim",
+    "pode ser, escolhe tudo voce",
+    "monta tudo pra mim",
     "pode escolher",
     "me indica",
     "manda o que for melhor",
@@ -175,6 +177,16 @@ if (/SABORES\["esfirra"\]|=== "esfirra"/.test(cerebro)) {
     falhas.push(
       soUltimaFala.length + " guarda(s) de delegacao ainda leem so a ultima fala: " + soUltimaFala.join(", "),
     );
+  }
+  // QUEM ESCOLHE PIZZA E BOLO DELEGADO E O CODIGO, NAO A INSTRUCAO.
+  //
+  // A instrucao "sao tres pizzas" foi dada e ignorada duas rodadas seguidas, e
+  // o pedido fechou com uma pizza de R$ 120,00 tendo o cliente pedido tres.
+  if (!/pizzas anotadas pelo codigo/.test(cerebro)) {
+    falhas.push("o codigo parou de anotar as pizzas por sabor; volta a depender da instrucao");
+  }
+  if (!/bolo escolhido pelo codigo/.test(cerebro)) {
+    falhas.push("o codigo parou de escolher o bolo quando o cliente delega");
   }
   console.log("Guardas de delegacao no cerebro: " + chamadas.length + ", todas lendo a conversa inteira.");
 }
