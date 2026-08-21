@@ -580,6 +580,58 @@ export function naoVaiOlharCardapio(falasDoCliente: string[]): boolean {
 // PALAVRA DELE vence a aritmetica dela.
 //
 // Devolve a data corrigida (dd/mm/aaaa) ou null quando nao ha o que corrigir.
+// O NOME QUE ELE DEU, LIDO PELO CODIGO.
+//
+// Medicao de 22/08/2026, tres cenarios de cinco execucoes cada, TODAS falharam
+// do mesmo jeito:
+//
+//   cliente: as 16h, nome Ana Beatriz Rocha, pix
+//   Dora:    Anotei o nome Ana Beatriz Rocha, dia 10/10 as 16h, e pagamento no
+//            pix. Quer bolo tambem?
+//
+// O cliente entregou item, data, hora, nome e pagamento — tudo — e ela ofereceu
+// bolo em vez de fechar. Os itens estavam certos no banco; o PEDIDO nao existia.
+// O cliente sai achando que encomendou, e ninguem descobre ate o dia.
+//
+// O fechamento forcado (`obrigarFechamento`) ja existe e e bem feito, mas so
+// dispara quando os QUATRO dados estao gravados. Hora tem extrator em codigo
+// (horaQueEleFalou), pagamento tem (pagamentoQueEleFalou), data passou a ter
+// (dataQueEleEscreveu) — NOME nao tinha. Quando ela escreve "Anotei o nome X"
+// no texto sem chamar a ferramenta, o dado nao existe, os quatro nunca ficam
+// completos, e o pedido nunca fecha sozinho.
+//
+// Isto e a quarta perna da mesa. Le so as formas em que o cliente ANUNCIA o
+// nome; nome solto numa frase qualquer nao conta, senao "Ana" de "vou levar pra
+// Ana" viraria o titular do pedido.
+export function nomeQueEleFalou(falasDoCliente: string[]): string | null {
+  const bruto = (falasDoCliente ?? []).join(" | ");
+  // Nome proprio comeca com maiuscula: e o unico sinal confiavel aqui, entao a
+  // busca e no texto ORIGINAL, sem baixar a caixa.
+  const formas = [
+    /\b(?:no |em )?nome (?:de |da |do )?([A-ZÁÂÃÀÉÊÍÓÔÕÚÇ][\wÁÂÃÀÉÊÍÓÔÕÚÇáâãàéêíóôõúç]+(?: [A-ZÁÂÃÀÉÊÍÓÔÕÚÇ][\wÁÂÃÀÉÊÍÓÔÕÚÇáâãàéêíóôõúç]+){0,2})/,
+    /\bmeu nome (?:e|é|eh) ([A-ZÁÂÃÀÉÊÍÓÔÕÚÇ][\wÁÂÃÀÉÊÍÓÔÕÚÇáâãàéêíóôõúç]+(?: [A-ZÁÂÃÀÉÊÍÓÔÕÚÇ][\wÁÂÃÀÉÊÍÓÔÕÚÇáâãàéêíóôõúç]+){0,2})/,
+    /\b(?:sou|aqui (?:e|é|eh)) (?:a |o )?([A-ZÁÂÃÀÉÊÍÓÔÕÚÇ][\wÁÂÃÀÉÊÍÓÔÕÚÇáâãàéêíóôõúç]+(?: [A-ZÁÂÃÀÉÊÍÓÔÕÚÇ][\wÁÂÃÀÉÊÍÓÔÕÚÇáâãàéêíóôõúç]+){0,2})/,
+    /\bpode (?:ser |deixar )?(?:no |em )?nome (?:de |da |do )?([A-ZÁÂÃÀÉÊÍÓÔÕÚÇ][\wÁÂÃÀÉÊÍÓÔÕÚÇáâãàéêíóôõúç]+(?: [A-ZÁÂÃÀÉÊÍÓÔÕÚÇ][\wÁÂÃÀÉÊÍÓÔÕÚÇáâãàéêíóôõúç]+){0,2})/,
+  ];
+  // Palavra que vem depois de "nome" e nao e nome de gente.
+  const NAO_E_NOME = /^(de|da|do|quem|qual|dela|dele|meu|minha|sim|nao|pix|cartao|dinheiro|boleto)$/i;
+  let achado: string | null = null;
+  let ondeUltimo = -1;
+  for (const re of formas) {
+    for (const m of bruto.matchAll(new RegExp(re.source, "g"))) {
+      const onde = m.index ?? -1;
+      const nome = String(m[1] ?? "").trim();
+      if (!nome || NAO_E_NOME.test(nome.split(" ")[0])) continue;
+      // O ULTIMO que ele falou manda: quem corrige o nome escreve de novo.
+      if (onde > ondeUltimo) {
+        ondeUltimo = onde;
+        achado = nome;
+      }
+    }
+  }
+  return achado;
+}
+
 // A DATA QUE ELE ESCREVEU GANHA DA QUE ELA ANOTOU.
 //
 // Medicao de 21/08/2026, conversa real de salgado assado:

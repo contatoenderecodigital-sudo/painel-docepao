@@ -31,6 +31,7 @@ import {
   faltandoNoResumo,
   produtoQueNinguemCitou,
   pagamentoQueEleFalou,
+  nomeQueEleFalou,
   pediuPorEscrito,
   clienteNaoVaiComprar,
   familiaQueElePediu,
@@ -5731,6 +5732,35 @@ async function rodarConversa(
     // Os quatro dados obrigatorios entram na conta aqui: podeFechar so olha
     // item e sabor. Sem isto, forcar a ferramenta empurraria pedido sem hora,
     // que a propria guarda de registro recusa, e a conversa entraria em laco.
+    // O NOME, LIDO PELO CODIGO QUANDO ELA NAO GRAVOU.
+    //
+    // Medicao de 22/08/2026: tres cenarios, cinco execucoes cada, TODAS
+    // falharam do mesmo jeito. O cliente escreveu "as 16h, nome Ana Beatriz
+    // Rocha, pix" e ela respondeu "Anotei o nome Ana Beatriz Rocha, dia 10/10 as
+    // 16h, e pagamento no pix. Quer bolo tambem?" — narrou que anotou, ofereceu
+    // bolo, e NAO chamou a ferramenta. Os itens estavam certos no banco e o
+    // PEDIDO nao existia.
+    //
+    // O fechamento forcado logo abaixo so dispara com os QUATRO dados. Hora,
+    // pagamento e data ja tinham extrator em codigo; nome nao tinha, e era a
+    // perna que faltava na mesa. Sem ela o upsell sempre ganha do fechamento.
+    const nomeJaGravado = String(
+      (montagemDoTurno?.dados as Record<string, unknown> | undefined)?.cliente_nome ?? "",
+    ).trim();
+    if (!nomeJaGravado) {
+      const falasDele = historico
+        .filter((h) => h.role === "user")
+        .map((h) => (typeof h.content === "string" ? h.content : ""))
+        .filter(Boolean);
+      const nomeDito = nomeQueEleFalou(falasDele);
+      if (nomeDito) {
+        console.warn("[rastro] nome nao gravado pela IA, lido do texto do cliente: " + nomeDito);
+        estado.montagem.push({ tipo: "dados", dados: { cliente_nome: nomeDito } });
+        if (montagemDoTurno?.dados) {
+          (montagemDoTurno.dados as Record<string, unknown>).cliente_nome = nomeDito;
+        }
+      }
+    }
     const temOsDados = ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento"].every((k) => {
       const v = (montagemDoTurno?.dados as Record<string, unknown> | undefined)?.[k];
       return !!v && String(v).trim() !== "";
