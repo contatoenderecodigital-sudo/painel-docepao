@@ -5463,6 +5463,24 @@ async function rodarConversa(
       }
 
       // SABOR DITO PELO CLIENTE ENTRA, MESMO QUE ELA SO TENHA PERGUNTADO.
+      //
+      // MAS SO NO ITEM SOBRE O QUAL ELA PERGUNTOU.
+      //
+      // Este e o SEGUNDO caminho que preenche sabor: o primeiro fica dentro do
+      // anotar_item e eu tinha consertado so ele. O rastro do teste ao vivo
+      // mostrou este aqui continuando a vazar, com o mesmo estrago:
+      //
+      //   [ia] sabor carne estava na fala; completando empadinha no fim do turno
+      //   [ia] sabor carne estava na fala; completando pastel assado no fim do turno
+      //   [ia] sabor carne estava na fala; completando croissant no fim do turno
+      //
+      // A cliente tinha respondido "carne" a uma pergunta sobre a ESFIRRA. Dos
+      // 21 produtos com sabor do cardapio, 13 sabores aparecem em mais de um, e
+      // frango aparece em onze: uma palavra contaminava o pedido inteiro.
+      //
+      // Ja e a terceira vez neste projeto que dois caminhos fazem a mesma coisa
+      // e eu conserto um so. A regra agora e a mesma nos dois, e mora em
+      // guardas.ts com a varredura dos 21 produtos.
       try {
         // O pedido como ficou depois deste turno.
         for (const it of montagemDoTurno?.itens ?? []) {
@@ -5470,6 +5488,13 @@ async function rodarConversa(
           if (!ops.length) continue;
           const obsAtual = String(it.obs ?? "");
           if (ops.some((o) => pareceSabor(obsAtual, o))) continue;
+          // A resposta pertence a pergunta que foi feita. O texto da ultima
+          // mensagem dela e lido aqui de proposito: mais acima existe um
+          // ultimaDela que e o objeto da mensagem, nao o texto, e passar ele
+          // faria a checagem comparar com "[object Object]" e nunca casar.
+          const perguntaDela =
+            [...historico].reverse().find((h) => h.role === "assistant" && typeof h.content === "string")?.content ?? "";
+          if (!elaPerguntouDesteItem(String(it.produto), perguntaDela)) continue;
           // As palavras que ELE escreveu neste turno, uma a uma.
           const palavras = String(falaDoCliente2 ?? "").split(/[^a-zA-Zà-úÀ-Ú0-9]+/).filter((w) => w.length > 2);
           const achou = ops.find((o) => palavras.some((w) => pareceSabor(w, o)));
