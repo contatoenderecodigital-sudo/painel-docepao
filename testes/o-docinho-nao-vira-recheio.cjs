@@ -24,7 +24,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const raiz = path.join(__dirname, "..");
-const { dataDeRetiradaNoPassado } = require("./_guardas.cjs")();
+const { dataDeRetiradaNoPassado, textoComCumprimento, aceitouAOferta } = require("./_guardas.cjs")();
 
 const falhas = [];
 
@@ -65,6 +65,44 @@ if (/const ditos = SABORES_DE_BOLO\.filter\(\(sab\) => new RegExp\(sab, "i"\)\.t
 }
 if (!/temQuantidadePropria/.test(cerebro)) {
   falhas.push("o teste da quantidade propria sumiu");
+}
+
+// ------------------------------------------------ quem da bom dia recebe bom dia
+// As duas primeiras mensagens da padaria sairam secas nas conversas reais:
+//   cliente: Bom dia, tudo bem?   ->   Dora: O que voce precisa por aqui?
+{
+  const manha = new Date(2026, 7, 23, 9, 0);
+  const tarde = new Date(2026, 7, 23, 14, 0);
+  const casosC = [
+    ["O que você precisa hoje?", "bom dia", manha, "Bom dia"],
+    ["O que você precisa por aqui?", "Bom dia, tudo bem?", tarde, "Boa tarde"],
+  ];
+  for (const [texto, dele, quando, esperado] of casosC) {
+    const saiu = textoComCumprimento(texto, dele, quando);
+    if (!saiu.startsWith(esperado)) falhas.push("nao devolveu o cumprimento: " + saiu);
+  }
+  // Quem ja cumprimentou nao cumprimenta duas vezes.
+  const jaTem = textoComCumprimento("Boa tarde, tudo bem?", "bom dia", tarde);
+  if (jaTem !== "Boa tarde, tudo bem?") falhas.push("cumprimentou duas vezes: " + jaTem);
+  // Quem nao cumprimentou nao recebe cumprimento no meio do pedido.
+  const semCump = textoComCumprimento("Qual o sabor do bolo?", "quero um bolo", tarde);
+  if (semCump !== "Qual o sabor do bolo?") falhas.push("cumprimentou sem ele ter cumprimentado");
+}
+
+// ------------------------------------------- "pode ser" na base e um pedido
+// Conversa real do Sandro: base de R$ 418,80 aceita com "Pode ser, vou querer
+// bolo tambem dai" e NADA anotado.
+{
+  if (!aceitouAOferta("Pode ser, vou querer bolo tambem dai")) {
+    falhas.push("o aceite da base deixou de ser reconhecido");
+  }
+  if (aceitouAOferta("pode ser mas tira a coxinha")) {
+    falhas.push("aceite com ressalva virou aceite limpo");
+  }
+  const cerebroA = fs.readFileSync(path.join(raiz, "lib/ia/cerebro.ts"), "utf8");
+  if (!/ele aceitou a base da festa; o codigo monta/.test(cerebroA)) {
+    falhas.push("aceitar a base voltou a nao montar o pedido");
+  }
 }
 
 console.log("Datas conferidas: " + casos.length);

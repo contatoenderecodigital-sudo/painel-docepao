@@ -1338,6 +1338,37 @@ export function pecasDoBoloQueEleAceitou(fala: string): { topo: boolean; papel: 
   };
 }
 
+// QUEM DA BOM DIA RECEBE BOM DIA.
+//
+// Conversas reais de 22/08/2026, as duas primeiras mensagens da padaria:
+//
+//   cliente: Bom dia, tudo bem?
+//   Dora:    O que voce precisa por aqui?
+//
+//   cliente: bom dia
+//   Dora:    O que voce precisa hoje?
+//
+// E a primeira impressao da padaria, e sai seca. A regra de devolver o
+// cumprimento esta escrita no prompt desde sempre e foi ignorada nas duas.
+// Instrucao e pedido; isto aqui e garantia.
+//
+// O cumprimento segue o RELOGIO, nao a palavra do cliente: quem manda "bom
+// dia" as duas da tarde recebe "boa tarde", que e o certo.
+export function textoComCumprimento(texto: string, falaDoCliente: string, agora: Date): string {
+  const t = String(texto ?? "");
+  const dele = semAcMin(falaDoCliente);
+  if (!t.trim() || !dele.trim()) return t;
+  // Ele cumprimentou?
+  if (!/(^|[^a-z])(bom dia|boa tarde|boa noite|ola|oi|opa|e ai|tudo bem|tudo bom)([^a-z]|$)/.test(dele)) return t;
+  // Ela ja cumprimentou? Olha so o comeco: "boa tarde" no meio de uma frase
+  // sobre horario de retirada nao e cumprimento.
+  const comeco = semAcMin(t).slice(0, 40);
+  if (/(bom dia|boa tarde|boa noite|ola|^oi|opa|tudo bem|tudo bom|que legal|que bom)/.test(comeco)) return t;
+  const h = agora.getHours();
+  const saudacao = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+  return saudacao + "! " + t.trim();
+}
+
 // RETIRADA NAO ACONTECE NO PASSADO.
 //
 // Conversa real de 22/08/2026 (um sabado). A cliente escreveu "dia 02, 20

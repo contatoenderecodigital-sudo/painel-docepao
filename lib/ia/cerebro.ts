@@ -50,6 +50,7 @@ import {
   obsSemONomeDeQuemRetira,
   obsSemRepeticao,
   dataDeRetiradaNoPassado,
+  textoComCumprimento,
   restricoesQueACasaNaoFaz,
   obsSemRestricaoInventada,
   temaViroouSabor,
@@ -4628,7 +4629,33 @@ async function rodarConversa(
   //
   // A conta e do codigo: a soma das partes bate com o total, sempre. Ela so
   // OFERECE o que ja veio pronto.
-  if (pediuQueVoceEscolha(String(ultimaFalaDoCliente))) {
+  // "PODE SER" NA BASE DA FESTA E UM PEDIDO, NAO UMA CONVERSA.
+  //
+  // Conversa real do Sandro, 22/08/2026:
+  //
+  //   Dora:    Pra 20 pessoas, uma base boa e 200 salgados no total, 100
+  //            docinhos e 2 kg de bolo. Da R$ 418,80 no total.
+  //   cliente: Pode ser, vou querer bolo tambem dai
+  //   Dora:    Agora me diz: o pedido fica no nome de quem, que horas...
+  //
+  // Nada foi anotado. O pedido ficou vazio depois de um aceite de R$ 418,80, e
+  // ela ainda perguntou "e sobre os salgados, vai querer tambem?" — os mesmos
+  // salgados da base que ele acabara de aceitar.
+  //
+  // A guarda de aceite existia e so entendia oferta de PRODUTO ("40 esfirra").
+  // A base do orcamento fala em CATEGORIA ("200 salgados"), entao o aceite nao
+  // achava nada pra anotar e passava batido.
+  //
+  // Aceitar a base e o mesmo que mandar montar: o codigo ja sabe fazer isso
+  // logo abaixo, com a conta fechada. So faltava ser chamado.
+  const aceitouABase = (() => {
+    if (!aceitouAOferta(String(ultimaFalaDoCliente))) return false;
+    const dela = String(ultimaDelaAqui).toLowerCase();
+    // A base tem numero por familia. Sem numero nao ha o que montar.
+    return /[0-9]+ *(salgado|docinho|doce)/.test(dela) || /[0-9]+ *(kg|quilos?) de bolo/.test(dela);
+  })();
+  if (aceitouABase) console.log("[rastro] ele aceitou a base da festa; o codigo monta");
+  if (pediuQueVoceEscolha(String(ultimaFalaDoCliente)) || aceitouABase) {
     // A FAMILIA SAI DA BOCA DELE, NAO DA DELA.
     //
     // Teste ao vivo de 21/08/2026. A cliente queria SO bolo pra mae de 60 anos.
@@ -6686,6 +6713,18 @@ async function rodarConversa(
         if (antesR !== textoFinal) console.warn("[ia] ela repetiu uma pergunta ja feita; tirei do texto");
       } catch (e) {
         console.error("[ia] falha na guarda de pergunta repetida:", e);
+      }
+
+      // QUEM DA BOM DIA RECEBE BOM DIA. Caso real no comentario da guarda: as
+      // duas primeiras mensagens da padaria sairam secas, e e a primeira
+      // impressao que o cliente tem.
+      try {
+        const agoraC = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+        const antesC = textoFinal;
+        textoFinal = textoComCumprimento(textoFinal, String(ultimaFalaDoCliente), agoraC);
+        if (antesC !== textoFinal) console.warn("[ia] ele cumprimentou e ela nao devolveu; devolvi");
+      } catch (e) {
+        console.error("[ia] falha na guarda de cumprimento:", e);
       }
 
       const mandadasAgora = pecasJaMandadas(historico);
