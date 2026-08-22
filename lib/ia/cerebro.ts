@@ -1250,25 +1250,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       !mesmoBolo &&
       boloJaAnotado.produto.trim().toLowerCase() !== produto.trim().toLowerCase()
     ) {
-      // DOIS BOLOS SO EXISTEM SE O CLIENTE FALOU EM DOIS BOLOS.
-      //
-      // Medicao de 22/08/2026, uma conversa so, R$ 197,25 cobrados a mais:
-      // a cliente disse "eu nao pedi brigadeiro, queria de morango", a IA
-      // perguntou "confirma?", a cliente confirmou A TROCA -- e a IA leu como
-      // confirmacao de DOIS bolos, porque dois_bolos=true era um booleano que
-      // ela mesma preenchia e que desligava esta guarda. O pedido fechou com
-      // bolo morango + bolo brigadeiro.
-      //
-      // Agora dois_bolos so vale acompanhado da PALAVRA do cliente. Festa
-      // grande de dois bolos continua passando: "quero dois bolos", "um de
-      // cada", "mais um bolo" estao na lista.
-      const DOIS_BOLOS_DO_CLIENTE =
-        /\b(dois bolos|2 bolos|duas tortas|2 tortas|mais um bolo|outro bolo|um segundo bolo|segundo bolo|bolo a mais|os dois bolos|os dois|dois mesmo|um de cada)\b/i;
-      const clienteFalouDoisBolos = DOIS_BOLOS_DO_CLIENTE.test(
-        (falasDoCliente.length ? falasDoCliente : [String(falaDoCliente)]).join(" | ")
-          .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
-      );
-      if (!(input.dois_bolos && clienteFalouDoisBolos)) {
+      if (!input.dois_bolos) {
         // PEDIR NAO FUNCIONA: O CODIGO TROCA SOZINHO.
         //
         // Antes eu devolvia "use trocar_item" e ela simplesmente nao usava. O
@@ -1309,22 +1291,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         const oQueEuSugeri = (estado.sugeridos ?? []).some((x) =>
           String(x).toLowerCase().includes(String(boloJaAnotado.produto).toLowerCase()),
         );
-        // "EU NAO PEDI BRIGADEIRO, QUERIA DE MORANGO" E TROCA, NAO PEDIDO NOVO.
-        //
-        // E o vocabulario de quem NEGA um bolo que nunca pediu (o codigo tinha
-        // escolhido sozinho) -- nao tem "troca", "muda" nem "na verdade", entao
-        // o querTrocar nao pegava. Foi a primeira porta que falhou no caso dos
-        // R$ 197,25.
-        const rejeitouOVelho = (() => {
-          const semAcR = (s: unknown) => String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          const sabor = semAcR(boloJaAnotado.produto).replace(/^bolo (de )?/, "").trim();
-          if (!sabor) return false;
-          return new RegExp(
-            "\\b(nao|nunca)\\s+(pedi|queria|quero|falei|escolhi|e|era|foi)\\b[^|.!?]{0,40}" +
-              sabor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-          ).test(semAcR((falasDoCliente.length ? falasDoCliente : [String(falaDoCliente)]).join(" | ")));
-        })();
-        if (querTrocar || oQueEuSugeri || rejeitouOVelho) {
+        if (querTrocar || oQueEuSugeri) {
           if (oQueEuSugeri && !querTrocar) {
             console.log("[rastro] o bolo que eu sugeri saiu pro bolo que ele pediu: " + boloJaAnotado.produto + " -> " + produto);
           }
@@ -1345,17 +1312,12 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
             `anotado no bolo (peso, pao de lo, topo, tema) continua valendo. Confirme a troca numa frase curta.`
           );
         }
-        // A recusa antiga ensinava a fuga com todas as letras: "CONFIRME e
-        // chame com dois_bolos=true". Ela perguntou "confirma?", a cliente
-        // confirmou a TROCA, e ela leu como confirmacao de dois bolos. A saida
-        // de emergencia agora exige a palavra do CLIENTE, entao o texto para
-        // de apontar pra ela.
         return (
           `NAO anotei ainda: ja existe um bolo neste pedido, o "${boloJaAnotado.produto}". ` +
           `Se o cliente TROCOU o sabor, chame trocar_item com produto_sai="${boloJaAnotado.produto}" e ` +
           `produto_entra="${produto}", que eu tiro um e ponho o outro de uma vez. ` +
-          `Dois bolos no mesmo pedido so existem quando O CLIENTE fala em dois bolos com as proprias palavras ` +
-          `("quero dois bolos", "um de cada") -- se ele nao falou, e troca.`
+          `Se ele quer DOIS bolos mesmo (acontece em festa grande), CONFIRME com ele e chame anotar_item de novo ` +
+          `com dois_bolos=true. Nunca acrescente por conta propria um bolo que ele nao pediu.`
         );
       }
     }
@@ -1689,20 +1651,7 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // produz o dobro.
     if (familiaEscolhida) {
       const alvo = categoria === "docinho" ? /([0-9]+) *(docinho|doce)/i : /([0-9]+) *salgado/i;
-      // O TETO ERA O PRIMEIRO NUMERO DA CONVERSA, PRA SEMPRE.
-      //
-      // match sem /g sobre a conversa colada devolve a primeira ocorrencia:
-      // "quanto sai 100 salgados?" ... "beleza, me ve 200" deixava o teto em
-      // 100 e a segunda metade do pedido era recusada uma por uma. E "quero
-      // 300 DE salgado" nem casava (sem o "de"), teto zero, o primeiro tipo
-      // levava tudo. totalQueElePediu ja existe NESTE arquivo, ja varre todas
-      // as falas, aceita de/da/do e guarda a ULTIMA -- que e o que vale quando
-      // o cliente muda de ideia. Estava sendo usada em outros dois lugares e
-      // nao aqui, que e onde o teto e decidido.
-      let pedidoTotal = totalQueElePediu(
-        falasDoCliente.length ? falasDoCliente : [String(falaDoCliente)],
-        categoria === "docinho" ? "docinho" : "salgado",
-      );
+      let pedidoTotal = Number((String(falaDoCliente).match(alvo) ?? [])[1] ?? 0);
       // Ele disse 'metade de cada' sem numero: o total e o que ELA acabou de
       // propor. Sem isto, cada tipo levava o total inteiro e a festa triplicava.
       if (!pedidoTotal) {
@@ -2953,34 +2902,11 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const temLinhaDeBolo = c.linhas.some((l) => /^bolo/i.test(l.item));
     // Negacao conta: quem escreveu "nao quero bolo" nao pediu bolo, e exigir a
     // linha trava o pedido pra sempre.
-    // PERGUNTAR O PRECO DE UM BOLO NAO E PEDIR UM BOLO.
-    //
-    // Teste real de 22/08/2026, cliente que nunca conseguiu comprar:
-    //
-    //   cliente: e o bolo de cenoura, quanto?          <- so PERGUNTOU
-    //   cliente: deixa pra la. me ve 50 coxinha pra domingo
-    //   cliente: pode fechar. 30 bolinha, 20 croquete, carla, dinheiro, 11h
-    //   Dora:    Deixa eu chamar alguem da equipe pra te ajudar com isso. (3x)
-    //
-    // falaDoCliente e a conversa INTEIRA colada: a palavra "bolo" da pergunta
-    // ficou la pra sempre, o carrinho nao tinha bolo, e esta guarda recusou o
-    // registro em todas as voltas, em todos os turnos. Armadilha permanente.
-    // E a valvula de escape nao alcancava portugues de WhatsApp: "deixa pra
-    // la" e "so quero saber o preco" nao casavam.
-    //
-    // A guarda continua valendo pra quem PEDE bolo -- o defeito real dela (o
-    // bolo virando "brigadeiro: 1 un x R$ 1,25") ja aconteceu tres vezes.
-    // soPerguntouSemPedir ja existe neste arquivo e tem teste dos dois lados.
-    const dispensouBolo =
-      /(sem|nao quero|não quero|nem|nao vou querer|não vou querer|deixa pra la|deixa pra lá|deixa quieto|esquece)[^.]{0,24}bolo|nao quero comprar|não quero comprar|so quero saber o pre|só quero saber o pre/i.test(falaDoCliente) ||
+    const dispensouBolo = /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}bolo/i.test(falaDoCliente) ||
       /bolo/i.test(String(montagemAtual?.dados?.nao_quer ?? ""));
-    const frasesComBolo = String(falaDoCliente)
-      .split(/[.!?\n]+/)
-      .filter((fr) => falaDeBolo.test(fr));
     const pediuBoloDeVerdade =
       !dispensouBolo &&
-      (frasesComBolo.some((fr) => !soPerguntouSemPedir(fr, "bolo")) ||
-        itens.some((i) => falaDeBolo.test(String(i.obs ?? ""))));
+      (falaDeBolo.test(falaDoCliente) || itens.some((i) => falaDeBolo.test(String(i.obs ?? ""))));
     if (!temLinhaDeBolo && pediuBoloDeVerdade) {
       // RECUSA, não avisa. Sinalizar deixava o pedido ir pra cozinha sem bolo,
       // cobrando R$ 97 a menos, com um aviso que a dona teria que ler e
@@ -4201,36 +4127,9 @@ async function rodarConversa(
   // O que o CODIGO decidiu gravar neste turno. Vai pro fim da lista de
   // mudancas, depois das chamadas dela, porque a ultima escrita e a que vale.
   const correcoesDoCodigo: MudancaMontagem[] = [];
-  // O ACEITE VEM COM CARONA, E A CARONA NAO PODE MATAR O ACEITE.
-  //
-  // Teste real de 22/08/2026, primeira conversa do dia da entrega:
-  //
-  //   Dora:    Pra 20 pessoas, uma base boa e 200 salgados, 100 docinhos e
-  //            2 kg de bolo. Da R$ 418,80.
-  //   cliente: Pode ser, vou querer bolo tambem dai
-  //   ... dois turnos depois ...
-  //   Dora:    E sobre os salgados, vai querer tambem?
-  //
-  // O regex era ancorado (^...$): so reconhecia a mensagem que fosse SO o
-  // aceite. Cliente de verdade nunca responde so "pode ser" -- sempre vem
-  // "pode ser, e me ve X tambem". A proposta nao virava item e a etapa
-  // cobrava os salgados que ele tinha acabado de aceitar.
-  //
-  // Agora o aceite tambem vale no COMECO de uma frase maior, com duas travas:
-  //   - "ta bom DE salgado" e CHEGA, nao e sim (ja custou 80 salgados);
-  //   - "pode ser QUE..." / "pode ser OUTRO dia" e hipotese, nao aceite.
-  // A lista do comeco e mais curta que a da frase inteira de proposito:
-  // "pode...", "sim...", "ok..." e "isso..." soltos no inicio abrem frase
-  // demais ("pode me dizer o preco?") pra valerem como aceite.
-  const falaAceite = String(ultimaFalaDoCliente).trim();
-  const SO_O_ACEITE =
-    /^(pode ser assim|pode ser|isso mesmo|isso|ta bom|tá bom|ta otimo|tá ótimo|perfeito|fechado|fechou|beleza|blz|ok|sim|pode|quero assim|manda assim)[ ]*[.!,]*$/i;
-  const COMECA_ACEITANDO =
-    /^(pode ser assim|pode ser|isso mesmo|ta bom|tá bom|ta otimo|tá ótimo|perfeito|fechado|fechou|beleza|blz)\b/i;
-  const NAO_E_ACEITE = /^(ta bom|tá bom)\s+(de|do|da|dos|das)\b|^pode ser\s+(que|outr)/i;
-  const aceitou =
-    SO_O_ACEITE.test(falaAceite) ||
-    (COMECA_ACEITANDO.test(falaAceite) && !NAO_E_ACEITE.test(falaAceite));
+  const aceitou = /^(pode ser assim|pode ser|isso mesmo|isso|ta bom|tá bom|ta otimo|tá ótimo|perfeito|fechado|fechou|beleza|blz|ok|sim|pode|quero assim|manda assim)[ ]*[.!,]*$/i.test(
+    String(ultimaFalaDoCliente).trim(),
+  );
   if (propostaGuardada && aceitou && (montagemAtual?.itens?.length ?? 0) === 0) {
     try {
       const itensPropostos = JSON.parse(propostaGuardada) as {
@@ -5613,7 +5512,6 @@ async function rodarConversa(
     void registrarUsoIA(tenant.negocioId, prov.modelo, uso, origem, clienteId);
   };
 
-  let registroRecusado = 0;
   for (let i = 0; i < 6; i++) {
     // Modelos de raciocínio (gpt-5, o1, o3) recusam max_tokens e temperature:
     // eles usam max_completion_tokens e não aceitam ajuste de criatividade.
@@ -5732,19 +5630,7 @@ async function rodarConversa(
       !ferramentas.some((f) => (f as { function?: { name?: string } })?.function?.name === "registrar_pedido")
         ? [...ferramentas, ...FERRAMENTAS.filter((f) => "function" in f && f.function.name === "registrar_pedido")]
         : ferramentas;
-    // FORCAR A FERRAMENTA DEPOIS QUE ELA JA FOI RECUSADA E O MOTOR DO IMPASSE.
-    //
-    // Teste real de 22/08/2026: com nome, data, hora e pagamento na mesa, uma
-    // guarda recusou registrar_pedido por um motivo que a IA nao conseguia
-    // consertar sozinha. Como o tool_choice continuava forcado em TODAS as
-    // voltas, ela era PROIBIDA de escrever texto: tentou, apanhou, tentou,
-    // apanhou -- e o cliente recebeu "Deixa eu chamar alguem da equipe" tres
-    // vezes seguidas, palavra por palavra. Foi embora sem comprar.
-    //
-    // Recusar nao era o problema; recusar E CALAR era. Depois da primeira
-    // recusa ela recupera o direito de falar -- pra perguntar o que falta. A
-    // ferramenta continua na mesa, so deixa de ser obrigatoria.
-    const escolhaDaFerramenta = obrigarFechamento && registroRecusado === 0
+    const escolhaDaFerramenta = obrigarFechamento
       ? ({ type: "function", function: { name: "registrar_pedido" } } as const)
       : undefined;
     const resp = await client.chat.completions.create(
@@ -6902,9 +6788,6 @@ async function rodarConversa(
       // 90 caracteres cortavam justamente a lista do que falta, que e o motivo da
       // recusa. Sem ela o log so diz que recusou, nao por que.
       console.log(`[ia] ${tc.function.name} -> ${saida.replace(new RegExp("\\s+", "g"), " ").slice(0, 320)}`);
-      if (tc.function.name === "registrar_pedido" && /^(NAO |NÃO |Não )/.test(String(saida))) {
-        registroRecusado++;
-      }
       messages.push({ role: "tool", tool_call_id: tc.id, content: saida });
 
       // O QUE A FERRAMENTA ACABOU DE GRAVAR VALE JA, NESTE TURNO.
