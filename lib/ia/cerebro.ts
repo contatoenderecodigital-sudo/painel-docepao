@@ -5577,6 +5577,7 @@ async function rodarConversa(
     void registrarUsoIA(tenant.negocioId, prov.modelo, uso, origem, clienteId);
   };
 
+  let registroRecusado = 0;
   for (let i = 0; i < 6; i++) {
     // Modelos de raciocínio (gpt-5, o1, o3) recusam max_tokens e temperature:
     // eles usam max_completion_tokens e não aceitam ajuste de criatividade.
@@ -5695,7 +5696,19 @@ async function rodarConversa(
       !ferramentas.some((f) => (f as { function?: { name?: string } })?.function?.name === "registrar_pedido")
         ? [...ferramentas, ...FERRAMENTAS.filter((f) => "function" in f && f.function.name === "registrar_pedido")]
         : ferramentas;
-    const escolhaDaFerramenta = obrigarFechamento
+    // FORCAR A FERRAMENTA DEPOIS QUE ELA JA FOI RECUSADA E O MOTOR DO IMPASSE.
+    //
+    // Teste real de 22/08/2026: com nome, data, hora e pagamento na mesa, uma
+    // guarda recusou registrar_pedido por um motivo que a IA nao conseguia
+    // consertar sozinha. Como o tool_choice continuava forcado em TODAS as
+    // voltas, ela era PROIBIDA de escrever texto: tentou, apanhou, tentou,
+    // apanhou -- e o cliente recebeu "Deixa eu chamar alguem da equipe" tres
+    // vezes seguidas, palavra por palavra. Foi embora sem comprar.
+    //
+    // Recusar nao era o problema; recusar E CALAR era. Depois da primeira
+    // recusa ela recupera o direito de falar -- pra perguntar o que falta. A
+    // ferramenta continua na mesa, so deixa de ser obrigatoria.
+    const escolhaDaFerramenta = obrigarFechamento && registroRecusado === 0
       ? ({ type: "function", function: { name: "registrar_pedido" } } as const)
       : undefined;
     const resp = await client.chat.completions.create(
@@ -6853,6 +6866,9 @@ async function rodarConversa(
       // 90 caracteres cortavam justamente a lista do que falta, que e o motivo da
       // recusa. Sem ela o log so diz que recusou, nao por que.
       console.log(`[ia] ${tc.function.name} -> ${saida.replace(new RegExp("\\s+", "g"), " ").slice(0, 320)}`);
+      if (tc.function.name === "registrar_pedido" && /^(NAO |NÃO |Não )/.test(String(saida))) {
+        registroRecusado++;
+      }
       messages.push({ role: "tool", tool_call_id: tc.id, content: saida });
 
       // O QUE A FERRAMENTA ACABOU DE GRAVAR VALE JA, NESTE TURNO.
