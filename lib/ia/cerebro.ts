@@ -7555,9 +7555,24 @@ async function rodarConversa(
           textoFinal = textoSemPedirDadosDeFechamento(textoFinal);
           if (antesD !== textoFinal) {
             console.warn("[ia] ela pediu dado de fechamento com o pedido vazio; tirei do texto");
-            // Mensagem sem pergunta nenhuma trava a conversa: quem tem que
-            // perguntar aqui e o codigo, e o que falta e o ITEM.
-            if (!/\?/.test(textoFinal)) textoFinal = (textoFinal + " Pode ser assim?").trim();
+            // "PODE SER ASSIM?" SEM TER PROPOSTO NADA NAO QUER DIZER NADA.
+            //
+            // Teste do dono no WhatsApp, 22/08/2026 08:23:
+            //
+            //   ele:  12/09
+            //   Dora: Ta anotado pra retirar dia 12/09/2026. Pode ser assim?
+            //
+            // Assim como? Ele deu uma data, ela repetiu a data, e perguntou se
+            // "pode ser assim". Nao ha proposta nenhuma na mesa -- o pedido
+            // esta vazio, que e justamente a condicao pra este bloco rodar.
+            //
+            // A intencao era certa: mensagem sem pergunta trava a conversa. Mas
+            // a pergunta tem que ser sobre o que FALTA, e o que falta aqui e o
+            // ITEM -- ele ainda nao escolheu nada. "Pode ser assim?" so faz
+            // sentido depois de uma sugestao.
+            if (!/\?/.test(textoFinal)) {
+              textoFinal = (textoFinal + " O que você vai querer pra essa data?").trim();
+            }
           }
         }
       } catch (e) {
@@ -7726,6 +7741,90 @@ async function rodarConversa(
               "no dia da retirada, com a festa montada.",
           });
           continue;
+        }
+      }
+
+      // A MESMA FRASE DUAS MENSAGENS SEGUIDAS.
+      //
+      // Teste do dono no WhatsApp, 22/08/2026:
+      //
+      //   ele:  12/09
+      //   Dora: Ta anotado pra retirar dia 12/09/2026. ...
+      //   ele:  Sim
+      //   Dora: Ta anotado pra retirar dia 12/09/2026. Voce vai querer
+      //         salgados tambem pra essa festa?
+      //
+      // Frase identica, duas mensagens seguidas. Existe um detector de resposta
+      // repetida, mas ele compara a MENSAGEM INTEIRA -- e aqui so a primeira
+      // frase repetiu, com uma pergunta nova colada atras. Passou batido.
+      //
+      // Repetir o que acabou de ser dito e o tique que mais faz o cliente
+      // achar que esta falando com uma gravacao. O recibo fica de fora: la a
+      // repeticao e proposital.
+      {
+        const t = String(semLista.texto ?? "");
+        const anterior = String(
+          [...historico].reverse().find((h) => h.role === "assistant" && typeof h.content === "string")?.content ?? "",
+        );
+        if (t && anterior && !/\*Pedido recebido\*|\*Total:/i.test(t)) {
+          const normal = (s: string) =>
+            s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+          const jaDitas = new Set(
+            anterior.split(/(?<=[.!?\n])\s*/).map(normal).filter((x) => x.split(" ").length >= 4),
+          );
+          const frases = t.split(/(?<=[.!?\n])\s*/).filter((x) => x.trim());
+          const ficam = frases.filter((f) => !jaDitas.has(normal(f)));
+          // So corta se sobrar mensagem de pe -- e com pergunta, se havia uma.
+          const sobrou = ficam.join(" ").replace(/ +/g, " ").trim();
+          const perdeuAPergunta = /\?/.test(t) && !/\?/.test(sobrou);
+          if (ficam.length && ficam.length < frases.length && sobrou.length >= 15 && !perdeuAPergunta) {
+            console.warn("[ia] ela repetiu frase da mensagem anterior; cortada: " +
+              frases.filter((f) => jaDitas.has(normal(f))).join(" ").slice(0, 120));
+            semLista.texto = sobrou;
+          }
+        }
+      }
+
+      // PEDIU AS OPCOES E NAO RECEBEU NADA.
+      //
+      // Teste do dono no WhatsApp de verdade, 22/08/2026 08:27:
+      //
+      //   Dora: Voce vai querer salgados fritos, assados, ou um sortido?
+      //   ele:  Que opcoes tem
+      //   Dora: Voce vai querer docinho, bolo, pizza, torta ou empadao?
+      //
+      // Ele pediu as opcoes -- que e literalmente a hora de mandar o cardapio --
+      // e ela pulou pra outra familia. Na conversa inteira, seis turnos, ela
+      // NAO MANDOU UM CARDAPIO SEQUER. Ficou marchando numa lista de perguntas
+      // colhendo "sim".
+      //
+      // A causa e estrutural: `estado.cardapios` so e preenchido dentro da
+      // ferramenta `enviar_cardapio` (cerebro:2904). Se ela nao chamar a
+      // ferramenta, nenhuma peca sai e o codigo nao tem como consertar -- nem
+      // percebe. Toda a conversa depende de ela lembrar de chamar.
+      //
+      // Aqui o codigo passa a mandar quando o cliente pede e ela esquece. A
+      // peca e a da ETAPA (a familia que falta escolher), e passa pelo mesmo
+      // filtro de sempre: o que ele dispensou continua nao indo.
+      {
+        const PEDIU_OPCOES =
+          /\b(que|quais)\s+(as\s+)?(op[çc][õo]es|tipos|sabores|op[çc]ao)|\bque op[çc][õo]es\b|\bquais\s+(voc[êe]s\s+)?(tem|t[êe]m)\b|\bo que (voc[êe]s )?(tem|t[êe]m)\b|\bme (manda|mostra|passa)\b[^?]{0,20}card[áa]pio|\bcard[áa]pio\b/i;
+        if (PEDIU_OPCOES.test(String(ultimaFalaDoCliente ?? "")) && estado.cardapios.length === 0) {
+          const daEtapa = pecaDaEtapa(
+            montagemDoTurno?.itens ?? [],
+            String(montagemDoTurno?.dados?.nao_quer ?? ""),
+          );
+          const podem = pecasPermitidas(
+            daEtapa ? [daEtapa] : [],
+            String(ultimaFalaDoCliente ?? ""),
+            String(montagemDoTurno?.dados?.nao_quer ?? ""),
+            montagemDoTurno?.itens ?? [],
+            historico.filter((h) => h.role === "user" && typeof h.content === "string").map((h) => String(h.content)),
+          );
+          if (daEtapa && podem.includes(daEtapa)) {
+            console.warn("[ia] ele pediu as opcoes e ela nao mandou peca nenhuma; o codigo mandou: " + daEtapa);
+            estado.cardapios.push(daEtapa);
+          }
         }
       }
 
