@@ -4127,9 +4127,36 @@ async function rodarConversa(
   // O que o CODIGO decidiu gravar neste turno. Vai pro fim da lista de
   // mudancas, depois das chamadas dela, porque a ultima escrita e a que vale.
   const correcoesDoCodigo: MudancaMontagem[] = [];
-  const aceitou = /^(pode ser assim|pode ser|isso mesmo|isso|ta bom|tá bom|ta otimo|tá ótimo|perfeito|fechado|fechou|beleza|blz|ok|sim|pode|quero assim|manda assim)[ ]*[.!,]*$/i.test(
-    String(ultimaFalaDoCliente).trim(),
-  );
+  // O ACEITE VEM COM CARONA, E A CARONA NAO PODE MATAR O ACEITE.
+  //
+  // Teste real de 22/08/2026, primeira conversa do dia da entrega:
+  //
+  //   Dora:    Pra 20 pessoas, uma base boa e 200 salgados, 100 docinhos e
+  //            2 kg de bolo. Da R$ 418,80.
+  //   cliente: Pode ser, vou querer bolo tambem dai
+  //   ... dois turnos depois ...
+  //   Dora:    E sobre os salgados, vai querer tambem?
+  //
+  // O regex era ancorado (^...$): so reconhecia a mensagem que fosse SO o
+  // aceite. Cliente de verdade nunca responde so "pode ser" -- sempre vem
+  // "pode ser, e me ve X tambem". A proposta nao virava item e a etapa
+  // cobrava os salgados que ele tinha acabado de aceitar.
+  //
+  // Agora o aceite tambem vale no COMECO de uma frase maior, com duas travas:
+  //   - "ta bom DE salgado" e CHEGA, nao e sim (ja custou 80 salgados);
+  //   - "pode ser QUE..." / "pode ser OUTRO dia" e hipotese, nao aceite.
+  // A lista do comeco e mais curta que a da frase inteira de proposito:
+  // "pode...", "sim...", "ok..." e "isso..." soltos no inicio abrem frase
+  // demais ("pode me dizer o preco?") pra valerem como aceite.
+  const falaAceite = String(ultimaFalaDoCliente).trim();
+  const SO_O_ACEITE =
+    /^(pode ser assim|pode ser|isso mesmo|isso|ta bom|tá bom|ta otimo|tá ótimo|perfeito|fechado|fechou|beleza|blz|ok|sim|pode|quero assim|manda assim)[ ]*[.!,]*$/i;
+  const COMECA_ACEITANDO =
+    /^(pode ser assim|pode ser|isso mesmo|ta bom|tá bom|ta otimo|tá ótimo|perfeito|fechado|fechou|beleza|blz)\b/i;
+  const NAO_E_ACEITE = /^(ta bom|tá bom)\s+(de|do|da|dos|das)\b|^pode ser\s+(que|outr)/i;
+  const aceitou =
+    SO_O_ACEITE.test(falaAceite) ||
+    (COMECA_ACEITANDO.test(falaAceite) && !NAO_E_ACEITE.test(falaAceite));
   if (propostaGuardada && aceitou && (montagemAtual?.itens?.length ?? 0) === 0) {
     try {
       const itensPropostos = JSON.parse(propostaGuardada) as {
