@@ -1689,7 +1689,20 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // produz o dobro.
     if (familiaEscolhida) {
       const alvo = categoria === "docinho" ? /([0-9]+) *(docinho|doce)/i : /([0-9]+) *salgado/i;
-      let pedidoTotal = Number((String(falaDoCliente).match(alvo) ?? [])[1] ?? 0);
+      // O TETO ERA O PRIMEIRO NUMERO DA CONVERSA, PRA SEMPRE.
+      //
+      // match sem /g sobre a conversa colada devolve a primeira ocorrencia:
+      // "quanto sai 100 salgados?" ... "beleza, me ve 200" deixava o teto em
+      // 100 e a segunda metade do pedido era recusada uma por uma. E "quero
+      // 300 DE salgado" nem casava (sem o "de"), teto zero, o primeiro tipo
+      // levava tudo. totalQueElePediu ja existe NESTE arquivo, ja varre todas
+      // as falas, aceita de/da/do e guarda a ULTIMA -- que e o que vale quando
+      // o cliente muda de ideia. Estava sendo usada em outros dois lugares e
+      // nao aqui, que e onde o teto e decidido.
+      let pedidoTotal = totalQueElePediu(
+        falasDoCliente.length ? falasDoCliente : [String(falaDoCliente)],
+        categoria === "docinho" ? "docinho" : "salgado",
+      );
       // Ele disse 'metade de cada' sem numero: o total e o que ELA acabou de
       // propor. Sem isto, cada tipo levava o total inteiro e a festa triplicava.
       if (!pedidoTotal) {
