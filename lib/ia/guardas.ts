@@ -1338,6 +1338,46 @@ export function pecasDoBoloQueEleAceitou(fala: string): { topo: boolean; papel: 
   };
 }
 
+// RETIRADA NAO ACONTECE NO PASSADO.
+//
+// Conversa real de 22/08/2026 (um sabado). A cliente escreveu "dia 02, 20
+// pessoas" e o pedido foi anotado para **02/08/2026**, tres semanas ANTES da
+// conversa. Pedido com data no passado nao entra na producao de ninguem: a
+// cozinha nao ve, o cliente aparece no balcao e nao tem nada.
+//
+// Quando a pessoa fala so o dia ("dia 02"), ela quer dizer a proxima vez que
+// esse dia acontece. Nunca a anterior.
+//
+// Devolve a data corrigida no formato DD/MM/AAAA, ou "" quando nao ha o que
+// corrigir. Data de hoje NAO e passado: encomenda pra hoje mesmo existe.
+export function dataDeRetiradaNoPassado(data: string, agora: Date): string {
+  const t = String(data ?? "").trim();
+  const m = t.match(/^([0-9]{1,2})[/-]([0-9]{1,2})(?:[/-]([0-9]{2,4}))?$/);
+  if (!m) return "";
+  const dia = Number(m[1]);
+  const mes = Number(m[2]);
+  const anoDito = m[3] ? Number(m[3].length === 2 ? "20" + m[3] : m[3]) : agora.getFullYear();
+  if (!dia || !mes || mes > 12 || dia > 31) return "";
+  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+  const alvo = new Date(anoDito, mes - 1, dia);
+  if (alvo >= hoje) return "";
+  // Passou. Vale a proxima vez que essa data acontece, e "proxima" e a MAIS
+  // PROXIMA: entre o dia 02 do mes que vem e o dia 02/08 do ano que vem, quem
+  // pede bolo quer o do mes que vem. Ninguem encomenda festa pra daqui a onze
+  // meses sem dizer o ano.
+  //
+  // A primeira versao disto escolhia o ano que vem quando a data ja vinha com
+  // ano, e a data vem SEMPRE com ano: quem preenche e o modelo, nao o cliente.
+  // "dia 02" virava 02/08/2027.
+  const proximoMes = new Date(agora.getFullYear(), agora.getMonth(), dia);
+  if (proximoMes < hoje) proximoMes.setMonth(proximoMes.getMonth() + 1);
+  const proximoAno = new Date(anoDito + 1, mes - 1, dia);
+  const escolhida = proximoMes <= proximoAno ? proximoMes : proximoAno;
+  const dd = String(escolhida.getDate()).padStart(2, "0");
+  const mm = String(escolhida.getMonth() + 1).padStart(2, "0");
+  return dd + "/" + mm + "/" + escolhida.getFullYear();
+}
+
 // A MESMA COISA DUAS VEZES NA OBSERVACAO E UMA COISA SO.
 //
 // Caso real de 21/08/2026, festa de 5 anos. A linha do bolo chegou assim no

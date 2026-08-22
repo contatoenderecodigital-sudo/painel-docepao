@@ -49,6 +49,7 @@ import {
   obsSemDeliberacao,
   obsSemONomeDeQuemRetira,
   obsSemRepeticao,
+  dataDeRetiradaNoPassado,
   restricoesQueACasaNaoFaz,
   obsSemRestricaoInventada,
   temaViroouSabor,
@@ -1517,7 +1518,43 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       // Os sabores que o cliente acabou de citar. Dois ou mais e bolo misto:
       // o nome precisa trazer os dois, senao a padaria cobra a menos e a
       // cozinha faz um sabor so.
-      const ditos = SABORES_DE_BOLO.filter((sab) => new RegExp(sab, "i").test(ultimaFala));
+      // UM SABOR COM QUANTIDADE PROPRIA E OUTRO ITEM, NAO RECHEIO DO BOLO.
+      //
+      // Conversa real da kemilly, 22/08/2026:
+      //
+      //   cliente: 4 leites 1kg e 100 brigadeiros e 100 beijinhos
+      //   Dora:    Anotei o bolo 4 leites COM BRIGADEIRO, 1 kg
+      //
+      // Os 100 brigadeiros eram os DOCINHOS dela. Brigadeiro e beijinho sao
+      // sabor de bolo E nome de docinho, entao esta guarda leu os dois na mesma
+      // frase e concluiu "bolo misto". Recusou o bolo duas vezes, o bolo nunca
+      // entrou no pedido, e a cliente teve que cobrar: "ta e os doces q eu
+      // pedi?".
+      //
+      // Quem pede recheio nao diz quantidade: diz "bolo de brigadeiro com
+      // morango". Quem pede docinho diz "100 brigadeiros". O numero na frente
+      // e o que separa os dois, e ele so vale como quantidade de docinho
+      // quando vem colado no nome.
+      const semAcQ = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+      const falaQ = semAcQ(ultimaFala);
+      const temQuantidadePropria = (sab: string) => {
+        const nome = semAcQ(sab);
+        if (!nome) return false;
+        // Sem regex de proposito: o nome do sabor pode ter parenteses e acento
+        // ("frutas (pessego e abacaxi)"), e montar regex com ele ja quebrou o
+        // arquivo uma vez. Aqui se olha o que vem ANTES do nome na frase.
+        let onde = falaQ.indexOf(nome);
+        while (onde >= 0) {
+          const antes = falaQ.slice(Math.max(0, onde - 12), onde);
+          // "100 brigadeiros", "100 de brigadeiro", "50 un beijinho"
+          if (/[0-9]{1,4} *(un |unidades? |de )?$/.test(antes)) return true;
+          onde = falaQ.indexOf(nome, onde + 1);
+        }
+        return false;
+      };
+      const ditos = SABORES_DE_BOLO.filter(
+        (sab) => new RegExp(sab, "i").test(ultimaFala) && !temQuantidadePropria(sab),
+      );
       // A mistura pode ter sido dita turnos atras: procura o par colado por
       // "com" na conversa inteira ("bombom com morango").
       if (ditos.length < 2) {
@@ -2649,6 +2686,22 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       }
     } catch (e) {
       console.error("[ia] falha ao conferir a data com o dia da semana:", e);
+    }
+
+    // RETIRADA NAO ACONTECE NO PASSADO.
+    //
+    // Conversa real de 22/08/2026, um sabado: a cliente escreveu "dia 02, 20
+    // pessoas" e o pedido foi anotado pra 02/08/2026, tres semanas ANTES da
+    // conversa. Pedido com data no passado nao entra na producao de ninguem.
+    try {
+      const agoraP = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+      const futuro = dataDeRetiradaNoPassado(String(input.retirada_data ?? ""), agoraP);
+      if (futuro) {
+        console.warn("[ia] data de retirada no passado: " + String(input.retirada_data) + " -> " + futuro);
+        input.retirada_data = futuro;
+      }
+    } catch (e) {
+      console.error("[ia] falha ao conferir data no passado:", e);
     }
     const horaRetirada =
       String(input.retirada_hora ?? "").trim() || String(montagemAtual?.dados?.retirada_hora ?? "").trim();
