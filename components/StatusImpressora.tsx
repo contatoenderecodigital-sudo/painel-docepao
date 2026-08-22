@@ -54,7 +54,7 @@ export default function StatusImpressora() {
     return (
       <span className="inline-flex items-center gap-1.5 text-[12px] text-cream/50">
         <PrinterCheck size={14} className="text-verde" style={{ color: "#7fd4a2" }} />
-        Impressora da cozinha conectada
+        Impressora conectada
       </span>
     );
   }

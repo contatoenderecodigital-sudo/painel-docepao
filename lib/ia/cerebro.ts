@@ -2409,6 +2409,48 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       }
     }
 
+    // O CARDAPIO TEM O PRODUTO MAIS ESPECIFICO: ELE VALE MAIS QUE O GENERICO.
+    //
+    // Teste das 5 familias, 22/08/2026:
+    //
+    //   cliente: quero um empadao de palmito, 1 kg. quanto fica?
+    //   Dora:    O empadao de palmito e R$ 34,90 o quilo.    <- preco do SIMPLES
+    //   banco:   {"produto":"empadao","obs":null}            <- palmito sumiu
+    //
+    // "empadao com palmito" e um produto proprio no catalogo (R$ 39,90/kg,
+    // cinco reais a mais que o simples), igual "torta fria com palmito". O
+    // modelo mandava o nome generico, o sabor caia fora, a cozinha fazia o de
+    // frango e o caixa perdia R$ 5,00 por quilo. Quando o cliente nomeou a
+    // versao especifica e ela existe na tabela, e ELA que entra.
+    {
+      const semAcEsp = (s: string) =>
+        String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const pb = semAcEsp(produto);
+      if (pb && !/ com /.test(pb)) {
+        const primeira = pb.split(" ")[0];
+        const clausula = semAcEsp(String(falaDoCliente))
+          .split(/[.!?\n|]+/)
+          .reverse()
+          .find((fr) => fr.includes(primeira));
+        const casou = clausula
+          // Sem escape de regex: `pb` ja passou por semAcEsp e so tem letras,
+          // numeros e espacos. Juntar as palavras com \s+ basta -- e evita o
+          // acidente classico do $& em replace de string, que foi exatamente o
+          // que corrompeu a primeira versao desta linha.
+          ? clausula.match(new RegExp(pb.split(/\s+/).join("\\s+") + "\\s+(?:de|com)\\s+([a-z]+)"))
+          : null;
+        const especifico = casou ? produto + " com " + casou[1] : "";
+        if (especifico && existeNoCardapio(especifico)) {
+          console.warn("[ia] produto generico com versao especifica no cardapio: " + produto + " -> " + especifico);
+          return (
+            "NAO anotei \"" + produto + "\": o cliente falou \"" + casou![1] + "\" e o cardapio tem \"" +
+            especifico + "\" como produto proprio, com preco proprio. Chame anotar_item de novo com o nome exato \"" +
+            especifico + "\" -- com o generico a cozinha faz o simples e o caixa cobra o preco errado."
+          );
+        }
+      }
+    }
+
     // PIZZA: O NOME E O TAMANHO, O SABOR E OBSERVACAO.
     //
     // "pizza inteira calabresa" nao existe na tabela e sai por R$ 0. Aqui o
@@ -2424,11 +2466,47 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       // inteira" fazia 2 kg de redonda sairem por R$ 240,00 em vez de
       // R$ 83,80, e justamente com o cliente que respondeu certo a pergunta
       // "de forma ou redonda?".
+      // QUEM PEDE PIZZA POR QUILO ESTA PEDINDO A REDONDA.
+      //
+      // Mesmo teste, reproduzido 2 de 2: "pode ser 1 kg entao" virou
+      // "pizza inteira, 1 un x R$ 120,00" com "1 kg" escondido na observacao.
+      // A redonda e o UNICO formato vendido por peso (R$ 41,90/kg): pediu kg,
+      // e ela -- R$ 78,10 de diferenca e uma linha que a cozinha nao consegue
+      // produzir ("pizza inteira de 1 kg" nao existe).
+      const KG_NA_PIZZA = /\b\d+[.,]?\d*\s*(kg|quilos?)\b/i;
+      const pediuPorPeso =
+        KG_NA_PIZZA.test(String(obsItem ?? "")) ||
+        String(ultimaFala ?? "")
+          .toLowerCase()
+          .split(/[.!?\n]+/)
+          .some((fr) => fr.includes("pizza") && KG_NA_PIZZA.test(fr));
       const ehRedonda =
         /redonda/i.test(produto) ||
         /redonda/i.test(String(obsItem ?? "")) ||
-        /pizza[s]? redonda/i.test(String(falaDoCliente));
-      const meia = /meia|metade/i.test(produto) || /meia|metade/i.test(String(falaDoCliente));
+        /pizza[s]? redonda/i.test(String(falaDoCliente)) ||
+        pediuPorPeso;
+      // "METADE CALABRESA METADE PORTUGUESA" E DIVISAO DE SABOR, NAO TAMANHO.
+      //
+      // Teste das 5 familias, 22/08/2026, reproduzido 2 de 2:
+      //
+      //   cliente: quero uma pizza de forma INTEIRA, metade calabresa
+      //            metade portuguesa
+      //   Dora:    Pizza de forma inteira, ... ta anotado.   <- repete "inteira"
+      //   cupom:   pizza meia: 1 un x R$ 60,00               <- grava MEIA
+      //
+      // O teste antigo era /meia|metade/ na conversa inteira: a palavra
+      // "metade" dos sabores virava tamanho. R$ 60,00 a menos no caixa e uma
+      // festa de 6-8 pessoas recebendo meia pizza no dia. O catalogo permite
+      // ate 4 sabores na inteira: metade/metade e recheio, nao formato.
+      //
+      // Inteira dita pelo cliente ganha de tudo; "meia" so vale quando e a
+      // PIZZA que e meia, nao o sabor.
+      const falaPizzaMin = String(falaDoCliente).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const clienteDisseInteira = /inteira/i.test(produto) || /\binteira\b/.test(falaPizzaMin);
+      const meiaDeVerdade =
+        /\bmeia\b/i.test(produto) ||
+        /\bmeia pizza\b|\bpizza meia\b|\bmetade d[ae] pizza\b|\bs[oó] (a )?metade\b/.test(falaPizzaMin);
+      const meia = !clienteDisseInteira && meiaDeVerdade;
       const base = ehRedonda ? "pizza redonda" : meia ? "pizza meia" : "pizza inteira";
       const sabor = produto
         .replace(/^pizza/i, "")
@@ -6736,7 +6814,13 @@ async function rodarConversa(
           doces
             ? ((catalogo.pizza?.sabores_doces ?? []) as string[])
             : ((catalogo.pizza?.sabores_salgados ?? []) as string[])
-        ).slice(0, 12);
+        );
+        // SEM slice. O corte em 12 escondia 9 dos 21 sabores salgados -- e a
+        // calabresa, o sabor mais pedido do Brasil, e o indice 18: quem
+        // perguntava "quais sabores tem?" NUNCA ouvia calabresa, portuguesa,
+        // brocolis, milho, bolonhesa, vegetariana nem os strogonoffs. O
+        // cliente so conseguia pedir o que ja sabia que existia. A lista
+        // inteira cabe numa mensagem de WhatsApp.
         if (lista.length) {
           // A peca de salgados de festa nao tem nada a ver com isso.
           estado.cardapios = estado.cardapios.filter((x) => x !== "salgados");
@@ -7094,8 +7178,26 @@ async function rodarConversa(
           });
         if (porQuilo.length) {
           console.warn("[ia] ela negou o quilo de " + porQuilo[0] + "; frase trocada pela verdade");
-          textoFinal = textoFinal.replace(/[^.!?\n]*(n[ãa]o|nao)[^.!?\n]{0,40}por quilo[^.!?\n]*[.!?]?/gi, "").trim();
-          textoFinal = textoFinal.replace(/[^.!?\n]*(s[óo] por unidade|somente por unidade|por unidade mesmo)[^.!?\n]*[.!?]?/gi, "").trim();
+          // O CORTE CONFERE O PROPRIO CORTE.
+          //
+          // Os dois `replace` tem `[.!?]?` no fim -- a pontuacao e OPCIONAL.
+          // Numa frase sem ponto final o `[^.!?\n]*` vai ate o fim da linha e
+          // leva junto o que vinha depois. E se o que vinha depois era o
+          // "Anotei 50 coxinha", o cliente acha que nao encomendou nada.
+          //
+          // `corteEhSeguro` ja existe e ja sabe disso: recusa corte que deixa
+          // frase orfa, pendurada, ou que come "Anotei"/R$. So nao estava sendo
+          // chamada aqui.
+          {
+            const antesQuilo = textoFinal;
+            let cortado = textoFinal
+              .replace(/[^.!?\n]*(n[ãa]o|nao)[^.!?\n]{0,40}por quilo[^.!?\n]*[.!?]?/gi, "")
+              .trim();
+            cortado = cortado
+              .replace(/[^.!?\n]*(s[óo] por unidade|somente por unidade|por unidade mesmo)[^.!?\n]*[.!?]?/gi, "")
+              .trim();
+            textoFinal = corteEhSeguro(antesQuilo, cortado) ? cortado : antesQuilo;
+          }
           textoFinal =
             "O " + porQuilo[0] + " a gente vende por quilo." + (textoFinal ? "\n\n" + textoFinal : "");
         }
@@ -7121,7 +7223,19 @@ async function rodarConversa(
             )
             .replace(/\n{3,}/g, "\n\n")
             .trim();
-          if (semFrase) textoFinal = semFrase;
+          // LOG QUE MENTE E PIOR QUE DEFEITO: alguem le o rastro, ve "frase
+          // cortada" e marca o caso como resolvido. Aqui o aviso saia antes de
+          // se saber se houve corte -- e havia gatilho ("sem salgado", "sem
+          // docinho") que o recorte nao alcanca, entao o log mentia sempre
+          // nesses dois casos.
+          if (semFrase && semFrase !== textoFinal) {
+            if (corteEhSeguro(textoFinal, semFrase)) {
+              console.warn("[ia] ela anunciou recusa que o cliente nao fez; frase cortada");
+              textoFinal = semFrase;
+            } else {
+              console.warn("[ia] recusa anunciada indevidamente, mas cortar quebraria a mensagem; mantida.");
+            }
+          }
         }
       }
 
@@ -7141,7 +7255,9 @@ async function rodarConversa(
           const restante = sobrou.join("\n\n").trim();
           // So corta se ainda sobra conversa: uma resposta vazia e pior que uma
           // repetida.
-          if (sobrou.length < paragrafos.length && restante.length >= 20) {
+          // corteEhSeguro: apagar um paragrafo nao pode deixar o seguinte
+          // pendurado nem levar "Anotei"/R$ junto.
+          if (sobrou.length < paragrafos.length && restante.length >= 20 && corteEhSeguro(textoFinal, restante)) {
             console.warn("[ia] paragrafo repetido da mensagem anterior; cortado");
             textoFinal = restante;
           }
@@ -7308,8 +7424,12 @@ async function rodarConversa(
           // pergunta do fim: o que ela anotou antes continua valendo.
           const oferta =
             /[^.!?\n]*(quer (mais|acrescentar|algum)|deseja mais|vai querer mais|pra acompanhar|pra completar)[^.!?\n]*[?.!]/gi;
+          // O regex come do comeco da frase ([^.!?\n]*): em "Anotei 50
+          // coxinha, quer mais algum?" ele leva o "Anotei 50 coxinha" junto e
+          // o cliente acha que nao encomendou. corteEhSeguro pega exatamente
+          // isso (cortePerdeuOQueImporta).
           const semOferta = textoFinal.replace(oferta, "").replace(/\n{3,}/g, "\n\n").trim();
-          const base = semOferta || textoFinal.trim();
+          const base = (semOferta && corteEhSeguro(textoFinal, semOferta) ? semOferta : textoFinal.trim());
           textoFinal = (base ? base + "\n\n" : "") + "Pra que dia você quer?";
         }
       } catch (e) {
@@ -7391,10 +7511,34 @@ async function rodarConversa(
           let limpo = textoFinal;
           for (const frase of naoAutorizadas) limpo = limpo.split(frase).join("");
           limpo = limpo.replace(/[ ]{2,}/g, " ").replace(/\n{3,}/g, String.fromCharCode(10, 10)).trim();
-          textoFinal = (limpo ? limpo + String.fromCharCode(10, 10) : "") + RECADO_DA_EQUIPE;
-          // A equipe precisa saber que o cliente perguntou uma coisa que a Dora
-          // nao pode responder, senao ele fica esperando um retorno que nao vem.
-          estado.precisaHumano = true;
+          // SE A RESPOSTA SOBREVIVEU, NAO DIGA QUE VAI CONFIRMAR.
+          //
+          // Teste do dono, 22/08/2026 09:14:
+          //
+          //   ele:  e o docinho, quanto fica
+          //   Dora: Docinho sai R$ 1,25 cada (R$ 125,00 o cento).
+          //         O preco dos docinhos eu vou confirmar com a equipe e ja te falo.
+          //
+          // O preco estava CERTO -- e o do catalogo. Esta guarda cortou outra
+          // frase da mensagem e colou o recado por cima, contradizendo a
+          // resposta que ela mesma tinha acabado de dar certo. O cliente le o
+          // numero e a duvida na mesma mensagem, e nao sabe no que acreditar.
+          //
+          // E pior: mandava a conversa pra fila da equipe. A dona recebia um
+          // "precisa de voce" por uma pergunta que ja tinha sido respondida.
+          //
+          // Agora o recado so entra quando o corte levou a resposta junto. Se
+          // sobrou preco na mensagem, o cliente foi atendido.
+          const sobrouResposta = /R\$\s?[0-9]/.test(limpo);
+          if (sobrouResposta) {
+            console.warn("[ia] cortei politica inventada, mas o preco certo ficou: sem recado de equipe.");
+            textoFinal = limpo;
+          } else {
+            textoFinal = (limpo ? limpo + String.fromCharCode(10, 10) : "") + RECADO_DA_EQUIPE;
+            // A equipe precisa saber que o cliente perguntou uma coisa que a Dora
+            // nao pode responder, senao ele fica esperando um retorno que nao vem.
+            estado.precisaHumano = true;
+          }
         }
       } catch (e) {
         console.error("[ia] falha na guarda de politica (segue com o texto dela):", e);
@@ -7423,7 +7567,20 @@ async function rodarConversa(
             // no lugar. O que ela falou fora do resumo continua valendo.
             const semAsLinhas = textoFinal
               .split(String.fromCharCode(10))
-              .filter((l) => !/R\$\s?[0-9]/.test(l) && !/^\s*\.{3,}\s*$/.test(l))
+              // SO AS LINHAS DE ITEM, NAO TODA LINHA COM R$.
+              //
+              // Isto apagava qualquer linha que tivesse "R$" -- inclusive o
+              // preco que o proprio codigo tinha prefixado vinte passos antes
+              // ("O cento de coxinha sai R$ 100,00"), que era a resposta a
+              // pergunta do cliente. O resumo e refeito logo abaixo, entao a
+              // linha de item pode sair; a resposta dele, nao.
+              .filter((l) => {
+                if (/^\s*\.{3,}\s*$/.test(l)) return false;
+                if (!/R\$\s?[0-9]/.test(l)) return true;
+                // Linha de item do recibo: "produto: 50 un x R$ 1,00 = R$ 50,00"
+                const ehLinhaDeItem = /x\s*R\$|=\s*R\$|^\s*\*?Total/i.test(l);
+                return !ehLinhaDeItem;
+              })
               .join(String.fromCharCode(10))
               .replace(/\n{3,}/g, String.fromCharCode(10, 10))
               .trim();
@@ -7701,14 +7858,24 @@ async function rodarConversa(
         // As classes abaixo usam so caracteres literais.
         const FIM_DE_FRASE = new RegExp("[^.!?]*(te mandei|mandei|estou mandando|to mandando|segue|enviei)[^.!?]{0,40}card[aá]pio[^.!?]*[.!?]", "gi");
         const QUEBRA = String.fromCharCode(10);
-        const semPromessa = semLista.texto
+        // O CORTE SO MEXE QUANDO CORTOU -- E NAO ACHATA OS PARAGRAFOS.
+        //
+        // A versao antiga fazia split/filter(Boolean)/join em TODA resposta
+        // que caia aqui, mesmo quando a regex nao casava nada: as linhas em
+        // branco sumiam e a mensagem chegava em parede de texto. Pior, era
+        // isso que matava a deteccao de paragrafo repetido (ela compara por
+        // \n\n, que deixava de existir). Um passo de limpeza que quebrava
+        // dois outros em silencio.
+        const antesDaPromessa = semLista.texto;
+        const semPromessa = antesDaPromessa
           .replace(FIM_DE_FRASE, "")
-          .split(QUEBRA)
-          .map((l) => l.trim())
-          .filter(Boolean)
-          .join(QUEBRA)
+          .replace(new RegExp("[ ]+" + QUEBRA, "g"), QUEBRA)
+          .replace(new RegExp(QUEBRA + "{3,}", "g"), QUEBRA + QUEBRA)
           .trim();
-        if (semPromessa) semLista.texto = semPromessa;
+        if (semPromessa && semPromessa !== antesDaPromessa.trim() && corteEhSeguro(antesDaPromessa, semPromessa)) {
+          console.warn("[ia] promessa de cardapio bloqueado cortada da frase");
+          semLista.texto = semPromessa;
+        }
       }
       // O ITEM NAO SOME EM SILENCIO.
       //
@@ -7763,23 +7930,81 @@ async function rodarConversa(
       // repeticao e proposital.
       {
         const t = String(semLista.texto ?? "");
-        const anterior = String(
-          [...historico].reverse().find((h) => h.role === "assistant" && typeof h.content === "string")?.content ?? "",
-        );
+        // AS TRES ULTIMAS, NAO SO A ANTERIOR.
+        //
+        // A primeira versao comparava so com a mensagem imediatamente anterior.
+        // Teste do dono, 22/08/2026 09:04 e 09:06:
+        //
+        //   09:04 Dora: o pastel bolha e o nosso mini bolha, que e frito.
+        //               O pastel assado e outra coisa.
+        //   09:05 Dora: (lista os assados de novo)
+        //   09:06 Dora: E so pra confirmar, o pastel bolha e a mini bolha,
+        //               que e frita. O pastel assado e outro produto.
+        //
+        // Mesma explicacao, duas mensagens de distancia -- fora da janela. Quem
+        // conversa nao repete o que explicou tres mensagens atras; quem repete
+        // e gravacao. Tres mensagens cobrem o vaivem tipico sem alcancar
+        // assunto que voltou de verdade.
+        const anterior = [...historico]
+          .reverse()
+          .filter((h) => h.role === "assistant" && typeof h.content === "string")
+          .slice(0, 3)
+          .map((h) => String(h.content))
+          .join("\n");
         if (t && anterior && !/\*Pedido recebido\*|\*Total:/i.test(t)) {
           const normal = (s: string) =>
             s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
-          const jaDitas = new Set(
-            anterior.split(/(?<=[.!?\n])\s*/).map(normal).filter((x) => x.split(" ").length >= 4),
-          );
+          // REPETICAO DE VERDADE E PARAFRASE, NAO COPIA.
+          //
+          // Comparar frase inteira nao pegava o caso medido:
+          //
+          //   antes:  "Olha, o pastel bolha e o nosso mini bolha, que e frito."
+          //   depois: "O pastel bolha e a mini bolha, que e frita."
+          //
+          // Um "Olha," na frente e um "a" no lugar de "o" e as duas ficam
+          // diferentes byte a byte. Pro cliente e a MESMA frase, dita de novo.
+          //
+          // Entao a comparacao e por conteudo: tira as palavras vazias e ve
+          // quanto sobra em comum. 80% das palavras de peso repetidas numa
+          // frase anterior e repeticao. Abaixo disso pode ser assunto parecido,
+          // e assunto parecido pode ser dito de novo.
+          const VAZIAS = new Set([
+            "a", "o", "as", "os", "de", "da", "do", "das", "dos", "e", "em", "no", "na", "nos", "nas",
+            "um", "uma", "que", "com", "por", "para", "pra", "se", "ou", "voce", "vc", "eu", "ja",
+            "so", "mais", "muito", "bem", "aqui", "ai", "la", "nosso", "nossa", "seu", "sua", "e",
+            "entao", "beleza", "olha", "ta", "esta", "sao", "tem", "temos", "outra", "outro", "coisa",
+          ]);
+          // "frito" e "frita" sao a mesma palavra pra quem le. Sem juntar as duas,
+          // a frase repetida do caso medido dava 67% de igualdade e escapava do
+          // corte por causa de uma letra. Corte de genero e plural, cru de
+          // proposito: nao e analise de lingua, e so tirar a terminacao.
+          const raiz = (w: string) => w.replace(/s$/, "").replace(/[oae]$/, "");
+          const peso = (s: string) =>
+            normal(s)
+              .split(" ")
+              .filter((w) => w.length > 1 && !VAZIAS.has(w))
+              .map(raiz);
+          const frasesAntigas = anterior
+            .split(/(?<=[.!?\n])\s*/)
+            .map(peso)
+            .filter((p) => p.length >= 4);
+          const jaFoiDita = (f: string) => {
+            const p = peso(f);
+            if (p.length < 4) return false;
+            return frasesAntigas.some((ant) => {
+              const set = new Set(ant);
+              const iguais = p.filter((w) => set.has(w)).length;
+              return iguais / p.length >= 0.8;
+            });
+          };
           const frases = t.split(/(?<=[.!?\n])\s*/).filter((x) => x.trim());
-          const ficam = frases.filter((f) => !jaDitas.has(normal(f)));
+          const ficam = frases.filter((f) => !jaFoiDita(f));
           // So corta se sobrar mensagem de pe -- e com pergunta, se havia uma.
           const sobrou = ficam.join(" ").replace(/ +/g, " ").trim();
           const perdeuAPergunta = /\?/.test(t) && !/\?/.test(sobrou);
           if (ficam.length && ficam.length < frases.length && sobrou.length >= 15 && !perdeuAPergunta) {
-            console.warn("[ia] ela repetiu frase da mensagem anterior; cortada: " +
-              frases.filter((f) => jaDitas.has(normal(f))).join(" ").slice(0, 120));
+            console.warn("[ia] ela repetiu frase das ultimas 3 mensagens dela; cortada: " +
+              frases.filter((f) => jaFoiDita(f)).join(" ").slice(0, 120));
             semLista.texto = sobrou;
           }
         }
@@ -8314,7 +8539,23 @@ function listaViraCardapio(
       if (achados.length >= 4) {
         fila = [...fila, peca];
         mudou = true;
-        return " Te mandei o cardápio de " + peca + " aqui, com tudo e os preços.";
+        // O CLIENTE LE O NOME DA COISA, NAO O NOME DO ARQUIVO.
+        //
+        // Teste das 5 familias, 22/08/2026: "Te mandei o cardapio de
+        // tortas-empadao aqui" chegou no WhatsApp em pizza, calzone, empadao,
+        // torta fria e torta doce. "tortas-empadao" e o id da imagem -- hifen,
+        // sem acento. Gente escreve "tortas e empadoes".
+        const NOME_DA_PECA: Record<string, string> = {
+          "salgados": "salgados",
+          "docinhos": "docinhos",
+          "bolos-festa": "bolos de festa",
+          "bolos-caseiros": "bolos caseiros",
+          "cucas-paes": "cucas e pães",
+          "tortas-empadao": "tortas e empadões",
+          "pizzas": "pizzas",
+        };
+        const nomeBonito = NOME_DA_PECA[String(peca)] ?? String(peca).replace(/-/g, " ");
+        return " Te mandei o cardápio de " + nomeBonito + " aqui, com tudo e os preços.";
       }
     }
     return frase;
