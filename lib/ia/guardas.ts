@@ -1292,10 +1292,23 @@ export function pecasPermitidas(
     /(^|[^a-z])(me manda|manda (o |os )?card|pode mandar|quero ver|deixa eu ver|me mostra|envia (o |os )?card)/i.test(
       String(ultimaFala || ""),
     );
-  if (pedeExplicito) return pecas;
-  if (naoOlha) return [];
+  // "PODE ESCOLHER" DITO UMA VEZ BLOQUEAVA O CARDAPIO PRO RESTO DO ATENDIMENTO.
+  //
+  // `pediuAgora` tem o vocabulario completo -- "quais", "que tipos", "opcoes",
+  // "que sabores" -- e estava DEPOIS do `return []` do `naoOlha`. Como
+  // `naoOlha` le a conversa inteira, quem disse "pode escolher os salgados,
+  // confio em voce" no comeco nunca mais recebia peca nenhuma:
+  //
+  //   cliente: pode escolher os salgados, confio em voce
+  //   ... cinco mensagens depois ...
+  //   cliente: e quais sabores de bolo voces tem?
+  //   -> nenhuma imagem sai, e ela ainda diz "te mandei o cardapio de bolos"
+  //
+  // O bolo e o item mais caro da festa. Perguntar AGORA vale mais que ter
+  // dispensado o cardapio dez minutos atras: a ordem inverte.
   const pediuAgora = /card[áa]pio|me manda|quais|que tipos|op[çc][õo]es|que sabores/i.test(String(ultimaFala || ""));
-  if (pediuAgora) return pecas;
+  if (pedeExplicito || pediuAgora) return pecas;
+  if (naoOlha) return [];
   const fora = recusou.filter(([, re]) => re.test(dito)).map(([peca]) => peca);
   for (const [peca, re] of recusouAntes) if (guardado && re.test(guardado)) fora.push(peca);
   const temFamilia = (pref: string) => jaEscolhidos.some((i) => String(i.categoria || "").startsWith(pref));

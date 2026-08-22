@@ -13,7 +13,7 @@
 import OpenAI from "openai";
 import { CARDAPIOS, type CardapioId } from "@/lib/whatsapp/api";
 import { montarSystemPrompt, DOCE_PAO, type ConfigNegocio } from "./persona";
-import { motorPadrao, formatarOrcamento, brl, citadoDeVerdade, type Motor, type LinhaCotacao } from "./orcamento";
+import { motorPadrao, formatarOrcamento, brl, citadoDeVerdade, foiNegado, type Motor, type LinhaCotacao } from "./orcamento";
 import { registrarUsoIA, type UsoTurno } from "./uso";
 import catalogo from "./dados/catalogo.json";
 import { padariaAberta } from "@/lib/padaria-aberta";
@@ -1804,7 +1804,26 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // produz o dobro.
     if (familiaEscolhida) {
       const alvo = categoria === "docinho" ? /([0-9]+) *(docinho|doce)/i : /([0-9]+) *salgado/i;
-      let pedidoTotal = Number((String(falaDoCliente).match(alvo) ?? [])[1] ?? 0);
+      // O TETO ERA O PRIMEIRO NUMERO DA CONVERSA, PRA SEMPRE.
+      //
+      // `match` sem /g sobre `falaDoCliente` (a conversa INTEIRA colada) devolve
+      // a primeira ocorrencia. Duas consequencias medidas:
+      //
+      //   "quanto sai 100 salgados?" ... "beleza, me ve 200"  -> teto 100.
+      //     A segunda metade do pedido e recusada uma por uma, e a recusa ainda
+      //     manda "anote 0 de cada um", que bate na guarda de qtd>0. Perguntar o
+      //     preco antes de comprar mais e o roteiro mais comum de padaria.
+      //
+      //   "quero 300 DE salgado assado"  -> nao casa (sem o "de"), teto 0,
+      //     a divisao automatica nao roda e o primeiro tipo leva tudo.
+      //
+      // `totalQueElePediu` ja existe, ja varre todas as falas, ja aceita
+      // "de/da/do" e ja guarda a ULTIMA -- que e o que vale quando o cliente
+      // muda de ideia. Estava sendo usada em um lugar so.
+      let pedidoTotal = totalQueElePediu(
+        falasDoCliente.length ? falasDoCliente : [String(falaDoCliente)],
+        categoria === "docinho" ? "docinho" : "salgado",
+      );
       // Ele disse 'metade de cada' sem numero: o total e o que ELA acabou de
       // propor. Sem isto, cada tipo levava o total inteiro e a festa triplicava.
       if (!pedidoTotal) {
@@ -1817,8 +1836,15 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       // So e meio a meio quando ele cita OS DOIS tipos: "metade frito metade
       // assado". "Metade de cada" entre dois produtos escolhidos e outra coisa,
       // e ler como metade/metade dividia o pedido duas vezes.
-      const citouFrito = /frito|fritos/i.test(falaDoCliente);
-      const citouAssado = /assado|assados/i.test(falaDoCliente);
+      // NEGAR UM TIPO NAO E CITAR OS DOIS.
+      //
+      // "nao quero frito nao, 200 assados, metade de cada tipo" acendia
+      // citouFrito E citouAssado, virava meio a meio, e o teto caia de 200 pra
+      // 100. A festa fechava com metade da comida e R$ 125,00 a menos.
+      // `familiaQueElePediu` (guardas:450) ja sabe pular a ocorrencia negada;
+      // este bloco tinha nascido antes dela e nunca foi ligado.
+      const citouFrito = /frito|fritos/i.test(falaDoCliente) && !foiNegado(falaDoCliente, "frito");
+      const citouAssado = /assado|assados/i.test(falaDoCliente) && !foiNegado(falaDoCliente, "assado");
       const meioAMeio =
         citouFrito &&
         citouAssado &&
@@ -2608,7 +2634,16 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     ];
     const recusados = RECUSA.filter(([, r]) => r.test(dispensou)).map(([peca]) => peca);
     // A nao ser que ele mesmo peca a peca agora, com todas as letras.
-    const pediuAgora = /card[áa]pio|me manda|quais|que tipos|op[çc][õo]es/i.test(String(falaDoCliente || ""));
+    // ARMADILHA PERMANENTE: uma palavra no historico desligava o filtro.
+    //
+    // `falaDoCliente` e a conversa INTEIRA. Quem abriu com "me manda o cardapio
+    // de salgados" deixava `pediuAgora` verdadeiro pra SEMPRE -- entao a recusa
+    // calculada logo acima nunca era aplicada, e o cardapio de docinhos saia na
+    // cara de quem tinha acabado de dispensar docinho. A irma em guardas:1296 le
+    // a ultima fala e acerta; esta lia tudo.
+    const pediuAgora = /card[áa]pio|me manda|quais|que tipos|op[çc][õo]es|que sabores/i.test(
+      String(ultimaFala || falaDoCliente || ""),
+    );
     const permitidos = pediuAgora ? pedidos : pedidos.filter((c) => !recusados.includes(c));
     if (!permitidos.length) {
       return (
@@ -3113,7 +3148,12 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       .filter((fr) => falaDeBolo.test(fr));
     const pediuBoloDeVerdade =
       !dispensouBolo &&
-      (frasesComBolo.some((fr) => !SO_PERGUNTOU_DO_BOLO.test(fr)) ||
+      // A lista de palavras aqui em cima nao cobre o jeito que o cliente
+      // escreve: "vcs fazem bolo de cenoura?", "e o bolo de morango?",
+      // "voces vendem papel de arroz avulso?". `soPerguntouSemPedir` cobre --
+      // ela pergunta se houve DECISAO (quero/quantidade), nao se apareceu uma
+      // palavra de preco. As duas juntas: basta uma dizer que foi pergunta.
+      (frasesComBolo.some((fr) => !SO_PERGUNTOU_DO_BOLO.test(fr) && !soPerguntouSemPedir(fr, "bolo")) ||
         itens.some((i) => falaDeBolo.test(String(i.obs ?? ""))));
     if (!temLinhaDeBolo && pediuBoloDeVerdade) {
       // RECUSA, não avisa. Sinalizar deixava o pedido ir pra cozinha sem bolo,
@@ -4428,7 +4468,27 @@ async function rodarConversa(
     .join("  ")
     .toLowerCase();
   const ehFesta = ehFestaNaFala(falaToda);
-  const pediuBolo = /bolo/.test(falaToda);
+  // PERGUNTAR O PRECO DE UM BOLO NAO E PEDIR UM BOLO -- AQUI TAMBEM.
+  //
+  // `/bolo/.test(falaToda)` sobre a conversa inteira. Isto alimenta
+  // `descreverMontagem` e `podeFechar`, e em `etapasDaFesta` vira a pendencia
+  // "o cliente falou em bolo e nao tem bolo nenhum anotado" -- que TIRA
+  // registrar_pedido da lista de ferramentas.
+  //
+  //   cliente: e o bolo de cenoura, quanto o quilo?
+  //   cliente: deixa pra la. me ve 50 coxinha e 30 croquete, domingo 11h
+  //   cliente: nome Carla, dinheiro
+  //   Dora:    Anotei! E o bolo, qual sabor voce quer?
+  //   cliente: eu nao quero bolo, ja falei
+  //   Dora:    Sobre o bolo, quer que eu mande o cardapio?
+  //
+  // Mesmo defeito que travava o registro, na maquina de etapas. A funcao que
+  // separa pergunta de pedido ja existe e tem teste dos dois lados; estava
+  // aplicada em um lugar de seis. `falaToda` e unida por espaco duplo, entao a
+  // quebra por frase precisa contar isso tambem.
+  const pediuBolo = String(falaToda)
+    .split(/[.!?\n]+|\s{2,}/)
+    .some((fr) => /bolo/i.test(fr) && !soPerguntouSemPedir(fr, "bolo"));
   // Mencionar nao e escolher: quem falou "quero salgado" precisa da peca e da
   // cobranca; quem nunca falou precisa da pergunta antes.
   // "sabores salgados" e "pizza salgada" falam de pizza, nao de salgadinho de
