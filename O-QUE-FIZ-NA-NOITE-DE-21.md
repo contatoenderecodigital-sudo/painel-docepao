@@ -1,4 +1,4 @@
-# A noite de 21 para 22/08/2026
+# A noite de 21 para 22/08/2026 — de 5 de 8 para 9 de 9
 
 Leia depois do `O-QUE-FIZ-ENQUANTO-VOCE-DORMIA.md`. Este continua de onde aquele
 parou.
@@ -14,7 +14,26 @@ Isso mudou a conta. Das 14 famílias da loja, o medidor cobria **quatro**. As
 outras dez nunca tinham sido compradas por ninguém — e foi nelas que estavam os
 defeitos mais caros.
 
-**Nenhum dos doze defeitos abaixo aparecia nos 45 testes que existiam.**
+**Nenhum dos DEZESSETE defeitos consertados aparecia nos 45 testes que existiam.**
+
+## A NOTA, no fim: 9 de 9 em pass^5
+
+45 conversas seguidas sem um erro, julgadas pelo estado do banco.
+
+| | antes | depois |
+|---|---|---|
+| medidor | 5 de 8 | **9 de 9** |
+| ...mas | ele **não exigia** que o pedido fechasse em 5 dos 8 cenários | exige em todos |
+| testes | 43 | **50** |
+| famílias da loja testadas | 4 de 14 | **14 de 14** |
+
+A nota de 5 de 8 era inflada. Tornar o medidor honesto derrubou ela para 6, e é
+dessa base real que ela subiu até 9. Foram quatro rodadas: 6, 6, 7, 9 — cada uma
+apontando o defeito seguinte pelo rastro, nenhuma por adivinhação.
+
+Para calibrar o que 9 de 9 significa: o medidor é construído em cima do
+`tau-bench`, e o comentário do próprio arquivo lembra que agentes de ponta
+acertam uma vez em ~60% dos casos, mas **oito seguidas em menos de 25%**.
 
 ## Os doze, com o estrago medido
 
