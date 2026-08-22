@@ -100,7 +100,19 @@ export function falaDaEtapa(
   etapa: Etapa,
   p: PedidoEmMontagem,
   totalCentavos = 0,
+  /**
+   * O QUE A PADARIA NAO FAZ, ELA DIZ.
+   *
+   * Sem isto o fluxo repete a mesma pergunta pra sempre. Aconteceu no teste: o
+   * cliente pediu "bolo de ninho", que a Doce Pao nao faz, o codigo barrou
+   * certo e a resposta foi de novo "E o bolo, qual sabor?". Quem barra tem que
+   * explicar, senao o cliente acha que ela nao entendeu e repete igual.
+   */
+  naoTemos: string[] = [],
 ): Fala {
+  const aviso = naoTemos.length
+    ? "A gente não faz " + naoTemos.join(" nem ") + ". "
+    : "";
   switch (etapa.id) {
     case "quantas_pessoas":
       return { texto: "Quantas pessoas vão na festa?", botoes: [], cardapio: null, podeReescrever: true };
@@ -119,7 +131,7 @@ export function falaDaEtapa(
 
     case "salgado":
       return {
-        texto: "Quais salgados você quer? Te mandei o cardápio aqui.",
+        texto: aviso + "Quais salgados você quer? Te mandei o cardápio aqui.",
         botoes: [],
         cardapio: "salgados",
         podeReescrever: true,
@@ -127,7 +139,7 @@ export function falaDaEtapa(
 
     case "docinho":
       return {
-        texto: "Agora os docinhos: quais você quer?",
+        texto: aviso + "Agora os docinhos: quais você quer?",
         botoes: [],
         cardapio: "docinhos",
         podeReescrever: true,
@@ -135,7 +147,7 @@ export function falaDaEtapa(
 
     case "bolo":
       return {
-        texto: "E o bolo, qual sabor?",
+        texto: aviso + "E o bolo, qual sabor?",
         botoes: [],
         cardapio: "bolos-festa",
         podeReescrever: true,
