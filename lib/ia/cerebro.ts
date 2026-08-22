@@ -1250,7 +1250,25 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       !mesmoBolo &&
       boloJaAnotado.produto.trim().toLowerCase() !== produto.trim().toLowerCase()
     ) {
-      if (!input.dois_bolos) {
+      // DOIS BOLOS SO EXISTEM SE O CLIENTE FALOU EM DOIS BOLOS.
+      //
+      // Medicao de 22/08/2026, uma conversa so, R$ 197,25 cobrados a mais:
+      // a cliente disse "eu nao pedi brigadeiro, queria de morango", a IA
+      // perguntou "confirma?", a cliente confirmou A TROCA -- e a IA leu como
+      // confirmacao de DOIS bolos, porque dois_bolos=true era um booleano que
+      // ela mesma preenchia e que desligava esta guarda. O pedido fechou com
+      // bolo morango + bolo brigadeiro.
+      //
+      // Agora dois_bolos so vale acompanhado da PALAVRA do cliente. Festa
+      // grande de dois bolos continua passando: "quero dois bolos", "um de
+      // cada", "mais um bolo" estao na lista.
+      const DOIS_BOLOS_DO_CLIENTE =
+        /\b(dois bolos|2 bolos|duas tortas|2 tortas|mais um bolo|outro bolo|um segundo bolo|segundo bolo|bolo a mais|os dois bolos|os dois|dois mesmo|um de cada)\b/i;
+      const clienteFalouDoisBolos = DOIS_BOLOS_DO_CLIENTE.test(
+        (falasDoCliente.length ? falasDoCliente : [String(falaDoCliente)]).join(" | ")
+          .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+      );
+      if (!(input.dois_bolos && clienteFalouDoisBolos)) {
         // PEDIR NAO FUNCIONA: O CODIGO TROCA SOZINHO.
         //
         // Antes eu devolvia "use trocar_item" e ela simplesmente nao usava. O
@@ -1291,7 +1309,22 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         const oQueEuSugeri = (estado.sugeridos ?? []).some((x) =>
           String(x).toLowerCase().includes(String(boloJaAnotado.produto).toLowerCase()),
         );
-        if (querTrocar || oQueEuSugeri) {
+        // "EU NAO PEDI BRIGADEIRO, QUERIA DE MORANGO" E TROCA, NAO PEDIDO NOVO.
+        //
+        // E o vocabulario de quem NEGA um bolo que nunca pediu (o codigo tinha
+        // escolhido sozinho) -- nao tem "troca", "muda" nem "na verdade", entao
+        // o querTrocar nao pegava. Foi a primeira porta que falhou no caso dos
+        // R$ 197,25.
+        const rejeitouOVelho = (() => {
+          const semAcR = (s: unknown) => String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const sabor = semAcR(boloJaAnotado.produto).replace(/^bolo (de )?/, "").trim();
+          if (!sabor) return false;
+          return new RegExp(
+            "\\b(nao|nunca)\\s+(pedi|queria|quero|falei|escolhi|e|era|foi)\\b[^|.!?]{0,40}" +
+              sabor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          ).test(semAcR((falasDoCliente.length ? falasDoCliente : [String(falaDoCliente)]).join(" | ")));
+        })();
+        if (querTrocar || oQueEuSugeri || rejeitouOVelho) {
           if (oQueEuSugeri && !querTrocar) {
             console.log("[rastro] o bolo que eu sugeri saiu pro bolo que ele pediu: " + boloJaAnotado.produto + " -> " + produto);
           }
@@ -1312,12 +1345,17 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
             `anotado no bolo (peso, pao de lo, topo, tema) continua valendo. Confirme a troca numa frase curta.`
           );
         }
+        // A recusa antiga ensinava a fuga com todas as letras: "CONFIRME e
+        // chame com dois_bolos=true". Ela perguntou "confirma?", a cliente
+        // confirmou a TROCA, e ela leu como confirmacao de dois bolos. A saida
+        // de emergencia agora exige a palavra do CLIENTE, entao o texto para
+        // de apontar pra ela.
         return (
           `NAO anotei ainda: ja existe um bolo neste pedido, o "${boloJaAnotado.produto}". ` +
           `Se o cliente TROCOU o sabor, chame trocar_item com produto_sai="${boloJaAnotado.produto}" e ` +
           `produto_entra="${produto}", que eu tiro um e ponho o outro de uma vez. ` +
-          `Se ele quer DOIS bolos mesmo (acontece em festa grande), CONFIRME com ele e chame anotar_item de novo ` +
-          `com dois_bolos=true. Nunca acrescente por conta propria um bolo que ele nao pediu.`
+          `Dois bolos no mesmo pedido so existem quando O CLIENTE fala em dois bolos com as proprias palavras ` +
+          `("quero dois bolos", "um de cada") -- se ele nao falou, e troca.`
         );
       }
     }
