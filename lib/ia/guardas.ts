@@ -1167,6 +1167,10 @@ export function perguntaElipticaDePreco(fala: string, falaAnterior: string): str
 // texto errado e ruim, texto mutilado e pior, e isso ja aconteceu com o valor
 // do topo.
 export function textoSemPerguntaDeHora(texto: string): string {
+  // Resumo de pedido nao se mexe: os numeros sao do motor, nao dela. As outras
+  // guardas de texto ja tinham esta protecao e esta ficou de fora; quem achou
+  // foi o teste uma-camada-nao-desmente-a-outra.
+  if (/\*Pedido recebido\*|\*Total:/i.test(String(texto ?? ""))) return String(texto ?? "");
   let t = String(texto ?? "");
   if (!t.trim()) return t;
   const cortes: [RegExp, string][] = [

@@ -2414,10 +2414,30 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         //
         // A data e a hora continuam podendo ser perguntadas na hora: elas
         // decidem se a padaria consegue fazer. Nome e pagamento sao fechamento.
-        (itensAnotados.length === 0 || faltando.every((k) => k === "retirada_data" || k === "retirada_hora")
-          ? "Pergunte isso agora, numa frase. "
-          : "NAO pergunte o nome nem o pagamento agora: eles vem no fim, juntos, quando os itens estiverem resolvidos. ") +
-        "Pedido sem esses dados nao fecha, e o cliente sai achando que encomendou."
+        // PEDIDO VAZIO PRECISA DE ITEM, NAO DE DADO DE FECHAMENTO.
+        //
+        // A condicao estava invertida e mandava "pergunte isso agora" justamente
+        // quando NAO havia item nenhum. Ela obedecia, e a guarda de texto do
+        // outro lado apagava a pergunta:
+        //
+        //   [ia] ela pediu dado de fechamento com o pedido vazio; tirei do texto
+        //
+        // Sobrava o toco. Foi o que o cliente leu em 23/08/2026:
+        //
+        //   Dora: Anotei a data da festa para 12/09/2026. Pode ser assim?
+        //
+        // "Pode ser assim" sobre uma data que ele acabou de dar. Uma camada
+        // mandava perguntar e a outra apagava a pergunta, e as duas eram minhas.
+        // Agora quem manda e uma so: sem item, o que falta e o item.
+        (itensAnotados.length === 0
+          ? "NAO peca nome nem pagamento agora: nao ha item nenhum no pedido. O que falta e o ITEM. " +
+            "Se ele ja disse quantas pessoas, chame montar_orcamento com esse numero. Senao, pergunte o que ele quer. "
+          : faltando.every((k) => k === "retirada_data" || k === "retirada_hora")
+            ? "Pergunte isso agora, numa frase. "
+            : "NAO pergunte o nome nem o pagamento agora: eles vem no fim, juntos, quando os itens estiverem resolvidos. ") +
+        (itensAnotados.length === 0
+          ? ""
+          : "Pedido sem esses dados nao fecha, e o cliente sai achando que encomendou.")
       );
     }
     return `Anotei: ${Object.keys(dados).join(", ")}.${avisoHora} O resto do pedido continua guardado.`;
