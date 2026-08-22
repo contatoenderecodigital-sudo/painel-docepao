@@ -3999,7 +3999,7 @@ function blocoPedidoEmAberto(p: PedidoEmAbertoIA): string {
   if (p.motivoHumano) {
     linhas.push(
       `VOCE FICOU DE VOLTAR PRA ELE COM ISSO: ${p.motivoHumano}. Se ele cobrar, diga que ja esta com a equipe e ` +
-        "que voce avisa aqui assim que tiver a resposta. NAO invente esse valor nem esse prazo.",
+        "que voce avisa aqui assim que tiver a resposta. Esse valor e esse prazo quem tem e a equipe, nao voce.",
     );
   }
   // As linhas do pedido, como estao AGORA no banco. Se a equipe corrigiu pela
@@ -4010,7 +4010,7 @@ function blocoPedidoEmAberto(p: PedidoEmAbertoIA): string {
     p.quemRetira ? `quem retira: ${p.quemRetira}` : null,
     p.formaPagamento ? `pagamento: ${p.formaPagamento}` : null,
   ].filter(Boolean);
-  if (combinado.length > 0) linhas.push("Combinado: " + combinado.join(", ") + ". Nao pergunte isso de novo.");
+  if (combinado.length > 0) linhas.push("Combinado: " + combinado.join(", ") + ". Ele ja respondeu isso.");
   if (p.itens.length > 0) {
     linhas.push("", "O QUE TEM NESSE PEDIDO (vale mais que a sua lembranca da conversa):");
     for (const i of p.itens) {
@@ -4020,12 +4020,12 @@ function blocoPedidoEmAberto(p: PedidoEmAbertoIA): string {
   linhas.push(
     "",
     "COMO RESPONDER ENQUANTO ESSE PEDIDO EXISTIR:",
-    "- Mensagem curta ou solta (ok, obrigado, blz, um oi): reconheca e feche o assunto em cima DESSE pedido. " +
-      "NUNCA pergunte se ele quer comecar um pedido: ele acabou de fazer um.",
+    "- Mensagem curta ou solta (ok, obrigado, blz, um oi): reconheca e feche o assunto em cima desse pedido. " +
+      "Ele acabou de fazer um pedido, entao comecar outro nao e o assunto.",
     "- Mensagem generica ou que da pra entender de dois jeitos: pergunte se e sobre esse pedido ou se e outra coisa, " +
       "antes de comecar qualquer pedido novo.",
     "- Pergunta sobre o pedido (valor, data, o que tem nele): responda em cima deste pedido, com os dados daqui.",
-    "- Ele quer MUDAR, ACRESCENTAR ou CANCELAR algo nele: chame a equipe (falar_com_humano). Voce nao mexe em pedido registrado.",
+    "- Ele quer mudar, acrescentar ou cancelar algo nele: chame a equipe (falar_com_humano). Pedido registrado quem mexe e a equipe.",
     "- So comece um pedido novo se ele pedir claramente outra coisa, pra outra data.",
   );
   return linhas.join(String.fromCharCode(10));
@@ -4061,7 +4061,7 @@ function descreverMontagem(
     return (
       "# EXISTE UM PEDIDO DESTE CLIENTE JA REGISTRADO, ESPERANDO SO O ACEITE DELE" + "\n" +
       "A equipe ajustou o valor e voce ja passou pra ele. Agora e so a resposta." + "\n" + "\n" +
-      "NAO anote item, NAO monte orcamento e NAO some nada: o pedido ja existe e o total certo e o que a equipe " +
+      "O pedido ja existe e o total certo e o que a equipe " +
       "fechou, nao o que voce calcularia de novo. Se ele concordou (de qualquer jeito: ok, pode, ta certo, um " +
       "joinha), chame cliente_aceitou_orcamento. Se ele discordou, pediu desconto ou quis mudar alguma coisa, chame a equipe."
     );
@@ -4106,8 +4106,8 @@ function descreverMontagem(
   // "3 cucas de banana" depois de ja ter dito que nao faz.
   const recusados = String(m?.dados?.sabor_recusado ?? "").trim();
   const linhaRecusados = recusados
-    ? "\n\nSABOR JA RECUSADO NESTA CONVERSA (a padaria nao faz, o cliente ja foi avisado): " + recusados +
-      ". NAO escreva esse sabor de novo, NAO anote e NAO confirme pedido com ele. Trate como se ele ainda nao tivesse escolhido."
+    ? "\n\nSabor ja recusado nesta conversa (a padaria nao faz, o cliente ja foi avisado): " + recusados +
+      ". Esse sabor esta fora: nao entra em texto, nao entra em anotar_item e nao fecha pedido. Pra efeito de escolha, ele ainda nao escolheu."
     : "";
 
   // Este texto viaja em TODO turno e nao pega o cache de prefixo, entao cada
@@ -4116,7 +4116,7 @@ function descreverMontagem(
   const ordem =
     "ANTES de escrever a resposta, chame anotar_item pra cada produto que o cliente decidiu agora e anotar_dados pro que ele informou agora " +
     "(nome, data, hora, pagamento). O que voce nao anotar se perde: o pedido registrado no fim sai DESTA lista, nao da sua lembranca da conversa. " +
-    "E quando o cliente disser que NAO ENTENDE ou pedir a sua indicacao, INDIQUE: monte a festa inteira com tipos e " +
+    "E quando o cliente disser que nao entende ou pedir a sua indicacao, a resposta e uma indicacao: monte a festa inteira com tipos e " +
     "quantidades (salgados, docinhos e bolo, na base do numero de pessoas) e pergunte se pode ser assim, em vez de devolver a pergunta pra ele.";
 
   // A REGRA DE NAO PEDIR NOME E PAGAMENTO PRECISA VALER AQUI TAMBEM.
@@ -4132,9 +4132,9 @@ function descreverMontagem(
   //
   // Ela ainda nem escolheu o salgado e ja levou duas perguntas de fechamento.
   const naoPecaFechamento =
-    "\n\nNAO pergunte agora o NOME de quem retira, a HORA nem a FORMA DE PAGAMENTO: " +
-    "eles vem no fim, juntos, numa frase so, depois que os itens estiverem resolvidos. " +
-    "Se ELE falar por conta propria, anote na hora e siga. A DATA e excecao: essa pode perguntar agora.";
+    "\n\nO nome de quem retira, a hora e a forma de pagamento vem no fim, juntos, numa frase so, depois que " +
+    "os itens estiverem resolvidos: perguntar isso agora corta o cliente no meio da escolha. " +
+    "Se ele falar por conta propria, anote na hora e siga. A data e excecao: essa pode perguntar agora.";
   if (linhas.length === 0 && dados.length === 0) {
     return (
       "# PEDIDO EM MONTAGEM: NADA ANOTADO AINDA" + "\n" + ordem + linhaRecusados + naoPecaFechamento
@@ -4155,18 +4155,18 @@ function descreverMontagem(
   const opc = atual?.opcionais ?? [];
   const faltaDepois = Math.max(0, etapas.length - 1);
   const cobrar = pend.length || opc.length
-    ? `\n\nETAPA DE AGORA: ${atual?.titulo}. Fora a resposta a pergunta dele, fale SO desta etapa nesta mensagem.\n` +
-      "SE A ULTIMA MENSAGEM DO CLIENTE FOR UMA PERGUNTA, RESPONDA ELA PRIMEIRO, com a informacao concreta " +
+    ? `\n\nEtapa de agora: ${atual?.titulo}. Fora a resposta a pergunta dele, esta mensagem e sobre esta etapa e so.\n` +
+      "Se a ultima mensagem do cliente for uma pergunta, ela vem primeiro, com a informacao concreta " +
       "(preco, peso, sabor, como se vende), e so depois siga a etapa.\n" +
       pend.join(String.fromCharCode(10)) +
       (opc.length
         ? String.fromCharCode(10) +
-          "BOM TER, MAS NAO TRAVA O PEDIDO (pergunte junto, e se ele nao responder siga assim mesmo):" +
+          "Bom ter, mas nao trava o pedido (pergunte junto, e se ele nao responder siga assim mesmo):" +
           String.fromCharCode(10) +
           opc.join(String.fromCharCode(10))
         : "") +
       String.fromCharCode(10, 10) +
-      "ANOTAR O QUE ELE ACABOU DE INFORMAR VALE SEMPRE, mesmo que nao seja desta etapa: data, hora, nome e " +
+      "Anotar o que ele acabou de informar vale sempre, mesmo que nao seja desta etapa: data, hora, nome e " +
       "pagamento entram com anotar_dados na hora em que ele fala, e o que ele ja escolheu entra com anotar_item " +
       "agora, sem perguntar de novo. Pergunte so o que sobrou desta etapa, de uma vez so." +
       // QUEM RETIRA, QUE HORAS E COMO PAGA VEM DEPOIS DOS ITENS.
@@ -4180,11 +4180,11 @@ function descreverMontagem(
       // isso. O que sai daqui e PERGUNTAR: enquanto houver item por resolver, a
       // pergunta e sobre item. A data e excecao e vem cedo, porque ela decide se
       // a padaria consegue fazer (bolo decorado precisa de 2 dias).
-      "\n\nNAO pergunte agora o NOME de quem retira, a HORA nem a FORMA DE PAGAMENTO: eles vem no fim, juntos, " +
+      "\n\nO nome de quem retira, a hora e a forma de pagamento vem no fim, juntos, " +
       "numa frase so, quando os itens estiverem resolvidos. Perguntar isso no meio corta o cliente que esta " +
-      "montando o pedido, e repetido faz parecer que voce nao anotou nada. Se ELE falar por conta propria, anote " +
-      "na hora e siga. A DATA e excecao: essa pode perguntar agora." +
-      (faltaDepois > 0 ? ` Depois desta ainda faltam ${faltaDepois} etapas, mas NAO fale delas agora.` : "")
+      "montando o pedido, e repetido faz parecer que voce nao anotou nada. Se ele falar por conta propria, anote " +
+      "na hora e siga. A data e excecao: essa pode perguntar agora." +
+      (faltaDepois > 0 ? ` Depois desta ainda faltam ${faltaDepois} etapas, e elas ficam pra depois.` : "")
     : "";
 
   // TEM TUDO? ENTAO FECHA.
@@ -4206,14 +4206,14 @@ function descreverMontagem(
     preciso("retirada_hora") &&
     preciso("forma_pagamento");
   const fechar = completo
-    ? "\n\nNAO FALTA NADA NESTE PEDIDO. Se o cliente ja mandou fechar, chame registrar_pedido AGORA, nesta mesma resposta, " +
-      "com o que esta anotado aqui em cima. Nao pergunte se pode passar pra equipe: ele ja pediu. Prometer que vai passar e nao chamar a ferramenta " +
+    ? "\n\nNao falta nada neste pedido. Se o cliente ja mandou fechar, chame registrar_pedido agora, nesta mesma resposta, " +
+      "com o que esta anotado aqui em cima: ele ja pediu, entao a autorizacao de passar pra equipe ja existe. Prometer que vai passar e nao chamar a ferramenta " +
       "deixa o cliente achando que encomendou sem existir pedido nenhum. " +
-      "Valor que voce nao sabe (o topo de bolo, por exemplo) NAO e motivo pra chamar_humano: registre o pedido com " +
+      "Valor que voce nao sabe (o topo de bolo, por exemplo) nao e caso de chamar_humano: registre o pedido com " +
       "precisa_confirmacao=true e o motivo, que a equipe informa o valor depois. Chamar a equipe em vez de registrar " +
       "deixa o pedido fora da fila." +
       String.fromCharCode(10, 10) +
-      "Detalhe que voce ainda queria (cor de forminha, foto do tema) NAO segura nada: registre o pedido AGORA e " +
+      "Detalhe que voce ainda queria (cor de forminha, foto do tema) nao segura nada: registre o pedido agora e " +
       "pergunte o detalhe na mesma mensagem, se quiser. Ja aconteceu de segurar uma festa fechada de R$ 458 por causa de uma foto."
     : "";
 
@@ -4222,8 +4222,8 @@ function descreverMontagem(
     "Isto esta guardado e a equipe ja pode ter corrigido na tela. Vale mais que a sua lembranca da conversa." + "\n\n" +
     (linhas.length ? "Itens:" + "\n" + linhas.join("\n") + "\n\n" : "Nenhum item anotado ainda." + "\n\n") +
     (dados.length ? "Dados:" + "\n" + dados.join("\n") + "\n\n" : "") +
-    (totais.length ? "Somando o que esta anotado: " + totais.join(" e ") + ". Confira se bate com o tamanho da festa. Total que o cliente falou (ex: 200 fritos) com varios tipos escolhidos e pra DIVIDIR entre os tipos, nunca pra repetir em cada um." + "\n\n" : "") +
-    "Nao pergunte de novo nada que ja esta aqui em cima, sabor e recheio inclusive: o cliente ja respondeu. Falta so o que NAO aparece nesta lista." + "\n\n" +
+    (totais.length ? "Somando o que esta anotado: " + totais.join(" e ") + ". Confira se bate com o tamanho da festa. Total que o cliente falou (ex: 200 fritos) com varios tipos escolhidos e pra dividir entre os tipos, nunca pra repetir em cada um." + "\n\n" : "") +
+    "Tudo que esta aqui em cima o cliente ja respondeu, sabor e recheio inclusive. Falta so o que nao aparece nesta lista." + "\n\n" +
     ordem +
     linhaRecusados +
     cobrar +
@@ -4435,9 +4435,10 @@ async function rodarConversa(
       messages.push({
         role: "system",
         content:
-          "O cliente ACEITOU a indicacao que voce deu, e o pedido inteiro dela JA FOI ANOTADO: " +
+          "O cliente aceitou a indicacao que voce deu, e o pedido inteiro dela ja esta anotado: " +
           itensPropostos.map((i) => i.qtd + " " + i.produto + (i.obs ? " (" + i.obs + ")" : "")).join(", ") + ". " +
-          "NAO anote nada disso de novo e NAO pergunte de novo por esses itens. Confirme numa frase curta e siga pra proxima etapa que faltar.",
+          "Essas linhas ja estao gravadas: nao passam por anotar_item de novo, e ele ja escolheu esses itens. " +
+          "Ele ainda nao viu essa confirmacao, e a proxima etapa que faltar continua de pe.",
       });
     } catch {
       // proposta ilegivel: segue o fluxo normal, o modelo pergunta
@@ -4485,9 +4486,9 @@ async function rodarConversa(
       messages.push({
         role: "system",
         content:
-          "A cor da forminha JA FOI ANOTADA como " + inteira + " em " +
-          semCor.map((i) => i.produto).join(", ") + ". NAO pergunte a cor de novo e NAO anote esses " +
-          "itens outra vez: Isso ja esta anotado. NAO anuncie que anotou e NAO comece a mensagem com \"Anotei\": siga a conversa pro que falta, com as suas palavras.",
+          "A cor da forminha ja esta anotada: " + inteira + ", em " +
+          semCor.map((i) => i.produto).join(", ") + ". Ele ja respondeu isso, e essas linhas ja estao gravadas. " +
+          "Anunciar a anotacao nao acrescenta nada pra ele: siga a conversa pro que falta, com as suas palavras.",
       });
     }
   }
@@ -4518,8 +4519,8 @@ async function rodarConversa(
       messages.push({
         role: "system",
         content:
-          "O CLIENTE DISSE QUE NAO VAI COMPRAR AGORA. Tudo que estava anotado JA FOI APAGADO por mim, o pedido " +
-          "esta vazio. Responda o que ele perguntou, diga numa frase que nao anotou nada mesmo, e NAO ofereca " +
+          "O cliente disse que nao vai comprar agora. Tudo que estava anotado ja foi apagado por mim: o pedido " +
+          "esta vazio, e e verdade que nao ficou nada anotado. Responda o que ele perguntou, e nao ofereca " +
           "cardapio nem pergunte sabor. Se ele se despedir, despeca-se de volta.",
       });
     }
@@ -4548,8 +4549,8 @@ async function rodarConversa(
       messages.push({
         role: "system",
         content:
-          "A forma de pagamento JA FOI ANOTADA como " + forma + ". NAO pergunte de novo: " +
-          "Isso ja esta anotado. NAO anuncie que anotou e NAO comece a mensagem com \"Anotei\": siga a conversa pro que falta, com as suas palavras.",
+          "A forma de pagamento ja esta anotada: " + forma + ". Ele ja respondeu isso. " +
+          "Anunciar a anotacao nao acrescenta nada pra ele: siga a conversa pro que falta, com as suas palavras.",
       });
     }
   }
@@ -4594,8 +4595,8 @@ async function rodarConversa(
       messages.push({
         role: "system",
         content:
-          "A FOTO JA FOI RESOLVIDA e esta anotada como \"" + marcaFoto + "\". NAO pergunte de foto de novo, " +
-          "nem uma vez: Isso ja esta anotado. NAO anuncie que anotou e NAO comece a mensagem com \"Anotei\": siga a conversa pro que falta, com as suas palavras.",
+          "A foto ja esta resolvida e anotada assim: \"" + marcaFoto + "\". Esse assunto esta encerrado, ele ja respondeu. " +
+          "Anunciar a anotacao nao acrescenta nada pra ele: siga a conversa pro que falta, com as suas palavras.",
       });
     }
   }
@@ -4630,8 +4631,9 @@ async function rodarConversa(
       messages.push({
         role: "system",
         content:
-          "O CLIENTE PEDIU PRA CONFERIR O PEDIDO E NAO HA NENHUM ITEM ANOTADO AINDA. Diga isso com todas as " +
-          "letras, numa frase, e pergunte o que ele quer. NAO invente uma lista e NAO mande cardapio.",
+          "O cliente pediu pra conferir o pedido e ainda nao ha nenhum item anotado. Ele precisa saber disso com " +
+          "todas as letras, e depois saber o que voce quer que ele escolha. Lista inventada e cardapio nao " +
+          "resolvem: pedido pra mostrar ainda nao existe.",
       });
     }
   }
@@ -4774,9 +4776,10 @@ async function rodarConversa(
       messages.push({
         role: "system",
         content:
-          "O CLIENTE ACEITOU A SUA SUGESTAO E O SISTEMA JA ANOTOU: " +
+          "O cliente aceitou a sua sugestao e o sistema ja anotou: " +
           novos.map((o) => o.qtd + " " + comoSeEscreve(o.produto) + (o.obs ? " de " + o.obs : "")).join(", ") +
-          ".\n\nNAO peca a lista de novo, NAO mande o cardapio e NAO anote esses itens outra vez. " +
+          ".\n\nEssas linhas ja estao gravadas: nao passam por anotar_item de novo, e a lista ja foi dada, entao " +
+          "pedi-la de volta ou mandar o cardapio seria voltar atras. " +
           "Confirme numa frase, cuide do resto que ele falou na mesma mensagem, e siga pro que falta.",
       });
     }
@@ -4833,10 +4836,10 @@ async function rodarConversa(
           messages.push({
             role: "system",
             content:
-              "O CLIENTE MUDOU O TOTAL DE " + totalHoje + " PARA " + mudanca.total + " " + mudanca.familia +
-              "s, E O PEDIDO JA FOI AJUSTADO PELO SISTEMA. Ficou assim: " +
+              "O cliente mudou o total de " + totalHoje + " para " + mudanca.total + " " + mudanca.familia +
+              "s e o pedido ja foi ajustado pelo sistema. Ficou assim: " +
               novos.map((n) => n.qtd + " " + n.produto).join(", ") + ".\n\n" +
-              "NAO pergunte se pode ajustar, NAO pergunte como dividir e NAO anote esses itens de novo: " +
+              "A mudanca ja esta feita e ja esta gravada: ele mandou mudar, entao a autorizacao e a divisao ja estao decididas. " +
               "ja esta feito. Diga numa frase como ficou e siga pro que falta.",
           });
         }
@@ -4998,15 +5001,16 @@ async function rodarConversa(
       messages.push({
         role: "system",
         content:
-          "O CLIENTE PEDIU QUE VOCE ESCOLHA. Nao devolva a pergunta: ele ja disse que nao quer escolher, e " +
+          "O cliente pediu que voce escolha, e ele ja disse que nao quer escolher: devolver a pergunta e " +
           "insistir e o oposto de atender." + String.fromCharCode(10, 10) +
           (anotados.length
-            ? "EU JA ESCOLHI E JA ANOTEI TUDO, com a conta fechada: " + anotados.join(", ") + "." +
+            ? "Eu ja escolhi e ja anotei tudo, com a conta fechada: " + anotados.join(", ") + "." +
               String.fromCharCode(10, 10) +
-              "NAO anote esses itens de novo, NAO pergunte o sabor de nenhum deles e NAO pergunte como dividir. " +
+              "Essas linhas ja estao gravadas, com sabor e com a divisao pronta: nada ai precisa de anotar_item, " +
+              "de pergunta de sabor nem de pergunta de divisao. " +
               "Diga numa frase como ficou, com todos os itens, e pergunte SO se pode ser assim. Se ele quiser " +
               "trocar um tipo ou um sabor, troca e pronto."
-            : "OFERECA EXATAMENTE ISTO, que ja esta com a conta certa: " + texto + "." +
+            : "Esta e a sugestao com a conta ja fechada: " + texto + "." +
               String.fromCharCode(10, 10) +
               "Diga numa frase que essa e a sua sugestao, pergunte SO se pode ser assim, e anote quando ele " +
               "aceitar. Se ele quiser trocar um tipo, troca e pronto."),
@@ -5061,9 +5065,9 @@ async function rodarConversa(
         messages.push({
           role: "system",
           content:
-            "O CLIENTE PEDIU QUE VOCE ESCOLHA e ainda faltava o sabor de item que ja esta anotado. " +
-            "EU JA ESCOLHI E JA ANOTEI: " + escritos.join(", ") + ". " + String.fromCharCode(10, 10) +
-            "NAO pergunte o sabor desses itens de novo, NAO anote eles outra vez e NAO devolva a escolha pra " +
+            "O cliente pediu que voce escolha e ainda faltava o sabor de item que ja esta anotado. " +
+            "Eu ja escolhi e ja anotei: " + escritos.join(", ") + ". " + String.fromCharCode(10, 10) +
+            "Esses sabores ja estao gravados, e a escolha ja esta feita dos dois lados: nao ha o que devolver pra " +
             "ele: ele acabou de dizer que nao quer escolher. Diga numa frase como ficou e siga pro que falta. " +
             "Se ele quiser outro sabor, troca e pronto.",
         });
@@ -5140,8 +5144,8 @@ async function rodarConversa(
       messages.push({
         role: "system",
         content:
-          "A HORA DA RETIRADA JA ESTA NA CONVERSA: o cliente escreveu \"" + dita + "\". NAO pergunte a hora de " +
-          "novo. Anote ela com anotar_dados em retirada_hora e siga pro que realmente falta.",
+          "A hora da retirada ja esta na conversa: o cliente escreveu \"" + dita + "\". Ele ja respondeu isso, " +
+          "falta so gravar: chame anotar_dados com retirada_hora e siga pro que realmente falta.",
       });
     }
   }
@@ -5256,10 +5260,10 @@ async function rodarConversa(
         messages.push({
           role: "system",
           content:
-            "O CLIENTE PEDIU QUE VOCE ESCOLHA e o bolo ainda nao estava no pedido. EU JA ESCOLHI E JA ANOTEI: " +
+            "O cliente pediu que voce escolha e o bolo ainda nao estava no pedido. Eu ja escolhi e ja anotei: " +
             kg + " kg de " + nomeBolo + "." + String.fromCharCode(10, 10) +
-            "NAO anote esse bolo de novo e NAO pergunte o sabor dele. Diga numa frase que sugeriu esse bolo e " +
-            "pergunte SO se pode ser. Se ele quiser outro sabor, troca e pronto. Continue de onde parou no resto " +
+            "Essa linha ja esta gravada e o sabor ja esta definido, porque ele delegou a escolha. O que falta e " +
+            "ele saber que essa e a sua sugestao. Se ele quiser outro sabor, troca e pronto. Continue de onde parou no resto " +
             "do pedido.",
         });
       }
@@ -5418,12 +5422,12 @@ async function rodarConversa(
       messages.push({
         role: "system",
         content:
-          "O NUMERO ANTES DO SABOR E QUANTIDADE, NAO SABOR A MAIS. O cliente pediu " +
+          "O numero antes do sabor e quantidade, nao sabor a mais. O cliente pediu " +
           pares.map((x) => x.qtd + " de " + x.sabor).join(", ") + ": sao " + total +
-          " pizzas no total, cada uma com o seu sabor, e NAO uma pizza com varios sabores." +
+          " pizzas no total, cada uma com o seu sabor, e nao uma pizza com varios sabores." +
           String.fromCharCode(10, 10) +
-          "Anote UM item por sabor, com a quantidade dele. Pizza inteira aceita ate quatro sabores na mesma " +
-          "forma, mas isso so vale quando ELE pede assim." +
+          "E um item por sabor, com a quantidade dele. Pizza inteira aceita ate quatro sabores na mesma " +
+          "forma, mas isso so vale quando ele pede assim." +
           // O SABOR QUE EXISTE TEM QUE SER DITO QUE EXISTE.
           //
           // Teste ao vivo de 21/08/2026: "calabresa e frango com catupiry nao
@@ -5433,16 +5437,16 @@ async function rodarConversa(
           // dito, ela inventa; entao aqui se diz.
           (pares.filter((x) => x.existe).length
             ? String.fromCharCode(10, 10) +
-              "ESTES SABORES EXISTEM NO CARDAPIO DA CASA, conferidos um a um, e EU JA ANOTEI cada um deles: " +
+              "Estes sabores existem no cardapio da casa, conferidos um a um, e eu ja anotei cada um deles: " +
               pares.filter((x) => x.existe).map((x) => x.qtd + " de " + x.sabor).join(", ") +
-              ". NAO anote de novo, NAO diga que a casa nao tem nenhum deles, NAO ofereca troca e NAO mande o " +
-              "cardapio por causa deles. Diga numa frase como ficou."
+              ". Ja estao gravados e a casa faz todos: nao ha troca a oferecer nem cardapio a mandar por causa " +
+              "deles. O que ele ainda nao sabe e como ficou."
             : "") +
           (naoExiste.length
             ? String.fromCharCode(10, 10) +
               "Estes nao existem com esse nome no cardapio: " + naoExiste.map((x) => x.sabor).join(", ") +
               ". Diga qual e o parecido que a casa faz e pergunte se serve, sem anotar antes da resposta. " +
-              "NAO diga que a casa nao tem um sabor que esta no cardapio."
+              "Os sabores da lista de cima existem: esses nao entram aqui."
             : ""),
       });
     }
@@ -5457,11 +5461,11 @@ async function rodarConversa(
     messages.push({
       role: "system",
       content:
-        "O CLIENTE DISSE QUE NAO RECEBEU A IMAGEM, ou pediu por escrito. Nao adianta mandar de novo e a " +
+        "O cliente disse que nao recebeu a imagem, ou pediu por escrito. Mandar de novo nao resolve, e a " +
         "ferramenta de cardapio esta bloqueada neste turno de proposito.\n\n" +
-        "ESCREVA a lista no chat agora, com os precos, em linhas curtas, so da categoria que ele perguntou. " +
-        "A tabela inteira esta neste prompt, entao voce tem tudo. NAO diga que mandou, NAO peca desculpa " +
-        "comprida e NAO mande ele olhar em outro lugar.",
+        "O que resolve e a lista escrita no chat agora, com os precos, em linhas curtas, so da categoria que ele " +
+        "perguntou: a tabela inteira esta neste prompt, entao voce tem tudo na mao. Ele nao recebeu nada, entao " +
+        "dizer que mandou seria falso, e nao existe outro lugar pra onde manda-lo olhar.",
     });
   }
 
@@ -5472,7 +5476,7 @@ async function rodarConversa(
     messages.push({
       role: "system",
       content:
-        "O cliente pediu isto e a padaria NAO FAZ: " + naoExistem.join(", ") + ". Diga numa frase que esse item a gente nao tem, ofereca os parecidos que existem no cardapio e ANOTE normalmente o resto do que ele pediu. Nao repita o cardapio inteiro nem ignore o pedido dele."
+        "O cliente pediu isto e a padaria nao faz: " + naoExistem.join(", ") + ". Ele precisa saber disso e saber o que existe de parecido no cardapio. O resto do que ele pediu entra normalmente com anotar_item. O cardapio inteiro repetido nao ajuda aqui, e o pedido dele continua de pe."
     });
   }
 
@@ -5489,7 +5493,7 @@ async function rodarConversa(
     messages.push({
       role: "system",
       content:
-        "Voce ja disse que mandou o cardapio nas ultimas mensagens. NAO repita isso e NAO mande a peca de novo. Responda exatamente o que o cliente escreveu na ultima mensagem e anote o que ele escolheu."
+        "Voce ja disse que mandou o cardapio nas ultimas mensagens, e a peca ja foi. Repetir isso seria a terceira vez que ele le a mesma frase. A ultima mensagem dele fala de outra coisa: e essa que esta esperando resposta, e o que ele escolheu ali entra com anotar_item."
     });
   }
 
@@ -5546,7 +5550,7 @@ async function rodarConversa(
     messages.push({
       role: "system",
       content:
-        "JA ESTA ANOTADO que este cliente nao quer: " + naoQuerNovo + ". NAO ofereca, NAO pergunte e NAO mande cardapio disso de novo em nenhuma mensagem. Siga pro que falta e feche o pedido."
+        "Ja esta anotado que este cliente nao quer: " + naoQuerNovo + ". Isso esta decidido e vale pra conversa inteira: oferta, pergunta e cardapio disso ja sairam do assunto. Siga pro que falta e feche o pedido."
     });
   }
 
@@ -5559,14 +5563,21 @@ async function rodarConversa(
   const falasDela = historico.filter((h) => h.role === "assistant").slice(-6).map((h) => String(h.content ?? "").toLowerCase());
   const jaOfereceu = (marcador: RegExp) => falasDela.filter((t) => marcador.test(t)).length;
   const repetidas: string[] = [];
-  if (jaOfereceu(/querer salgad|quer salgad|salgado tambem|salgados tambem/) >= 2) repetidas.push("salgados");
-  if (jaOfereceu(/querer docinho|quer docinho|docinho tambem|doce tambem/) >= 2) repetidas.push("docinhos");
-  if (jaOfereceu(/querer bolo|quer bolo|bolo tambem/) >= 2) repetidas.push("bolo");
+  // A MESMA GUARDA DA RECUSA VALE AQUI: QUEM CITOU NAO DISPENSOU.
+  //
+  // Este bloco nasceu copiado do de cima e ficou sem o `clienteCitou`. Sem ele,
+  // o cliente que pediu o cardapio de salgado e ouviu duas ofertas de salgado
+  // era tratado como quem nao quer salgado -- sobre a familia que ele acabou
+  // de pedir. Uma regra que mora em dois lugares so vale onde alguem lembrou
+  // de digitar; aqui as duas passam pelo mesmo `clienteCitou`.
+  if (!clienteCitou("salgado") && jaOfereceu(/querer salgad|quer salgad|salgado tambem|salgados tambem/) >= 2) repetidas.push("salgados");
+  if (!clienteCitou("docinho") && jaOfereceu(/querer docinho|quer docinho|docinho tambem|doce tambem/) >= 2) repetidas.push("docinhos");
+  if (!clienteCitou("bolo") && jaOfereceu(/querer bolo|quer bolo|bolo tambem/) >= 2) repetidas.push("bolo");
   if (repetidas.length > 0) {
     messages.push({
       role: "system",
       content:
-        "Voce JA ofereceu " + repetidas.join(" e ") + " duas vezes nesta conversa e o cliente nao pediu. NAO pergunte de novo: trate como se ele nao quisesse, siga pro que falta e feche o pedido. Repetir a mesma oferta faz o cliente achar que voce nao esta lendo o que ele escreve."
+        "Voce ja ofereceu " + repetidas.join(" e ") + " duas vezes nesta conversa e o cliente nao pediu. Quem foi perguntado duas vezes e nao respondeu ja respondeu: trate como se ele nao quisesse, siga pro que falta e feche o pedido. Repetir a mesma oferta faz o cliente achar que voce nao esta lendo o que ele escreve."
     });
   }
 
@@ -5641,15 +5652,15 @@ async function rodarConversa(
       messages.push({
         role: "system",
         content:
-        "O cliente mandou TIRAR isto do pedido e EU JA TIREI: " +
+        "O cliente mandou tirar isto do pedido e eu ja tirei: " +
           paraTirar.map((x) => x.produto).join(", ") +
           ". " +
           (entrouNoLugar.length
-            ? "E JA COLOQUEI no lugar, com a mesma quantidade: " +
+            ? "E ja coloquei no lugar, com a mesma quantidade: " +
               entrouNoLugar.map((x) => x.qtd + " " + x.produto + (x.obs ? " (" + x.obs + ")" : "")).join(", ") +
-              ". Isso ja esta anotado. NAO anuncie que anotou e NAO comece a mensagem com \"Anotei\": siga a conversa pro que falta, com as suas palavras."
-            : "Confirme numa frase curta que saiu e anote o que ele quer no lugar, se ele disse.") +
-          " Nao pergunte de novo o que ele acabou de cancelar."
+              ". Esta tudo gravado. Anunciar a anotacao nao acrescenta nada pra ele: siga a conversa pro que falta, com as suas palavras."
+            : "Ele ainda nao viu que saiu, e o que ele quiser no lugar entra com anotar_item, se ele disse.") +
+          " Ele acabou de cancelar isso, entao esse item ja esta decidido."
       });
     }
   }
@@ -5679,7 +5690,7 @@ async function rodarConversa(
       } as MontagemAtual;
       messages.push({
         role: "system",
-        content: "O cliente disse que NAO TEM foto do tema, e EU JA ANOTEI isso no bolo. Nao pergunte a foto de novo: siga e feche o pedido."
+        content: "O cliente disse que nao tem foto do tema, e eu ja anotei isso no bolo. Ele ja respondeu essa: siga e feche o pedido."
       });
     }
   }
@@ -5717,7 +5728,7 @@ async function rodarConversa(
       messages.push({
         role: "system",
         content:
-          "O cliente recusou topo de bolo e papel de arroz, e EU JA ANOTEI isso na observacao do bolo. Nao pergunte de novo sobre topo nem papel: siga pro que falta e feche o pedido."
+          "O cliente recusou topo de bolo e papel de arroz, e eu ja anotei isso na observacao do bolo. Ele ja respondeu as duas: siga pro que falta e feche o pedido."
       });
     }
   }
