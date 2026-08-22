@@ -671,15 +671,25 @@ export function dataQueEleEscreveu(falaDoCliente: string, hoje: Date): string | 
   if (!escolhido) return null;
   // Sem o ano: e a proxima vez que essa data acontece. Quem pede pra 06/09 em
   // agosto quer este ano; quem pede pra 10/01 em dezembro quer o ano que vem.
-  const anoBase = escolhido.a ?? hoje.getFullYear();
   const pp = (n: number) => String(n).padStart(2, "0");
-  let iso = anoBase + "-" + pp(escolhido.m) + "-" + pp(escolhido.d);
+  let ano = escolhido.a ?? hoje.getFullYear();
   if (!escolhido.a) {
-    const hojeIso =
-      hoje.getFullYear() + "-" + pp(hoje.getMonth() + 1) + "-" + pp(hoje.getDate());
-    if (iso < hojeIso) iso = anoBase + 1 + "-" + pp(escolhido.m) + "-" + pp(escolhido.d);
+    const hojeIso = hoje.getFullYear() + "-" + pp(hoje.getMonth() + 1) + "-" + pp(hoje.getDate());
+    if (ano + "-" + pp(escolhido.m) + "-" + pp(escolhido.d) < hojeIso) ano += 1;
   }
-  return iso;
+  // DD/MM/AAAA, QUE E O FORMATO DA CASA — e nao ISO.
+  //
+  // A primeira versao disto devolvia "2026-09-12", e o pedido ia pro banco como
+  // 2012-09-26. O `parseDataRetirada` de lib/banco/conversas.ts le dd/mm/aaaa: na
+  // string ISO a regex casa "26-09-12" e entende dia 26, mes 09, ano 12. A data
+  // caia no PASSADO, o pedido sumia de Aprovacao e de Pedidos do dia, e o
+  // cliente recebia "ja passei pra nossa equipe" de um pedido que a padaria
+  // nunca ia ver. Achado por um agente comprando, em 22/08/2026 — e a causa fui
+  // eu, nesta funcao, no dia anterior.
+  //
+  // As duas irmas (emSaoPaulo em cerebro.ts, dataBrigaComODiaDaSemana logo
+  // abaixo) sempre devolveram dd/mm/aaaa. Esta destoava.
+  return pp(escolhido.d) + "/" + pp(escolhido.m) + "/" + ano;
 }
 
 export function dataBrigaComODiaDaSemana(

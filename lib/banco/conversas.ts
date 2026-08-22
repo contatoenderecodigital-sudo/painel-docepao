@@ -440,6 +440,29 @@ export async function buscarFotoPedido(
 // se não der (ou a data não existir no calendário), deixa null e a equipe
 // confirma o dia na aprovação, em vez de quebrar o registro do pedido.
 function parseDataRetirada(texto: string): string | null {
+  // ISO PRIMEIRO, SENAO A REGEX DE BAIXO COME A DATA AO CONTRARIO.
+  //
+  // Em "2026-09-12" a regex de dd/mm casa o pedaco "26-09-12" e entende dia 26,
+  // mes 09, ano 12: o pedido ia pro banco como 2012-09-26. A data caia no
+  // PASSADO, o pedido sumia de Aprovacao e de Pedidos do dia, e o cliente
+  // recebia "ja passei pra nossa equipe" de um pedido que a padaria nunca ia
+  // ver. Silencioso: nao da erro, nao aparece em log, so nao existe.
+  //
+  // Medido em 22/08/2026 com tres clientes: 12/09 virou 2012, 04/09 virou 2004,
+  // 31/08 virou 2031. A casa inteira fala dd/mm/aaaa, mas basta UMA funcao
+  // devolver ISO pra derrubar o pedido — foi o que aconteceu. Aceitar os dois
+  // formatos aqui fecha a classe, venha de onde vier.
+  const iso = String(texto ?? "").match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    const a = Number(iso[1]);
+    const me = Number(iso[2]);
+    const di = Number(iso[3]);
+    const dt = new Date(Date.UTC(a, me - 1, di));
+    if (dt.getUTCFullYear() === a && dt.getUTCMonth() === me - 1 && dt.getUTCDate() === di) {
+      return iso[1] + "-" + iso[2] + "-" + iso[3];
+    }
+    return null;
+  }
   const m = texto.match(/(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/);
   if (!m) return null;
   const dia = Number(m[1]);

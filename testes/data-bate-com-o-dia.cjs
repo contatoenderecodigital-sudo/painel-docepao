@@ -17,6 +17,9 @@
 //
 // Roda com: node testes/data-bate-com-o-dia.cjs
 const { dataBrigaComODiaDaSemana, dataQueEleEscreveu } = require("./_guardas.cjs")();
+const { execFileSync: rodar } = require("node:child_process");
+const fsx = require("node:fs");
+const pathx = require("node:path");
 
 let erros = 0;
 function conferir(ok, oque, detalhe) {
@@ -146,10 +149,10 @@ console.log("== a data que o cliente ESCREVEU e a que vale ==");
 
 const VINTE_E_DOIS_AGO = new Date(2026, 7, 22);
 for (const [fala, esperado, oque] of [
-  ["e pro dia 06/09, retiro de manha umas 10h", "2026-09-06", "o caso medido"],
-  ["quero pra 12/09/2026", "2026-09-12", "com o ano escrito"],
-  ["pode ser dia 5/1", "2027-01-05", "data que ja passou este ano vira ano que vem"],
-  ["dia 06/09 | na verdade muda pra 13/09", "2026-09-13", "quem muda de ideia escreve de novo"],
+  ["e pro dia 06/09, retiro de manha umas 10h", "06/09/2026", "o caso medido"],
+  ["quero pra 12/09/2026", "12/09/2026", "com o ano escrito"],
+  ["pode ser dia 5/1", "05/01/2027", "data que ja passou este ano vira ano que vem"],
+  ["dia 06/09 | na verdade muda pra 13/09", "13/09/2026", "quem muda de ideia escreve de novo"],
   ["quero 100 salgados pra sexta as 10h", null, "dia da semana e da outra guarda"],
   ["retiro as 10h30", null, "hora nao e data"],
   ["quero 200 salgados", null, "quantidade nao e data"],

@@ -206,7 +206,30 @@ async function rodar(cenario, fone) {
   // medidor via as linhas certas e nao via que o numero nao mudou. Medidor que
   // nao enxerga o defeito e pior que medidor nenhum, porque da alta.
   const soma = linhas.reduce((s, l) => s + (Number(String(l).split("~")[0]) || 0), 0);
-  return { linhas, fechou, soma };
+  // A DATA E O TOTAL TAMBEM SAO O ESTADO DO BANCO.
+  //
+  // Em 22/08/2026 o medidor deu 9 de 9 enquanto TODO pedido com data escrita em
+  // numero ia pro banco no ano errado (12/09/2026 virava 2012-09-26), caia no
+  // passado e sumia de Aprovacao e de Pedidos do dia. O cliente recebia "ja
+  // passei pra nossa equipe" de um pedido que a padaria nunca ia ver.
+  //
+  // O medidor nao viu porque nunca leu a data. Ele conferia item, quantidade,
+  // soma e fechamento — e o pedido EXISTIA, com os itens certos. Nota alta com
+  // defeito grave e o pior resultado possivel: da alta em quem esta doente.
+  //
+  // O total em centavos entra pelo mesmo motivo: a soma das QUANTIDADES nao
+  // pega item cobrado a mais. Na medicao do mesmo dia um pedido fechou com
+  // R$ 197,25 de item que a cliente nunca pediu, e a soma das quantidades nao
+  // acusou nada.
+  const cab = await psql(
+    "select coalesce(p.retirada_data::text,'') || '~' || coalesce(p.total_centavos,0) " +
+      "from docepao.pedidos p join docepao.clientes c on c.id=p.cliente_id " +
+      "where c.telefone='" + fone + "' order by p.criado_em desc limit 1",
+  ).catch(() => "");
+  const primeira = limpar(cab)[0] ?? "";
+  const dataDoBanco = String(primeira.split("~")[0] ?? "").slice(0, 10);
+  const totalCentavos = Number(String(primeira.split("~")[1] ?? "0")) || 0;
+  return { linhas, fechou, soma, dataDoBanco, totalCentavos };
 }
 
 // O estado bateu com o gabarito?
@@ -232,6 +255,32 @@ function julgar(cenario, estado) {
   }
   if (e.fechou === true && !estado.fechou) motivos.push("nao registrou o pedido");
   if (e.fechou === false && estado.fechou) motivos.push("registrou pedido de quem so perguntou");
+
+  // A DATA DO BANCO E A DATA QUE O CLIENTE FALOU.
+  //
+  // Sem esta linha o medidor deu 9 de 9 enquanto todo pedido com data escrita em
+  // numero ia pro banco no ano errado e sumia da fila da padaria.
+  if (e.data != null && estado.dataDoBanco !== e.data) {
+    motivos.push("a data no banco e " + (estado.dataDoBanco || "(vazia)") + ", devia ser " + e.data);
+  }
+  // O DINHEIRO. A soma das QUANTIDADES nao pega item cobrado a mais: um pedido
+  // fechou com R$ 197,25 de coisa que a cliente nunca pediu e a soma nao acusou.
+  if (e.totalCentavos != null && estado.totalCentavos !== e.totalCentavos) {
+    const brl = (c) => "R$ " + (c / 100).toFixed(2).replace(".", ",");
+    motivos.push("o total e " + brl(estado.totalCentavos) + ", devia ser " + brl(e.totalCentavos));
+  }
+  // ITEM QUE NINGUEM PEDIU. `proibidos` e uma lista escrita a mao, entao so pega
+  // o que alguem lembrou de proibir. `soIsso` vira o contrario: nada alem desta
+  // lista pode estar no pedido. Foi assim que 80 salgados entraram sozinhos.
+  if (Array.isArray(e.soIsso)) {
+    for (const linha of estado.linhas) {
+      const produto = semAc(String(linha).split("~")[1] ?? "");
+      if (!produto) continue;
+      if (!e.soIsso.some((ok) => produto.includes(semAc(ok)) || semAc(ok).includes(produto))) {
+        motivos.push("entrou item que ninguem pediu: " + String(linha).split("~")[1]);
+      }
+    }
+  }
 
   return motivos;
 }
