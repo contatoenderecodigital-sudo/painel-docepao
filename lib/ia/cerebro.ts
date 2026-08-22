@@ -4984,7 +4984,13 @@ async function rodarConversa(
     const falasDele = historico.filter((h) => h.role === "user").map((h) => String(h.content ?? ""));
     const tudoDele = [...falasDele, String(ultimaFalaDoCliente)].join(" | ");
     const delegouTudo = pediuQueVoceEscolha(tudoDele);
-    const querBolo = /bolo/i.test(tudoDele);
+    // QUEM ACEITOU A BASE QUER O BOLO DA BASE, mesmo sem nunca ter escrito
+    // "bolo": quem escreveu foi o orcamento, e ele disse "pode ser". Na conversa
+    // do Sandro a palavra bolo so aparece na fala DELA, e por isso o bolo de
+    // 2 kg ficava de fora de um pedido que ele ja tinha aceitado inteiro.
+    const querBolo =
+      /bolo/i.test(tudoDele) ||
+      (aceitouABase && /[0-9]+(?:[.,][0-9]+)? *(kg|quilos?) de bolo/i.test(String(ultimaDelaAqui)));
     const jaTemBolo = (montagemDoTurno?.itens ?? []).some((i) => /bolo/i.test(String(i.produto ?? "")));
     // ELE JA DISSE O SABOR E O BOLO CONTINUOU FORA DO PEDIDO.
     //
@@ -5031,7 +5037,16 @@ async function rodarConversa(
           " jaTem=" + jaTemBolo,
       );
     }
-    if ((delegouTudo || saborDitoPorEle) && querBolo && !jaTemBolo) {
+    // ACEITAR A BASE INCLUI O BOLO DA BASE.
+    //
+    // Teste de 23/08/2026, a conversa do Sandro ja corrigida: a base dizia "200
+    // salgados, 100 docinhos e 2 kg de bolo", ele respondeu "Pode ser", e os
+    // salgados e docinhos entraram. O bolo nao: eram R$ 93,80 de fora do pedido
+    // de uma festa que o cliente ja tinha aceitado inteira.
+    //
+    // Quem aceita a base aceita os tres. O sabor e o da casa, e ele troca numa
+    // frase se quiser — igual ao sortido de salgado.
+    if ((delegouTudo || saborDitoPorEle || aceitouABase) && querBolo && !jaTemBolo) {
       const kgDito = Number((tudoDele.match(/([0-9]+(?:[.,][0-9]+)?) *(?:kg|quilos?)/i) ?? [])[1]?.replace(",", ".")) || 0;
       // FESTA DE CRIANCA TEM CRIANCA, NAO "PESSOAS".
       //
