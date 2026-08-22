@@ -3589,7 +3589,25 @@ function etapasDaFesta(
   etapas.push({
     titulo: "BOLO",
     pendencias: [
-      ...(festa && !pediuBolo && !dispensou("bolo") && bolos.length === 0
+      // OFERTA DE BOLO TAMBEM NAO TRAVA PEDIDO.
+      //
+      // O defeito 22 de 20/08 ("o pedido nao fechava por causa de uma oferta")
+      // foi consertado nas ofertas de SALGADO e DOCINHO, que ganharam o
+      // `!jaMandouFechar`. A de bolo ficou de fora, e voltou pelo mesmo buraco.
+      //
+      // Medicao de 22/08/2026, tres cenarios, cinco execucoes cada, todas
+      // falhando. O rastro, identico nas quinze:
+      //
+      //   fechar? forcar=false itens=3 faltamDados=[]
+      //   pendSabor=[- o cliente NAO falou em bolo ainda. E festa de
+      //               aniversario: PERGUNTE se ele vai querer bolo tambem.]
+      //
+      // Os quatro dados completos, tres itens certos no banco, e o pedido
+      // travado por uma pergunta que ninguem precisa responder pra cozinha
+      // produzir. Oferecer nao e produzir: sem o sabor a coxinha nao frita, sem
+      // oferecer bolo ela frita do mesmo jeito. Quem entrega os quatro dados
+      // mandou fechar sem dizer.
+      ...(festa && !jaMandouFechar && !pediuBolo && !dispensou("bolo") && bolos.length === 0
         ? [
             "- o cliente NAO falou em bolo ainda. E festa de aniversario: PERGUNTE se ele vai querer bolo tambem. " +
               "Se ele disser que nao, chame anotar_dados com nao_quer=\"bolo\".",
