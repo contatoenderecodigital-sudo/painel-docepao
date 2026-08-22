@@ -998,6 +998,25 @@ export function aceitouAOferta(fala: string): boolean {
   // Negativa manda mais que o "pode": "pode ser mas tira a coxinha" nao e
   // aceite limpo, e nesse caso quem resolve e ela.
   if (/\b(nao|nem|mas|porem|so que|tira|troca|muda|menos|sem)\b/.test(t)) return false;
+  // "TA BOM DE SALGADO" E CHEGA, NAO E SIM.
+  //
+  // Medicao de 22/08/2026. A cliente ja tinha 75 coxinha e 75 mini pao de queijo
+  // no pedido e escreveu "ta bom de salgado", que em portugues quer dizer "de
+  // salgado ja chega". O \bta bom\b da lista de aceites leu como SIM, o codigo
+  // re-anotou a oferta que ainda estava na mensagem anterior dela (o sortido de
+  // 100, 20 de cada) e o pedido fechou com mini bolha 20, risolis 20, bolinha de
+  // queijo 20 e croquete 20: OITENTA salgados que ninguem pediu, numa festa de
+  // 25 pessoas.
+  //
+  // "ta bom" e "ta bom DE alguma coisa" sao frases diferentes, e a segunda e o
+  // contrario da primeira. Perder um aceite custa uma mensagem; inventar um
+  // aceite custa 80 salgados na cozinha.
+  if (
+    /\b(ta bom|ta otimo|ta certo|ta bao|esta bom|esta otimo|ja ta bom|ja esta bom|deu|chega|basta|ja deu|ja chega)\s+(de|dos?|das?)\s+[a-z]/.test(
+      t,
+    )
+  )
+    return false;
   return /\b(pode ser|pode sim|pode mandar|pode anotar|pode fazer|fechado|fechou|isso mesmo|isso ai|e isso|perfeito|show|beleza|blz|ta bom|ta otimo|tudo certo|combinado|concordo|aceito|manda ver|vamos assim|assim ta bom|ok|okay|okey|certo|confirmo|sim)\b/.test(t);
 }
 

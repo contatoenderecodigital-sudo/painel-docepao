@@ -1342,7 +1342,29 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       !mesmoBolo &&
       boloJaAnotado.produto.trim().toLowerCase() !== produto.trim().toLowerCase()
     ) {
-      if (!input.dois_bolos) {
+      // DOIS BOLOS SO EXISTEM SE O CLIENTE FALOU EM DOIS BOLOS.
+      //
+      // Medicao de 22/08/2026. A cliente escreveu "eu nao pedi brigadeiro,
+      // queria de morango"; a guarda recusou e devolveu, no proprio texto da
+      // recusa, o mapa da fuga: "CONFIRME com ele e chame anotar_item de novo
+      // com dois_bolos=true". Ela perguntou "confirma pra eu corrigir?", a
+      // cliente respondeu "isso, morango" — confirmando a TROCA — e ela leu
+      // aquilo como confirmacao de DOIS bolos. O pedido fechou com os dois:
+      // R$ 117,25 a mais, e a cozinha com ordem de assar dois bolos de 2,5 kg
+      // pra uma festa de 25 pessoas.
+      //
+      // `dois_bolos` era a UNICA porta de escrita do pedido sem conferencia do
+      // lado do codigo: um booleano que ELA preenche e que desliga a guarda
+      // inteira em silencio. Todo campo assim vira a saida de emergencia da
+      // primeira guarda que a incomodar. Agora a palavra tem que ser dele.
+      const falasNorm = semAcP(
+        (falasDoCliente.length ? falasDoCliente : [String(ultimaFala || falaDoCliente)]).join(" | "),
+      );
+      const pediuDoisBolos =
+        /\b(dois bolos|2 bolos|duas tortas|2 tortas|mais um bolo|outro bolo|um segundo bolo|segundo bolo|bolo a mais|os dois bolos|os dois|dois mesmo|um de cada)\b/.test(
+          falasNorm,
+        );
+      if (!input.dois_bolos || !pediuDoisBolos) {
         // PEDIR NAO FUNCIONA: O CODIGO TROCA SOZINHO.
         //
         // Antes eu devolvia "use trocar_item" e ela simplesmente nao usava. O
@@ -1368,8 +1390,25 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         // atras nao transforma dois pedidos em uma troca.
         const querTrocar =
           /\b(troca|trocar|muda|mudar|mude|em vez de|no lugar de|na verdade|ao inves|prefiro|melhor)\b/i.test(
-            (falasDoCliente.length ? falasDoCliente : [String(ultimaFala || falaDoCliente)]).join(" | "),
+            falasNorm,
           );
+        // NEGAR O QUE EU ESCOLHI TAMBEM E TROCAR.
+        //
+        // Medicao de 22/08/2026: "eu nao pedi brigadeiro. queria de morango".
+        // Nenhuma palavra de troca ali dentro, entao `querTrocar` era false e o
+        // pedido fechou com os dois bolos. O vocabulario de cima e o de quem
+        // MUDA DE IDEIA; este e o de quem NEGA um pedido que nunca fez — e e
+        // muito mais comum, porque o bolo tinha sido escolhido pelo codigo.
+        //
+        // A rejeicao so vale se ele cita o SABOR que esta anotado: "nao quero
+        // docinho" no meio da conversa nao pode derrubar o bolo.
+        const saborVelho = semAcP(String(boloJaAnotado.produto)).replace(/^bolo (de )?/, "").trim();
+        const rejeitouOVelho =
+          !!saborVelho &&
+          new RegExp(
+            "\\b(nao|nunca)\\s+(pedi|queria|quero|falei|escolhi|e|era|foi)\\b[^|.!?]{0,40}" +
+              saborVelho.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          ).test(falasNorm);
         // O BOLO QUE EU ESCOLHI CEDE LUGAR AO QUE ELE ESCOLHEU.
         //
         // Caso real de 21/08/2026. A cliente disse "escolhe tudo voce", o
@@ -1383,8 +1422,8 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         const oQueEuSugeri = (estado.sugeridos ?? []).some((x) =>
           String(x).toLowerCase().includes(String(boloJaAnotado.produto).toLowerCase()),
         );
-        if (querTrocar || oQueEuSugeri) {
-          if (oQueEuSugeri && !querTrocar) {
+        if (querTrocar || rejeitouOVelho || oQueEuSugeri) {
+          if (!querTrocar) {
             console.log("[rastro] o bolo que eu sugeri saiu pro bolo que ele pediu: " + boloJaAnotado.produto + " -> " + produto);
           }
           estado.montagem.push({
@@ -1408,8 +1447,10 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
           `NAO anotei ainda: ja existe um bolo neste pedido, o "${boloJaAnotado.produto}". ` +
           `Se o cliente TROCOU o sabor, chame trocar_item com produto_sai="${boloJaAnotado.produto}" e ` +
           `produto_entra="${produto}", que eu tiro um e ponho o outro de uma vez. ` +
-          `Se ele quer DOIS bolos mesmo (acontece em festa grande), CONFIRME com ele e chame anotar_item de novo ` +
-          `com dois_bolos=true. Nunca acrescente por conta propria um bolo que ele nao pediu.`
+          `Se voce acha que ele quer DOIS bolos, PERGUNTE com todas as letras ("voce quer os DOIS bolos, o ` +
+          `${boloJaAnotado.produto} E o ${produto}, na mesma festa?") e espere ELE responder que quer os dois. ` +
+          `dois_bolos=true sozinho nao basta: a palavra tem que ser dele. ` +
+          `Nunca acrescente por conta propria um bolo que ele nao pediu.`
         );
       }
     }
