@@ -2106,7 +2106,19 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         // Agora as duas usam a MESMA regra de indicacao, e o que a ferramenta
         // sugeriu neste turno vale como citado.
         const pediuIndicacao = pediuQueVoceEscolha(falasDoCliente.join(" | "));
-        const euMesmoSugeri = (estado.sugeridos ?? []).some((s) => semAcP(s) === semAcP(produto));
+        // ESTA COMPARACAO NUNCA FOI VERDADEIRA.
+        //
+        // `estado.sugeridos` guarda "40 esfirra", "40 empadinha" -- quantidade e
+        // nome juntos. Comparar com `===` contra "esfirra" da falso sempre, e o
+        // comentario aqui em cima diz "agora as duas usam a MESMA regra".
+        //
+        // O estrago: cliente pede "200 salgados assados" sem dizer "escolhe
+        // voce". A Dora chama sugerir_sortido por conta propria, o codigo
+        // responde a lista, ela oferece, o cliente aceita -- e na hora de anotar
+        // as cinco chamadas sao recusadas por "ninguem falou nesse produto",
+        // porque quem falou foi o proprio sistema. Pedido de R$ 250 termina
+        // vazio. A guarda irma (cerebro:1789) usa includes e acerta.
+        const euMesmoSugeri = (estado.sugeridos ?? []).some((s) => semAcP(s).includes(semAcP(produto)));
         if (!citou && !pediuIndicacao && !euMesmoSugeri) {
           console.warn("[ia] produto nao citado pelo cliente: " + produto + "; recusado");
           return (
@@ -3069,11 +3081,40 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const temLinhaDeBolo = c.linhas.some((l) => /^bolo/i.test(l.item));
     // Negacao conta: quem escreveu "nao quero bolo" nao pediu bolo, e exigir a
     // linha trava o pedido pra sempre.
-    const dispensouBolo = /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}bolo/i.test(falaDoCliente) ||
+    const dispensouBolo = /(sem|nao quero|não quero|nem|nao vou querer|não vou querer|deixa pra la|deixa pra lá|deixa quieto|esquece)[^.]{0,24}bolo|nao quero comprar|não quero comprar|so quero saber o pre|só quero saber o pre/i.test(falaDoCliente) ||
       /bolo/i.test(String(montagemAtual?.dados?.nao_quer ?? ""));
+    // PERGUNTAR O PRECO DE UM BOLO NAO E PEDIR UM BOLO.
+    //
+    // Teste ao vivo de 22/08/2026, cliente que nunca conseguiu comprar:
+    //
+    //   cliente: quanto ta o cento de coxinha?
+    //   cliente: calma ai. e o bolo de cenoura, quanto?     <- so PERGUNTOU
+    //   cliente: deixa pra la. me ve 50 coxinha pra domingo
+    //   cliente: so isso mesmo. quanto da? nome carla, dinheiro, 11h
+    //   Dora:    Deixa eu chamar alguem da equipe pra te ajudar com isso.
+    //   cliente: como assim? so quero saber o total dos salgados
+    //   Dora:    Deixa eu chamar alguem da equipe pra te ajudar com isso.
+    //   cliente: pode fechar entao. 30 bolinha, 20 croquete, domingo 11h, carla
+    //   Dora:    Deixa eu chamar alguem da equipe pra te ajudar com isso.
+    //
+    // `falaDoCliente` e a conversa INTEIRA colada (cerebro.ts:7131). A palavra
+    // "bolo" da pergunta do turno 2 ficou la pra sempre, o carrinho nao tinha
+    // bolo, e esta guarda recusou registrar_pedido em TODAS as voltas ate o
+    // laco estourar -- em todos os turnos seguintes tambem. Armadilha
+    // permanente: uma vez que a palavra entra no historico, nao sai.
+    //
+    // A guarda tinha a frase inteira na mao e nao olhava o que a frase ERA.
+    // Pergunta de preco e pergunta; pedido e pedido. A guarda continua valendo
+    // pra quem PEDE bolo -- que e o defeito real que ela nasceu pra pegar (o
+    // bolo virando "brigadeiro: 1 un x R$ 1,25", ja aconteceu tres vezes).
+    const SO_PERGUNTOU_DO_BOLO = /\b(quanto|qual o pre|qual e o pre|pre[çc]o|valor|custa|voc[êe]s fazem|voc[êe]s t[êe]m|tem\b)/i;
+    const frasesComBolo = String(falaDoCliente)
+      .split(/[.!?\n]+/)
+      .filter((fr) => falaDeBolo.test(fr));
     const pediuBoloDeVerdade =
       !dispensouBolo &&
-      (falaDeBolo.test(falaDoCliente) || itens.some((i) => falaDeBolo.test(String(i.obs ?? ""))));
+      (frasesComBolo.some((fr) => !SO_PERGUNTOU_DO_BOLO.test(fr)) ||
+        itens.some((i) => falaDeBolo.test(String(i.obs ?? ""))));
     if (!temLinhaDeBolo && pediuBoloDeVerdade) {
       // RECUSA, não avisa. Sinalizar deixava o pedido ir pra cozinha sem bolo,
       // cobrando R$ 97 a menos, com um aviso que a dona teria que ler e
@@ -3270,12 +3311,22 @@ ATENCAO: recusar o registro NAO quer dizer recomecar a coletar. Tudo que o clien
     // cliente recebe um recado honesto em vez de um resumo furado.
     const GRAVE = /bolo|data/i;
     const problemaGrave = pendencias.some((p) => GRAVE.test(p));
-    if (problemaGrave) {
-      estado.resumo =
-        "Anotei tudo aqui.\n\n" +
-        "Só vou confirmar uns detalhes com a equipe antes de te passar o resumo fechado, pra não te mandar nada errado.\n\n" +
-        "Já já te aviso por aqui.";
-    }
+    // ESTA PROTECAO NUNCA RODOU UMA VEZ.
+    //
+    // Ela gravava `estado.resumo` com o recado honesto -- e vinte linhas
+    // abaixo `estado.resumo` era gravado de novo, sem condicao nenhuma, com o
+    // recibo. Entre as duas atribuicoes so ha tres `const`: nada leu o valor no
+    // meio. O `if` era um no-op desde o dia em que foi escrito, e TODO cliente
+    // com pendencia de bolo ou de data recebeu o resumo furado -- exatamente o
+    // que o comentario aqui em cima diz que nao pode acontecer.
+    //
+    // O conserto nao e voltar ao recado sozinho: o dono decidiu, e esta certo,
+    // que o cliente tem que conferir item por item antes de pagar. Some as
+    // duas coisas -- a lista inteira, e o aviso de que um detalhe ainda vai ser
+    // confirmado. O recibo continua igual; ganha uma linha no fim.
+    const avisoDePendencia = problemaGrave
+      ? "\n\nUm detalhe ainda vou confirmar com a equipe antes de fechar, e te aviso por aqui."
+      : "";
 
     const linhaPagamento = formaPagamento ? `*Forma de pagamento:* ${formaPagamento}\n` : "";
     const nomeResumo = nomeInformado && !pendencias.some((p) => p.includes("nome")) ? `*Nome:* ${nomeInformado}\n` : "";
@@ -5808,6 +5859,24 @@ async function rodarConversa(
   // ainda vier quebrada, o problema nao e a IA e o alarme tem que aparecer no log.
   let jaRefezPorOrfa = false;
   let jaCobreiItemQueSumiu = false;
+  // FORCAR A FERRAMENTA DEPOIS QUE ELA JA FOI RECUSADA E O MOTOR DO TRAVAMENTO.
+  //
+  // `obrigarFechamento` tira do modelo o direito de escrever texto: `tool_choice`
+  // manda chamar registrar_pedido e mais nada. Isso resolveu o defeito de ela
+  // prometer que ia passar pra equipe e nao chamar a ferramenta.
+  //
+  // Mas ele e recalculado a cada volta e continua verdadeiro enquanto nao
+  // existir pedido. Entao, quando uma guarda recusa o registro por um motivo
+  // que a IA nao consegue consertar sozinha, ela e obrigada a tentar de novo
+  // nas seis voltas, sempre com o mesmo resultado, e o cliente recebe o texto
+  // de emergencia. Foi assim que a Carla ouviu "Deixa eu chamar alguem da
+  // equipe" tres vezes seguidas e foi embora sem comprar.
+  //
+  // A recusa em si nao era o problema: o problema e recusar E calar. Depois da
+  // primeira recusa, ela recupera o direito de falar -- pra perguntar o que
+  // falta, ou pra explicar. A ferramenta continua na mesa, so nao e mais
+  // obrigatoria.
+  let registroRecusado = 0;
   for (let i = 0; i < 6; i++) {
     // Modelos de raciocínio (gpt-5, o1, o3) recusam max_tokens e temperature:
     // eles usam max_completion_tokens e não aceitam ajuste de criatividade.
@@ -5955,9 +6024,13 @@ async function rodarConversa(
       !ferramentas.some((f) => (f as { function?: { name?: string } })?.function?.name === "registrar_pedido")
         ? [...ferramentas, ...FERRAMENTAS.filter((f) => "function" in f && f.function.name === "registrar_pedido")]
         : ferramentas;
-    const escolhaDaFerramenta = obrigarFechamento
-      ? ({ type: "function", function: { name: "registrar_pedido" } } as const)
-      : undefined;
+    const escolhaDaFerramenta =
+      obrigarFechamento && registroRecusado === 0
+        ? ({ type: "function", function: { name: "registrar_pedido" } } as const)
+        : undefined;
+    if (obrigarFechamento && registroRecusado > 0 && i === 1) {
+      console.log("[rastro] registro recusado: devolvendo a ela o direito de escrever.");
+    }
     const resp = await client.chat.completions.create(
       ehRaciocinio
         ? {
@@ -6570,9 +6643,24 @@ async function rodarConversa(
         );
         if (iguais >= 2 && respondeuAlgo && !anotouAgora && jaPediuPraRepetir) {
           console.warn("[ia] segunda vez sem entender; chamando a equipe");
-          estado.precisaHumano =
-            estado.precisaHumano ??
+          // ESTE RAMO LOGAVA "chamando a equipe" E NUNCA CHAMAVA NINGUEM.
+          //
+          // Era `estado.precisaHumano = estado.precisaHumano ?? "..."`. O `??` so
+          // cai pro lado direito com null/undefined, e `precisaHumano` nasce
+          // `false` (cerebro:4391) -- entao `false ?? "..."` e `false`, sempre.
+          // O painel nao acendia, a dona nao era avisada, e o cliente ficava
+          // sozinho na terceira pergunta identica. Pior: como este `if` tem um
+          // `else if` embaixo, quando ele entrava o ramo que ao menos pedia pra
+          // repetir tambem nao rodava. O cliente ouvia a MESMA frase decorada.
+          //
+          // E o motivo ia pro campo errado: quem carrega texto e `motivoEquipe`.
+          estado.precisaHumano = true;
+          estado.motivoEquipe =
+            estado.motivoEquipe ??
             "A Dora pediu pro cliente repetir e continuou sem entender. Alguem precisa ler a conversa.";
+          textoFinal =
+            "Desculpa, acho que não tô conseguindo entender direito o que você precisa." +
+            " Já chamei alguém da equipe pra falar com você por aqui, tá?";
         } else if (iguais >= 2 && respondeuAlgo && !anotouAgora) {
           console.warn("[ia] terceira vez na mesma pergunta; admitindo que nao entendeu");
           textoFinal =
@@ -7162,6 +7250,10 @@ async function rodarConversa(
       // 90 caracteres cortavam justamente a lista do que falta, que e o motivo da
       // recusa. Sem ela o log so diz que recusou, nao por que.
       console.log(`[ia] ${tc.function.name} -> ${saida.replace(new RegExp("\\s+", "g"), " ").slice(0, 320)}`);
+      // A recusa devolve a voz: ver o comentario em cima do laco.
+      if (tc.function.name === "registrar_pedido" && /^(NAO |NÃO |Não )/.test(String(saida))) {
+        registroRecusado++;
+      }
       messages.push({ role: "tool", tool_call_id: tc.id, content: saida });
 
       // O QUE A FERRAMENTA ACABOU DE GRAVAR VALE JA, NESTE TURNO.
@@ -7224,8 +7316,31 @@ async function rodarConversa(
     }
     if (texto) console.log("[rastro] o loop acabou com recusa sem pergunta pronta: " + texto.slice(0, 120));
   }
+  // A MESMA FRASE TRES VEZES E O QUE MAIS DENUNCIA ROBO.
+  //
+  // Teste ao vivo de 22/08/2026: o cliente recebeu "Deixa eu chamar alguem da
+  // equipe pra te ajudar com isso" TRES VEZES SEGUIDAS, palavra por palavra,
+  // em resposta a tres mensagens diferentes. Nenhuma pessoa repete a mesma
+  // frase tres vezes.
+  //
+  // O detector de resposta repetida existe (o system de "voce repetiu a
+  // resposta anterior palavra por palavra"), mas este return sai por fora do
+  // laco e escapa dele. Um escape de emergencia nao pode ser a unica saida sem
+  // detector nenhum.
+  //
+  // E o conteudo tambem estava errado da segunda em diante: a equipe JA foi
+  // chamada na primeira. Repetir o aviso nao chama mais ninguem -- so faz o
+  // cliente achar que esta falando com uma parede.
+  const ultimaDela = [...historico]
+    .reverse()
+    .find((m) => m.role === "assistant" && typeof m.content === "string");
+  const jaAvisouDaEquipe = /chamar algu[ée]m da equipe|equipe j[áa] foi avisada|algu[ée]m vem falar com voc[êe]/i
+    .test(String(ultimaDela?.content ?? ""));
+  if (jaAvisouDaEquipe) console.log("[rastro] o escape de emergencia ia repetir a mesma frase; trocou.");
   return {
-    texto: "Deixa eu chamar alguém da equipe pra te ajudar com isso.",
+    texto: jaAvisouDaEquipe
+      ? "A equipe já foi avisada e alguém vem falar com você por aqui, tá? Não precisa mandar de novo."
+      : "Deixa eu chamar alguém da equipe pra te ajudar com isso.",
     precisaHumano: true,
     pedidoRegistrado: estado.pedido,
     cardapiosParaEnviar: estado.cardapios,

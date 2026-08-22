@@ -13,6 +13,7 @@
 
 import catalogo from "./dados/catalogo.json";
 import { produtosDoCardapio } from "./produtos";
+import { foiNegado } from "./orcamento";
 // TODOS OS PRECOS UNITARIOS QUE A PADARIA PRATICA, em centavos.
 // Fonte unica: o catalogo. O que nao esta aqui, ela nao pode dizer que cobra.
 function precosDaCasa(): Set<number> {
@@ -1804,8 +1805,11 @@ export function pecasDoBoloQueEleAceitou(fala: string): { topo: boolean; papel: 
   // ficava no meio. Trocar "nem" por "sem" resolve os dois sentidos de uma vez
   // ("nao quero papel de arroz nem topo" quebrava igual, ao contrario).
   const n = t.replace(/\bnem\b/g, " sem ");
-  const negouTopo = /(sem|nao quero|nao vou querer|dispensa) *(o |um )?topo/.test(n);
-  const negouPapel = /(sem|nao quero|nao vou querer|dispensa) *(o |um )?(papel|de arroz)/.test(n);
+  // A MESMA PERGUNTA, A MESMA FUNCAO. Estas duas linhas e o `citadoDeVerdade`
+  // do orcamento respondiam "esse termo foi negado?" com regras diferentes, e a
+  // divergencia cobrava R$ 12,00 de papel de arroz recusado e travava a festa.
+  const negouTopo = foiNegado(n, "topo");
+  const negouPapel = foiNegado(n, "papel") || foiNegado(n, "de arroz");
   const falouTopo = /topo/.test(n) && !negouTopo;
   const falouPapel = /papel de arroz|papel arroz/.test(n) && !negouPapel;
   // A palavra sozinha ja e aceite quando ela veio numa resposta afirmativa:

@@ -9,18 +9,61 @@
 import catalogo from "./dados/catalogo.json";
 import rendimentoJson from "./dados/rendimento.json";
 
-// O termo so conta quando nao esta negado: "sem topo", "nao quer papel de
-// arroz" e "sem papel" nao sao pedido de topo nem de papel.
-export function citadoDeVerdade(texto: string, termo: string): boolean {
-  const t = String(texto || "").toLowerCase();
-  const alvo = termo.toLowerCase();
+// "ESSE TERMO FOI NEGADO?" -- A PERGUNTA MORAVA EM DOIS LUGARES E AS DUAS
+// RESPOSTAS DIVERGIAM.
+//
+// Aqui e em `guardas.ts` (negouTopo/negouPapel) o codigo perguntava a mesma
+// coisa com regras diferentes. A daqui exigia um ESPACO logo depois de "quer":
+//
+//   /(sem|nao quer|nada de|tirar o|nem)\s+[a-zà-ú ]{0,12}$/
+//
+// Em "nao quer**o** papel de arroz" vem um "o", nao um espaco. Nao casava.
+// Rodado lado a lado:
+//
+//   "nao quero papel de arroz"   daqui: CITADO (errado)   guardas: negado
+//   "dispensa o papel de arroz"  daqui: CITADO (errado)   guardas: negado
+//
+// O estrago da divergencia, medido: a mae escreve "nao quero topo nem papel de
+// arroz". O papel entra na conta por R$ 12,00 que ela acabou de recusar; o
+// recibo diz "a equipe vai te informar o valor do topo" num bolo sem topo; e a
+// etapa DADOS DA PECA abre e passa a exigir nome, idade e tema do
+// aniversariante -- que sao pendencia, ou seja, TRAVAM o registro. A festa de
+// R$ 180 nao fecha e ela pergunta o tema ate a cliente desistir.
+//
+// Agora e uma funcao so, e ela mora aqui porque este arquivo nao importa
+// ninguem: `guardas.ts` importa daqui, e nao ha ciclo.
+const semAcento = (t: string) =>
+  String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+// "nem" e negacao no meio da frase: "nao quero topo nem papel" nega os dois.
+// Sem esta troca, a negacao do SEGUNDO item virava afirmacao.
+const NEGACAO_ANTES =
+  /(sem|nao quero|nao quer|nao vou querer|nao vai querer|nada de|tirar? o|tira o|dispensa|deixa pra la|deixa quieto|esquece|nao precisa d)\s*(o |a |os |as |um |uma |de |do |da )?[a-z0-9 ]{0,10}$/;
+
+function ocorrencias(texto: string, termo: string): { negada: boolean }[] {
+  const t = semAcento(texto).replace(/\bnem\b/g, " sem ");
+  const alvo = semAcento(termo).trim();
+  const achados: { negada: boolean }[] = [];
+  if (!alvo) return achados;
   let de = t.indexOf(alvo);
   while (de >= 0) {
-    const antes = t.slice(Math.max(0, de - 22), de);
-    if (!/(sem|nao quer|não quer|nada de|tirar o|tira o|nem)\s+[a-zà-ú ]{0,12}$/.test(antes)) return true;
+    achados.push({ negada: NEGACAO_ANTES.test(t.slice(Math.max(0, de - 26), de)) });
     de = t.indexOf(alvo, de + alvo.length);
   }
-  return false;
+  return achados;
+}
+
+// Aparece e ALGUMA das vezes nao esta negada.
+export function citadoDeVerdade(texto: string, termo: string): boolean {
+  return ocorrencias(texto, termo).some((o) => !o.negada);
+}
+
+// Aparece e TODAS as vezes estao negadas. Quem nunca falou no termo nao negou
+// nada: "nao pediu" e "recusou" sao estados diferentes, e a etapa do bolo
+// depende dessa diferenca pra saber se ja pode parar de perguntar.
+export function foiNegado(texto: string, termo: string): boolean {
+  const os = ocorrencias(texto, termo);
+  return os.length > 0 && os.every((o) => o.negada);
 }
 export const brl = (n: number) =>
   "R$ " +
