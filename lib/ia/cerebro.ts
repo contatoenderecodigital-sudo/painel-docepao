@@ -58,6 +58,7 @@ import {
   chutouValorDoTopo,
   textoSemValorDoTopo,
   mandouFechar,
+  mandouRecomecar,
   horaQueEleFalou,
   textoSemPerguntaDeHora,
   textoSemPerguntaDeNome,
@@ -451,6 +452,16 @@ export type MontagemAtual = {
 export type MudancaMontagem =
   | { tipo: "item"; produto: string; categoria: string; qtd: number; obs?: string | null }
   | { tipo: "remover"; produto: string; categoria: string }
+  // ZERAR: apaga o pedido em montagem inteiro, itens e dados.
+  //
+  // O pedido em montagem guarda nome, data, hora e pagamento de proposito, pra
+  // pessoa nao repetir os dados a cada mensagem. So que nao havia jeito nenhum
+  // de zerar isso pelo WhatsApp: quem desistiu e quis comecar outro pedido
+  // ficava preso ao anterior. Teste do dono em 23/08/2026:
+  //
+  //   cliente: vamos reiniciar nossa conversa. ok?
+  //   Dora:    Fechou, Suelen, ja anotei seu nome, data, hora e o pix.
+  | { tipo: "zerar" }
   | { tipo: "dados"; dados: Record<string, string | null> };
 
 // Resultado de um turno da IA.
@@ -4198,6 +4209,37 @@ async function rodarConversa(
   let montagemDoTurno = montagemAtual;
   const propostaGuardada = String(montagemAtual?.dados?.proposta ?? "");
   const ultimaFalaDoCliente = [...historico].reverse().find((h) => h.role === "user")?.content ?? "";
+
+  // QUEM MANDA RECOMECAR, RECOMECA.
+  //
+  // Teste do dono em 23/08/2026, no celular dele:
+  //
+  //   cliente: vamos reiniciar nossa conversa. ok?
+  //   Dora:    Fechou, Suelen, ja anotei seu nome, data, hora e que vai pagar
+  //            no pix. Prefere fritos, assados ou um sortido?
+  //
+  // Ela disse "fechou" e nao reiniciou nada, porque nao havia o que reiniciar:
+  // o pedido em montagem guarda os dados de proposito e nao tinha porta de
+  // saida. Quem desistiu do pedido e quis comecar outro ficava preso ao
+  // anterior, e a unica saida era alguem mexer no banco.
+  //
+  // Sai daqui direto, sem passar pelo modelo: apagar o pedido do cliente nao e
+  // decisao de redacao, e uma volta pelo modelo so adicionaria chance de ele
+  // responder "fechou" sem apagar, que foi exatamente o que aconteceu.
+  if (mandouRecomecar(String(ultimaFalaDoCliente))) {
+    // Sem gravarUso aqui: nao houve chamada ao modelo nenhuma nesta volta, e
+    // por isso mesmo esta saida e de graca.
+    console.warn("[ia] o cliente mandou recomecar; zerando o pedido em montagem");
+    return {
+      texto:
+        "Apaguei tudo o que a gente tinha combinado e comecei do zero. " +
+        "Me diz o que voce precisa que eu anoto de novo.",
+      precisaHumano: false,
+      pedidoRegistrado: null,
+      cardapiosParaEnviar: [],
+      montagem: [{ tipo: "zerar" }],
+    };
+  }
   // O que o CODIGO decidiu gravar neste turno. Vai pro fim da lista de
   // mudancas, depois das chamadas dela, porque a ultima escrita e a que vale.
   const correcoesDoCodigo: MudancaMontagem[] = [];
@@ -7011,6 +7053,13 @@ function aplicarMudancasNaMemoria(
   const chave = (t: unknown) =>
     String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
   for (const mud of mudancas) {
+    // ZERAR APAGA TUDO, e vem antes de qualquer outra leitura: depois dele nao
+    // sobra item nem dado pra comparar.
+    if (mud.tipo === "zerar") {
+      base.itens = [];
+      base.dados = {} as MontagemAtual["dados"];
+      continue;
+    }
     if (mud.tipo === "dados") {
       base.dados = { ...base.dados, ...(mud.dados as Record<string, unknown>) } as MontagemAtual["dados"];
       continue;

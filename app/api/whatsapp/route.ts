@@ -514,6 +514,9 @@ async function processar(corpo: WebhookPayload) {
               unidade: unidadeDoProduto(mud.produto, mud.categoria),
               obs: mud.obs ?? null,
             });
+          } else if (mud.tipo === "zerar") {
+            // O cliente mandou recomecar: some com itens e dados de uma vez.
+            await limparMontagem(negocioId, clienteId);
           } else if (mud.tipo === "remover") {
             await removerItem(negocioId, clienteId, mud.produto, mud.categoria as never);
           } else if (mud.tipo === "dados") {

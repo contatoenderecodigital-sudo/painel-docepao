@@ -1342,6 +1342,34 @@ export function pecasDoBoloQueEleAceitou(fala: string): { topo: boolean; papel: 
   };
 }
 
+// QUEM MANDA RECOMECAR, RECOMECA.
+//
+// Teste do dono em 23/08/2026, no celular dele:
+//
+//   cliente: vamos reiniciar nossa conversa. ok?
+//   Dora:    Fechou, Suelen, ja anotei seu nome, data, hora e que vai pagar no
+//            pix. Prefere fritos, assados ou um sortido?
+//
+// Ela disse "fechou" e nao reiniciou nada. O pedido em montagem guarda nome,
+// data, hora e pagamento de proposito, pra pessoa nao repetir os dados a cada
+// mensagem; so que nao havia jeito nenhum de zerar isso pelo WhatsApp. Quem
+// desistiu do pedido e quis comecar outro ficava preso ao anterior, e a unica
+// saida era alguem mexer no banco.
+//
+// Nao vale pra "mudar" nem "trocar": isso e ajuste de item e ja tem tratamento
+// proprio. Aqui e apagar tudo e comecar de novo, que e coisa que a pessoa
+// escreve com todas as letras.
+export function mandouRecomecar(fala: string): boolean {
+  const t = semAcMin(fala);
+  if (!t.trim()) return false;
+  const recomecar = /(reiniciar|recomecar|comecar de novo|do zero|comeca de novo|zerar|apagar tudo|cancelar tudo|esquece tudo|esquecer tudo|apaga tudo|desconsidera tudo)/;
+  if (!recomecar.test(t)) return false;
+  // "reiniciar o pedido" e "recomecar a conversa" valem. "nao quero recomecar"
+  // nao vale, e quem escreve isso esta justamente pedindo pra NAO apagar.
+  if (/(nao |sem )(quero |precisa |vamos )?(reiniciar|recomecar|zerar|apagar)/.test(t)) return false;
+  return true;
+}
+
 // A PERGUNTA FECHADA VIRA BOTAO.
 //
 // O WhatsApp aceita ate tres botoes de resposta, 20 caracteres cada. Quando a
