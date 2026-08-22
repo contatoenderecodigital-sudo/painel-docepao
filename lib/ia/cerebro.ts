@@ -698,6 +698,41 @@ function executarFerramenta(
           "salgado e um total que assusta. Use o numero que ELE deu, ou pergunte quantas pessoas vao, e chame de novo."
         );
       }
+      // "CENTO" QUER DIZER CEM UNIDADES. NUNCA UMA PESSOA.
+      //
+      // Teste ao vivo de 22/08/2026:
+      //
+      //   cliente: quanto custa o cento de salgado?
+      //   [rastro] montar_orcamento <- {"modo":"pessoas","pessoas":1,...}
+      //   Dora:    Pra 1 pessoas, uma base boa e 10 salgados no total.
+      //            Da R$ 10,00 no total.
+      //
+      // O cento de salgado e R$ 100,00. Ela respondeu R$ 10,00 -- e o erro nao
+      // esta em preco nenhum: esta no ROTEAMENTO, antes de qualquer conta. Ela
+      // leu "cento" como quantidade de gente e chamou a ferramenta de festa.
+      //
+      // A guarda de cima nao pegava: ela exige que o cliente tenha escrito
+      // ALGUM numero ("ditos.size > 0"), e "cento" e palavra, nao numero.
+      //
+      // Duas regras, as duas estreitas de proposito:
+      const dizCento = /\bcento\b|\bcem\b/i.test(String(falaDoCliente ?? ""));
+      if (dizCento && !ditos.has(pedidas)) {
+        return (
+          "NAO orcei: \"cento\" quer dizer CEM UNIDADES, nao cem pessoas e muito menos uma. " +
+          "Ele esta perguntando o preco de 100 unidades. Responda o preco do cento (unidade x 100) " +
+          "com a tabela que esta neste prompt, ou chame de novo no modo itens com a quantidade 100."
+        );
+      }
+      // Festa de ate 4 pessoas nao existe, e o total sai ridiculo: a conta de
+      // 1 pessoa deu R$ 10,00 pra uma pergunta de R$ 100,00. Se ele realmente
+      // falou o numero, `ditos` tem, e passa.
+      if (pedidas > 0 && pedidas <= 4 && !ditos.has(pedidas)) {
+        return (
+          "NAO orcei: ninguem falou em " + pedidas + " pessoas nesta conversa, e festa desse tamanho " +
+          "faz o total sair ridiculo. Se ele perguntou um preco, responda o preco com a tabela. " +
+          "Se e festa mesmo, pergunte quantos convidados sao e chame de novo."
+        );
+      }
     }
     if (input.modo === "itens") {
       const c = motor.cotarPorItens((input.itens as { item: string; qtd: number }[]) || []);
@@ -1669,9 +1704,40 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         // que chegue na categoria errada, nao so pro bolo salgado.
         if (existeNoCardapio(produto)) {
           console.warn("[rastro] produto existe mas veio na categoria errada: " + produto);
+          // A CATEGORIA CERTA VEM DO CATALOGO, NAO DE UM CHUTE.
+          //
+          // Esta recusa dizia "quase sempre por_quilo, e ai a qtd e o PESO em
+          // kg" -- e pra bolo CASEIRO isso esta errado: ele sai inteiro, por
+          // unidade. Teste ao vivo de 22/08/2026:
+          //
+          //   cliente: quanto custa o bolo de fuba com goiabada?
+          //   [rastro] anotar_item <- {"produto":"bolo fuba com goiabada",
+          //                            "categoria":"bolo_festa"}
+          //   Dora: sai R$ 30,90 o bolo inteiro. Quer um bolo desse?
+          //         Se sim, me diz quantos quilos voce quer.
+          //
+          // O preco saiu certo por outro caminho, e a frase de "quantos quilos"
+          // veio desta recusa mandando a categoria errada. O catalogo sabe qual
+          // e: `categoriaDoProduto` ja responde bolo_caseiro, e o preco fechado
+          // esta na mesma linha. Quem tem o dado responde.
+          const certa = categoriaDoProduto(produto);
+          const caseiro = ((catalogo.bolos_caseiros?.itens ?? []) as { nome: string; preco?: number }[]).find((i) => {
+            const n = String(i.nome ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+            return n && String(produto).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").includes(n);
+          });
+          if (caseiro) {
+            return (
+              "NAO anotei NESSA CATEGORIA: \"" + produto + "\" e um bolo CASEIRO, nao um bolo de festa. " +
+              "Bolo caseiro sai INTEIRO, por unidade: " + brl(Number(caseiro.preco ?? 0)) + " o bolo. " +
+              "Nao existe \"quantos quilos\" nele, e perguntar isso confunde o cliente. " +
+              "Chame anotar_item de novo com categoria bolo_caseiro e a qtd em UNIDADES (1 = um bolo inteiro). " +
+              "NAO diga ao cliente que a padaria nao faz esse produto: ela faz."
+            );
+          }
           return (
             "NAO anotei NESSA CATEGORIA: \"" + produto + "\" EXISTE no cardapio, so nao e um bolo de festa. " +
-            "Chame anotar_item de novo com a categoria certa (quase sempre por_quilo, e ai a qtd e o PESO em kg). " +
+            "A categoria certa dele e " + certa + ". Chame anotar_item de novo com ela" +
+            (certa === "por_quilo" ? ", e ai a qtd e o PESO em kg" : ", e a qtd em unidades") + ". " +
             "NAO diga ao cliente que a padaria nao faz esse produto: ela faz, e dizer isso derruba a venda."
           );
         }

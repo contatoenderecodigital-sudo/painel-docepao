@@ -192,3 +192,85 @@ Uma coisa só: **peça pra dona te avisar da primeira conversa que der errado.**
 Com o rastro ligado (`docker logs | grep rastro`), uma conversa ruim vira
 conserto no mesmo dia. Sem isso, vira mais uma semana de adivinhação — que é
 exatamente o que a gente acabou de sair.
+
+---
+
+## 8. O teste ao vivo, depois do deploy — feito
+
+Cinco conversas novas passando pelo webhook de produção, gravadas como cliente
+de verdade, com print do painel.
+
+| conversa | fechou | data | total esperado × real | item fantasma |
+|---|---|---|---|---|
+| **Carla** — a que travava | ✅ | 23/08 11:00 | R$ 50,00 × **R$ 50,00** | não |
+| João — pediu o bolo de volta | ✅ | 28/08 14:00 | R$ 249,70 × **R$ 249,70** | não |
+| Roberto — aumentou 100 → 200 | ✅ | 29/08 10:00 | R$ 200,00 × **R$ 200,00** | não |
+| Fernanda — negou o frito | ✅ | 06/09 09:00 | R$ 250,00 × **R$ 250,00** | não |
+| Juliana — a cliente perdida | ✅ | 12/09 14:00 | R$ 337,25 × **R$ 337,25** | não |
+
+**Os cinco totais foram conferidos linha a linha contra o `catalogo.json`.**
+
+A Carla percorreu **exatamente** o mesmo caminho de antes — perguntou o preço
+do bolo de cenoura no turno 2 — e desta vez fechou. **Zero ocorrências** de
+"Deixa eu chamar alguém da equipe" na conversa inteira. Antes eram três
+seguidas, palavra por palavra.
+
+A Juliana é a que prova que **não quebrei o que já funcionava**: mesmo caminho
+da rodada anterior, mesmo total exato, um bolo só.
+
+### O que o teste ao vivo achou de novo — e já está consertado
+
+**1. O preço do cento saía errado, às vezes.**
+
+```
+cliente: quanto tá o cento de coxinha?
+Dora:    O cento de coxinha sai R$ 65,00.      <- é R$ 100,00
+```
+
+Duas travas deviam ter pego e falharam **pelo mesmo motivo: cobriam o
+silêncio, não o erro**. Uma só entrava se ela não tivesse escrito preço nenhum;
+a outra aceitava só *uma* palavra entre "cento" e o "R$", e aqui tinha três
+("de coxinha sai"). É o defeito que vira briga no balcão: a cliente ouve R$ 65,
+pede o cento, e o cupom sai R$ 100,00.
+
+**2. Bolo caseiro tratado como bolo de festa.**
+
+```
+cliente: e o bolo de cenoura, quanto?
+Dora:    sai por quilo, quantos quilos você quer?
+```
+
+Bolo de cenoura é caseiro: sai **inteiro, R$ 34,90**. Na repetição ela
+respondeu "R$ 29,90 o quilo" — que é o preço do bolo **salgado**. Duas
+respostas diferentes pra mesma pergunta, as duas erradas, porque nenhum bloco
+cobria esse caso e ela respondia de cabeça. São 15 sabores caseiros no
+cardápio, de R$ 30,90 a R$ 35,90.
+
+### O que ainda incomoda, e não travou nada
+
+Ela às vezes pergunta *"Pode ser assim?"* ou *"E quantos de cada?"* **sem ter
+listado nada antes** — pergunta pendurada no vazio. Não derrubou nenhum pedido
+no teste, mas é o tipo de coisa que faz o cliente responder "de quê?".
+
+E numa observação saiu texto repetido:
+`bolo morango (sem topo e sem papel de arroz, sem topo nem papel de arroz)`.
+Feio na comanda; o preço está certo.
+
+---
+
+## 9. Placar final
+
+| | |
+|---|---|
+| defeitos consertados | **~32** |
+| testes no portão | **56** (eram 43) |
+| conversas ao vivo | **5/5 fecharam, 5/5 totais exatos** |
+| deploy no ar | `278b92f` |
+| voltar atrás | `git reset --hard entrega-segura` |
+
+**O que está provado:** os pedidos fecham, os totais batem centavo a centavo,
+as datas gravam certo, nenhum item fantasma, e os defeitos que travavam cliente
+morreram — cada um com a conversa que prova.
+
+**O que não está provado:** se ela *soa* humana. Isso nenhum teste mede. Os
+prints estão em `scratchpad/prints-final/` e são 2 minutos de leitura.
