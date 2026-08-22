@@ -6746,11 +6746,48 @@ async function rodarConversa(
       // nada: aconteceu duas vezes com a mesma pergunta, "e o docinho, quanto
       // fica". O cliente recebia uma foto de tabela e silencio. Sem texto e
       // exatamente quando o preco do codigo tem que entrar.
-      if (perguntouCento && !/R\$\s?[0-9]/.test(textoFinal)) {
+      // E O PIOR CASO NAO E O SILENCIO: E O NUMERO ERRADO.
+      //
+      // Teste ao vivo de 22/08/2026, primeira mensagem de uma cliente:
+      //
+      //   cliente: quanto ta o cento de coxinha?
+      //   Dora:    O cento de coxinha sai R$ 65,00.     <- o cento e R$ 100,00
+      //
+      // A trava aqui embaixo so entrava quando ela nao tinha escrito preco
+      // nenhum. Quando ela escreve um preco ERRADO, a condicao `!/R\$/` e falsa
+      // e a trava se cala -- ela cobria o silencio e deixava passar a mentira,
+      // que e o caso caro. A cliente ouve R$ 65 o cento, pede o cento, e o
+      // cupom sai R$ 100,00: discussao no balcao.
+      //
+      // Agora: quando ela afirma um valor de cento que nao e o da tabela, a
+      // frase sai e o preco de verdade entra no lugar. O recibo fica fora
+      // disto: la os R$ sao linha de conta, nao cotacao.
+      const ehRecibo = /\*Pedido recebido\*|\*Total:/i.test(textoFinal);
+      if (perguntouCento && !ehRecibo) {
         const t = String(falaDoCliente2 ?? "").toLowerCase();
         const frito = Number(catalogo.salgados?.frito?.preco ?? 0);
         const assado = Number(catalogo.salgados?.assado?.preco ?? 0);
         const doce = Number(catalogo.doces?._preco_padrao_doce ?? 0);
+        const centosCertos = new Set(
+          [frito * 100, assado * 100, doce * 100, frito, assado, doce]
+            .filter((v) => v > 0)
+            .map((v) => v.toFixed(2)),
+        );
+        const frasesDela = textoFinal.split(/(?<=[.!?\n])\s*/);
+        const mentiuNoCento = frasesDela.filter((f) => {
+          if (!/cento/i.test(f)) return false;
+          const vals = [...f.matchAll(/R\$ ?([0-9][0-9.,]*)/g)].map((m) =>
+            Number(String(m[1]).replace(/\./g, "").replace(",", ".")),
+          );
+          return vals.length > 0 && vals.some((v) => v > 0 && !centosCertos.has(v.toFixed(2)));
+        });
+        if (mentiuNoCento.length) {
+          const semAMentira = frasesDela.filter((f) => !mentiuNoCento.includes(f)).join(" ").replace(/ +/g, " ").trim();
+          console.warn(
+            "[ia] ela cotou o cento errado; frase removida: " + mentiuNoCento.join(" ").slice(0, 120),
+          );
+          textoFinal = semAMentira;
+        }
         const linhas: string[] = [];
         if (/salgad|frito|assado|cento/i.test(t) && frito > 0) {
           linhas.push(
@@ -6761,7 +6798,9 @@ async function rodarConversa(
         if (/docinho|doce/i.test(t) && doce > 0) {
           linhas.push("Docinho sai " + brl(doce) + " cada (" + brl(doce * 100) + " o cento).");
         }
-        if (linhas.length) {
+        // So entra se ela ainda nao disse o preco certo: prefixar por cima de
+        // uma resposta correta faria o cliente ler o mesmo numero duas vezes.
+        if (linhas.length && !/R\$\s?[0-9]/.test(textoFinal)) {
           console.warn("[ia] preco por cento respondido pelo codigo");
           textoFinal = (linhas.join(" ") + "\n\n" + textoFinal).trim();
         }

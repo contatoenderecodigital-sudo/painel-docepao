@@ -66,8 +66,23 @@ export function precosInventados(texto: string): string[] {
     new RegExp("R\\$ ?" + NUM + " ?(?:o |a |por |cada )?" + UNI, "gi"),
     // unidade primeiro: "Cada quilo custa R$ 50,00". Sem numero antes da
     // unidade, senao "3 kg ... R$ 140,70" viraria falso positivo.
+    // O NOME DO PRODUTO CABE ENTRE A UNIDADE E O PRECO.
+    //
+    // Isto admitia UMA palavra entre "cento" e o "R$" (custa/sai/fica/e/vale/
+    // de). Medido ao vivo em 22/08/2026:
+    //
+    //   "O cento de coxinha sai R$ 65,00."   <- o cento e R$ 100,00
+    //
+    // Sao tres palavras no meio ("de coxinha sai") e o preco errado escapou
+    // pelo vao. A frase irma "Sai R$ 65,00 o cento" era pega; a que o cliente
+    // recebeu, nao. O cliente que ouve R$ 65 o cento pede o cento e recebe um
+    // cupom de R$ 100,00 -- discussao no balcao.
+    //
+    // Ate tres palavras, todas sem numero: com numero no meio isto voltaria a
+    // casar linha de orcamento ("2 kg de bolo laka R$ 99,80"), que e o motivo
+    // do lookbehind existir.
     new RegExp(
-      "(?<![0-9,.] ?)(?:cada|por|o|a) (quilo|kg|unidade|cento)( (?:custa|sai|fica|e|vale|de))? R\\$ ?" + NUM,
+      "(?<![0-9,.] ?)(?:cada|por|o|a) (quilo|kg|unidade|cento)((?: [a-zà-úç]+){0,3})? R\\$ ?" + NUM,
       "gi",
     ),
   ];
