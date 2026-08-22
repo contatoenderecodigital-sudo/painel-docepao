@@ -2940,11 +2940,34 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const temLinhaDeBolo = c.linhas.some((l) => /^bolo/i.test(l.item));
     // Negacao conta: quem escreveu "nao quero bolo" nao pediu bolo, e exigir a
     // linha trava o pedido pra sempre.
-    const dispensouBolo = /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}bolo/i.test(falaDoCliente) ||
+    // PERGUNTAR O PRECO DE UM BOLO NAO E PEDIR UM BOLO.
+    //
+    // Teste real de 22/08/2026, cliente que nunca conseguiu comprar:
+    //
+    //   cliente: e o bolo de cenoura, quanto?          <- so PERGUNTOU
+    //   cliente: deixa pra la. me ve 50 coxinha pra domingo
+    //   cliente: pode fechar. 30 bolinha, 20 croquete, carla, dinheiro, 11h
+    //   Dora:    Deixa eu chamar alguem da equipe pra te ajudar com isso. (3x)
+    //
+    // falaDoCliente e a conversa INTEIRA colada: a palavra "bolo" da pergunta
+    // ficou la pra sempre, o carrinho nao tinha bolo, e esta guarda recusou o
+    // registro em todas as voltas, em todos os turnos. Armadilha permanente.
+    // E a valvula de escape nao alcancava portugues de WhatsApp: "deixa pra
+    // la" e "so quero saber o preco" nao casavam.
+    //
+    // A guarda continua valendo pra quem PEDE bolo -- o defeito real dela (o
+    // bolo virando "brigadeiro: 1 un x R$ 1,25") ja aconteceu tres vezes.
+    // soPerguntouSemPedir ja existe neste arquivo e tem teste dos dois lados.
+    const dispensouBolo =
+      /(sem|nao quero|não quero|nem|nao vou querer|não vou querer|deixa pra la|deixa pra lá|deixa quieto|esquece)[^.]{0,24}bolo|nao quero comprar|não quero comprar|so quero saber o pre|só quero saber o pre/i.test(falaDoCliente) ||
       /bolo/i.test(String(montagemAtual?.dados?.nao_quer ?? ""));
+    const frasesComBolo = String(falaDoCliente)
+      .split(/[.!?\n]+/)
+      .filter((fr) => falaDeBolo.test(fr));
     const pediuBoloDeVerdade =
       !dispensouBolo &&
-      (falaDeBolo.test(falaDoCliente) || itens.some((i) => falaDeBolo.test(String(i.obs ?? ""))));
+      (frasesComBolo.some((fr) => !soPerguntouSemPedir(fr, "bolo")) ||
+        itens.some((i) => falaDeBolo.test(String(i.obs ?? ""))));
     if (!temLinhaDeBolo && pediuBoloDeVerdade) {
       // RECUSA, não avisa. Sinalizar deixava o pedido ir pra cozinha sem bolo,
       // cobrando R$ 97 a menos, com um aviso que a dona teria que ler e
