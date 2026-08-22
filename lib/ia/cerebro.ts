@@ -6713,6 +6713,55 @@ async function rodarConversa(
         }
       }
 
+      // BOLO CASEIRO NAO E BOLO DE FESTA: SAI INTEIRO, COM PRECO FECHADO.
+      //
+      // Teste ao vivo de 22/08/2026:
+      //
+      //   cliente: e o bolo de cenoura, quanto?
+      //   Dora:    sai por quilo, quantos quilos voce quer?
+      //
+      // e na repeticao, pior:
+      //
+      //   Dora:    e vendido por quilo e sai R$ 29,90 o quilo
+      //            (R$ 29,90 e o preco do bolo SALGADO)
+      //
+      // Bolo de cenoura e caseiro: sai inteiro por R$ 34,90, esta no catalogo,
+      // e nao tem "quantos quilos". Duas respostas diferentes pra mesma
+      // pergunta, as duas erradas -- porque nenhum bloco cobria este caso e ela
+      // respondeu de cabeca. O bloco de baixo so pega a pergunta generica
+      // ("quanto custa o bolo"), nao a que nomeia o sabor.
+      //
+      // O preco esta na mao do codigo. Quem tem o dado responde.
+      const semAcBolo = (s: unknown) =>
+        String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+      const caseiros = (catalogo.bolos_caseiros?.itens ?? []) as { nome: string; preco?: number }[];
+      const saboresDeFesta = new Set(
+        ((catalogo.bolos_recheados?.faixas ?? []) as { sabores?: string[] }[])
+          .flatMap((f) => f.sabores ?? [])
+          .map((s) => semAcBolo(s)),
+      );
+      const perguntaDePreco = /quanto|pre[çc]o|custa|valor|quanto sai|quanto fica/i.test(String(falaDoCliente2 ?? ""));
+      const falouEmBolo = /bolo/i.test(String(falaDoCliente2 ?? ""));
+      const caseiroCitado =
+        perguntaDePreco && falouEmBolo && !/R\$\s?[0-9]/.test(textoFinal)
+          ? caseiros.find(
+              (i) =>
+                Number(i.preco ?? 0) > 0 &&
+                // So o que e caseiro E NAO E sabor de bolo de festa: "chocolate"
+                // existe nos dois, e ai a faixa de festa e que vale.
+                !saboresDeFesta.has(semAcBolo(i.nome)) &&
+                new RegExp("\\b" + semAcBolo(i.nome).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test(
+                  semAcBolo(falaDoCliente2),
+                ),
+            )
+          : undefined;
+      if (caseiroCitado) {
+        console.warn("[ia] preco de bolo caseiro respondido pelo codigo: " + caseiroCitado.nome);
+        textoFinal =
+          "O bolo de " + caseiroCitado.nome + " é caseiro: sai inteiro por " +
+          brl(Number(caseiroCitado.preco)) + "." + "\n\n" + textoFinal;
+      }
+
       // PRECO DO BOLO DE FESTA: as faixas estao no cardapio, e o sabor decide.
       const perguntouBolo =
         /(quanto|qual|pre[çc]o)[^?]{0,40}(quilo|kg)[^?]{0,20}bolo|quanto (custa|fica|sai) o bolo|pre[çc]o do bolo|(^|\W)(e )?o (quilo|kg) do bolo/i.test(
