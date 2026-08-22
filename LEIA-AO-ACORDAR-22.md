@@ -317,3 +317,53 @@ ssh -i ~/.ssh/id_ed25519_hub root@179.198.126.197 \
 Cada linha diz qual ferramenta ela chamou, com quais argumentos, e o que o
 código respondeu. Nas últimas 24 horas, **toda vez que eu li o rastro achei a
 causa em minutos; toda vez que eu adivinhei pelo texto, gastei uma hora e errei.**
+
+---
+
+## 11. A conferência final — e um conserto que eu marco como NÃO verificado
+
+Doze telefones, cada defeito repetido três vezes (eram intermitentes) e seis
+perguntas de controle. **11 de 13 turnos certos.**
+
+### O que o rastro provou
+
+| trava | disparos |
+|---|---|
+| `NAO orcei: "cento" quer dizer CEM UNIDADES` | **2** — uma delas a reprodução exata do bug (`pessoas:1`) |
+| `NAO anotei NESSA CATEGORIA` (bolo caseiro) | **0** |
+| `preco de bolo caseiro respondido pelo codigo` | **0** |
+
+O bolo caseiro saiu **certo nos quatro telefones** — R$ 30,90, R$ 30,90,
+R$ 33,90, R$ 34,90, todos "inteiro/a unidade", nenhum "quantos quilos". Mas
+saiu certo por `montar_orcamento modo:itens`, **não pelo conserto que eu
+escrevi**.
+
+Registro isso como **conserto NÃO VERIFICADO**: está certo em produção, e não é
+o meu código que está fazendo isso. Se um dia voltar a errar, o lugar de olhar
+é `anotar_item` classificando bolo caseiro como `bolo_festa` — o trecho está
+comentado no código com o caso real.
+
+### A falha que sobrou, e era da minha própria guarda
+
+```
+cliente: me fala o preço do cento de salgado
+ela:     "O cento de salgado frito sai R$ 110,00.
+          E o cento de assado sai R$ 125,00."
+guarda:  apaga a primeira (R$ 110,00 não existe na tabela)
+cliente: "E o cento de assado sai R$ 125,00."
+```
+
+**A mentira morreu e a resposta morreu junto.** Ele perguntou o preço do frito
+e recebeu uma frase começando com "E o", sobre outra coisa.
+
+É o defeito exato que dominou esta noite — **cortar sem repor** — cometido pela
+guarda nova, doze horas depois de eu ter passado a madrugada consertando ele em
+outros dezoito lugares. Corrigido: quando há mentira, o preço de verdade entra
+sempre, e o que sobra não começa pendurado.
+
+### O controle mais arriscado passou
+
+`quero fazer festa pra 30 pessoas` → R$ 628,20, orçamento normal. As duas
+recusas que acrescentei em `montar_orcamento` **não atrapalharam** orçamento de
+verdade. Era o risco maior do último conserto: recusa nova numa ferramenta que
+funciona.

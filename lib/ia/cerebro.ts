@@ -6586,8 +6586,63 @@ async function rodarConversa(
       // Ela devolveu "ta querendo fazer um pedido novo?" pra quem tinha acabado
       // de fechar. O valor esta no pedido; perguntar de volta e fazer o cliente
       // duvidar do que combinou.
+      // A FRASE QUE O CLIENTE USA DE VERDADE NAO CASAVA.
+      //
+      // O padrao antigo era `(quanto|qual)[^?]{0,30}(total|ficou|deu|valor)`.
+      // Ele exige "ficou" no passado e nao conhece a palavra "tudo". As duas
+      // frases da conversa medida em 22/08/2026 passavam batido:
+      //
+      //   "forminha azul. quanto FICA TUDO?"        -> "fica" nao e "ficou"
+      //   "me fala o VALOR TOTAL por favor"         -> nao tem quanto/qual antes
+      //
+      // Era a pergunta mais importante da conversa e o codigo nao a reconhecia.
+      // Agora exige a nocao de conjunto ("total" ou "tudo"), que e o que separa
+      // "quanto fica tudo?" de "quanto sai 100 salgados?" -- a segunda e preco
+      // de item, e tem outro dono.
       const perguntouTotal =
-        /(quanto|qual)[^?]{0,30}(total|ficou|deu|valor)|quanto (ficou|deu|custou)/i.test(String(falaDoCliente2 ?? ""));
+        /(quanto|qual)[^?]{0,30}\b(total|tudo)\b|quanto (ficou|deu|custou)\b|\bvalor total\b|\bqual o valor\b|\btotal (fica|ficou|deu|sai)\b/i.test(
+          String(falaDoCliente2 ?? ""),
+        );
+      // PERGUNTAR O PRECO E A PERGUNTA MAIS IMPORTANTE DA CONVERSA.
+      //
+      // Visto na comanda de 22/08/2026, com o pedido quase pronto:
+      //
+      //   cliente: forminha azul. quanto fica tudo?
+      //   Dora:    O bolo de morango ta anotado com 2,5 kg.
+      //            Quer topo de bolo e papel de arroz pra decorar?
+      //   cliente: nao quero topo nao. MAS ME FALA O VALOR TOTAL POR FAVOR
+      //   Dora:    O total ficou R$ 337,25 do jeito que esta.
+      //
+      // Ela sabia o total o tempo todo e so respondeu na segunda vez, com a
+      // cliente ja pedindo "por favor". Quem faz isso num balcao perde a venda.
+      //
+      // A causa: o bloco de baixo exige `pedidoAberto`, que e pedido JA
+      // REGISTRADO. Durante a montagem -- que e exatamente quando o cliente
+      // pergunta quanto vai dar -- nao havia resposta do codigo, e ficava por
+      // conta do modelo seguir ou nao o proprio roteiro.
+      //
+      // O motor ja cota a montagem em outros cinco lugares. Aqui ele responde.
+      const itensPraCotar = (montagemDoTurno?.itens ?? []).filter((i) => Number(i.qtd) > 0);
+      if (
+        !pedidoAberto &&
+        perguntouTotal &&
+        !estado.pedido &&
+        !estado.resumo &&
+        itensPraCotar.length > 0 &&
+        !/R\$\s?[0-9]/.test(textoFinal)
+      ) {
+        try {
+          const cotAgora = tenant.motor.cotarPorItens(
+            itensPraCotar.map((i) => ({ item: String(i.produto), qtd: Number(i.qtd) || 0, obs: i.obs ?? undefined })),
+          );
+          if (cotAgora.total > 0) {
+            console.warn("[ia] total da montagem respondido pelo codigo: " + brl(cotAgora.total));
+            textoFinal = "Do jeito que está, deu " + brl(cotAgora.total) + "." + "\n\n" + textoFinal;
+          }
+        } catch (e) {
+          console.warn("[ia] nao consegui cotar a montagem pra responder o total:", e);
+        }
+      }
       if (pedidoAberto && perguntouTotal && !estado.pedido && pedidoAberto.totalCentavos > 0) {
         if (!/R\$\s?[0-9]/.test(textoFinal)) {
           console.warn("[ia] total do pedido respondido pelo codigo");
@@ -7671,6 +7726,92 @@ async function rodarConversa(
               "no dia da retirada, com a festa montada.",
           });
           continue;
+        }
+      }
+
+      // QUEM DA BOM DIA RECEBE BOM DIA. SEMPRE.
+      //
+      // Teste do dono no WhatsApp de verdade, 22/08/2026 07:56 -- a conversa
+      // dele tinha um pedido pendente da tarde anterior:
+      //
+      //   (ontem 14:35) Dora: Anotei 50 empadinhas de frango e 50 mini bolhas
+      //                       de carne. Vai querer docinho tambem, ou prefere
+      //                       so salgados, bolo, pizza, torta ou empadao?
+      //   (hoje 07:56)  ele:  Bom dia
+      //   (hoje 07:56)  Dora: Vai querer docinho tambem, ou so salgados, bolo,
+      //                       pizza, torta e empadao na festa?
+      //
+      // Duas coisas erradas de uma vez. Ela nao deu bom dia -- e emendou a
+      // pergunta de dezessete horas antes, palavra por palavra, como se a
+      // conversa nao tivesse parado. Ninguem faz isso: quem volta no outro dia
+      // cumprimenta e retoma o assunto dizendo qual e o assunto.
+      //
+      // A persona ja manda cumprimentar de volta. Prompt e sugestao; isto e
+      // codigo. E a primeira mensagem que um cliente manda e o pior lugar do
+      // sistema pra ela parecer maquina.
+      {
+        const soCumprimentou =
+          /^\s*(bom dia|boa tarde|boa noite|oi+|ol[áa]|opa|e a[íi]|salve)[\s!.,?]*$/i.test(
+            String(ultimaFalaDoCliente ?? ""),
+          );
+        if (soCumprimentou) {
+          const h = Number(
+            new Intl.DateTimeFormat("pt-BR", {
+              timeZone: "America/Sao_Paulo",
+              hour: "2-digit",
+              hour12: false,
+            }).format(new Date()),
+          );
+          const cumprimento = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+          const jaTem = (montagemDoTurno?.itens ?? []).filter((i) => Number(i.qtd) > 0);
+          const SAUD = /^(bom dia|boa tarde|boa noite|oi|ol[áa]|opa|e a[íi])\b/i;
+          if (!SAUD.test(String(semLista.texto ?? "").trimStart())) {
+            // Tem pedido no meio: retomar sem dizer DE QUE e o que fez a
+            // pergunta de ontem parecer solta hoje.
+            const retomada = jaTem.length
+              ? cumprimento + "! Você tinha deixado anotado " +
+                jaTem
+                  .map((i) => fmtQtd(Number(i.qtd), i.unidade === "kg" ? "kg" : "un") + " de " + comoSeEscreve(String(i.produto)))
+                  .join(", ") +
+                ". Quer seguir com esse pedido?"
+              : cumprimento + "! Como posso te ajudar?";
+            console.warn("[ia] ele so cumprimentou; a resposta comeca cumprimentando de volta.");
+            semLista.texto = retomada;
+          }
+        }
+      }
+
+      // "BOM DIA" NO MEIO DA MENSAGEM E O QUE MAIS DENUNCIA MAQUINA.
+      //
+      // Visto na comanda de 22/08/2026, primeira resposta da conversa:
+      //
+      //   cliente: boa tarde, quanto sai 100 salgados pra festa?
+      //   Dora:    Salgado frito sai R$ 1,00 a unidade (R$ 100,00 o cento) e o
+      //            assado R$ 1,25 (R$ 125,00 o cento).
+      //            Boa tarde! Quantas pessoas vai ter na festa?
+      //
+      // Ela cumprimentou certo -- o texto DELA comecava com "Boa tarde!". Foi o
+      // codigo que prefixou o preco por cima e empurrou a saudacao pro meio.
+      // Nenhuma pessoa cumprimenta no segundo paragrafo.
+      //
+      // O conserto e de apresentacao, nao de conteudo: a saudacao volta pro
+      // comeco e o resto fica exatamente onde estava. Se ela ja comeca
+      // cumprimentando, nada acontece.
+      {
+        const SAUDACAO = /^(bom dia|boa tarde|boa noite|oi|ol[áa]|opa|e a[íi])\b[!,.]*\s*/i;
+        const t = String(semLista.texto ?? "");
+        if (t && !SAUDACAO.test(t.trimStart())) {
+          const paragrafos = t.split(/\n{2,}/);
+          const ondeEsta = paragrafos.findIndex((p, k) => k > 0 && SAUDACAO.test(p.trimStart()));
+          if (ondeEsta > 0) {
+            const p = paragrafos[ondeEsta].trimStart();
+            const saudacao = (p.match(SAUDACAO) ?? [""])[0].trim();
+            const resto = p.replace(SAUDACAO, "").trimStart();
+            paragrafos[ondeEsta] = resto;
+            const novo = (saudacao + " " + paragrafos.filter((x) => x.trim()).join("\n\n")).trim();
+            console.warn("[ia] a saudacao tinha caido no meio da mensagem; voltou pro comeco.");
+            semLista.texto = novo;
+          }
         }
       }
 

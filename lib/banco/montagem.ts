@@ -135,10 +135,35 @@ function observacaoLimpa(obs?: string | null): string | null {
     .filter(Boolean)
     // Recado interno nao e observacao de produto: sai do ticket.
     .filter((t) => !/(faltando|falta[rm]? (o|a|os|as)\b|nao informad|sem informar|a confirmar com o cliente)/i.test(t));
+  // A MESMA COISA DITA COM OUTRAS PALAVRAS CONTINUA SENDO A MESMA COISA.
+  //
+  // Visto na comanda de 22/08/2026:
+  //
+  //   bolo morango (sem topo e sem papel de arroz, sem topo nem papel de arroz)
+  //
+  // O codigo escreveu a recusa com "e sem", a IA escreveu com "nem", e a
+  // limpeza aqui compara texto cru: nenhuma das duas contem a outra como
+  // pedaco, entao as duas sobreviveram. Isso vai impresso pra cozinha.
+  //
+  // Nao da pra quebrar por " e ": "misto (queijo e presunto)" viraria dois
+  // pedacos quebrados. O que da e igualar as formas de dizer a mesma negacao
+  // antes de comparar -- e so pra comparar: o texto que sai continua sendo o
+  // que foi escrito.
+  const chaveDaObs = (t: string) =>
+    t
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\bnem\b/g, "e sem")
+      .replace(/\bn[ao]o (quero|vou querer|quer|precisa de)\b/g, "sem")
+      .replace(/\bsem +sem\b/g, "sem")
+      .replace(/[^a-z0-9 ]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   const vistos = new Set<string>();
   const unicos: string[] = [];
   for (const t of pedacos) {
-    const chave = t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const chave = chaveDaObs(t);
     if (vistos.has(chave)) continue;
     // Pedaco que ja esta contido em outro maior tambem e repeticao.
     if ([...vistos].some((v) => v.includes(chave) || chave.includes(v))) continue;
