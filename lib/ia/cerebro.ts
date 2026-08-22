@@ -3613,7 +3613,22 @@ function etapasDaFesta(
               "Se ele disser que nao, chame anotar_dados com nao_quer=\"bolo\".",
           ]
         : []),
-      ...(pediuBolo && !dispensou("bolo") && bolos.length === 0
+      // PERGUNTAR POR UM PRODUTO NAO E PEDIR ELE.
+      //
+      // Medicao de 22/08/2026, cinco execucoes, todas falhando. O cliente
+      // perguntou "voces tem docinho sem lactose?" e "e bolo vegano?", ouviu que
+      // nao, e fechou com "entao me ve 30 brigadeiros mesmo". A pergunta marcou
+      // `pediuBolo`, isso virou uma pendencia de bolo que NUNCA some (ele nao
+      // quer bolo), e o pedido ficou travado pra sempre. A ultima resposta dela,
+      // com nome, forminha, data, hora e pagamento na mao:
+      //
+      //   "Agora me diz o sabor do bolo que voce quer pra festa, e quantos quilos"
+      //
+      // E o defeito 23 de 20/08 ("ela anotou 100 salgados que ninguem pediu",
+      // lendo o salgado da PERGUNTA dela como pedido dele) na familia do bolo.
+      // Quem entregou os quatro dados fechou: pendencia de item que ele nunca
+      // pediu nao pode segurar o pedido.
+      ...(pediuBolo && !jaMandouFechar && !dispensou("bolo") && bolos.length === 0
         ? [
             "- o cliente falou em bolo e nao tem bolo nenhum anotado. Mande o cardapio de bolos ou pergunte o " +
               "sabor, e anote com o peso em quilos e o pao de lo.",
@@ -3631,7 +3646,24 @@ function etapasDaFesta(
       // Topo e papel de arroz sao OPCIONAIS: nao travam pedido nenhum. Depois de
       // oferecidos uma vez, se o cliente nao respondeu, ele nao quer — e insistir
       // e o que faz ele parar de responder.
-      ...(bolo && !jaTratouArte
+      // E A OFERTA DO TOPO TAMBEM NAO TRAVA PEDIDO.
+      //
+      // Medicao de 22/08/2026, cinco execucoes, todas falhando. A cliente trocou
+      // o bolo, deu pao de lo, data, hora, nome e pagamento, e recebeu:
+      //
+      //   "Anotei que a retirada e dia 12/09 as 16h no nome da Patricia
+      //    Bonfanti, e que vai pagar no pix. Sobre o bolo, quer topo de bolo ou
+      //    papel de arroz pra decorar?"
+      //
+      // O pedido nao fechou. Esta e a QUARTA oferta com o mesmo buraco: salgado
+      // e docinho foram consertados em 20/08, bolo hoje de manha, e o topo
+      // ficou. Topo e papel de arroz sao onde a padaria ganha os R$ 12,00 e o
+      // valor da peca — mas oferta que segura pedido nao ganha nada: o cliente
+      // sai sem encomendar e a padaria nao vende nem o bolo.
+      //
+      // Ela continua oferecendo na mesma mensagem. O que muda e que a oferta
+      // deixa de ser PENDENCIA quando ele ja entregou os quatro dados.
+      ...(bolo && !jaMandouFechar && !jaTratouArte
         ? jaOfereceuArte(falasDela)
           ? [
               "- voce JA ofereceu topo de bolo e papel de arroz e ele nao respondeu. NAO ofereca de novo, " +
