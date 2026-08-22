@@ -52,6 +52,26 @@ const psql = (sql) =>
 //  esperado.linhas: quantas linhas o pedido tem que ter (pega duplicata)
 //  esperado.soma: quanto as quantidades tem que somar (pega mudanca de total)
 //  esperado.fechou: se tem que existir pedido registrado no fim
+//  esperado.data: a data que TEM que estar no banco (aaaa-mm-dd)
+//  esperado.totalCentavos: o total que TEM que estar no banco
+//  esperado.soIsso: NADA alem desta lista pode estar no pedido
+//
+//  OS TRES ULTIMOS NASCERAM EM 22/08/2026, e cada um de um defeito que este
+//  medidor deixou passar dando 9 de 9:
+//
+//  - `data`: todo pedido com data escrita em numero ia pro banco no ano errado
+//    (12/09/2026 virava 2012-09-26), caia no passado e sumia de Aprovacao. O
+//    medidor nao viu porque nunca leu a data — so item, quantidade e fechamento.
+//  - `totalCentavos`: a soma das QUANTIDADES nao pega item cobrado a mais. Um
+//    pedido fechou com R$ 197,25 de coisa que a cliente nunca pediu e a soma
+//    nao acusou nada.
+//  - `soIsso`: `proibidos` e uma lista escrita a mao, entao so pega o que
+//    alguem lembrou de proibir. Oitenta salgados entraram sozinhos porque
+//    ninguem tinha pensado em proibi-los.
+//
+//  A licao, e ela vale pro medidor inteiro: NOTA QUE SOBE PORQUE O TESTE E
+//  FRACO E PIOR QUE NOTA BAIXA. Toda vez que esta regua ficou mais honesta a
+//  nota caiu, e a queda revelou defeito real.
 // ---------------------------------------------------------------------------
 const CENARIOS = [
   {
@@ -62,7 +82,7 @@ const CENARIOS = [
       "na verdade muda pra 4 leites",
       "as 16h, nome Patricia Bonfanti, pix",
     ],
-    esperado: { itens: ["4 leites"], proibidos: ["prestigio"], linhas: 1, fechou: true },
+    esperado: { itens: ["4 leites"], proibidos: ["prestigio"], linhas: 1, fechou: true, data: "2026-09-12", soIsso: ["bolo 4 leites"] },
   },
   {
     nome: "pergunta de preco nao vira item",
@@ -81,7 +101,7 @@ const CENARIOS = [
       "entao me ve 30 brigadeiros mesmo, pra sexta as 15h",
       "forminha rosa, nome Camila Souza, cartao",
     ],
-    esperado: { itens: ["brigadeiro"], proibidos: ["lactose", "vegano"], linhas: 1, fechou: true },
+    esperado: { itens: ["brigadeiro"], proibidos: ["lactose", "vegano"], linhas: 1, fechou: true, soIsso: ["brigadeiro"] },
   },
   {
     nome: "festa com quatro familias fecha",
@@ -92,7 +112,7 @@ const CENARIOS = [
       "sem topo e sem papel de arroz",
       "as 15h, nome Fernanda Klein, cartao",
     ],
-    esperado: { itens: ["coxinha", "esfirra", "brigadeiro", "laka"], linhas: 4, fechou: true },
+    esperado: { itens: ["coxinha", "esfirra", "brigadeiro", "laka"], linhas: 4, fechou: true, data: "2026-09-06", soIsso: ["coxinha", "esfirra", "brigadeiro", "bolo laka"] },
   },
   {
     nome: "cor da forminha nao volta a ser perguntada",
@@ -101,7 +121,7 @@ const CENARIOS = [
       "forminha rosa",
       "nome Terezinha Bosco, dinheiro",
     ],
-    esperado: { itens: ["brigadeiro"], linhas: 1, obsTem: ["rosa"], fechou: true },
+    esperado: { itens: ["brigadeiro"], linhas: 1, obsTem: ["rosa"], fechou: true, soIsso: ["brigadeiro"] },
   },
   {
     // O PONTO CEGO QUE EU ADMITI E NAO TINHA FECHADO.
@@ -117,7 +137,7 @@ const CENARIOS = [
       "quero 2 de calabresa pra sexta as 19h",
       "nome Rodrigo Zanella, pix",
     ],
-    esperado: { itens: ["pizza"], linhas: 1, fechou: true },
+    esperado: { itens: ["pizza"], linhas: 1, fechou: true, soIsso: ["pizza"] },
   },
   {
     // A secretaria pediu ASSADOS e recebeu "40 mini bolha, que e o pastel
@@ -166,7 +186,7 @@ const CENARIOS = [
       "eu quero o bolha de carne e a empadinha de frango",
       "as 16h, nome Ana Beatriz Rocha, pix",
     ],
-    esperado: { itens: ["coxinha", "empadinha", "bolha"], soma: 150, linhas: 3, fechou: true },
+    esperado: { itens: ["coxinha", "empadinha", "bolha"], soma: 150, linhas: 3, fechou: true, data: "2026-10-10", soIsso: ["coxinha", "empadinha", "mini bolha"] },
   },
 ];
 
