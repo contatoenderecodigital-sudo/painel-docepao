@@ -1338,6 +1338,79 @@ export function pecasDoBoloQueEleAceitou(fala: string): { topo: boolean; papel: 
   };
 }
 
+// A PERGUNTA FECHADA VIRA BOTAO.
+//
+// O WhatsApp aceita ate tres botoes de resposta, 20 caracteres cada. Quando a
+// resposta so pode ser uma de tres, o cliente toca e chega um ID no sistema em
+// vez de uma frase pra adivinhar.
+//
+// Metade das guardas deste arquivo existe pra interpretar texto livre onde a
+// resposta era fechada. Os casos que custaram dinheiro:
+//
+//   "Pode ser, vou querer bolo tambem dai"  -> base de R$ 418,80 que nao virou
+//                                              pedido (conversa do Sandro)
+//   "papel de arroz e topo sim"             -> o topo sumia do pedido
+//   "escolhe voce"                          -> loop pedindo o sabor
+//
+// Com botao nao ha o que interpretar.
+//
+// REGRA DE OURO: o botao NAO cria pergunta nova. Ele so da atalho pra pergunta
+// que ela ja ia fazer. A conversa nao fica mais longa, e o cliente que preferir
+// digitar continua podendo: botao no WhatsApp nao bloqueia o teclado.
+//
+// Por isso a lista e FECHADA e curta. Botao em toda mensagem vira formulario, e
+// formulario e o oposto do que essa IA existe pra ser.
+export function botoesDaPergunta(texto: string): { id: string; titulo: string }[] {
+  const t = semAcMin(texto);
+  if (!t.trim()) return [];
+  // Mensagem que ja fechou pedido nao leva botao: o cliente nao decide nada ali.
+  if (/pedido recebido|ja passei pra (nossa )?equipe|total:/i.test(t)) return [];
+  // Pergunta aberta no meio ("qual sabor?", "quantos quilos?") desqualifica: o
+  // cliente precisa do teclado, e botao ali confunde.
+  const abertas = /qual |quais |quantos |quantas |que horas|que dia|me diz o nome|nome de quem/;
+
+  const casos: { acha: RegExp; botoes: [string, string][] }[] = [
+    // A base da festa. O caso do Sandro.
+    {
+      acha: /pode ser assim\?|pode ser\?|fica bom assim\?|posso montar assim\?/,
+      botoes: [["base_sim", "Pode ser"], ["base_ajustar", "Quero ajustar"]],
+    },
+    // Topo e papel de arroz: a peca que sumia do pedido.
+    {
+      acha: /(topo).{0,40}(papel de arroz)|(papel de arroz).{0,40}(topo)/,
+      botoes: [["peca_os_dois", "Os dois"], ["peca_so_topo", "So o topo"], ["peca_nenhum", "Nenhum"]],
+    },
+    // Forma de pagamento: pagamento inventado ja fechou pedido errado.
+    {
+      acha: /como (voce )?(prefere |vai )?pagar|forma de pagamento|pagamento\?/,
+      botoes: [["pag_pix", "Pix"], ["pag_cartao", "Cartao"], ["pag_dinheiro", "Dinheiro"]],
+    },
+    // Oferta de salgado: a insistencia que aparecia depois do "nao".
+    {
+      acha: /(vai |voce )?quer(er)? salgado( tambem)?\?|salgado tambem( pra| para)?( essa| a)? festa\?/,
+      botoes: [["salgado_sim", "Quero salgado"], ["salgado_nao", "So doce e bolo"]],
+    },
+    // Fim do pedido, antes de fechar.
+    {
+      acha: /quer mais alguma coisa\?|mais alguma coisa\?|so isso mesmo\?/,
+      botoes: [["mais_nao", "So isso"], ["mais_sim", "Quero mais"]],
+    },
+    // Sugestao pronta do codigo (sortido, bolo escolhido).
+    {
+      acha: /pode ser assim\?$|essa sugestao|sugeri esse bolo|ficou assim.{0,120}\?/,
+      botoes: [["sug_sim", "Pode ser"], ["sug_trocar", "Quero trocar"]],
+    },
+  ];
+
+  for (const c of casos) {
+    if (!c.acha.test(t)) continue;
+    // A pergunta aberta ganha do botao: quem precisa digitar, digita.
+    if (abertas.test(t) && !/pode ser|topo|pagar|pagamento/.test(t)) continue;
+    return c.botoes.map(([id, titulo]) => ({ id, titulo }));
+  }
+  return [];
+}
+
 // QUEM DA BOM DIA RECEBE BOM DIA.
 //
 // Conversas reais de 22/08/2026, as duas primeiras mensagens da padaria:

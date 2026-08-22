@@ -12,10 +12,13 @@
 //  tempo — por isso deduplicamos pelo id da mensagem (idempotência).
 // ============================================================================
 
+import { botoesDaPergunta } from "@/lib/ia/guardas";
 import { NextRequest, after } from "next/server";
 import { responder, pecaDaEtapa, ehFestaNaFala, unidadeDoProduto, categoriaDoProduto } from "@/lib/ia/cerebro";
 import { carregarTenant } from "@/lib/ia/tenant";
-import { enviarTexto, enviarImagemPorLink, urlDoCardapio, RECADOS_CARDAPIO, baixarMidia, marcarLidaEDigitando, type CredsEnvio } from "@/lib/whatsapp/api";
+import { enviarTexto, enviarImagemPorLink, urlDoCardapio, RECADOS_CARDAPIO, baixarMidia, marcarLidaEDigitando, type CredsEnvio,
+  enviarBotoes,
+} from "@/lib/whatsapp/api";
 import { avisarDono, avisarDona } from "@/lib/alertas";
 import { transcrever } from "@/lib/whatsapp/transcrever";
 import {
@@ -686,7 +689,23 @@ async function processar(corpo: WebhookPayload) {
         // Proporcional ao tamanho da resposta, com teto — ninguém espera 20s
         // por uma frase, e o webhook tem prazo pra terminar.
         await pausa(tempoDeDigitar(textoResp));
-        wamidResposta = await enviarTexto(telefone, textoResp, creds);
+        // PERGUNTA FECHADA VAI COM BOTAO.
+        //
+        // Quando a resposta so pode ser uma de tres ("pode ser assim?", "topo e
+        // papel de arroz?", "como prefere pagar?"), o cliente toca e chega um ID
+        // no webhook em vez de uma frase pra adivinhar. O caso que motivou:
+        // "Pode ser, vou querer bolo tambem dai" nao virava pedido, e eram
+        // R$ 418,80.
+        //
+        // O botao NAO cria pergunta nova: e a mesma pergunta que ela ja ia
+        // fazer, com atalho. Quem preferir digitar continua digitando, porque
+        // botao no WhatsApp nao bloqueia o teclado. E se a Meta recusar por
+        // qualquer motivo, enviarBotoes manda o texto puro sozinho: o cliente
+        // nunca fica sem resposta por causa de conforto.
+        const botoes = botoesDaPergunta(textoResp);
+        wamidResposta = botoes.length
+          ? await enviarBotoes(telefone, textoResp, botoes, creds)
+          : await enviarTexto(telefone, textoResp, creds);
       } catch (e) {
         console.error("[whatsapp] falha ao enviar resposta:", e);
       }

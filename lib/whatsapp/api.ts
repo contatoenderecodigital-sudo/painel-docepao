@@ -79,6 +79,78 @@ export async function enviarTexto(para: string, texto: string, creds?: CredsEnvi
   }
 }
 
+// BOTAO DE RESPOSTA: ate tres, 20 caracteres cada.
+//
+// Quando a resposta e fechada ("pode ser?", "topo e papel?"), o cliente toca em
+// vez de digitar e chega um ID no webhook, nao uma frase pra adivinhar. Metade
+// dos guardas deste projeto existe pra interpretar texto livre onde a resposta
+// so podia ser uma de tres.
+//
+// Caso real de 22/08/2026, conversa do Sandro: a base de R$ 418,80 foi aceita
+// com "Pode ser, vou querer bolo tambem dai" e nao virou pedido nenhum, porque
+// a guarda de aceite so entendia oferta de produto. Com botao, "Pode ser" chega
+// como codigo e nao tem o que interpretar.
+//
+// O limite de 20 caracteres e da Meta e nao perdoa: titulo maior que isso faz a
+// mensagem INTEIRA falhar com 400, e o cliente fica sem resposta. Por isso o
+// corte acontece aqui, e nao na confianca de quem escreveu o texto.
+export async function enviarBotoes(
+  para: string,
+  texto: string,
+  botoes: { id: string; titulo: string }[],
+  creds?: CredsEnvio,
+  rodape?: string,
+): Promise<string | null> {
+  const { token, phoneId } = resolverCreds(creds);
+  const destino = normalizarBR(para);
+  const tres = botoes.slice(0, 3).map((b, i) => ({
+    type: "reply" as const,
+    reply: {
+      id: String(b.id || "opcao_" + i).slice(0, 256),
+      title: String(b.titulo || "").trim().slice(0, 20),
+    },
+  }));
+  if (!tres.length) return enviarTexto(para, texto, creds);
+  console.log(
+    "[whatsapp] botoes para " + destino + ": " + tres.map((b) => b.reply.title).join(" | "),
+  );
+  const corpoMsg: Record<string, unknown> = {
+    messaging_product: "whatsapp",
+    to: destino,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      // O corpo tambem tem teto (1024): estourar derruba a mensagem inteira.
+      body: { text: String(texto || "").slice(0, 1024) },
+      action: { buttons: tres },
+    },
+  };
+  if (rodape) {
+    (corpoMsg.interactive as Record<string, unknown>).footer = { text: String(rodape).slice(0, 60) };
+  }
+  const r = await fetch(`${BASE}/${phoneId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(corpoMsg),
+  });
+  if (!r.ok) {
+    // NUNCA DEIXAR O CLIENTE SEM RESPOSTA POR CAUSA DE BOTAO.
+    //
+    // Botao e conforto; a resposta e o pedido. Se a Meta recusar (limite de
+    // caractere, conta sem permissao, o que for), o texto vai puro e a conversa
+    // segue: o cliente digita a resposta como sempre digitou.
+    const erro = await r.text();
+    console.error("[whatsapp] botao recusado pela Meta, mandando texto puro:", r.status, erro.slice(0, 300));
+    return enviarTexto(para, texto, creds);
+  }
+  try {
+    const corpo = (await r.json()) as { messages?: { id?: string }[] };
+    return corpo?.messages?.[0]?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Manda um TEMPLATE aprovado (única forma de falar FORA da janela de 24h, e de
 // iniciar conversa proativa). `componentes` preenche as variáveis {{1}}, {{2}}...
 // do corpo, quando o template tiver. Sem variáveis, é só nome + idioma.
