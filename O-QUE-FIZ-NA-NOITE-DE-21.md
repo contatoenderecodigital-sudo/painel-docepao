@@ -35,7 +35,7 @@ Para calibrar o que 9 de 9 significa: o medidor é construído em cima do
 `tau-bench`, e o comentário do próprio arquivo lembra que agentes de ponta
 acertam uma vez em ~60% dos casos, mas **oito seguidas em menos de 25%**.
 
-## Os doze, com o estrago medido
+## Os dezessete, com o estrago medido
 
 ### Dinheiro
 
@@ -108,7 +108,30 @@ acertam uma vez em ~60% dos casos, mas **oito seguidas em menos de 25%**.
     cartão." como exemplo. A persona não tinha UM exemplo de resposta boa inteira
     para copiar; agora tem seis.
 
-## O padrão que se repete nos doze
+### E os cinco últimos, achados pelo RASTRO e pelo medidor
+
+13. **"brocolis" não casava com "brócolis".** O sabor estava na observação e ela
+    perguntava de novo — a pergunta repetida que mais irrita — e o pedido não
+    fechava, porque o item continuava marcado como sem sabor. As duas metades do
+    código discordavam: o portão de fechamento já tirava o acento certo; o
+    retorno da ferramenta não tirava. Vale para brócolis, prestígio, risólis,
+    chodó, limão, café, inglês, fubá.
+
+14. **O nome do cliente não tinha extrator em código.** Hora tinha, pagamento
+    tinha, data passou a ter — nome não. Ela escrevia "Anotei o nome X" no texto
+    sem chamar a ferramenta, os quatro dados nunca fechavam a conta, e o
+    fechamento forçado (que já existe e é bem feito) **nunca era convocado**.
+
+15, 16, 17. **TRÊS OFERTAS TRAVANDO PEDIDO.** A regra "oferta não trava pedido"
+    nasceu em 20/08 no defeito 22, com rastro e tudo, e foi aplicada **à mão** em
+    dois de cinco lugares. Sobraram três: a oferta de bolo, a oferta de topo, e a
+    pendência de bolo criada por uma PERGUNTA do cliente ("e bolo vegano?") que
+    ele nunca quis — essa última é o defeito 23 na família do bolo.
+
+    Cada um custou uma volta de 40 minutos para reencontrar, e os três já
+    estavam escritos no diário como resolvidos.
+
+## O padrão que se repete nos dezessete
 
 **O código sabia a resposta certa e não usava.** O preço estava na mão dele. A
 família do salgado estava na mão dele. O nome completo do cupcake estava na mão
@@ -153,9 +176,15 @@ o que dá a pontuação boa na transcrição de áudio. Tirar degrada.
 - **`guardar-conversas.cjs` saiu do portão.** Ele gravou 0 byte por cima de 37 KB
   de conversa real, e o arquivo é ignorado pelo git: não havia de onde recuperar.
   Agora ele se recusa a gravar vazio, e só roda na mão.
-- **"pode fechar" nem sempre fecha**: o upsell atropela a intenção de compra em
-  duas das cinco famílias medidas. `mandouFechar` reconhece a frase; o que
-  atropela é o modelo repetindo instruções de turnos anteriores.
+- **A LIÇÃO MAIOR, e a única dívida que importa.** Cinco dos dezessete defeitos
+  eram **a mesma regra faltando em lugares diferentes** ("oferta não trava
+  pedido"). Ela existe desde 20/08, escrita em prosa num comentário, e foi
+  aplicada à mão. Regra que mora em comentário vale onde alguém lembrou de
+  digitar; regra que mora em função vale em todo lugar de graça, inclusive onde
+  ninguém pensou. `corteEhSeguro` (o portão do corte de texto) é o exemplo do
+  jeito certo: uma função, um lugar, e toda guarda que corta passa por ela.
+  Transformar as regras já aprendidas em funções vale mais que consertar o
+  próximo defeito.
 - **As outras ~18 guardas de tesoura** continuam reescrevendo a fala dela. Estão
   contidas pelo portão `corteEhSeguro` (não conseguem mais mandar frase
   quebrada), mas o caminho certo é convertê-las para o padrão "refazer" de

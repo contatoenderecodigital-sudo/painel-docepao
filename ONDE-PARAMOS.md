@@ -5,7 +5,7 @@ O plano que gerou este trabalho está em `PLANO-FINAL.md`. O histórico de cada
 defeito, com a frase real do cliente, está em `DIARIO-DA-IA.md` e
 `testes/casos-reais.md`.
 
-> **MAIS RECENTE: `O-QUE-FIZ-NA-NOITE-DE-21.md`** — treze defeitos consertados
+> **MAIS RECENTE: `O-QUE-FIZ-NA-NOITE-DE-21.md`** — dezessete defeitos consertados
 > na noite de 21 para 22/08/2026, achados por agentes **comprando** nas 14
 > famílias da loja, não lendo código. Nenhum deles aparecia nos 45 testes que
 > existiam. Lá dentro estão: a lista do **que não pode ser mexido** (os seis
