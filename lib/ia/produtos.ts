@@ -27,7 +27,7 @@ export const FORA_DO_CARDAPIO = "nao esta no cardapio";
 
 // Nomes que o cliente usa antes de escolher o tipo ("300 salgados, metade
 // frango"). Ficam na lista porque a montagem sabe abrir o generico depois.
-const GENERICOS = [
+export const GENERICOS = [
   "salgado",
   "salgado frito",
   "salgado assado",

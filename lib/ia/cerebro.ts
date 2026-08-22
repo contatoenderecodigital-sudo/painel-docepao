@@ -17,7 +17,7 @@ import { motorPadrao, formatarOrcamento, brl, citadoDeVerdade, foiNegado, type M
 import { registrarUsoIA, type UsoTurno } from "./uso";
 import catalogo from "./dados/catalogo.json";
 import { padariaAberta } from "@/lib/padaria-aberta";
-import { enumDeProdutos, FORA_DO_CARDAPIO, comoSeEscreve, existeNoCardapio } from "./produtos";
+import { enumDeProdutos, FORA_DO_CARDAPIO, comoSeEscreve, existeNoCardapio, GENERICOS } from "./produtos";
 import { fatosDaCasa, afirmacoesNaoAutorizadas, RECADO_DA_EQUIPE } from "./fatos";
 // As guardas moram em arquivo proprio pra os testes importarem de verdade,
 // em vez de recortar texto deste arquivo (o que quebrava a cada mudanca).
@@ -35,6 +35,8 @@ import {
   pediuPorEscrito,
   clienteNaoVaiComprar,
   familiaQueElePediu,
+  familiasQueEleDispensou,
+  pediuDeVoltaAFamilia,
   pedidosQueNaoExistem,
   novoTotalQueElePediu,
   reescalarParaOTotal,
@@ -935,9 +937,28 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         `Se ele esta ACRESCENTANDO um item novo, use anotar_item.`
       );
     }
+    // A GEMEA DO anotar_item TEM TRES ESCAPES; ESTA TINHA ZERO.
+    //
+    // A mesma guarda de "observacao que o cliente nunca escreveu" existe nas
+    // duas ferramentas. No anotar_item ela aceita tambem o que o SISTEMA
+    // sugeriu (a proposta guardada, a ultima fala dela, o sortido do turno).
+    // Aqui nao aceitava nada disso -- e trocar_item RECUSA a operacao inteira:
+    //
+    //   cliente: escolhe voce os tipos, to sem tempo
+    //   (o codigo sugere e anota 40 esfirra de carne, 40 empadinha de carne)
+    //   cliente: troca a empadinha por risolis
+    //   -> "NAO troquei: isto na observacao o cliente nunca escreveu: carne"
+    //
+    // A empadinha fica e o risolis nunca entra. Quem escolheu o "carne" foi o
+    // proprio sistema, a pedido dele.
     const inventadasTroca = obsQueOClienteNaoDisse(
       input.obs,
-      falasDoCliente.length ? falasDoCliente : [falaDoCliente],
+      [
+        ...(falasDoCliente.length ? falasDoCliente : [falaDoCliente]),
+        String(montagemAtual?.dados?.proposta ?? ""),
+        String(ultimaFalaDela ?? ""),
+        (estado.sugeridos ?? []).join(" "),
+      ].filter(Boolean),
     );
     if (inventadasTroca.length) {
       return (
@@ -2186,9 +2207,20 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
         const semAcF = (t: string) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         // A fala dele mais, quando ele aceitou a indicacao, a fala DELA: o
         // sabor sugerido e aceito com "pode ser" e escolha do cliente.
-        const aceitou = /pode ser|pode mandar|isso mesmo|fechado|perfeito|ta bom|ta otimo|combinado|manda assim|assim ta bom/i.test(
-          String(ultimaFala ?? ""),
-        );
+        // "TA BOM DE SALGADO" NAO E "TA BOM".
+        //
+        // Este era o unico dos quatro detectores de aceite sem ancora, sem a
+        // guarda de negacao e sem a regra do "de X" -- que custou 80 salgados
+        // numa medicao e virou `aceitouAOferta` em guardas.ts. O aprendizado
+        // ficou em uma copia de quatro.
+        //
+        // O estrago aqui e diferente e pior que somar item: quando `aceitou` e
+        // verdadeiro, a fala DELA entra em `falaLimpa`, e o codigo passa a
+        // procurar o sabor do item dentro da PERGUNTA dela. A cliente responde
+        // "ta bom de salgado, agora o docinho" e a comanda vai pra cozinha com
+        // "esfirra de bacon" -- bacon saiu da lista de opcoes que a Dora
+        // escreveu, nao da boca da cliente.
+        const aceitou = aceitouAOferta(String(ultimaFala ?? ""));
         const falaLimpa = semAcF(falaDoCliente + (aceitou ? " " + String(ultimaFalaDela ?? "") : ""));
         const alvoNome = semAcF(produto);
         const palavrasDaFala = falaLimpa.split(/[^a-z0-9]+/).filter((w) => w.length > 2);
@@ -2506,13 +2538,41 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const temTudo = ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento"].every(
       (k) => juntos[k] && String(juntos[k]).trim() !== "",
     );
-    const itensAnotados = montagemAtual?.itens ?? [];
+    // O PEDIDO DE AGORA, NAO A FOTO DE ANTES DA MENSAGEM.
+    //
+    // `montagemAtual` e o pedido como estava quando a mensagem chegou. No turno
+    // em que o cliente manda tudo de uma vez -- que e o mais comum --, a IA
+    // chama anotar_item duas vezes e depois anotar_dados na MESMA resposta, e
+    // aqui `montagemAtual.itens` ainda esta vazio.
+    //
+    //   cliente: me ve 50 coxinha de carne e 30 croquete pra sabado 10h,
+    //            nome Marta, pix
+    //   Dora:    Anotei tudo! Mais alguma coisa?
+    //
+    // Com o pedido de agora ela receberia "AGORA NAO FALTA MAIS NADA. Chame
+    // registrar_pedido nesta mesma resposta". `itensAgora()` existe justamente
+    // pra isso e as guardas do registro ja usam; esta nao usava.
+    const itensAnotados = itensAgora();
+    // A REGRA "OFERTA NAO TRAVA PEDIDO" MORAVA EM 5 CHAMADAS E VALIA EM 2.
+    //
+    // `pendenciasDeSabor` ganhou o parametro `fechando` justamente pra que
+    // oferta ("quer bolo tambem?") pare de segurar o registro quando os quatro
+    // dados ja chegaram. Duas chamadas passavam o parametro; tres nao -- e
+    // estas tres sao as que decidem a resposta no turno do ultimo dado.
+    //
+    // Medido: o cliente manda "as 16h, nome Ana Beatriz Rocha, pix", completando
+    // nome+data+hora+pagamento com tres itens no banco. A pendencia calculada
+    // aqui e "- o cliente NAO falou em bolo ainda. E festa: PERGUNTE se ele vai
+    // querer bolo tambem" -> a ferramenta responde "Ainda NAO da pra fechar" e
+    // ela pergunta do bolo em vez de fechar. Tres cenarios, cinco execucoes
+    // cada, TODAS falharam assim.
     const pendentes = pendenciasDeSabor(
       itensAnotados,
       ehFestaNaFala(falaDoCliente),
       /bolo/i.test(falaDoCliente),
       String(montagemAtual?.dados?.nao_quer ?? ""),
       falaDoCliente,
+      temTudo,
     );
     if (temTudo && itensAnotados.length > 0 && pendentes.length === 0) {
       return (
@@ -2589,7 +2649,22 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
       ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento"].every(
         (k) => d[k] && String(d[k]).trim() !== "",
       );
-    const pediuGente = /falar com (alguem|algu[ée]m|uma pessoa|atendente|humano|voc[êe]s)|quero falar com/i.test(falaDoCliente);
+    // "QUERIA FALAR COM VOCES SOBRE UMA ENCOMENDA" NAO E PEDIR ATENDENTE.
+    //
+    // Lia a conversa INTEIRA. Quem abre a conversa assim -- e e como muita
+    // gente abre -- desligava esta guarda pra sempre:
+    //
+    //   cliente: oi, boa tarde, queria falar com voces sobre uma encomenda
+    //   ... pedido inteiro montado, nome, data, hora, pagamento ...
+    //   cliente: pode fechar
+    //   Dora:    Deixa eu chamar alguem da equipe.
+    //
+    // A guarda "pedido pronto nao vira handoff" existe exatamente pra impedir
+    // isso, e estava desligada desde o turno 1. A festa ficava fora da fila.
+    // Querer atendente e coisa da mensagem de AGORA, nao da saudacao.
+    const pediuGente = /falar com (alguem|algu[ée]m|uma pessoa|atendente|humano|voc[êe]s)|quero falar com/i.test(
+      String(ultimaFala || falaDoCliente),
+    );
     if (completo && !estado.pedido && !pediuGente) {
       return (
         "NAO chamei a equipe: este pedido esta completo e o cliente quer fechar. Valor que voce nao sabe (o topo de " +
@@ -2627,12 +2702,21 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     // O que ele ja dispensou nao volta como imagem. Vale a recusa anotada no
     // pedido e a que ele acabou de escrever.
     const dispensou = (String(montagemAtual?.dados?.nao_quer ?? "") + " " + String(falaDoCliente || "")).toLowerCase();
-    const RECUSA: [string, RegExp][] = [
-      ["salgados", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}salgad/],
-      ["docinhos", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}(docinho|doce)/],
-      ["bolos-festa", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}bolo/],
-    ];
-    const recusados = RECUSA.filter(([, r]) => r.test(dispensou)).map(([peca]) => peca);
+    // Uma lista so, em guardas.ts. Aqui o rotulo e o id da peca do cardapio.
+    const PECA_DA_FAMILIA: Record<string, string> = {
+      salgado: "salgados",
+      docinho: "docinhos",
+      bolo: "bolos-festa",
+    };
+    // E o que ele esta pedindo AGORA ganha do que ele dispensou antes.
+    //
+    // `dispensou` inclui a conversa inteira, entao um "nao quero bolo" dito no
+    // comeco bloqueava o cardapio de bolos ate o fim -- mesmo depois de ele
+    // escrever "pensando bem quero um bolo de 3 kg". A mensagem de agora e a
+    // que vale: quem esta pedindo o cardapio nesta frase recebe o cardapio.
+    const recusados = familiasQueEleDispensou(dispensou)
+      .filter((f) => !pediuDeVoltaAFamilia(String(ultimaFala || ""), f))
+      .map((f) => PECA_DA_FAMILIA[f]);
     // A nao ser que ele mesmo peca a peca agora, com todas as letras.
     // ARMADILHA PERMANENTE: uma palavra no historico desligava o filtro.
     //
@@ -2700,7 +2784,21 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     const SEQUENCIA = ["salgados", "docinhos", "bolos-festa"];
     // O cliente PEDIU essa familia agora? Entao nao existe redirecionamento:
     // trocar a peca que ele pediu por outra e responder outra pergunta.
-    const ULTIMA_FALA = String(falaDoCliente || "").split("  ").pop() || "";
+    // O NOME MENTIA: ISTO ERA A CONVERSA INTEIRA.
+    //
+    // `falaDoCliente` e unida por "\n" (cerebro:7160). Quem e unida por espaco
+    // duplo e a `falaToda`. Entao `.split("  ")` nunca achava separador e o
+    // "ULTIMA_FALA" era o texto todo.
+    //
+    // Efeito: `clientePediu` ficava verdadeiro assim que qualquer familia
+    // aparecesse uma vez na conversa, `posEtapa` ia pra -1, e o bloco inteiro
+    // que redireciona o cardapio pra etapa certa nunca rodava. Cliente que
+    // abriu falando "festa com salgado, docinho e bolo" e depois pediu "me
+    // manda o cardapio de bolo" recebia o de bolo em vez do da etapa.
+    //
+    // Nao travava venda -- matava em silencio um bloco de codigo inteiro, que
+    // e como um conserto vira dez dias de conserto.
+    const ULTIMA_FALA = String(ultimaFala || falaDoCliente || "");
     const pediuNaFala: Record<string, RegExp> = {
       salgados: /salgad|frito|assado|coxinha|esfirra|empadinha|ris[óo]lis/i,
       docinhos: /docinho|doce|brigadeiro|beijinho|trufa/i,
@@ -3476,10 +3574,22 @@ function montarSystemComData(tenant: Tenant): string {
 // e ela pulou pros docinhos com o pastel frito sem sabor, o risolis sem sabor e
 // os assados sem tipo. A cozinha faz o padrao e o cliente descobre na festa.
 // Aqui a pendencia e CALCULADA: cruzando o que esta anotado com o catalogo.
+// O QUE O ENUM PERMITE E O QUE A GUARDA BARRA TEM QUE SER A MESMA LISTA.
+//
+// `GENERICOS` (produtos.ts:30) entra no enum da ferramenta -- e a IA pode
+// escrever qualquer um deles. Esta lista, que existe pra BARRAR generico, era
+// escrita a mao noutro arquivo e nao tinha "bolo recheado".
+//
+// O buraco: cliente pede "um bolo de festa de 3 kg, escolhe voce o sabor".
+// `strict: true` deixa ela mandar `produto: "bolo recheado"`. semTipo devolve
+// false, o portao "GENERICO NAO ENTRA NO PEDIDO" nao barra, `SABORES["bolo
+// recheado"]` nao existe entao ninguem cobra o sabor, e o pedido FECHA com a
+// linha "bolo recheado, 3 kg". A cozinha recebe ordem de assar um bolo sem
+// sabor.
+//
+// Agora e a mesma lista, mais os plurais e o "doce" que so aparecem aqui.
 const semTipo = (n: string) =>
-  ["salgado", "salgados", "salgado assado", "salgado frito", "docinho", "docinhos", "doce", "bolo"].includes(
-    n.trim().toLowerCase(),
-  );
+  [...GENERICOS, "salgados", "docinhos", "doce", "bolos"].includes(n.trim().toLowerCase());
 
 // produto -> opcoes de sabor que existem no cardapio dele.
 function mapaDeSabores(): Record<string, string[]> {
@@ -3893,6 +4003,19 @@ function etapasDaFesta(
 // SO o que TRAVA. Os opcionais ficam de fora de proposito: esta funcao decide
 // se registrar_pedido entra na lista de ferramentas, e uma cor de forminha
 // faltando tirava dela a possibilidade de fechar a festa inteira.
+// OS QUATRO DADOS, CONFERIDOS NA MONTAGEM DE AGORA.
+//
+// Estava escrito inline dentro do laco e por isso so estava disponivel la.
+// As duas decisoes que rodam ANTES do laco (podeFechar e a lista de
+// ferramentas) nao tinham como consultar, e era exatamente delas que dependia
+// "oferta nao trava pedido".
+function osQuatroDados(m: MontagemAtual | null | undefined): boolean {
+  return ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento"].every((k) => {
+    const v = (m?.dados as Record<string, unknown> | undefined)?.[k];
+    return !!v && String(v).trim() !== "";
+  });
+}
+
 function pendenciasDeSabor(
   itens: MontagemAtual["itens"],
   festa = false,
@@ -4497,8 +4620,27 @@ async function rodarConversa(
     .replace(/sabor(es)?\s+salgad\w*/g, " ")
     .replace(/pizzas?\s+salgad\w*/g, " ")
     .replace(/salgad\w*\s+d[ae]\s+pizza/g, " ");
-  const falouSalgado = /salgad|frito|assado|coxinha|esfirra|empadinha|risolis|ris[óo]lis/.test(falaSemPizza);
-  const falouDocinho = /docinho|doce|brigadeiro|beijinho|trufa/.test(falaToda);
+  // OITO TABELAS DE "QUE FAMILIA E ISSO", E ESTA ERA A MAIS CURTA.
+  //
+  // Faltavam croquete, bolinha de queijo, almofadinha, quiche, croissant,
+  // pastel, camafeu, olho de sogra, ouricinho -- todos no cardapio, todos
+  // pedidos pelo nome o tempo todo. A copia completa (`CITOU`, cerebro:5561)
+  // tem todos.
+  //
+  //   cliente: quero 100 croquete e 100 quiche pra sexta
+  //   -> falouSalgado = false
+  //   -> etapasDaFesta gera "o cliente NAO falou em salgado ainda. PERGUNTE se
+  //      ele vai querer salgado tambem"
+  //   Dora: e salgado, vai querer tambem?
+  //
+  // Perguntar se ele quer salgado pra quem acabou de pedir 200 salgados pelo
+  // nome e o defeito numero um da lista do dono.
+  const falouSalgado =
+    /salgad|frito|assado|coxinha|esfirra|empadinha|risolis|ris[óo]lis|croquete|bolinha|almofadinha|quiche|croissant|pastel|kibe|enroladinho/.test(
+      falaSemPizza,
+    );
+  const falouDocinho =
+    /docinho|doce|brigadeiro|beijinho|trufa|caju|camafeu|olho de sogra|ouri[çc]o|bicho de pe/.test(falaToda);
   // O pedido que ja existe vem primeiro: e o contexto de tudo que ela vai
   // responder, inclusive do silencio dele.
   if (pedidoAberto && !pedidoAguardando) {
@@ -4569,7 +4711,31 @@ async function rodarConversa(
   const ultimaDelaAqui = [...historico].reverse().find((h) => h.role === "assistant")?.content ?? "";
   const perguntouForminha = /forminha/i.test(String(ultimaDelaAqui));
   if (perguntouForminha) {
-    const cor = String(ultimaFalaDoCliente).match(CORES_FORMINHA)?.[0];
+    // A COPIA FRACA GRAVAVA A COR ERRADA, E A CERTA NUNCA CORRIGIA.
+    //
+    // `match(CORES_FORMINHA)?.[0]` pega a PRIMEIRA cor da frase, e o regex casa
+    // pedaco de palavra ("branc" de "branco"):
+    //
+    //   cliente: pao de lo branco, forminha rosa
+    //   -> gravava "forminha branc" nos quatro docinhos
+    //
+    // A cozinha embrulha 130 docinhos na cor errada. E como este bloco atualiza
+    // a montagem, o bloco irmao que usa `coresDeForminhaQueEleFalou` (a funcao
+    // que le TODAS as cores, na ordem em que ele falou) via a cor ja preenchida
+    // e pulava. A copia fraca ganhava por chegar primeiro.
+    //
+    // Agora: a cor e a que vem depois da palavra "forminha"; se ele nao usou a
+    // palavra, vale a ultima que ele disse -- em "pao de lo branco, forminha
+    // rosa" a ultima e a certa nos dois criterios.
+    const ditasAqui = coresDeForminhaQueEleFalou(String(ultimaFalaDoCliente));
+    const depoisDeForminha = String(ultimaFalaDoCliente)
+      .toLowerCase()
+      .split(/forminha/i)
+      .slice(1)
+      .join(" ");
+    const cor =
+      ditasAqui.find((c) => depoisDeForminha.includes(String(c).toLowerCase())) ??
+      ditasAqui[ditasAqui.length - 1];
     const semCor = (montagemDoTurno?.itens ?? []).filter(
       (i) => i.categoria === "docinho" && !CORES_FORMINHA.test(String(i.obs ?? "")),
     );
@@ -4677,15 +4843,32 @@ async function rodarConversa(
   // resposta e o codigo, nao a boa vontade dela.
   const perguntouFoto = /foto/i.test(String(ultimaDelaAqui));
   if (perguntouFoto) {
-    const t = String(ultimaFalaDoCliente).toLowerCase();
+    // "NAO TENHO FOTO" VIRAVA "CLIENTE VAI MANDAR A FOTO".
+    //
+    // Duas coisas erradas na mesma linha:
+    //
+    //   1. `.toLowerCase()` sem `normalize`: as alternativas negativas estao
+    //      todas SEM acento ("nao tenho"), e o teclado do celular escreve
+    //      "nao" com til. A negacao nunca casava.
+    //   2. o `(tenho)` da primeira alternativa casa DENTRO de "nao tenho".
+    //
+    // Rodado:
+    //   "nao tenho foto"          -> "sem foto"                          certo
+    //   "nao tenho foto"  (acento) -> "cliente vai mandar a foto do tema"  ERRADO
+    //
+    // E este bloco roda ANTES do irmao de 5701, grava a observacao, e o irmao
+    // ve /foto/ ja escrito e nao corrige. A confeitaria fica esperando uma foto
+    // que nao existe e a peca para ate o dia da festa.
+    const t = String(ultimaFalaDoCliente).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const naoTemFoto = /(nao tenho|nao vou mandar|nao vou|sem foto|nao tem foto|nao tem|nao achei|nao consegui)/.test(t);
     const respondeuFoto =
-      /(tenho|mando|envio|te mando|mandarei|vou mandar|ja mandei|depois eu mando)/.test(t) ||
-      /(nao tenho|nao vou mandar|sem foto|nao tem foto|nao achei)/.test(t);
+      naoTemFoto ||
+      /(tenho|mando|envio|te mando|mandarei|vou mandar|ja mandei|depois eu mando)/.test(t);
     const bolos = (montagemDoTurno?.itens ?? []).filter(
       (i) => String(i.categoria || "").startsWith("bolo") && !/foto/i.test(String(i.obs ?? "")),
     );
     if (respondeuFoto && bolos.length) {
-      const naoTem = /(nao tenho|nao vou|sem foto|nao tem|nao achei)/.test(t);
+      const naoTem = naoTemFoto;
       const marcaFoto = naoTem ? "sem foto" : "cliente vai mandar a foto do tema";
       const comFoto = (obs: unknown) => [String(obs ?? "").trim(), marcaFoto].filter(Boolean).join(", ");
       for (const i of bolos) {
@@ -5277,7 +5460,23 @@ async function rodarConversa(
     const falasDele = historico.filter((h) => h.role === "user").map((h) => String(h.content ?? ""));
     const tudoDele = [...falasDele, String(ultimaFalaDoCliente)].join(" | ");
     const delegouTudo = pediuQueVoceEscolha(tudoDele);
-    const querBolo = /bolo/i.test(tudoDele);
+    // UMA PERGUNTA DE PRECO GRAVAVA UM BOLO INTEIRO NA COMANDA.
+    //
+    // Este bloco escreve DIRETO na montagem, por fora do anotar_item e de todas
+    // as guardas de pergunta-x-pedido que existem la dentro. E `querBolo` era
+    // `/bolo/` sobre a conversa inteira dele.
+    //
+    //   cliente: festa de 30 pessoas dia 12/09 as 16h, quero 300 salgados
+    //   cliente: e o bolo de morango, quanto sai o quilo?
+    //   Dora:    O bolo de festa sai de R$ 46,90 a R$ 55,90 o quilo.
+    //   cliente: caro, deixa. so os salgados entao. nome Ana, pix, 15h
+    //   -> comanda fecha com 3 kg de bolo morango, R$ 152,70, que ele nunca pediu
+    //
+    // 30 pessoas viram 3 kg, "morango" vira o sabor, e ninguem percebe ate o
+    // balcao. Agora a frase que carrega a palavra "bolo" tem que ser um pedido.
+    const querBolo = String(tudoDele)
+      .split(/[.!?\n]+|\s\|\s/)
+      .some((fr) => /bolo/i.test(fr) && !soPerguntouSemPedir(fr, "bolo"));
     const jaTemBolo = (montagemDoTurno?.itens ?? []).some((i) => /bolo/i.test(String(i.produto ?? "")));
     // ELE JA DISSE O SABOR E O BOLO CONTINUOU FORA DO PEDIDO.
     //
@@ -5472,10 +5671,23 @@ async function rodarConversa(
     const sabores = ((catalogo.pizza?.sabores_salgados ?? []) as string[]).concat(
       (catalogo.pizza?.sabores_doces ?? []) as string[],
     );
-    const falouPizza = /pizza/i.test(
-      historico.filter((h) => h.role === "user").map((h) => String(h.content ?? "")).join(" ") +
-        " " + String(ultimaFalaDoCliente),
-    );
+    // SABOR DE ESFIRRA VIRANDO PIZZA DE R$ 12.000.
+    //
+    // `quantidadePorSabor` foi escrita com cuidado -- o comentario dela diz "a
+    // diferenca esta na clausula, nao na conversa inteira" -- e o chamador
+    // reintroduzia a conversa inteira:
+    //
+    //   cliente: voces fazem pizza pra festa?
+    //   Dora:    Fazemos! Pizza inteira e redonda.
+    //   cliente: depois eu vejo. agora quero 100 esfirra, 50 de calabresa e 50 de bacon
+    //   -> grava 50 pizza inteira calabresa + 50 pizza inteira bacon
+    //
+    // A lista de sabores ambiguos so tinha brigadeiro e prestigio (ela e montada
+    // com NOMES de produto, nao com sabores), entao calabresa, bacon, brocolis e
+    // frango com catupiry passavam livres. O assunto pizza tem que estar na
+    // MESMA mensagem dos pares; `quantidadePorSabor` ja faz o recorte de
+    // clausula la dentro.
+    const falouPizza = /pizza/i.test(String(ultimaFalaDoCliente));
     const pares = falouPizza ? quantidadePorSabor(String(ultimaFalaDoCliente), sabores) : [];
     if (pares.length) {
       const total = pares.reduce((a, b) => a + b.qtd, 0);
@@ -5609,16 +5821,17 @@ async function rodarConversa(
   }
 
   // A RECUSA VIRA ESTADO NA HORA.
-  const jaDispensado = String(montagemDoTurno?.dados?.nao_quer ?? "");
+  // `let`, nao `const`: quando o cliente pede de volta, o valor muda AQUI, e o
+  // bloco que remonta `nao_quer` vinte linhas abaixo parte deste valor. Com
+  // `const`, a familia liberada voltava a ser gravada no mesmo turno.
+  let jaDispensado = String(montagemDoTurno?.dados?.nao_quer ?? "");
   const recusasAgora: string[] = [];
   const falaRecusa = String(ultimaFalaDoCliente).toLowerCase();
-  const RECUSOU: [string, RegExp][] = [
-    ["salgado", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer|dispensa)[^.]{0,24}salgad/],
-    ["docinho", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer|dispensa)[^.]{0,24}(docinho|doce)/],
-    ["bolo", /(sem|nao quero|não quero|nem|nao vou querer|não vou querer|dispensa)[^.]{0,24}bolo/],
-  ];
-  for (const [fam, re] of RECUSOU) {
-    if (re.test(falaRecusa) && !jaDispensado.includes(fam)) recusasAgora.push(fam);
+  // A copia que GRAVA `nao_quer` no banco era a mais curta das cinco: nao
+  // tinha "deixa pra la" nem "esquece". Quem dispensava assim continuava sendo
+  // cobrado pela etapa e recebendo o cardapio de novo.
+  for (const fam of familiasQueEleDispensou(falaRecusa)) {
+    if (!jaDispensado.includes(fam)) recusasAgora.push(fam);
   }
 
   // Ofereceu duas vezes e ele nao pediu: nao quer. Sem isto ela pergunta a
@@ -5646,6 +5859,47 @@ async function rodarConversa(
   ];
   const clienteCitou = (fam: string) =>
     CITOU.some(([f, re]) => f === fam && re.test(falaDeleToda));
+
+  // MUDAR DE IDEIA TEM QUE SER POSSIVEL.
+  //
+  // `nao_quer` so acumulava: nao existia, em lugar nenhum do codigo, um
+  // caminho que tirasse uma familia de la. E ele bloqueia oferta, cardapio e a
+  // cobranca da etapa. Ou seja, era uma decisao PERMANENTE tomada em cima de
+  // uma frase -- e as vezes tomada pelo proprio sistema, quando a Dora
+  // oferecia duas vezes e o cliente estava respondendo outra coisa.
+  //
+  //   cliente: agora nao quero bolo nao
+  //   ... tres mensagens depois ...
+  //   cliente: pensando bem quero um bolo de 3 kg pro aniversario
+  //   -> o cardapio de bolos continuava bloqueado, e a etapa nao cobrava nada
+  //
+  // Pedir de novo desfaz. E o oposto de dispensar, dito com todas as letras
+  // pelo proprio cliente, e vale mais que o estado gravado antes.
+  const voltouAQuerer = jaDispensado
+    .split(/\s*,\s*/)
+    .map((f) => f.trim())
+    .filter(
+      (fam) =>
+        fam &&
+        clienteCitou(fam) &&
+        !familiasQueEleDispensou(falaRecusa).includes(fam) &&
+        pediuDeVoltaAFamilia(falaDeleToda, fam),
+    );
+  if (voltouAQuerer.length) {
+    const sobrou = jaDispensado
+      .split(/\s*,\s*/)
+      .map((f) => f.trim())
+      .filter((f) => f && !voltouAQuerer.includes(f))
+      .join(", ");
+    console.warn("[ia] o cliente voltou a pedir: " + voltouAQuerer.join(", ") + "; nao_quer agora e " + JSON.stringify(sobrou));
+    estado.montagem.push({ tipo: "dados", dados: { nao_quer: sobrou } });
+    montagemDoTurno = aplicarMudancasNaMemoria(montagemDoTurno, estado.montagem);
+    // O bloco que remonta `nao_quer` logo abaixo parte de `jaDispensado`. Sem
+    // atualizar aqui, a familia que ele acabou de pedir de volta era gravada de
+    // novo no mesmo turno, e o desfazer nao servia pra nada.
+    jaDispensado = sobrou;
+  }
+
   for (const [fam, re] of CANSOU) {
     if (clienteCitou(fam)) continue;
     if (ofertas(re) >= 2 && !jaDispensado.includes(fam) && !recusasAgora.includes(fam)) recusasAgora.push(fam);
@@ -5859,6 +6113,9 @@ async function rodarConversa(
       pediuBolo,
       String(montagemDoTurno?.dados?.nao_quer ?? ""),
       falaToda,
+      // Sem isto, uma oferta pendente tirava registrar_pedido da lista de
+      // ferramentas: ela nao PODIA fechar mesmo querendo.
+      osQuatroDados(montagemDoTurno),
     ).length === 0;
   const ferramentas = (tenant.sistemaCustom ? FERRAMENTAS_BASICAS : FERRAMENTAS).filter((f) => {
     const nome = "function" in f ? f.function.name : "";
@@ -5992,10 +6249,7 @@ async function rodarConversa(
         }
       }
     }
-    const temOsDados = ["cliente_nome", "retirada_data", "retirada_hora", "forma_pagamento"].every((k) => {
-      const v = (montagemDoTurno?.dados as Record<string, unknown> | undefined)?.[k];
-      return !!v && String(v).trim() !== "";
-    });
+    const temOsDados = osQuatroDados(montagemDoTurno);
     // A CONFERENCIA E REFEITA A CADA VOLTA, COM A MONTAGEM DE AGORA.
     //
     // podeFechar e a lista de ferramentas sao calculados UMA vez, antes do
@@ -6157,7 +6411,21 @@ async function rodarConversa(
         /nao entendo|não entendo|nao sei|não sei|me indica|indica pra mim|o que voce|o que você|o que voces|o que vocês|voce que sabe|você que sabe|escolhe por mim|pode escolher/i.test(
           String(falaDoCliente2),
         );
-      const nadaAnotado = (montagemAtual?.itens?.length ?? 0) === 0;
+      // MESMA FOTO VELHA, E AQUI ELA SOBRESCREVE O TEXTO INTEIRO.
+      //
+      // Tudo em volta usa `montagemDoTurno`; so esta linha usava a foto de
+      // antes da mensagem -- e o bloco dela joga fora o que a Dora escreveu e
+      // poe a indicacao generica de festa no lugar.
+      //
+      //   cliente: e o aniversario da minha filha, 25 criancas, dia 27/09 as
+      //            16h. escolhe voce que eu nao sei nada disso
+      //   (o codigo ja montou e gravou salgado + docinho + bolo neste turno)
+      //   Dora:  Entao deixa eu te indicar o que a gente mais faz em festa de
+      //          crianca: - 63 coxinha, 62 mini bolha... Pode ser assim?
+      //
+      // Ela devia dizer o que JA ficou anotado. O cliente responde "pode" a uma
+      // proposta que substitui o pedido que ele acabou de fazer.
+      const nadaAnotado = (montagemDoTurno?.itens?.length ?? 0) === 0;
       if (pediuIndicacao && nadaAnotado && !estado.pedido) {
         const base = String(estado.sugestao || ultimaDelaAgora || "");
         const falasDeleAteAqui = historico
@@ -6227,6 +6495,7 @@ async function rodarConversa(
           pediuBolo,
           String(montagemDoTurno?.dados?.nao_quer ?? ""),
           falaToda,
+          osQuatroDados(montagemDoTurno),
         );
         // INSTRUCAO INTERNA NUNCA VAI PRO CLIENTE.
         //
@@ -6605,10 +6874,7 @@ async function rodarConversa(
           .filter((h) => h.role === "user" && typeof h.content === "string")
           .map((h) => String(h.content).toLowerCase())
           .join("\n");
-        const recusouMesmo =
-          /(sem|n[ãa]o quero|nem|n[ãa]o vou querer|dispensa|deixa pra la|deixa pra lá)[^.]{0,30}(salgad|docinho|doce|bolo)/i.test(
-            falaDele,
-          );
+        const recusouMesmo = familiasQueEleDispensou(falaDele).length > 0;
         if (!recusouMesmo) {
           console.warn("[ia] ela anunciou recusa que o cliente nao fez; frase cortada");
           const semFrase = textoFinal
@@ -7371,6 +7637,40 @@ async function rodarConversa(
           ". Qual você prefere?",
         precisaHumano: false,
         pedidoRegistrado: estado.pedido,
+        // A MONTAGEM FALTAVA AQUI, E ISSO APAGAVA O TURNO INTEIRO.
+        //
+        // O return de sucesso devolve `montagem: estado.montagem`; os dois de
+        // emergencia nao devolviam. Do outro lado, o webhook faz
+        // `for (const mud of resp.montagem ?? [])` -- com undefined o laco nao
+        // roda, e TUDO que a IA anotou naquele turno (itens, quantidades,
+        // observacoes, dados do cliente) e descartado em silencio.
+        //
+        // Ou seja: justamente nos turnos em que ela ja estava com dificuldade,
+        // o trabalho era jogado fora e o cliente tinha que repetir. Cada volta
+        // do impasse apagava a anterior.
+        montagem: estado.montagem,
+        cardapiosParaEnviar: estado.cardapios,
+      };
+    }
+    // A VALVULA COBRIA 1 DAS 49 RECUSAS.
+    //
+    // O regex de cima e `/falta o sabor d[oa] (.+?)\. As opcoes sao: ([^.]+)\./`
+    // -- ele so entende a recusa da guarda 2882. As outras 48 caiam direto no
+    // texto de emergencia, inclusive a mais comum de todas: "NAO registrei:
+    // falta data, hora". O cliente tinha dado tudo menos a hora e ouvia que a
+    // IA ia chamar a equipe, em vez de ouvir a pergunta que estava escrita na
+    // propria recusa.
+    const faltaGeral = texto.match(/N[ÃA]O registrei: falta ([^.]+)\./i);
+    if (faltaGeral) {
+      const oQueFalta = String(faltaGeral[1])
+        .trim()
+        .replace(/\s*,\s*([^,]+)$/, " e $1");
+      console.log("[rastro] o loop acabou; a recusa virou pergunta: " + oQueFalta);
+      return {
+        texto: "Pra eu fechar aqui só falta " + oQueFalta + ". Me diz que já passo pra equipe.",
+        precisaHumano: false,
+        pedidoRegistrado: estado.pedido,
+        montagem: estado.montagem,
         cardapiosParaEnviar: estado.cardapios,
       };
     }
@@ -7402,7 +7702,14 @@ async function rodarConversa(
       ? "A equipe já foi avisada e alguém vem falar com você por aqui, tá? Não precisa mandar de novo."
       : "Deixa eu chamar alguém da equipe pra te ajudar com isso.",
     precisaHumano: true,
+    // O motivo em texto vai no campo que carrega texto, pra dona ver na tela
+    // por que a conversa caiu pra ela.
+    motivoEquipe:
+      estado.motivoEquipe ??
+      "A Dora nao conseguiu concluir sozinha depois de varias tentativas. Alguem precisa ler a conversa.",
     pedidoRegistrado: estado.pedido,
+    // Mesma correcao do return de cima: sem isto o turno inteiro era descartado.
+    montagem: estado.montagem,
     cardapiosParaEnviar: estado.cardapios,
   };
 }

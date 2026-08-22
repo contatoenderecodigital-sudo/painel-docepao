@@ -14,6 +14,11 @@
 import catalogo from "./dados/catalogo.json";
 import { produtosDoCardapio } from "./produtos";
 import { foiNegado } from "./orcamento";
+// Reexportado de proposito: "esse termo foi negado?" e regra de leitura de
+// texto, entao quem procura por ela procura aqui. A implementacao mora em
+// orcamento.ts so porque aquele arquivo nao importa ninguem e assim nao ha
+// ciclo. Uma regra, um lugar -- e um lugar so pra achar.
+export { foiNegado, citadoDeVerdade } from "./orcamento";
 // TODOS OS PRECOS UNITARIOS QUE A PADARIA PRATICA, em centavos.
 // Fonte unica: o catalogo. O que nao esta aqui, ela nao pode dizer que cobra.
 function precosDaCasa(): Set<number> {
@@ -1258,11 +1263,10 @@ export function pecasPermitidas(
   // Se ele mudar de ideia e pedir, o pediuAgora logo abaixo libera.
   const naoOlha = naoVaiOlharCardapio(falasDoCliente.length ? falasDoCliente : [ultimaFala]);
   const dito = semAcMin(ultimaFala);
-  const NEGA = "(sem|nao quero|nem|nao vou querer)";
   const recusou: [string, RegExp][] = [
-    ["salgados", new RegExp(NEGA + "[^.]{0,24}salgad")],
-    ["docinhos", new RegExp(NEGA + "[^.]{0,24}(docinho|doce)")],
-    ["bolos-festa", new RegExp(NEGA + "[^.]{0,24}bolo")],
+    ["salgados", DISPENSOU_FAMILIA[0][1]],
+    ["docinhos", DISPENSOU_FAMILIA[1][1]],
+    ["bolos-festa", DISPENSOU_FAMILIA[2][1]],
   ];
   // A RECUSA GRAVADA E UMA LISTA, NAO UMA FRASE.
   //
@@ -1442,9 +1446,103 @@ function ehProdutoInteiro(nome: string): boolean {
 // Recorte fechado de propósito. Frase que nao esta na lista fica como esta:
 // texto errado e ruim, texto mutilado e pior, e isso ja aconteceu com o valor
 // do topo.
+// "ELE DISPENSOU ESSA FAMILIA?" MORAVA EM CINCO LUGARES, COM QUATRO
+// VOCABULARIOS DIFERENTES.
+//
+// Rodado lado a lado com as cinco copias:
+//
+//   "dispensa salgado"        peca=nao  cardapio=nao  grava=SIM  corta=SIM
+//   "deixa pra la o salgado"  peca=nao  cardapio=nao  grava=nao  corta=SIM
+//   "esquece o salgado"       peca=nao  cardapio=nao  grava=nao  corta=nao
+//
+// O estrago da divergencia, com "deixa pra la o docinho, so salgado e bolo":
+// a copia que GRAVA `nao_quer` nao pega, entao a etapa continua cobrando
+// docinho e o cardapio de docinho sai de novo -- mas a copia que corta o texto
+// pega, entao a frase "anotei que voce nao quer docinho" fica na mensagem. Ela
+// diz que anotou a recusa e continua oferecendo. Contradicao na cara do
+// cliente, e a causa e uma palavra faltando numa das cinco listas.
+//
+// Agora e uma lista so. Quem precisa de outro rotulo mapeia o resultado.
+const DISPENSOU =
+  "(sem|nao quero|nao quer|nao vou querer|nao vai querer|nem|dispensa|deixa pra la|deixa quieto|esquece|nada de|tira o |tira a |nao precisa d)";
+export const DISPENSOU_FAMILIA: [string, RegExp][] = [
+  ["salgado", new RegExp(DISPENSOU + "[^.]{0,30}salgad")],
+  ["docinho", new RegExp(DISPENSOU + "[^.]{0,30}(docinho|doce)")],
+  ["bolo", new RegExp(DISPENSOU + "[^.]{0,30}bolo")],
+];
+
+export function familiasQueEleDispensou(falas: string | string[]): string[] {
+  const t = semAcMin(Array.isArray(falas) ? falas.join(" | ") : String(falas ?? ""));
+  if (!t.trim()) return [];
+  return DISPENSOU_FAMILIA.filter(([, re]) => re.test(t)).map(([f]) => f);
+}
+
+// O CONTRARIO DE DISPENSAR: ELE PEDIU DE VOLTA.
+//
+// `nao_quer` bloqueia oferta, cardapio e a cobranca da etapa -- e so
+// acumulava: nao existia caminho nenhum no codigo que tirasse uma familia de
+// la. Uma frase virava decisao permanente, as vezes tomada pelo proprio
+// sistema (a Dora oferece duas vezes, o cliente estava respondendo outra
+// coisa, e o codigo grava "nao quer").
+//
+//   cliente: agora nao quero bolo nao
+//   ... tres mensagens depois ...
+//   cliente: pensando bem quero um bolo de 3 kg pro aniversario
+//
+// Citar nao basta ("nao quero bolo" cita bolo). Tem que ter DECIDIDO: verbo de
+// pedido ou quantidade, na mesma frase, sem negacao.
+const PALAVRA_DA_FAMILIA: Record<string, RegExp> = {
+  salgado: /salgad|coxinha|esfirra|empadinha|ris[oó]lis|croquete|bolinha|almofadinha|quiche|croissant|pastel|kibe|enroladinho/,
+  docinho: /docinho|doce|brigadeiro|beijinho|trufa|caju|camafeu|olho de sogra|ouri[çc]o|bicho de pe/,
+  bolo: /bolo/,
+};
+
+export function pediuDeVoltaAFamilia(falas: string | string[], familia: string): boolean {
+  const re = PALAVRA_DA_FAMILIA[familia];
+  if (!re) return false;
+  const t = semAcMin(Array.isArray(falas) ? falas.join(" | ") : String(falas ?? ""));
+  const DECIDIU =
+    /\b(quero|queria|vou querer|me ve|me da|manda|pode (ser|por|colocar)|coloca|bota|poe|anota|vou levar|acrescenta|inclui|adiciona|volta)\b|\b[0-9]{1,4} ?(un|kg|quilos?|cento|unidades?)?\b/;
+  return t
+    .split(/[.!?\n]+|\s{2,}|\s\|\s/)
+    .some((fr) => re.test(fr) && DECIDIU.test(fr) && !familiasQueEleDispensou(fr).includes(familia));
+}
+
 export function textoSemPerguntaDeHora(texto: string): string {
   let t = String(texto ?? "");
   if (!t.trim()) return t;
+  // A UNICA DAS CINCO GUARDAS DE CORTE SEM AS DUAS PROTECOES.
+  //
+  // O banner de "CORTAR SO E PERMITIDO SE O QUE SOBRA SE SUSTENTA SOZINHO"
+  // vale pra toda guarda que corta texto. Quatro chamam `corteEhSeguro` e
+  // protegem o recibo; esta nao chamava nenhuma das duas. Rodado com a
+  // implementacao real:
+  //
+  //   "Anotei tudo aqui. Que horas voce retira?"     ->  "Anotei tudo aqui.?"
+  //   "Fechou. Que horas voce vai buscar o pedido?"  ->  "Fechou.?"
+  //
+  // Uma mensagem terminando em interrogacao solta -- a mesma classe do
+  // "Se sim, qual sabor: carne, queijo, presunto ou frango?" que chegou num
+  // cliente de verdade e comecou tudo isto.
+  if (/\*Pedido recebido\*|\*Total:/i.test(t)) return t;
+  const bruto = t;
+  // A PERGUNTA INTEIRA SAI INTEIRA, COM O PONTO DE INTERROGACAO JUNTO.
+  //
+  // Os nove recortes abaixo foram escritos pra tirar a pergunta de HORA de
+  // DENTRO de uma frase maior ("..., que horas, e como prefere pagar?"). Todos
+  // comecam com virgula ou espaco. Quando a pergunta e a frase inteira, nenhum
+  // casa o comeco nem o "?" -- e o que sobrava era literalmente:
+  //
+  //   "Anotei tudo aqui. Que horas voce retira?"  ->  "Anotei tudo aqui.?"
+  //
+  // Entao a frase inteira sai antes, como frase.
+  const frases = t.split(/(?<=[.!?])\s+/).filter((x) => x.trim());
+  const SO_PERGUNTA_DE_HORA =
+    /^(e\s+|s[óo] me diz[:,]?\s*|me diz[:,]?\s*|ah,?\s*)?(que horas|a que horas|qual (o |e o )?hor[áa]rio|que hor[áa]rio)\b[^?]*\?$/i;
+  const semAPerguntaInteira = frases.filter((f) => !SO_PERGUNTA_DE_HORA.test(f.trim()));
+  if (semAPerguntaInteira.length && semAPerguntaInteira.length < frases.length) {
+    t = semAPerguntaInteira.join(" ");
+  }
   const cortes: [RegExp, string][] = [
     [/, que horas,? e /gi, " e "],
     [/, que horas( sera| e)? (a|da) retirada,? e /gi, " e "],
@@ -1459,7 +1557,15 @@ export function textoSemPerguntaDeHora(texto: string): string {
     [/, que horas([,.?])/gi, "$1"],
   ];
   for (const [de, para] of cortes) t = t.replace(de, para);
-  return t.replace(/ +/g, " ").replace(/ ([,.?])/g, "$1");
+  const saida = t
+    .replace(/ +/g, " ")
+    .replace(/ ([,.?])/g, "$1")
+    // Interrogacao orfa: sobra de recorte que levou a pergunta e deixou o
+    // sinal. "Anotei tudo aqui.?" chegava assim no WhatsApp do cliente.
+    .replace(/([.!])\s*\?+/g, "$1")
+    .replace(/,\s*\?+/g, "?")
+    .trim();
+  return corteEhSeguro(bruto, saida) ? saida : bruto;
 }
 
 // A OBSERVACAO E UMA FICHA, NAO UM BILHETE PENSANDO ALTO.
@@ -1997,6 +2103,39 @@ export function textoSemPerguntaJaFeita(texto: string, falasDela: string[]): str
     return !jaFeitas.has(nucleo(frase));
   });
   if (!ficam.length || ficam.length === partes.length) return bruto;
+  // REPETIR UMA PERGUNTA IRRITA; APAGAR A ULTIMA MATA A CONVERSA.
+  //
+  // Esta guarda corta pergunta que ela ja fez. Quando a pergunta repetida e a
+  // UNICA da mensagem, o que sobra e um texto sem saida, e o cliente nao tem o
+  // que responder.
+  //
+  // O caso medido: falta a data. O codigo anexa "Pra que dia voce quer?" a
+  // cada turno. No segundo turno o nucleo "pra dia quer" ja esta nas falas
+  // dela, esta guarda apaga, e a mensagem volta pro cliente SEM nenhuma
+  // pergunta de data. Sem data, registrar_pedido nao fecha. E a conversa que
+  // morre a dois passos da venda, com item, nome e pagamento ja na mesa.
+  //
+  // `corteEhSeguro` nao pegava: nao tem R$, nao tem "anotei", nao fica orfa.
+  //
+  // MAS SO VALE PRA PERGUNTA QUE O PEDIDO PRECISA.
+  //
+  // A primeira versao disto protegia qualquer pergunta, e quebrou na hora o
+  // teste que existe justamente pra cortar oferta repetida:
+  //
+  //   "Anotei tudo certinho. Vai querer salgado tambem pra festa?"
+  //
+  // Ali o corte esta certo -- sobra "Anotei tudo certinho.", que e uma
+  // mensagem completa, e ninguem precisa responder oferta. A diferenca e o
+  // ASSUNTO: sem data o pedido nao fecha; sem responder "quer salgado?" fecha.
+  // Entao so a pergunta de dado obrigatorio segura o corte.
+  const PRECISA_PRA_FECHAR =
+    /\b(que dia|pra quando|qual (a )?data|que horas|hor[áa]rio|nome de quem|em nome de|como (voc[êe] )?prefere pagar|forma de pagamento|qual (o )?sabor|que sabor|qual (o )?recheio|quantos quilos|quantas pessoas)\b/i;
+  const tinhaPergunta = partes.some((f) => f.includes("?"));
+  const sobrouPergunta = ficam.some((f) => f.includes("?"));
+  const cortouOEssencial = partes.some(
+    (f) => f.includes("?") && !ficam.includes(f) && PRECISA_PRA_FECHAR.test(f),
+  );
+  if (tinhaPergunta && !sobrouPergunta && cortouOEssencial) return bruto;
   const saida = ficam.join(" ").replace(/ +/g, " ").trim();
   // CORTOU, CONFERE SE PODE. Apagar "Vai querer esfirra?" deixava
   // "Se sim, qual sabor: carne, queijo, presunto ou frango?" sozinha no
@@ -2258,7 +2397,21 @@ export function chutouValorDoTopo(texto: string): string[] {
   const frases = t.split(/(?<=[.!?\n])\s*/);
   return frases.filter((f) => {
     const s = semAcMin(f);
-    if (!/\btopo\b|papel de arroz/.test(s)) return false;
+    // O PAPEL DE ARROZ NAO E O TOPO: ELE TEM PRECO FIXO NO CARDAPIO.
+    //
+    // "papel de arroz" custa R$ 12,00 e esta na tabela (catalogo.json:607). O
+    // topo e fabricado sob medida e so a equipe sabe o valor. Esta guarda
+    // tratava os dois iguais, e o resultado era o codigo se contradizendo
+    // dentro da mesma mensagem:
+    //
+    //   cliente: quanto custa o papel de arroz?
+    //   (o codigo prefixa, certo:) "O papel de arroz sai R$ 12,00 cada."
+    //   (esta guarda apaga e troca por:) "O valor do topo quem confirma e a
+    //    equipe."
+    //
+    // O cliente perguntou um preco de tabela, o codigo respondeu certo, e a
+    // guarda seguinte apagou a resposta e escreveu uma informacao falsa.
+    if (!/\btopo\b/.test(s)) return false;
     if (!/r\$ ?[0-9]/.test(s) && !/\b[0-9]{1,3} ?reais\b/.test(s)) return false;
     // "SEM topo" nao e cotacao de topo. Quem dispensa o topo continua recebendo
     // o preco do bolo dele na mesma frase, e apagar isso corta a resposta no
