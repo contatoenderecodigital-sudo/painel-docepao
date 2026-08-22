@@ -6897,7 +6897,24 @@ async function rodarConversa(
           return vals.length > 0 && vals.some((v) => v > 0 && !centosCertos.has(v.toFixed(2)));
         });
         if (mentiuNoCento.length) {
-          const semAMentira = frasesDela.filter((f) => !mentiuNoCento.includes(f)).join(" ").replace(/ +/g, " ").trim();
+          const semAMentira = frasesDela
+            .filter((f) => !mentiuNoCento.includes(f))
+            .join(" ")
+            .replace(/ +/g, " ")
+            // CORTAR A PRIMEIRA FRASE DEIXA A SEGUNDA PENDURADA.
+            //
+            // Medido em 22/08/2026, com esta guarda ja no ar:
+            //
+            //   ela escreveu: "O cento de salgado frito sai R$ 110,00.
+            //                  E o cento de assado sai R$ 125,00."
+            //   a guarda apagou a primeira (R$ 110,00 nao existe na tabela)
+            //   o cliente leu: "E o cento de assado sai R$ 125,00."
+            //
+            // A mentira morreu e a resposta morreu junto: ele perguntou o preco
+            // do FRITO e recebeu uma frase que comeca com "E o", falando de
+            // outra coisa. Cortar sem repor e o defeito que dominou esta noite.
+            .replace(/^\s*E\s+(o|a|os|as)\s+/i, "O ")
+            .trim();
           console.warn(
             "[ia] ela cotou o cento errado; frase removida: " + mentiuNoCento.join(" ").slice(0, 120),
           );
@@ -6913,9 +6930,20 @@ async function rodarConversa(
         if (/docinho|doce/i.test(t) && doce > 0) {
           linhas.push("Docinho sai " + brl(doce) + " cada (" + brl(doce * 100) + " o cento).");
         }
-        // So entra se ela ainda nao disse o preco certo: prefixar por cima de
-        // uma resposta correta faria o cliente ler o mesmo numero duas vezes.
-        if (linhas.length && !/R\$\s?[0-9]/.test(textoFinal)) {
+        // QUEM APAGA UM PRECO ERRADO TEM QUE POR O CERTO NO LUGAR.
+        //
+        // Esta condicao era so `!/R\$/.test(textoFinal)`: o preco do codigo
+        // entrava quando ela nao tinha dito preco nenhum. Mas quando ela MENTIU
+        // e a guarda de cima apagou a frase, o texto ainda podia ter outro R$
+        // sobrando (o do assado) -- e ai o preco certo do frito, que era o que o
+        // cliente perguntou, nunca era escrito.
+        //
+        // Resultado medido: ele perguntou o cento de salgado, ela chutou
+        // R$ 110,00 no frito, a guarda apagou, e ele recebeu so o preco do
+        // assado. Ficou sem a resposta e sem saber que ficou.
+        //
+        // Agora: se houve mentira, o preco de verdade entra sempre.
+        if (linhas.length && (mentiuNoCento.length > 0 || !/R\$\s?[0-9]/.test(textoFinal))) {
           console.warn("[ia] preco por cento respondido pelo codigo");
           textoFinal = (linhas.join(" ") + "\n\n" + textoFinal).trim();
         }

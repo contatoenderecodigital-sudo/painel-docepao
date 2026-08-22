@@ -77,10 +77,29 @@ conferir(
   "o recibo fica fora deste corte",
   "os R$ do recibo sao linha de conta e seriam lidos como cotacao errada",
 );
+// APAGAR O PRECO ERRADO NAO BASTA: TEM QUE POR O CERTO NO LUGAR.
+//
+// Medido em 22/08/2026 com a primeira versao deste conserto ja no ar:
+//
+//   cliente: me fala o preco do cento de salgado
+//   ela:     "O cento de salgado frito sai R$ 110,00.
+//             E o cento de assado sai R$ 125,00."
+//   a guarda apagou a primeira (R$ 110,00 nao existe na tabela)
+//   o cliente leu: "E o cento de assado sai R$ 125,00."
+//
+// A mentira morreu e a resposta morreu junto: ele perguntou o preco do FRITO e
+// recebeu uma frase que comeca com "E o", falando de outra coisa. A condicao
+// antiga (`so entra se nao houver nenhum R$`) via o R$ 125,00 que sobrou e se
+// calava justamente quando era mais necessaria.
 conferir(
-  cerebro.includes('if (linhas.length && !/R\\$\\s?[0-9]/.test(textoFinal))'),
-  "o preco do codigo so entra quando ela ainda nao disse o certo",
-  "o cliente le o mesmo numero duas vezes",
+  cerebro.includes("if (linhas.length && (mentiuNoCento.length > 0 || !/R\\$\\s?[0-9]/.test(textoFinal)))"),
+  "houve mentira -> o preco de verdade entra SEMPRE, mesmo com outro R$ no texto",
+  "o cliente fica sem a resposta que pediu e sem saber que ficou",
+);
+conferir(
+  cerebro.includes('.replace(/^\\s*E\\s+(o|a|os|as)\\s+/i, "O ")'),
+  "o que sobra depois do corte nao comeca pendurado com 'E o'",
+  "corta e deixa a frase seguinte sem sujeito -- o defeito que dominou a noite",
 );
 
 console.log("");

@@ -274,3 +274,46 @@ morreram — cada um com a conversa que prova.
 
 **O que não está provado:** se ela *soa* humana. Isso nenhum teste mede. Os
 prints estão em `scratchpad/prints-final/` e são 2 minutos de leitura.
+
+---
+
+## 10. A lição que fecha o ciclo — e que eu mesmo precisei aprender duas vezes
+
+Consertei os dois defeitos de preço e mandei conferir. Deu **8 de 10**. Mas o
+que importou não foi a nota: foi o **rastro**.
+
+```
+[ia] preco por cento respondido pelo codigo         0 ocorrências em 5
+[ia] ela cotou o cento errado                       0 ocorrências
+[ia] preco de bolo caseiro respondido pelo codigo   1 ocorrência em 3
+```
+
+**As travas que eu escrevi quase não dispararam.** Os quatro acertos do cento
+vieram por outro caminho. Eu tinha consertado **o lugar errado** — exatamente o
+padrão que passei a noite documentando, cometido por mim, com as ferramentas de
+diagnóstico já na mão.
+
+As causas de verdade estavam no rastro:
+
+| eu consertei | a causa era |
+|---|---|
+| a trava que responde o preço do cento | ela leu **"cento" como 1 pessoa** e chamou o orçamento de festa |
+| o bloco que responde preço de bolo | a **recusa mandava usar `por_quilo`** — errado pra bolo caseiro |
+
+O segundo é o mais instrutivo do projeto inteiro: **a guarda estava certa em
+recusar e errada no que mandava fazer.** A IA obedeceu à instrução errada, e o
+defeito apareceu na fala dela. Quem lesse só a conversa culparia o modelo.
+
+### O que isso quer dizer pra você, na prática
+
+Quando a dona reclamar de uma conversa, **não tente adivinhar pelo texto**. O
+texto mostra o sintoma; o rastro mostra a causa:
+
+```bash
+ssh -i ~/.ssh/id_ed25519_hub root@179.198.126.197 \
+  'docker logs --since 30m $(docker ps --filter name=uyyqf7 -q) | grep rastro'
+```
+
+Cada linha diz qual ferramenta ela chamou, com quais argumentos, e o que o
+código respondeu. Nas últimas 24 horas, **toda vez que eu li o rastro achei a
+causa em minutos; toda vez que eu adivinhei pelo texto, gastei uma hora e errei.**
