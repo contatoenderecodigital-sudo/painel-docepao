@@ -44,6 +44,23 @@ export type Estado = PedidoEmMontagem & {
    * porque resolver de longe e o que fazia a IA mexer no item errado.
    */
   retomarEm?: EtapaId | null;
+
+  /**
+   * A ETAPA QUE O CLIENTE POS NA MESA.
+   *
+   * Print do dono, 23/08/2026: ele perguntou "vcs fazem bolo?" e recebeu "O que
+   * voce gostaria?". Perguntou de novo, palavra por palavra, e recebeu a mesma
+   * volta. Quem pergunta duas vezes a mesma coisa nao esta insistindo, esta sem
+   * resposta.
+   *
+   * Acontecia porque perguntar nao anota item nenhum: sem item, a abertura
+   * continuava sendo a etapa da vez, e a abertura pergunta "o que voce precisa"
+   * pra sempre.
+   *
+   * Aqui fica o que ele falou, e vale ate aquela etapa se resolver. Enquanto
+   * durar, a conversa e sobre ISSO: quem pergunta de bolo ouve falar de bolo.
+   */
+  assunto?: EtapaId | null;
 };
 
 /** Quem chama o modelo. Injetado pra dar pra testar sem gastar. */
@@ -189,7 +206,9 @@ export async function responder(
       // So marca a volta se a etapa de agora ainda nao estava resolvida: quem
       // termina o docinho e vai pro bolo nao precisa "voltar" pro docinho.
       const voltar = !etapaAgora.cumprida(estado) ? etapaAgora.id : estado.retomarEm ?? null;
-      estado = { ...estado, retomarEm: voltar };
+      // O que ele trouxe vira o assunto, e o assunto sobrevive a mensagem: no
+      // WhatsApp a proxima chega numa chamada nova, com o estado lido do banco.
+      estado = { ...estado, retomarEm: voltar, assunto: limpa.falouDeOutraEtapa };
       rastro.push("falou de " + limpa.falouDeOutraEtapa + "; retomo em " + (voltar ?? "nada"));
     }
 
@@ -236,6 +255,29 @@ export async function responder(
     if (alvo?.cumprida(estado)) estado = { ...estado, retomarEm: null };
   }
   if (proxima.id === estado.retomarEm) estado = { ...estado, retomarEm: null };
+
+  // ------------------------------------- O ASSUNTO E DELE, NAO DA MINHA LISTA
+  //
+  // "vcs fazem bolo?" nao anota item nenhum, entao a lista de etapas continuava
+  // apontando pra abertura e ele ouvia "o que voce precisa?" de novo. Duas
+  // vezes, no print de 23/08/2026.
+  //
+  // Etapa pulavel quer dizer "nao pergunto por conta propria", e nunca quis
+  // dizer "nao falo disso nem se ele pedir": pedido simples nao ouve falar de
+  // bolo por iniciativa da padaria, mas quem PERGUNTA de bolo tem que ouvir
+  // falar de bolo. Por isso aqui o pulavel nao vale, e a etapa cumprida sim:
+  // assunto ja resolvido nao volta pra mesa.
+  if (estado.assunto && estado.assunto !== proxima.id) {
+    const alvo = etapas.find((x) => x.id === estado.assunto);
+    if (alvo && !alvo.cumprida(estado)) {
+      proxima = alvo;
+      rastro.push("o assunto e " + alvo.id + " (foi ele quem trouxe)");
+    } else {
+      estado = { ...estado, assunto: null };
+    }
+  } else if (estado.assunto === proxima.id && proxima.cumprida(estado)) {
+    estado = { ...estado, assunto: null };
+  }
 
   // O aviso so vale se a conversa continuar na MESMA etapa: se ela ja andou, o
   // cliente resolveu e o "a gente nao faz" chegaria fora de hora.

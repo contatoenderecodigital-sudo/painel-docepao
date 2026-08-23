@@ -23,7 +23,7 @@ import { lerEstadoDoBanco, gravarEstado, zerar } from "./gravar";
 import { fecharPedido } from "./fechar";
 import { falaDaEtapa } from "./pergunta";
 import { ETAPAS_DA_FESTA } from "./etapas";
-import { mandouRecomecar, comCumprimento } from "./falas-do-cliente";
+import { mandouRecomecar, comCumprimento, tirarCumprimento, semEmoji } from "./falas-do-cliente";
 
 export type RespostaDoFluxo = {
   texto: string;
@@ -73,6 +73,7 @@ const VAZIO: Estado = {
   dados: { nome: null, data: null, hora: null, pagamento: null },
   pecas: null,
   retomarEm: null,
+  assunto: null,
 };
 
 export async function atenderComFluxoNovo(
@@ -80,6 +81,11 @@ export async function atenderComFluxoNovo(
   negocioId: string,
   clienteId: string,
   mensagem: { texto: string; botaoId?: string | null },
+  // A PADARIA JA FALOU COM ESTE CLIENTE NESTA CONVERSA?
+  //
+  // So serve pro cumprimento: quem chega e cumprimentado, quem ja esta na
+  // conversa nao ouve "boa noite" de novo a cada mensagem.
+  jaAtendeu = false,
 ): Promise<RespostaDoFluxo> {
   const uso = { tokensIn: 0, tokensOut: 0, cacheRead: 0, chamadas: 0 };
   const contar = (u: { tokensIn: number; tokensOut: number; cacheRead?: number }) => {
@@ -123,7 +129,7 @@ export async function atenderComFluxoNovo(
       pedidoId = fechado.pedidoId;
       r.rastro.push("pedido fechado: " + fechado.pedidoId + " (R$ " + (fechado.totalCentavos / 100).toFixed(2) + ")");
       const fim = falaDaEtapa(ETAPAS_DA_FESTA[ETAPAS_DA_FESTA.length - 1], r.estado);
-      return { texto: fim.texto, botoes: [], cardapio: null, etapa: "registrado", pedidoId, rastro: r.rastro, uso };
+      return { texto: semEmoji(fim.texto), botoes: [], cardapio: null, etapa: "registrado", pedidoId, rastro: r.rastro, uso };
     }
     r.rastro.push("tocou em confirmar mas o pedido ainda nao podia fechar");
   }
@@ -131,28 +137,26 @@ export async function atenderComFluxoNovo(
   // O jeito de falar vem por ultimo, e nao encosta onde tem dinheiro.
   let texto = await dizerComJeito(cliente, r.fala, mensagem.texto, contar);
 
-  // A SAUDACAO NAO DEPENDE DE A IA LEMBRAR.
+  // O CUMPRIMENTO E DA PRIMEIRA FALA, E SO DELA.
   //
-  // Ela sai escrita do codigo na abertura, mas a reescrita passa por cima do
-  // texto e podia comer justamente ela. Aqui se confere depois: se sumiu,
-  // volta. A guarda nao duplica quando ja tem, e segue o relogio de Sao Paulo,
-  // nao a palavra do cliente — quem manda "bom dia" as duas da tarde recebe
-  // "boa tarde".
+  // Na primeira ele entra mesmo que a reescrita tenha comido, porque quem
+  // atende cumprimenta primeiro, e segue o RELOGIO de Sao Paulo e nao a palavra
+  // do cliente: quem manda "bom dia" as duas da tarde recebe "boa tarde".
+  //
+  // Da segunda em diante ele SAI, venha do codigo ou da reescrita. O dono
+  // recebeu "Boa noite, tudo bem?" tres mensagens seguidas, e isso nao e
+  // educacao, e tique de robo.
   try {
     const agora = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-    const primeiraDaPadaria = r.etapa === "abertura" && !r.estado.itens.length;
-    if (primeiraDaPadaria) {
-      // O segundo argumento e o gatilho da guarda: na abertura ela cumprimenta
-      // mesmo que o cliente nao tenha cumprimentado, porque quem atende
-      // cumprimenta primeiro.
-      texto = comCumprimento(texto, agora);
-    }
+    texto = jaAtendeu ? tirarCumprimento(texto) : comCumprimento(texto, agora);
   } catch (e) {
-    console.error("[fluxo-novo] falha ao garantir o cumprimento:", e);
+    console.error("[fluxo-novo] falha ao ajustar o cumprimento:", e);
   }
 
   return {
-    texto,
+    // Emoji nao passa por aqui, nem o que a reescrita inventar. A peneira e a
+    // ultima coisa a rodar de proposito: caminho novo nao precisa lembrar dela.
+    texto: semEmoji(texto),
     botoes: r.fala.botoes,
     cardapio: r.fala.cardapio,
     etapa: r.etapa,

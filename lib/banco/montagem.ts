@@ -48,6 +48,24 @@ export type DadosMontagem = {
   // O que o cliente DISPENSOU nesta festa ("salgado", "docinho", "bolo"),
   // separado por virgula. Sem isso a etapa dele fica cobrando pra sempre.
   nao_quer?: string | null;
+
+  // ------------------------------------------------------ memoria da conversa
+  //
+  // Campos do fluxo, nao do pedido: nao aparecem na tela da dona e nao entram
+  // na comanda. Estao aqui porque no WhatsApp CADA MENSAGEM E UMA CHAMADA NOVA,
+  // e sem isto a conversa esquecia tudo o que nao fosse item ou data.
+  //
+  // Era assim ate 23/08/2026: o cliente dizia "festa pra 20 pessoas", recebia a
+  // proposta de R$ 418,80, tocava em "Pode ser", e a mensagem seguinte comecava
+  // com ehFesta false e pessoas null. A base que ele acabara de aceitar nao
+  // existia mais, e nada virava pedido. Nos testes nao aparecia porque la a
+  // conversa inteira roda dentro de uma chamada so.
+  fluxo_festa?: string | null; // "sim" quando a conversa e de festa
+  fluxo_pessoas?: string | null; // quantas pessoas vao
+  fluxo_base_aceita?: string | null; // "sim" depois que ele aceita a proposta
+  fluxo_pecas?: string | null; // "topo", "papel", "topo,papel" ou "nenhum"
+  fluxo_assunto?: string | null; // a etapa que ELE pos na mesa, ou "nenhum"
+  fluxo_retomar?: string | null; // a etapa pra onde voltar depois do desvio
 };
 
 export type Montagem = { itens: ItemMontagem[]; dados: DadosMontagem };

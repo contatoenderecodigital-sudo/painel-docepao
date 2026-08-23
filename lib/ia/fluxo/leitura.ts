@@ -165,8 +165,12 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "Se ele falou de FESTA, aniversário, formatura, coffee break ou de um " +
       "número de pessoas, devolva ehFesta = true." + String.fromCharCode(10) + 
       "Se ele pediu um produto direto (100 coxinhas, uma torta), devolva em itens." + String.fromCharCode(10) + 
-      "Se ele só cumprimentou ou perguntou uma coisa qualquer, devolva {} e " +
-      "não invente nada: quem diz o que quer é ele.",
+      "Se ele PERGUNTOU de uma família sem dizer quantidade (vocês fazem bolo? " +
+      "tem salgadinho? faz docinho?), devolva falouDeOutraEtapa com a etapa " +
+      "daquela família: salgado, docinho ou bolo. Perguntar já é dizer sobre o " +
+      "que ele quer falar." + String.fromCharCode(10) +
+      "Se ele só cumprimentou, devolva {} e não invente nada: quem diz o que " +
+      "quer é ele.",
   };
 
   const jaTem = p.itens.length

@@ -24,6 +24,7 @@
 import { anotarItem, anotarDados, lerMontagem, limparMontagem } from "@/lib/banco/montagem";
 import { unidadeDoProduto } from "@/lib/ia/cerebro";
 import type { Estado } from "./fluxo";
+import type { EtapaId } from "./etapas";
 
 /** O que ja esta gravado, no formato que o fluxo entende. */
 export async function lerEstadoDoBanco(negocioId: string, clienteId: string): Promise<Partial<Estado>> {
@@ -44,7 +45,48 @@ export async function lerEstadoDoBanco(negocioId: string, clienteId: string): Pr
     },
     // O que o cliente dispensou fica junto dos dados: a tela ja mostra isso.
     naoQuer: String(d.nao_quer ?? "").split(",").map((x) => x.trim()).filter(Boolean),
+
+    // ------------------------------------------------- a memoria da conversa
+    ...estadoDosDados(d),
   };
+}
+
+/**
+ * A MEMORIA DA CONVERSA, LIDA DO BANCO.
+ *
+ * ISTO FALTAVA, E ERA O DEFEITO MAIS CARO DO FLUXO NOVO.
+ *
+ * No WhatsApp cada mensagem e uma chamada nova: o estado nasce do banco e morre
+ * no fim. Como so item e dados eram gravados, tudo o mais se perdia entre uma
+ * mensagem e outra do cliente.
+ *
+ * Na pratica: ele dizia "festa pra 20 pessoas", recebia a proposta de R$ 418,80
+ * e tocava em "Pode ser". A mensagem do botao chegava com ehFesta false,
+ * pessoas null e base null, entao nao havia base pra virar pedido: o aceite
+ * dele caia no vazio e a conversa voltava pro comeco.
+ *
+ * Nos testes passava porque la a conversa inteira roda dentro de uma chamada
+ * so, com o estado vivo na memoria. Conversa de verdade nao e assim.
+ *
+ * E funcao pura e exportada de proposito: assim da pra provar a ida e a volta
+ * sem banco nenhum, que e o teste que faltava existir.
+ */
+export function estadoDosDados(d: Record<string, string | null | undefined>): Partial<Estado> {
+  return {
+    ehFesta: d.fluxo_festa === "sim",
+    pessoas: Number(d.fluxo_pessoas) > 0 ? Number(d.fluxo_pessoas) : null,
+    baseAceita: d.fluxo_base_aceita === "sim",
+    pecas: lerPecas(d.fluxo_pecas),
+    assunto: d.fluxo_assunto && d.fluxo_assunto !== "nenhum" ? (d.fluxo_assunto as EtapaId) : null,
+    retomarEm: d.fluxo_retomar && d.fluxo_retomar !== "nenhum" ? (d.fluxo_retomar as EtapaId) : null,
+  };
+}
+
+/** "topo,papel" volta a ser o par de sim e nao que o fluxo entende. */
+function lerPecas(bruto: string | null | undefined): { topo: boolean; papelDeArroz: boolean } | null {
+  const t = String(bruto ?? "").trim().toLowerCase();
+  if (!t) return null; // nunca perguntado
+  return { topo: /topo/.test(t), papelDeArroz: /papel/.test(t) };
 }
 
 /**
@@ -96,10 +138,40 @@ export async function gravarEstado(
   if (depois.naoQuer.length && depois.naoQuer.join(",") !== antes.naoQuer.join(",")) {
     mudou.nao_quer = depois.naoQuer.join(", ");
   }
+  // A memoria da conversa vai pelo mesmo caminho dos dados porque e o mesmo
+  // lugar: `dados` e jsonb, e campo que a tela nao mostra nao atrapalha a tela.
+  Object.assign(mudou, dadosQueMudaram(antes, depois));
+
   if (Object.keys(mudou).length) await anotarDados(negocioId, clienteId, mudou as never);
 }
 
 /** O cliente mandou recomecar: apaga tudo, itens e dados. */
 export async function zerar(negocioId: string, clienteId: string): Promise<void> {
   await limparMontagem(negocioId, clienteId);
+}
+
+/**
+ * A MEMORIA DA CONVERSA, ESCRITA PRO BANCO.
+ *
+ * So o que mudou, pelo mesmo motivo dos itens: gravar tudo a cada mensagem
+ * passaria por cima do que a dona editasse na tela.
+ *
+ * O QUE SE APAGA VIRA A PALAVRA "nenhum".
+ *
+ * anotarDados nao grava valor vazio, de proposito: string vazia era jeito comum
+ * de apagar dado sem querer. Entao o vazio aqui tem que ter nome, senao uma
+ * etapa resolvida nunca se desmarcava.
+ */
+export function dadosQueMudaram(antes: Estado, depois: Estado): Record<string, string> {
+  const mudou: Record<string, string> = {};
+  if (depois.ehFesta && !antes.ehFesta) mudou.fluxo_festa = "sim";
+  if (depois.pessoas && depois.pessoas !== antes.pessoas) mudou.fluxo_pessoas = String(depois.pessoas);
+  if (depois.baseAceita && !antes.baseAceita) mudou.fluxo_base_aceita = "sim";
+  if (depois.pecas && depois.pecas !== antes.pecas) {
+    const p = [depois.pecas.topo ? "topo" : "", depois.pecas.papelDeArroz ? "papel" : ""].filter(Boolean);
+    mudou.fluxo_pecas = p.length ? p.join(",") : "nenhum";
+  }
+  if ((depois.assunto ?? null) !== (antes.assunto ?? null)) mudou.fluxo_assunto = depois.assunto ?? "nenhum";
+  if ((depois.retomarEm ?? null) !== (antes.retomarEm ?? null)) mudou.fluxo_retomar = depois.retomarEm ?? "nenhum";
+  return mudou;
 }

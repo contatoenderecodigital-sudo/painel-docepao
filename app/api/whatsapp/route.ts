@@ -468,6 +468,11 @@ async function processar(corpo: WebhookPayload) {
             negocioId,
             clienteId,
             { texto: texto ?? "", botaoId: msg.interactive?.button_reply?.id ?? null },
+            // A padaria ja falou com este cliente nesta conversa? Se falou, nao
+            // cumprimenta de novo. O historico ja esta carregado aqui em cima, e
+            // ele e a unica fonte que sabe disso: o pedido em montagem nao
+            // guarda quem falou o que.
+            historico.some((m) => m.role === "assistant"),
           );
           console.log("[fluxo-novo] " + novo.rastro.join(" / "));
           await pausa(tempoDeDigitar(novo.texto));

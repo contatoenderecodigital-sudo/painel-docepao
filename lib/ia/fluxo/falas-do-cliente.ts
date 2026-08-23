@@ -69,6 +69,55 @@ export function comCumprimento(texto: string, agora: Date): string {
   return saudacaoDaHora(agora) + ", tudo bem? " + t;
 }
 
+/**
+ * SO SE CUMPRIMENTA UMA VEZ.
+ *
+ * Print do dono, 23/08/2026, quatro mensagens seguidas:
+ *
+ *   cliente: Boa noite, tudo bem?   Dora: Boa noite, tudo bem? Como posso ajudar?
+ *   cliente: vcs fazem bolo?        Dora: Boa noite, tudo bem? O que voce gostaria?
+ *   cliente: vcs fazem bolo?        Dora: Boa noite, tudo bem? Qual bolo voce quer?
+ *
+ * Cumprimentar e educacao na primeira fala e tique de robo da segunda em
+ * diante. Ninguem diz "boa noite" tres vezes pra mesma pessoa em dois minutos.
+ *
+ * Entao a partir da segunda resposta o cumprimento sai fora, venha ele do
+ * codigo ou da reescrita.
+ */
+export function tirarCumprimento(texto: string): string {
+  const t = String(texto ?? "").trim();
+  if (!t) return t;
+
+  // Come o cumprimento e o "tudo bem?" que vier grudado nele, uma vez so e so
+  // no comeco: "boa tarde" falando de horario de retirada continua inteiro.
+  const limpo = t
+    .replace(/^(bom dia|boa tarde|boa noite|ola|oi|opa)[\s,!.]*/i, "")
+    .replace(/^(tudo bem|tudo bom|como vai)[\s,!.?]*/i, "")
+    .trim();
+
+  if (!limpo) return t; // era so cumprimento: melhor repetir que mandar vazio
+  return limpo.charAt(0).toUpperCase() + limpo.slice(1);
+}
+
+/**
+ * SEM EMOJI, NUNCA.
+ *
+ * Regra do dono desde o primeiro dia, e mesmo assim escapou um "🙂" no print de
+ * 23/08/2026: a instrucao "sem emoji" estava no prompt da reescrita, e prompt
+ * pede, nao garante. O que garante e isto aqui, que roda depois e nao pergunta.
+ *
+ * Passa em TUDO que sai pro cliente, inclusive no texto que o proprio codigo
+ * escreveu: assim nenhum caminho novo precisa lembrar da regra.
+ */
+export function semEmoji(texto: string): string {
+  return String(texto ?? "")
+    .replace(/\p{Extended_Pictographic}/gu, "")
+    .replace(/[️⃣]/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]+([,.!?])/g, "$1")
+    .trim();
+}
+
 /** Bom dia, boa tarde ou boa noite, pelo relogio da padaria (Sao Paulo). */
 export function saudacaoDaHora(agora = new Date()): string {
   const h = Number(
