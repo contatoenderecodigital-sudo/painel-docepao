@@ -162,6 +162,17 @@ export type PedidoEmMontagem = {
   prato: "aberto" | "tampa" | null;
 };
 
+/**
+ * Algum docinho ainda esta sem a cor da forminha?
+ *
+ * A cor mora na observacao do PROPRIO docinho, nao numa observacao geral: a
+ * comanda dos docinhos e separada e a dona monta a forminha antes de rechear.
+ */
+const docinhoSemForminha = (p: PedidoEmMontagem) =>
+  p.itens.some(
+    (i) => String(i.categoria || "").startsWith("docinho") && !/forminha /i.test(String(i.obs ?? "")),
+  );
+
 /** Falta escolher recheio ou sabor em algum item desta familia? */
 const faltaSabor = (p: PedidoEmMontagem, pref: string) =>
   saboresQueFaltam(p.itens.filter((i) => String(i.categoria || "").startsWith(pref))).length > 0;
@@ -238,7 +249,8 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     //
     // A dona pergunta sempre, e nao e detalhe: ela monta a forminha antes de
     // rechear, entao a cor precisa estar na comanda quando a producao comeca.
-    cumprida: (p) => temCategoria(p, "docinho") && !faltaSabor(p, "docinho") && Boolean(p.forminha),
+    cumprida: (p) =>
+      temCategoria(p, "docinho") && !faltaSabor(p, "docinho") && !docinhoSemForminha(p),
     pulavel: (p) => !p.ehFesta || recusou(p, "docinho|doce"),
   },
   {

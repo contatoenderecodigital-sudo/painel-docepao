@@ -100,3 +100,41 @@ export function saboresQueFaltam(
   }
   return falta;
 }
+
+/**
+ * AS CORES DE FORMINHA QUE ELE FALOU.
+ *
+ * Teste da Kemilly, 23/08/2026: ela pediu "quero azul e rosa" com dois docinhos
+ * na mesa, e o sistema guardou UMA cor e escreveu "forminha azul e rosa" na
+ * observacao dos dois. O painel marcou o chip azul e a producao ficaria sem
+ * saber qual e qual.
+ *
+ * Duas cores para dois docinhos e a coisa mais natural do mundo, e uma
+ * atendente resolveria sozinha: a primeira cor pro primeiro, a segunda pro
+ * segundo. E o que o codigo faz aqui.
+ *
+ * Sai da lista do catalogo, entao "verde tiffany" e cor e "verde limao" nao e,
+ * e quando ele pede o que a casa nao tem, da pra dizer o que a casa tem.
+ */
+export function coresDaForminha(texto: string): string[] {
+  const t = semAcMin(texto);
+  const cores = ((catalogo.forminhas_docinho?.cores ?? []) as string[]).map(String);
+
+  // Do nome mais longo pro mais curto: "azul bebe" antes de "azul", senao a
+  // primeira acha "azul" e sobra "bebe" perdido.
+  const achadas: { cor: string; onde: number }[] = [];
+  for (const cor of [...cores].sort((a, b) => b.length - a.length)) {
+    const onde = t.indexOf(semAcMin(cor));
+    if (onde < 0) continue;
+    // Ja achei uma cor que contem esta? "azul bebe" ja cobre "azul".
+    if (achadas.some((a) => semAcMin(a.cor).includes(semAcMin(cor)) && a.onde <= onde)) continue;
+    achadas.push({ cor, onde });
+  }
+  // Na ordem em que ele falou, que e a ordem em que ele pensou.
+  return achadas.sort((a, b) => a.onde - b.onde).map((a) => a.cor);
+}
+
+/** Todas as cores do cardapio, pra oferecer quando ele pedir uma que nao existe. */
+export function coresDoCardapio(): string[] {
+  return ((catalogo.forminhas_docinho?.cores ?? []) as string[]).map(String);
+}

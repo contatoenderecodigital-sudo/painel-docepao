@@ -21,7 +21,7 @@ import catalogo from "../dados/catalogo.json";
 import { brl, motorPadrao } from "../orcamento";
 import type { Etapa, PedidoEmMontagem } from "./etapas";
 import { saudacaoDaHora, prazoDoTopoAperta } from "./falas-do-cliente";
-import { saboresQueFaltam } from "./sabor";
+import { saboresQueFaltam, coresDoCardapio } from "./sabor";
 
 export type Fala = {
   /** O que a padaria diz. Uma pergunta so, sempre. */
@@ -37,6 +37,15 @@ export type Fala = {
    * cliente le e o valor que a padaria cobra.
    */
   podeReescrever: boolean;
+  /**
+   * AS RESPOSTAS QUE ESTA PERGUNTA ACEITA, quando ela e de escolha fechada.
+   *
+   * Serve pra insistir melhor: se o cliente respondeu uma coisa que nao esta na
+   * lista, a segunda pergunta mostra a lista em vez de repetir a primeira
+   * palavra por palavra. Foi o que faltou no teste da Kemilly, com o tema
+   * perguntado tres vezes iguais.
+   */
+  opcoes?: string[];
 };
 
 /**
@@ -192,6 +201,7 @@ function perguntaDoSabor(p: PedidoEmMontagem, familia: string): Fala | null {
     botoes: [],
     cardapio: null,
     podeReescrever: true,
+    opcoes: f.opcoes,
   };
 }
 
@@ -224,14 +234,27 @@ function falaDoDocinho(p: PedidoEmMontagem, aviso: string): Fala {
     };
   }
 
-  const cores = (catalogo.forminhas_docinho?.cores ?? []) as string[];
+  // QUEM AINDA ESTA SEM COR?
+  //
+  // Se ninguem tem, pergunta uma vez pra todos. Se falta so em alguns (ele
+  // falou duas cores e escolheu tres docinhos), pergunta pelo item que falta,
+  // com o nome dele: "e o cajuzinho, vai em qual cor?". Perguntar de novo "de
+  // que cor voce quer a forminha dos docinhos" pra quem ja respondeu duas e o
+  // tipo de repeticao que faz o cliente achar que nao foi lido.
+  const docinhos = p.itens.filter((i) => String(i.categoria || "").startsWith("docinho"));
+  const semCor = docinhos.filter((i) => !/forminha /i.test(String(i.obs ?? "")));
+  const cores = coresDoCardapio();
+
   return {
     texto:
-      "De que cor você quer a forminha dos docinhos?" +
-      (cores.length ? "\n\nTem " + cores.join(", ") + "." : ""),
+      semCor.length === docinhos.length
+        ? "De que cor você quer a forminha dos docinhos?" +
+          (cores.length ? "\n\nTem " + cores.join(", ") + "." : "")
+        : "E o " + semCor[0].produto + ", vai em qual cor de forminha?",
     botoes: [],
     cardapio: null,
     podeReescrever: true,
+    opcoes: cores,
   };
 }
 

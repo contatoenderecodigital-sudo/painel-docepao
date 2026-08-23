@@ -36,6 +36,7 @@ import { calcularBase } from "./base";
 import { motorPadrao } from "../orcamento";
 import { dataDeRetirada } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
+import { coresDaForminha } from "./sabor";
 
 /** O estado da conversa. E tudo que existe: nao ha memoria escondida. */
 export type Estado = PedidoEmMontagem & {
@@ -64,6 +65,19 @@ export type Estado = PedidoEmMontagem & {
    * durar, a conversa e sobre ISSO: quem pergunta de bolo ouve falar de bolo.
    */
   assunto?: EtapaId | null;
+  /**
+   * A ULTIMA PERGUNTA QUE A PADARIA FEZ, e quantas vezes ela ja insistiu nela.
+   *
+   * Teste da Kemilly, 23/08/2026: a mesma pergunta do tema saiu TRES vezes
+   * seguidas, quase igual, porque as respostas dela (uma foto sem legenda e
+   * "escrito trintei em rosa") nao viravam dado. Do lado do cliente isso e o
+   * sinal mais claro de que ninguem esta lendo.
+   *
+   * Repetir e sinal de que a pergunta nao esta funcionando: quem insiste tem
+   * que mudar de tatica, nao aumentar o volume.
+   */
+  ultimaFala?: string | null;
+  insistiu?: number;
 };
 
 /** Quem chama o modelo. Injetado pra dar pra testar sem gastar. */
@@ -84,6 +98,15 @@ export type Resposta = {
    * conversa, nao e ordem de fechar pedido.
    */
   confirmouEscrevendo: boolean;
+  /**
+   * A conversa precisa de gente.
+   *
+   * Hoje so acontece quando a padaria ja insistiu na mesma pergunta e nao saiu
+   * do lugar. E o unico caminho que acende o aviso no painel da dona: ate
+   * 23/08/2026 o aviso aparecia sem a IA ter chamado ninguem, por causa de
+   * cliente de teste esquecido no banco.
+   */
+  precisaHumano: boolean;
 };
 
 /**
@@ -144,6 +167,55 @@ function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
   }
   if (etapa === "docinho") return "docinho";
   if (etapa === "bolo") return "bolo_festa";
+
+  // FORA DAS ETAPAS DE FAMILIA, QUEM DIZ A CATEGORIA E O CATALOGO.
+  //
+  // Teste da Kemilly, 23/08/2026: ela abriu com "quero encomendar bolo,
+  // beijinhos e cajuzinhos pra minha festa de 30 anos". Os tres foram lidos
+  // certo pela IA e entraram como "outro", porque a etapa era a abertura e eu
+  // so sabia dar categoria dentro da etapa da familia. No painel da dona
+  // apareceu "Outro / bolo / 0 quilos", e o dono viu na hora: "a IA nao pode
+  // fazer isso".
+  //
+  // O nome do produto ja diz de que familia ele e, e essa informacao mora no
+  // catalogo. Nao havia motivo pra depender da etapa.
+  return categoriaDoCatalogo(nome);
+}
+
+/**
+ * DE QUE FAMILIA E ESTE PRODUTO, SEGUNDO O CARDAPIO.
+ *
+ * Casa pelo comeco do nome, sem acento: "esfirra de carne" e uma esfirra. O que
+ * o cardapio nao conhece volta como "outro", que e honesto: melhor a dona ver
+ * "outro" na tela e corrigir do que o sistema chutar familia errada e a comanda
+ * sair no setor errado da cozinha.
+ */
+function categoriaDoCatalogo(nome: string): string {
+  const semAc = (t: string) =>
+    String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+  const bate = (lista: { nome?: string }[]) =>
+    (lista ?? []).some((i) => {
+      const n = semAc(i.nome ?? "");
+      return n && (nome === n || nome.startsWith(n + " ") || nome.startsWith(n + ","));
+    });
+
+  if (bate((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[])) return "salgado_frito";
+  if (bate((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[])) return "salgado_assado";
+  if (bate((catalogo.doces?.itens ?? []) as { nome: string }[])) return "docinho";
+
+  // Bolo de festa: o sabor E o nome do produto ("marta rocha", "4 leites").
+  const saboresDeBolo = ((catalogo.bolos_recheados?.faixas ?? []) as { sabores?: string[] }[])
+    .flatMap((f) => f.sabores ?? []);
+  if (saboresDeBolo.some((sb) => nome === semAc(sb) || nome.startsWith(semAc(sb)))) return "bolo_festa";
+  if (nome === "bolo" || nome.startsWith("bolo ")) return "bolo_festa";
+
+  const outros = (catalogo.outros_produtos ?? []) as { nome?: string; categoria?: string }[];
+  const achou = outros.find((o) => {
+    const n = semAc(o.nome ?? "");
+    return n && (nome === n || nome.startsWith(n + " "));
+  });
+  if (achou?.categoria) return String(achou.categoria);
+
   return "outro";
 }
 
@@ -196,6 +268,16 @@ function repartirABase(e: Estado, rastro: string[]): Estado {
   return itens === e.itens ? e : { ...e, itens };
 }
 
+/** Tira uma marca da observacao dos itens ("Topo: tema Minnie, Arthur, 5 anos"). */
+function tirarMarca(itens: Estado["itens"], prefixo: string): Estado["itens"] {
+  return itens.map((i) => {
+    const obs = String(i.obs ?? "");
+    if (!obs.includes(prefixo)) return i;
+    const limpo = obs.split(" | ").filter((x) => x && !x.startsWith(prefixo)).join(" | ");
+    return { ...i, obs: limpo || null };
+  });
+}
+
 function aplicar(e: Estado, l: Leitura, etapa: EtapaId): Estado {
   let novo: Estado = { ...e };
 
@@ -222,8 +304,75 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId): Estado {
   if (l.aniversariante?.idade) novo.topoIdade = String(l.aniversariante.idade).trim();
   if (l.tema) novo.tema = String(l.tema).trim();
   if (l.forminha) novo.forminha = String(l.forminha).trim();
+  // A COR VAI PARA CADA DOCINHO, NAO PARA UMA OBSERVACAO GERAL.
+  //
+  // "quero azul e rosa" com cajuzinho e beijinho na mesa e duas respostas, nao
+  // uma frase: a primeira cor pro primeiro docinho, a segunda pro segundo. E o
+  // que uma atendente faria, e e o que a comanda precisa, porque a dona monta a
+  // forminha antes de rechear.
+  if (l.forminha) {
+    const cores = coresDaForminha(String(l.forminha));
+    if (cores.length) {
+      const docinhos = novo.itens
+        .map((i, idx) => ({ i, idx }))
+        .filter(({ i }) => String(i.categoria || "").startsWith("docinho"));
+      const itens = [...novo.itens];
+      docinhos.forEach(({ idx }, n) => {
+        // Uma cor so vale pra todos; varias vao na ordem em que ele falou. Se
+        // ele falou menos cores que docinhos, os que sobram ficam sem, e a
+        // padaria pergunta a cor daquele item.
+        const cor = cores.length === 1 ? cores[0] : cores[n];
+        if (!cor) return;
+        const obs = String(itens[idx].obs ?? "")
+          .split(" | ")
+          .filter((x) => x && !/^forminha /i.test(x))
+          .join(" | ");
+        itens[idx] = { ...itens[idx], obs: [obs, "forminha " + cor].filter(Boolean).join(" | ") };
+      });
+      novo.itens = itens;
+    }
+  }
   if (l.prato) novo.prato = l.prato;
-  if (l.naoQuer?.length) novo.naoQuer = [...novo.naoQuer, ...l.naoQuer];
+  // ------------------------------------------------- "NAO QUERO" DESFAZ
+  //
+  // Toda pergunta sabia gravar sim e gravar nao, e nao sabia VOLTAR ATRAS. Foi o
+  // beco do teste da Kemilly, 23/08/2026:
+  //
+  //   Dora:    O nome do topo vai ser qual?
+  //   Kemilly: nao quero topo
+  //   Dora:    Em nome de quem vai o topo?
+  //   Kemilly: nao quero topo de bolo
+  //   Dora:    Para quem eu coloco o nome no topo?
+  //
+  // Ela tinha um "sim" gravado (que nem era dela: veio de uma pergunta que a
+  // reescrita trocou) e nao havia como desdizer. Agora recusa apaga o que
+  // estava preso naquela resposta, e a conversa anda.
+  if (l.naoQuer?.length) {
+    novo.naoQuer = [...novo.naoQuer, ...l.naoQuer];
+    const recusou = (o: string) => l.naoQuer!.some((x) => new RegExp(o, "i").test(String(x)));
+
+    if (recusou("topo")) {
+      novo.pecas = { topo: false, papelDeArroz: novo.pecas?.papelDeArroz ?? null };
+      // O nome e a idade eram do topo. Sem topo, eles nao tem dono, a menos que
+      // o papel de arroz continue de pe: ele tambem e fabricado com os dois.
+      if (novo.pecas.papelDeArroz !== true) {
+        novo.topoNome = null;
+        novo.topoIdade = null;
+      }
+      novo.itens = tirarMarca(novo.itens, "Topo: ");
+    }
+    if (recusou("papel")) {
+      novo.pecas = { topo: novo.pecas?.topo ?? null, papelDeArroz: false };
+      novo.itens = novo.itens.filter((i) => !/papel de arroz/i.test(i.produto));
+    }
+    // Recusar uma familia tira o que ja estava anotado dela: quem diz "sem
+    // docinho" depois de ter escolhido dois nao quer os dois no pedido.
+    for (const [palavra, prefixo] of [["salgado", "salgado"], ["docinho|doce", "docinho"], ["bolo", "bolo"]] as const) {
+      if (recusou(palavra)) {
+        novo.itens = novo.itens.filter((i) => !String(i.categoria || "").startsWith(prefixo));
+      }
+    }
+  }
 
   if (l.dados) {
     novo.dados = {
@@ -276,6 +425,7 @@ export async function responder(
   let chamouIA = false;
   let naoTemos: string[] = [];
   let confirmouEscrevendo = false;
+  let precisaHumano = false;
 
   const etapaAgora = etapaDaVez(estado, etapas);
   rastro.push("etapa: " + etapaAgora.id);
@@ -374,25 +524,6 @@ export async function responder(
     };
     rastro.push("papel de arroz virou item do pedido");
   }
-  // A COR DA FORMINHA VAI NA OBSERVACAO DE CADA DOCINHO.
-  //
-  // Nao numa observacao geral do pedido: a comanda dos docinhos e separada da
-  // do bolo (a dona produz por segmento), e a cor precisa estar NA comanda que
-  // a producao vai pegar. Foi assim que a forminha ja vazou pra comanda errada.
-  if (estado.forminha) {
-    const marca = "forminha " + estado.forminha;
-    const itens = estado.itens.map((i) => {
-      if (!String(i.categoria || "").startsWith("docinho")) return i;
-      const obs = String(i.obs ?? "");
-      if (/forminha/i.test(obs)) return i;
-      return { ...i, obs: [obs, marca].filter(Boolean).join(" | ") };
-    });
-    if (itens.some((i, n) => i !== estado.itens[n])) {
-      estado = { ...estado, itens };
-      rastro.push("anotei a " + marca + " nos docinhos");
-    }
-  }
-
   // Como o bolo vai embalado, na observacao do bolo.
   if (estado.prato) {
     const marca = estado.prato === "aberto" ? "prato de MDF aberto" : "embalagem com tampa";
@@ -507,14 +638,45 @@ export async function responder(
     rastro.push("hora fora do expediente; avisei e perguntei de novo");
   }
 
-  const fala = falaDaEtapa(proxima, estado, total, proxima.id === etapaAgora.id ? naoTemos : []);
+  let fala = falaDaEtapa(proxima, estado, total, proxima.id === etapaAgora.id ? naoTemos : []);
+
+  // ------------------------------------ A MESMA PERGUNTA NAO SAI DUAS VEZES
+  //
+  // Se ela vai repetir o que acabou de perguntar, alguma coisa nao funcionou: a
+  // resposta do cliente nao virou dado. Repetir igual e o que faz ele achar que
+  // ninguem leu, e foi o que aconteceu tres vezes com o tema.
+  //
+  // Na segunda vez ela mostra as opcoes, quando a pergunta tem lista. Na
+  // terceira, para de insistir e chama a equipe: tem coisa que a padaria
+  // resolve numa frase e a Dora nao resolve em dez.
+  const mesmaPergunta = Boolean(estado.ultimaFala) && fala.texto === estado.ultimaFala;
+  const insistiu = mesmaPergunta ? (estado.insistiu ?? 0) + 1 : 0;
+  estado = { ...estado, ultimaFala: fala.texto || null, insistiu };
+
+  if (insistiu === 1 && fala.opcoes?.length && !fala.texto.includes(fala.opcoes[0])) {
+    fala = { ...fala, texto: fala.texto + "\n\nAs opções são: " + fala.opcoes.join(", ") + "." };
+    rastro.push("repeti a pergunta; mostrei as opcoes");
+  } else if (insistiu >= 2) {
+    fala = {
+      ...fala,
+      texto:
+        "Acho que não estou conseguindo entender direito por aqui. " +
+        "Vou chamar uma pessoa da equipe pra te ajudar, tá bom?",
+      botoes: [],
+      cardapio: null,
+      podeReescrever: false,
+    };
+    precisaHumano = true;
+    rastro.push("insisti " + insistiu + " vezes na mesma pergunta; chamei a equipe");
+  }
+
   if (foraDoHorario) {
     return {
       fala: { ...fala, texto: foraDoHorario, botoes: [], cardapio: null, podeReescrever: false },
-      estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo,
+      estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo, precisaHumano,
     };
   }
   rastro.push("proxima: " + proxima.id);
 
-  return { fala, estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo };
+  return { fala, estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo, precisaHumano };
 }

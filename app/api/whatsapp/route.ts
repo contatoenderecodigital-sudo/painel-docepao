@@ -475,6 +475,21 @@ async function processar(corpo: WebhookPayload) {
             historico.some((m) => m.role === "assistant"),
           );
           console.log("[fluxo-novo] " + novo.rastro.join(" / "));
+
+          // O AVISO DO PAINEL SO ACENDE QUANDO A DORA CHAMA A EQUIPE.
+          //
+          // Regra do dono, 23/08/2026: "a IA nem tinha chamado o humano e tava
+          // la o aviso; e so quando a IA chamou o humano pra aparecer ali".
+          // Hoje isso acontece quando ela ja insistiu na mesma pergunta e nao
+          // saiu do lugar: tem coisa que a padaria resolve numa frase e ela nao
+          // resolve em dez.
+          if (novo.precisaHumano) {
+            await definirHandoff(negocioId, clienteId, true).catch(() => {});
+            avisarDona(
+              "cliente-esperando:" + clienteId,
+              "Um cliente esta esperando falar com alguem da padaria.",
+            ).catch(() => {});
+          }
           await pausa(tempoDeDigitar(novo.texto));
           const wamid = novo.botoes.length
             ? await enviarBotoes(telefone, novo.texto, novo.botoes, creds)
@@ -495,6 +510,20 @@ async function processar(corpo: WebhookPayload) {
             await enviarImagemPorLink(telefone, urlDoCardapio(novo.cardapio as never), undefined, creds).catch(
               (e: unknown) => console.error("[fluxo-novo] falha ao mandar o cardapio:", e),
             );
+            // O CARDAPIO TAMBEM E MENSAGEM DA CONVERSA.
+            //
+            // Teste da Kemilly, 23/08/2026: a peca chegou certinha no WhatsApp
+            // dela e nao aparecia no painel. Pra dona, a Dora tinha perguntado
+            // "quais salgados voce quer?" e nao mostrado cardapio nenhum, entao
+            // ela nao entendia a resposta do cliente nem podia conferir se foi
+            // mandada a peca certa.
+            await salvarMensagem(
+              negocioId,
+              clienteId,
+              "assistant",
+              "Cardápio de " + String(novo.cardapio).replace(/-/g, " "),
+              { tipo: "imagem", url: urlDoCardapio(novo.cardapio as never) },
+            ).catch(() => {});
           }
           return;
         } catch (e) {

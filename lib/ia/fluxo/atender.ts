@@ -31,6 +31,8 @@ export type RespostaDoFluxo = {
   cardapio: string | null;
   etapa: string;
   pedidoId?: string;
+  /** A conversa precisa de gente. So isto acende o aviso no painel da dona. */
+  precisaHumano?: boolean;
   rastro: string[];
   uso: { tokensIn: number; tokensOut: number; cacheRead: number; chamadas: number };
 };
@@ -77,6 +79,8 @@ const VAZIO: Estado = {
   tema: null,
   forminha: null,
   prato: null,
+  ultimaFala: null,
+  insistiu: 0,
   retomarEm: null,
   assunto: null,
 };
@@ -215,6 +219,7 @@ export async function atenderComFluxoNovo(
     botoes: r.fala.botoes,
     cardapio: r.fala.cardapio,
     etapa: r.etapa,
+    precisaHumano: r.precisaHumano,
     rastro: r.rastro,
     uso,
   };

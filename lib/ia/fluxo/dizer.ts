@@ -66,6 +66,27 @@ export async function dizerComJeito(
   const texto = String(fala.texto || "").trim();
   if (!texto || !fala.podeReescrever) return texto;
 
+  // PERGUNTA COM BOTAO SAI EXATAMENTE COMO O CODIGO ESCREVEU.
+  //
+  // Teste da Kemilly, 23/08/2026, e este e o pior defeito que este projeto teve:
+  //
+  //   Dora:    O bolo será entregue no prato de MDF aberto ou na embalagem com tampa?
+  //   Kemilly: Com tampa
+  //   Dora:    O bolo é com tampa?        <- o codigo escreveu "O bolo vai com topo?"
+  //   Kemilly: Sim
+  //
+  // A reescrita, vendo que a ultima fala dela tinha sido "Com tampa", trocou o
+  // assunto da pergunta. Ela respondeu "Sim" achando que confirmava a
+  // embalagem, e o sistema gravou TOPO = SIM. Depois ela disse "nao quero topo"
+  // tres vezes e a padaria insistiu, por causa de um sim que ela nunca deu.
+  //
+  // Onde a resposta e fechada, o texto e lei: o cliente toca num botao e aquele
+  // toque vira dado. Trocar a pergunta e trocar o dado.
+  //
+  // A reescrita continua valendo em pergunta aberta, que e onde a conversa fica
+  // humana e onde nao ha risco de virar dado errado.
+  if (fala.botoes?.length) return texto;
+
   try {
     const r = await cliente.chat.completions.create({
       model: MODELO,

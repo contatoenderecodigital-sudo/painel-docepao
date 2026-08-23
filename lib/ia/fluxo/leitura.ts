@@ -234,8 +234,15 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "Se ele disser o nome ou a idade de quem faz aniversário, devolva em " +
       "aniversariante (nome e idade). \"Arthur, 5 anos\" é nome Arthur e idade " +
       "5 anos. \"Vai fazer 5\" é só a idade." + String.fromCharCode(10) +
-      "Se ele disser o TEMA da peça (Minnie, Homem Aranha, futebol, princesa), " +
-      "devolva em tema.",
+      "Se ele disser o TEMA da peça, devolva em tema. Tema é qualquer coisa que " +
+      "vá escrita ou desenhada na peça: um personagem (Minnie, Homem Aranha), " +
+      "uma cor, uma frase (\"escrito trintei em rosa\"), um assunto (futebol)." +
+      String.fromCharCode(10) +
+      // O beco do teste da Kemilly: ela disse "nao quero topo" tres vezes e a
+      // padaria continuou perguntando o nome do topo.
+      "Se ele disser que NÃO quer o topo, devolva naoQuer com \"topo\". Se disser " +
+      "que não quer o papel de arroz, devolva naoQuer com \"papel\". Isso vale " +
+      "mesmo que ele já tenha dito sim antes: quem muda de ideia manda.",
     dados:
       "A etapa é PEGAR OS DADOS DA RETIRADA: nome de quem retira, dia, hora e " +
       "forma de pagamento. Devolva só o que ele falou nesta mensagem. " +
