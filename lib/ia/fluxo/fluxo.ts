@@ -37,6 +37,7 @@ import { motorPadrao } from "../orcamento";
 import { dataDeRetirada } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
 import { coresDaForminha } from "./sabor";
+import { respostaDeInformacao } from "./informacao";
 
 /** O estado da conversa. E tudo que existe: nao ha memoria escondida. */
 export type Estado = PedidoEmMontagem & {
@@ -476,6 +477,31 @@ export async function responder(
     if (limpa.confirmou && etapaAgora.id === "confirmacao") {
       confirmouEscrevendo = true;
       rastro.push("confirmou escrevendo, sem tocar no botao");
+    }
+
+    // ------------------------------------------ ELE SO PERGUNTOU: RESPONDE
+    //
+    // Terceiro roteiro, o da informacao. A resposta sai do codigo com o dado da
+    // casa (preco do cardapio, horario, endereco) e NADA e anotado no pedido:
+    // perguntar nao e pedir. No sistema antigo, "0% lactose nao e sem acucar
+    // ne?" virou um bolo 0% lactose no pedido da cliente.
+    //
+    // A conversa nao sai do lugar: ele continua na mesma etapa, e a proxima
+    // mensagem dele segue de onde parou.
+    if (limpa.perguntou?.sobre) {
+      const resposta = respostaDeInformacao(limpa.perguntou);
+      if (resposta) {
+        rastro.push("ele perguntou sobre " + limpa.perguntou.sobre + "; respondi sem anotar nada");
+        return {
+          fala: { texto: resposta.texto, botoes: [], cardapio: null, podeReescrever: false },
+          estado,
+          etapa: etapaAgora.id,
+          rastro,
+          chamouIA,
+          confirmouEscrevendo: false,
+          precisaHumano: resposta.precisaHumano,
+        };
+      }
     }
 
     estado = aplicar(estado, limpa, etapaAgora.id);

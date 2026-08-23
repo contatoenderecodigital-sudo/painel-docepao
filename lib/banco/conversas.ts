@@ -434,6 +434,33 @@ export async function anexarFotoAoPedido(
  * Gruda TODAS as pendentes, nao so a ultima: o cliente manda duas ou tres fotos
  * de referencia e todas valem pra quem vai fazer a peca.
  */
+/**
+ * O QUE O CLIENTE FALOU E AINDA NAO FOI RESPONDIDO.
+ *
+ * Tudo que ele escreveu depois da ultima resposta da padaria, na ordem. Serve
+ * pra Dora responder as mensagens JUNTAS em vez de uma por uma.
+ *
+ * Ninguem escreve no WhatsApp em paragrafo unico: manda "Bom dia!", manda "Tudo
+ * bem?", manda o pedido. Respondendo uma por uma ela responde tres vezes, e as
+ * duas primeiras respostas nao dizem nada porque o pedido ainda nao tinha
+ * chegado.
+ */
+export async function falasSemResposta(negocioId: string, clienteId: string): Promise<string[]> {
+  const linhas = await query<{ conteudo: string }>(
+    `select conteudo from mensagens
+      where negocio_id = $1 and cliente_id = $2
+        and coalesce(autor, case when papel = 'user' then 'cliente' else 'ia' end) = 'cliente'
+        and criado_em > coalesce(
+          (select max(criado_em) from mensagens
+            where negocio_id = $1 and cliente_id = $2 and papel = 'assistant'),
+          to_timestamp(0))
+      order by criado_em asc
+      limit 10`,
+    [negocioId, clienteId],
+  );
+  return linhas.map((l) => String(l.conteudo || "").trim()).filter(Boolean);
+}
+
 export async function grudarFotosNoPedido(
   negocioId: string,
   clienteId: string,

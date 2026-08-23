@@ -74,6 +74,16 @@ export type Leitura = {
   tema?: string;
   /** A cor da forminha do docinho, do cardapio de cores. */
   forminha?: string;
+  /**
+   * ELE SO PERGUNTOU, NAO PEDIU.
+   *
+   * "Quanto e o cento de salgado?" nao e pedido de salgado. No sistema antigo a
+   * cliente perguntou "0% lactose nao e sem acucar ne?" e ganhou um bolo 0%
+   * lactose no pedido dela.
+   *
+   * A resposta sai do codigo, com o dado da casa, e nada e anotado.
+   */
+  perguntou?: { sobre: "preco" | "horario" | "endereco" | "pagamento" | "entrega" | "prazo"; familia?: string };
   /** Como o bolo vai embalado: prato de MDF aberto ou embalagem com tampa. */
   prato?: "aberto" | "tampa";
   /** Dados da retirada. */
@@ -173,7 +183,16 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     // vai escrita na instrucao, e a conferencia continua sendo feita no codigo
     // depois: prompt pede, codigo garante.
     "Hoje é " + hojeEmSaoPaulo() + ". Toda data de retirada é NO FUTURO: se ele " +
-    "disser só o dia e o mês, use o ano que faz a data cair pra frente.";
+    "disser só o dia e o mês, use o ano que faz a data cair pra frente." +
+    String.fromCharCode(10) +
+    // PERGUNTAR NAO E PEDIR.
+    //
+    // No sistema antigo a cliente perguntou "0% lactose nao e sem acucar ne?" e
+    // ganhou um bolo 0% lactose no pedido dela.
+    "SEMPRE: se ele PERGUNTOU em vez de pedir (quanto custa, que horas abre, " +
+    "onde fica, como pagar, se entrega, antecedência), devolva perguntou.sobre " +
+    "= preco, horario, endereco, pagamento, entrega ou prazo, e em preco a " +
+    "familia. NÃO devolva itens: perguntar não é pedir.";
 
   // A RECUSA E RESPOSTA, NAO SILENCIO.
   //
@@ -218,31 +237,26 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "Se ele disser a COR da forminha (rosa, azul, dourada, verde tiffany), " +
       "devolva em forminha." + recusa("docinho") + semNumero + lista,
     bolo:
-      "A etapa é ESCOLHER O BOLO. Só existe sabor de bolo aqui: se ele falar de " +
-      "docinho, devolva falouDeOutraEtapa em vez de anotar, MESMO que o nome do " +
-      "docinho também seja sabor de bolo (brigadeiro, beijinho). " +
-      "O peso em quilos vai na quantidade; o pão de ló vai na observação." +
-      recusa("bolo") + semNumero +
-      " Se ele disser como quer o bolo embalado, devolva prato: \"aberto\" pro " +
-      "prato de MDF aberto, \"tampa\" pra embalagem tradicional com tampa." + lista,
+      "A etapa é ESCOLHER O BOLO. Só sabor de bolo aqui: se ele falar de " +
+      "docinho, devolva falouDeOutraEtapa, mesmo que o nome sirva pros dois " +
+      "(brigadeiro, beijinho). O peso em quilos vai na quantidade." +
+      " Embalagem: prato \"aberto\" ou \"tampa\"." +
+      recusa("bolo") + semNumero + lista,
     pecas_do_bolo:
-      "A etapa é TOPO E PAPEL DE ARROZ do bolo, e o NOME e a IDADE do " +
-      "aniversariante." + String.fromCharCode(10) +
-      "Devolva em pecas SÓ o que ele falou nesta mensagem: topo true ou false, " +
-      "papelDeArroz true ou false. Não devolva o que ele não falou." +
+      "A etapa é TOPO E PAPEL DE ARROZ, e o NOME e a IDADE do aniversariante." +
       String.fromCharCode(10) +
-      "Se ele disser o nome ou a idade de quem faz aniversário, devolva em " +
-      "aniversariante (nome e idade). \"Arthur, 5 anos\" é nome Arthur e idade " +
-      "5 anos. \"Vai fazer 5\" é só a idade." + String.fromCharCode(10) +
-      "Se ele disser o TEMA da peça, devolva em tema. Tema é qualquer coisa que " +
-      "vá escrita ou desenhada na peça: um personagem (Minnie, Homem Aranha), " +
-      "uma cor, uma frase (\"escrito trintei em rosa\"), um assunto (futebol)." +
+      "Em pecas, devolva SÓ o que ele falou: topo e papelDeArroz, true ou false." +
+      String.fromCharCode(10) +
+      "Nome e idade de quem faz aniversário vão em aniversariante. " +
+      "\"Arthur, 5 anos\" é nome e idade; \"vai fazer 5\" é só a idade." +
+      String.fromCharCode(10) +
+      "O TEMA vai em tema, e tema é tudo que vá escrito ou desenhado na peça: " +
+      "personagem, cor, frase (\"escrito trintei em rosa\"), assunto." +
       String.fromCharCode(10) +
       // O beco do teste da Kemilly: ela disse "nao quero topo" tres vezes e a
       // padaria continuou perguntando o nome do topo.
-      "Se ele disser que NÃO quer o topo, devolva naoQuer com \"topo\". Se disser " +
-      "que não quer o papel de arroz, devolva naoQuer com \"papel\". Isso vale " +
-      "mesmo que ele já tenha dito sim antes: quem muda de ideia manda.",
+      "Não quer o topo? naoQuer com \"topo\". Não quer o papel? naoQuer com " +
+      "\"papel\". Vale mesmo se ele já disse sim antes: quem muda de ideia manda.",
     dados:
       "A etapa é PEGAR OS DADOS DA RETIRADA: nome de quem retira, dia, hora e " +
       "forma de pagamento. Devolva só o que ele falou nesta mensagem. " +

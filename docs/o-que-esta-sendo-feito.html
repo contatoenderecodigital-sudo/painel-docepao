@@ -3,297 +3,283 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dora da Doce Pao: o que esta sendo feito</title>
+<title>Dora da Doce Pao</title>
 <style>
-  :root{
-    --navy:#0b1220; --navy2:#111c31; --card:#16233b; --linha:#243busa;
-    --linha:#24354f; --texto:#e8eef7; --fraco:#9bb0cc; --ouro:#d4af6a;
-    --verde:#4ade80; --vermelho:#f87171; --amarelo:#fbbf24;
-  }
+  :root{--navy:#0b1220;--card:#16233b;--linha:#24354f;--texto:#e8eef7;--fraco:#9bb0cc;
+    --ouro:#d4af6a;--verde:#4ade80;--vermelho:#f87171;--amarelo:#fbbf24;}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--navy);color:var(--texto);
-    font:16px/1.65 "Segoe UI",system-ui,-apple-system,sans-serif}
-  .wrap{max-width:1080px;margin:0 auto;padding:48px 24px 96px}
+  body{margin:0;background:var(--navy);color:var(--texto);font:16px/1.65 "Segoe UI",system-ui,sans-serif}
+  .wrap{max-width:1100px;margin:0 auto;padding:44px 22px 90px}
   h1{font-size:34px;line-height:1.2;margin:0 0 8px;letter-spacing:-.02em}
-  h2{font-size:23px;margin:64px 0 6px;letter-spacing:-.01em;
-    padding-bottom:10px;border-bottom:1px solid var(--linha)}
-  h3{font-size:17px;margin:28px 0 8px;color:var(--ouro)}
+  h2{font-size:23px;margin:58px 0 6px;padding-bottom:10px;border-bottom:1px solid var(--linha)}
+  h3{font-size:17px;margin:26px 0 8px;color:var(--ouro)}
   p{margin:12px 0}
-  .sub{color:var(--fraco);font-size:17px;margin-bottom:4px}
+  .sub{color:var(--fraco);font-size:17px}
   .selo{display:inline-block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;
-    color:var(--ouro);border:1px solid var(--ouro);border-radius:99px;padding:5px 14px;margin-bottom:20px}
-  .card{background:var(--card);border:1px solid var(--linha);border-radius:12px;padding:20px 22px;margin:16px 0}
-  .grid{display:grid;gap:16px}
-  @media(min-width:760px){.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
-    .g4{grid-template-columns:repeat(4,1fr)}}
-  .num{font-size:30px;font-weight:700;color:var(--ouro);line-height:1.1}
-  .num small{display:block;font-size:13px;font-weight:400;color:var(--fraco);margin-top:6px;letter-spacing:.02em}
-  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:15px}
-  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--linha);vertical-align:top}
-  th{color:var(--fraco);font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
-  code{background:#0d1626;border:1px solid var(--linha);border-radius:5px;padding:1px 6px;font-size:14px;color:var(--ouro)}
-  .rail{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}
-  .etapa{background:#0d1626;border:1px solid var(--linha);border-radius:8px;padding:10px 14px;font-size:14px;position:relative}
-  .etapa b{display:block;color:var(--ouro);font-size:13px;letter-spacing:.03em}
-  .etapa span{color:var(--fraco);font-size:13px}
-  .etapa.botao{border-color:var(--ouro)}
-  .zap{background:#0a1a12;border:1px solid #1f4d33;border-radius:12px;padding:16px;font-size:14.5px}
+    color:var(--ouro);border:1px solid var(--ouro);border-radius:99px;padding:5px 14px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--linha);border-radius:12px;padding:18px 20px;margin:14px 0}
+  .grid{display:grid;gap:14px}
+  @media(min-width:820px){.g2{grid-template-columns:1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}}
+  .num{font-size:29px;font-weight:700;color:var(--ouro);line-height:1.1}
+  .num small{display:block;font-size:13px;font-weight:400;color:var(--fraco);margin-top:6px}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14.5px}
+  th,td{text-align:left;padding:10px 11px;border-bottom:1px solid var(--linha);vertical-align:top}
+  th{color:var(--fraco);font-weight:600;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase}
+  code{background:#0d1626;border:1px solid var(--linha);border-radius:5px;padding:1px 6px;font-size:13.5px;color:var(--ouro)}
+  .lado{border-left:3px solid var(--ouro);padding-left:16px;margin:18px 0;color:var(--fraco)}
+  .zap{background:#0a1a12;border:1px solid #1f4d33;border-radius:11px;padding:14px;font-size:14.5px}
   .zap.ruim{background:#1c1113;border-color:#4d2225}
-  .bolha{max-width:88%;padding:9px 13px;border-radius:12px;margin:7px 0;line-height:1.5}
+  .bolha{max-width:90%;padding:8px 12px;border-radius:11px;margin:6px 0;line-height:1.5}
   .cli{background:#134d33;margin-left:auto;border-bottom-right-radius:3px}
   .pad{background:#1e2a3d;border-bottom-left-radius:3px}
-  .rot{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--fraco);margin-bottom:8px}
+  .rot{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--fraco);margin-bottom:6px}
   .ok{color:var(--verde)} .mal{color:var(--vermelho)} .meio{color:var(--amarelo)}
-  ul{margin:10px 0;padding-left:20px} li{margin:7px 0}
-  .lado{border-left:3px solid var(--ouro);padding-left:16px;margin:20px 0;color:var(--fraco)}
-  .pilha{display:flex;flex-direction:column;gap:2px;margin:16px 0}
-  .camada{background:#0d1626;border:1px solid var(--linha);border-radius:6px;padding:12px 16px;font-size:14.5px}
-  .camada b{color:var(--ouro)}
-  .camada.ia{border-color:#3b5aa0;background:#101a2e}
-  .barra{height:26px;border-radius:5px;display:flex;overflow:hidden;margin:8px 0;font-size:12px;line-height:26px}
-  .barra i{font-style:normal;padding:0 10px;white-space:nowrap}
-  .b1{background:#7f1d1d} .b2{background:#14532d} .b3{background:#1e293b;color:var(--fraco)}
-  .rodape{margin-top:72px;padding-top:20px;border-top:1px solid var(--linha);color:var(--fraco);font-size:14px}
+  .rail{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0}
+  .etapa{background:#0d1626;border:1px solid var(--linha);border-radius:8px;padding:9px 13px;font-size:13.5px}
+  .etapa b{display:block;color:var(--ouro);font-size:12.5px}
+  .etapa span{color:var(--fraco);font-size:12.5px}
+  .etapa.botao{border-color:var(--ouro)}
+  .pilha{display:flex;flex-direction:column;gap:2px;margin:14px 0}
+  .camada{background:#0d1626;border:1px solid var(--linha);border-radius:6px;padding:11px 15px;font-size:14.5px}
+  .camada b{color:var(--ouro)} .camada.ia{border-color:#3b5aa0;background:#101a2e}
+  ul{margin:8px 0;padding-left:20px}li{margin:6px 0}
+  .rodape{margin-top:60px;padding-top:18px;border-top:1px solid var(--linha);color:var(--fraco);font-size:14px}
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <div class="selo">Padaria Doce Pao</div>
-  <h1>O que esta sendo feito na Dora</h1>
-  <p class="sub">Estado do sistema em 23 de agosto de 2026, escrito pra ser lido sem abrir codigo.</p>
+  <h1>A Dora, do jeito que ela esta hoje</h1>
+  <p class="sub">Tudo que foi feito em 23 de agosto de 2026, e o que ainda falta.
+  Escrito pra ser lido sem abrir codigo.</p>
 
-  <div class="grid g4" style="margin-top:32px">
-    <div class="card"><div class="num">2.078<small>linhas do sistema novo</small></div></div>
-    <div class="card"><div class="num">9.271<small>linhas do sistema antigo</small></div></div>
-    <div class="card"><div class="num">57<small>testes travando o portao</small></div></div>
-    <div class="card"><div class="num">16x<small>mais barato por conversa</small></div></div>
+  <div class="grid g4" style="margin-top:28px">
+    <div class="card"><div class="num">6<small>entregas no dia</small></div></div>
+    <div class="card"><div class="num">61<small>testes travando o portao</small></div></div>
+    <div class="card"><div class="num">3<small>roteiros de atendimento</small></div></div>
+    <div class="card"><div class="num">16x<small>mais barato que o sistema antigo</small></div></div>
   </div>
 
-  <h2>1. O problema que fez a gente refazer</h2>
-
-  <p>O sistema antigo tinha <b>9.271 linhas decidindo</b> coisa, contra 1.035 linhas de catalogo e preco.
-  Quase todo defeito nascia do mesmo lugar: uma guarda minha bloqueando o que outra guarda minha tinha
-  acabado de mandar fazer. A IA acertava e o meu codigo comia a resposta dela.</p>
-
-  <div class="lado">
-    A frase que resolveu isso: decisao que custa dinheiro sai do prompt e vai pro codigo.
-    Prompt pede. Codigo garante.
-  </div>
-
-  <h3>Como ficou dividido</h3>
+  <h2>1. Como ela pensa</h2>
   <div class="pilha">
-    <div class="camada"><b>1. O codigo decide onde a conversa esta.</b> Qual etapa, qual pergunta, o que ja
-      foi respondido. Nao chama IA, nao custa nada, e sempre da o mesmo resultado.</div>
-    <div class="camada ia"><b>2. A IA le a frase do cliente, dentro daquela etapa.</b> Na etapa do docinho ela
-      so enxerga docinho. E a unica coisa que ela faz, e por isso ela erra pouco.</div>
-    <div class="camada"><b>3. O motor de preco faz a conta.</b> O mesmo que ja existia e nunca errou.
-      Numero na tela do cliente nunca sai da cabeca da IA.</div>
-    <div class="camada ia"><b>4. A IA reescreve a frase pra nao ficar robotica.</b> E proibida de encostar em
-      qualquer coisa que tenha dinheiro. Onde tem valor, sai o texto do codigo, palavra por palavra.</div>
-    <div class="camada"><b>5. As peneiras.</b> Sem emoji, sem valor inventado, sem duas perguntas na mesma
-      mensagem. Rodam por ultimo e nao perguntam nada a ninguem.</div>
+    <div class="camada"><b>1. O codigo decide onde a conversa esta.</b> Qual roteiro, qual etapa,
+      o que ja foi respondido. Nao chama IA, nao custa nada, sempre da o mesmo resultado.</div>
+    <div class="camada ia"><b>2. A IA le a frase do cliente, dentro daquela etapa.</b> Na etapa do
+      docinho ela so enxerga docinho. E a unica coisa que ela faz, e por isso erra pouco.</div>
+    <div class="camada"><b>3. O motor de preco faz a conta.</b> Numero na tela do cliente nunca
+      sai da cabeca da IA.</div>
+    <div class="camada ia"><b>4. A IA reescreve pra nao ficar robotica.</b> E proibida em pergunta
+      com botao e onde tem dinheiro.</div>
+    <div class="camada"><b>5. As peneiras.</b> Sem emoji, sem valor inventado, sem repetir a mesma
+      pergunta. Rodam por ultimo e nao perguntam nada a ninguem.</div>
   </div>
 
-  <h2>2. A conversa da festa, etapa por etapa</h2>
-  <p>O cliente nao anda na ordem, e tudo bem: ele pode falar da data no meio dos salgados que o codigo anota
-  e volta pro lugar. O que a ordem garante e que nenhuma pergunta se perde.</p>
+  <h2>2. Os tres roteiros</h2>
+  <p>Cada tipo de pedido tem a sua lista, e o roteiro e escolhido <b>a cada mensagem</b>: festa e
+  conclusao, nao ponto de partida.</p>
 
+  <h3>Festa</h3>
   <div class="rail">
-    <div class="etapa"><b>1. Abertura</b><span>bom dia, tudo bem, o que voce precisa</span></div>
-    <div class="etapa"><b>2. Quantas pessoas</b><span>numero de gente na festa</span></div>
-    <div class="etapa botao"><b>3. Proposta</b><span>a base calculada, com botao</span></div>
-    <div class="etapa"><b>4. Salgados</b><span>cardapio em lista</span></div>
-    <div class="etapa"><b>5. Docinhos</b><span>cardapio em lista</span></div>
-    <div class="etapa"><b>6. Bolo</b><span>sabor e peso</span></div>
-    <div class="etapa botao"><b>7. Topo e papel</b><span>botao de tres opcoes</span></div>
-    <div class="etapa botao"><b>8. Dados</b><span>dia, hora, nome, pagamento</span></div>
-    <div class="etapa botao"><b>9. Confirmacao</b><span>o resumo com a conta</span></div>
-    <div class="etapa"><b>10. Registrado</b><span>vai pra fila da dona</span></div>
-  </div>
-  <p style="color:var(--fraco);font-size:14px">Borda dourada quer dizer que a etapa manda botao no WhatsApp.
-  Botao so entra onde a resposta e fechada: em pergunta aberta o cliente precisa do teclado.</p>
-
-  <div class="card">
-    <h3 style="margin-top:0">Quem pede uma coisa so nao passa por nada disso</h3>
-    <p style="margin-bottom:0">"quero 100 coxinhas pra sabado" pula as etapas de festa inteiras e cai direto
-    nos dados da retirada. Etapa de festa so aparece pra quem falou de festa.</p>
+    <div class="etapa"><b>1. Abertura</b><span>bom dia, o que precisa</span></div>
+    <div class="etapa"><b>2. Pessoas</b><span>quantas vao</span></div>
+    <div class="etapa botao"><b>3. Proposta</b><span>a base calculada</span></div>
+    <div class="etapa"><b>4. Salgados</b><span>cardapio + escolha</span></div>
+    <div class="etapa"><b>5. Docinhos</b><span>cardapio + cor da forminha</span></div>
+    <div class="etapa"><b>6. Bolo</b><span>sabor</span></div>
+    <div class="etapa botao"><b>7. Prato</b><span>MDF aberto ou tampa</span></div>
+    <div class="etapa botao"><b>8. Topo</b><span>sim ou nao</span></div>
+    <div class="etapa botao"><b>9. Papel de arroz</b><span>sim ou nao, R$ 12</span></div>
+    <div class="etapa"><b>10. Tema</b><span>+ foto de referencia</span></div>
+    <div class="etapa"><b>11. Nome e idade</b><span>do aniversariante</span></div>
+    <div class="etapa botao"><b>12. Dados</b><span>dia, hora, nome, pagamento</span></div>
+    <div class="etapa botao"><b>13. Confirmacao</b><span>o resumo com a conta</span></div>
   </div>
 
-  <h2>3. Os sete defeitos consertados hoje</h2>
-
-  <h3>Defeito 1: ela nao dava bom dia</h3>
-  <div class="grid g2">
-    <div class="zap ruim">
-      <div class="rot mal">Antes</div>
-      <div class="bolha cli">Boa noite</div>
-      <div class="bolha pad">Quantas pessoas vao na festa?</div>
-    </div>
-    <div class="zap">
-      <div class="rot ok">Agora</div>
-      <div class="bolha cli">Boa noite</div>
-      <div class="bolha pad">Boa noite, tudo bem? O que voce precisa?</div>
-    </div>
+  <h3>Pedido comum</h3>
+  <div class="rail">
+    <div class="etapa"><b>1. Abertura</b><span>o que ele quer</span></div>
+    <div class="etapa"><b>2. Sabor</b><span>so onde o cardapio pede</span></div>
+    <div class="etapa botao"><b>3. Oferta</b><span>docinho ou bolo junto?</span></div>
+    <div class="etapa botao"><b>4. Dados</b><span>dia, hora, nome, pagamento</span></div>
+    <div class="etapa botao"><b>5. Confirmacao</b><span>o resumo</span></div>
   </div>
-  <p><b>Por que acontecia:</b> toda conversa nascia marcada como festa. A etapa de abertura ja nascia
-  cumprida, entao a primeira pergunta era sobre quantas pessoas, mesmo pra quem so cumprimentou.
-  Festa e conclusao, nao ponto de partida.</p>
-  <p><b>E a saudacao segue o relogio de Sao Paulo,</b> nao a palavra do cliente: quem manda "bom dia" as duas
-  da tarde recebe "boa tarde", que e o certo.</p>
 
-  <h3>Defeito 2: o emoji</h3>
-  <p>Escapou um sorriso numa resposta. A regra "sem emoji" estava dentro do prompt da reescrita, e prompt e
-  pedido, nao garantia. Agora existe uma peneira que roda depois de tudo e apaga qualquer emoji, sem
-  perguntar nada. Caminho novo que eu criar ja nasce coberto.</p>
+  <h3>Informacao</h3>
+  <p style="color:var(--fraco);font-size:14.5px">Preco, horario, endereco, pagamento, prazo:
+  responde com o dado da casa e <b>nao anota nada</b>. Entrega e a unica que ela nao responde
+  sozinha, por regra da dona.</p>
 
-  <h3>Defeito 3: cumprimento em toda mensagem</h3>
-  <div class="grid g2">
-    <div class="zap ruim">
-      <div class="rot mal">Antes</div>
-      <div class="bolha cli">Boa noite, tudo bem?</div>
-      <div class="bolha pad">Boa noite, tudo bem? Como posso ajudar?</div>
-      <div class="bolha cli">vcs fazem bolo?</div>
-      <div class="bolha pad">Boa noite, tudo bem? O que voce gostaria?</div>
-      <div class="bolha cli">vcs fazem bolo?</div>
-      <div class="bolha pad">Boa noite, tudo bem? Qual bolo voce quer?</div>
-    </div>
-    <div class="zap">
-      <div class="rot ok">Agora</div>
-      <div class="bolha cli">Boa noite, tudo bem?</div>
-      <div class="bolha pad">Boa noite, tudo bem? O que voce precisa?</div>
-      <div class="bolha cli">vcs fazem bolo?</div>
-      <div class="bolha pad">Fazemos sim. Qual sabor voce quer? Temos brigadeiro, ninho, tres leites e mais.</div>
-    </div>
-  </div>
-  <p><b>Educacao na primeira fala, tique de robo da segunda em diante.</b> Ninguem diz boa noite tres vezes
-  pra mesma pessoa em dois minutos. Agora o cumprimento entra so na primeira e sai das seguintes, venha ele
-  do codigo ou da reescrita.</p>
+  <p style="color:var(--fraco);font-size:14px">Borda dourada quer dizer que a etapa manda botao no
+  WhatsApp. Botao so entra onde a resposta e fechada: em pergunta aberta o cliente precisa do teclado.</p>
 
-  <h3>Defeito 4: perguntar nao levava a lugar nenhum</h3>
-  <p>Voce perguntou "vcs fazem bolo?" duas vezes. Nao foi insistencia sua, foi beco: perguntar nao anota item
-  nenhum, entao o estado do pedido continuava igual, a etapa continuava a mesma e a resposta continuava a
-  mesma. Podia perguntar dez vezes.</p>
-  <p><b>O que mudou:</b> o que o cliente traz vira o assunto da conversa, e o assunto manda ate aquela etapa
-  se resolver. Quem pergunta de bolo ouve falar de bolo.</p>
+  <h2>3. O que foi corrigido hoje</h2>
 
-  <h3>Defeito 5: a conversa esquecia tudo entre uma mensagem e outra</h3>
-  <p class="mal" style="font-weight:600">Este era o que ia estragar a festa inteira, e nenhum teste pegava.</p>
-  <p>No WhatsApp <b>cada mensagem que chega e um programa novo</b>. Nao existe nada rodando esperando voce
-  digitar: chega a mensagem, o sistema le o pedido no banco, responde, grava e morre. O que nao foi gravado
-  deixa de existir.</p>
-  <p>Eu estava gravando os itens e os dados da retirada. So. Nao gravava se a conversa era de festa, quantas
-  pessoas, se o cliente ja tinha aceitado a proposta, nem se ele queria topo e papel de arroz.</p>
-  <div class="zap ruim">
-    <div class="rot mal">O estrago</div>
-    <div class="bolha cli">quero comida pra festa de 20 pessoas</div>
-    <div class="bolha pad">Pra 20 pessoas, uma base boa e 200 salgados, 100 docinhos e 2 kg de bolo.
-      Da R$ 418,80 no total. Pode ser assim?</div>
-    <div class="bolha cli">[toca em Pode ser]</div>
-    <div class="bolha pad">...e aqui o sistema ja nao sabia mais que existia festa, nem proposta, nem
-      R$ 418,80. O aceite caia no vazio e nada virava pedido.</div>
-  </div>
-  <p><b>Por que os testes nao pegavam:</b> porque neles a conversa inteira roda dentro de um programa so, com
-  tudo vivo na memoria, e memoria sempre lembra. O teste media o fluxo, nao a conversa. Agora a memoria da
-  conversa mora no banco junto do pedido, e existe teste provando a ida e a volta.</p>
-
-  <h3>Defeito 6: escrever "pode fechar" nao fechava o pedido</h3>
-  <p>So o toque no botao Confirmar fechava. E botao nao e garantido: <b>fora da janela de 24 horas o WhatsApp
-  nao deixa mandar botao nenhum</b>. O cliente que voltasse no dia seguinte ficaria olhando o mesmo resumo
-  pra sempre.</p>
-  <p>Agora a palavra tambem fecha, e so embaixo do resumo. "Pode ser" no meio dos docinhos e conversa;
-  "pode ser" embaixo da conta de R$ 543,00 e ordem. Quem separa os dois e a etapa, nao o prompt.</p>
-
-  <h3>Defeito 7: "festa de aniversario" nunca virava festa</h3>
-  <p class="mal" style="font-weight:600">Este quem achou foi um teste novo, sozinho, e era o maior de todos.</p>
-  <p>O sistema tem um limpador que confere a resposta da IA antes de usar. Ele e uma lista fechada: o que nao
-  esta escrito nele e jogado fora, mesmo que a IA tenha acertado. E o campo "isso e uma festa" nao estava
-  escrito nele.</p>
-  <div class="grid g2">
-    <div class="card">
-      <div class="rot ok">Funcionava</div>
-      <p style="margin:0">"somos 20 pessoas"<br><span style="color:var(--fraco)">o numero sobrevivia ao
-      limpador, e numero de gente ja marca festa</span></p>
-    </div>
-    <div class="card">
-      <div class="rot mal">Nao funcionava</div>
-      <p style="margin:0">"festa do meu filho", "formatura", "cha de bebe"<br>
-      <span style="color:var(--fraco)">a palavra morria no limpador; a conversa pulava a proposta inteira e ia
-      direto perguntar dia e hora</span></p>
-    </div>
-  </div>
-  <p>Metade das entradas de festa funcionava e metade nao. E o defeito que mais se repetiu neste projeto,
-  sempre no mesmo formato: <b>uma camada minha comendo a resposta certa da outra.</b></p>
-
-  <h2>4. O andaime que eu mesmo deixei no caminho</h2>
-  <p>Reclamacao sua, e ela e justa. O sistema novo foi escrito do zero e mesmo assim ja tinha resto dentro.
-  Nao veio do sistema antigo: veio de eu desenhar uma coisa, construir de outro jeito e nao voltar pra apagar
-  o desenho.</p>
+  <h3>Dinheiro e data, que nao podem errar nunca</h3>
   <table>
-    <tr><th>O que era</th><th>Tamanho</th><th>Por que existia</th></tr>
-    <tr><td>4 botoes de sim e nao</td><td>4 linhas</td>
-      <td>planejei etapas de "quer salgado? sim/nao" e "mais alguma coisa?", e construi com lista de cardapio</td></tr>
-    <tr><td>Um tipo de etapa simples</td><td>2 linhas</td>
-      <td>desenho de um caminho curto separado; na pratica saiu melhor com etapa pulavel</td></tr>
-    <tr><td>Tabela das 10 familias</td><td>235 linhas</td>
-      <td>descrevia pizza, torta, cuca, cupcake. O sistema lia dez linhas dela</td></tr>
-  </table>
-  <div class="lado">
-    Codigo que nao roda nao da erro, entao ninguem descobre que ele esta errado, e quem le acredita que
-    existe. Foi o caso do botao de recusa do salgado: eu olhava a lista, via que "nao quero salgado" estava
-    resolvido, e nao estava. O beco ficou aberto nas tres familias por dias.
-  </div>
-  <p>Agora existe um teste que varre os 37 nomes exportados do sistema novo e reprova qualquer um que ninguem
-  use. Quando a pizza for construida de verdade, a tabela da pizza nasce junto com ela.</p>
-
-  <h2>5. Quanto custa</h2>
-  <p>Medido nas suas duas conversas reais, a mesma conversa passando pelos dois sistemas:</p>
-  <div class="barra"><i class="b1" style="width:100%">Sistema antigo: 206.123 palavras de contexto por conversa, R$ 0,16</i></div>
-  <div class="barra"><i class="b2" style="width:6.25%">R$ 0,01</i><i class="b3" style="width:93.75%">Sistema novo: 2.501 palavras de contexto</i></div>
-  <p>A conta e simples: o sistema antigo mandava a conversa inteira mais 9.271 linhas de instrucao pra IA a
-  cada mensagem. O novo manda so a etapa em que a conversa esta.</p>
-  <p><b>Em cima disso:</b> toque em botao nao chama IA nenhuma, e mandar recomecar tambem nao. Apagar o pedido
-  de alguem nao e decisao de redacao.</p>
-
-  <h2>6. O que esta no ar agora</h2>
-  <table>
-    <tr><th>Versao</th><th>O que tem</th><th>Onde esta</th></tr>
-    <tr><td><code>1876ffc</code></td>
-      <td>saudacao pelo relogio, sem emoji, conversa com memoria entre mensagens, o assunto do cliente
-        mandando na conversa</td>
-      <td class="ok">rodando no servidor</td></tr>
-    <tr><td><code>52c50f6</code></td>
-      <td>fecha por escrito, "Mudar algo" pergunta o que mudar, recusa valendo nas tres familias,
-        "festa de aniversario" virando festa, 241 linhas de andaime fora</td>
-      <td class="meio">pronto e esperando sua palavra</td></tr>
+    <tr><th>O que acontecia</th><th>Por que</th><th>Agora</th></tr>
+    <tr><td>O resumo saia <b>"Total: R$ 0,00"</b> com onze itens na tela</td>
+      <td>eu passava o numero 0 no lugar do total, na unica chamada que monta a fala</td>
+      <td>o total e refeito a cada mensagem, do zero, pelo mesmo motor que fecha o pedido</td></tr>
+    <tr><td>A retirada virou <b>05/09/2024</b>, um ano e meio no passado</td>
+      <td>ninguem dizia ao modelo que dia e hoje</td>
+      <td>a instrucao diz, e o codigo confere: data que caiu pra tras ganha o ano que faz ela cair pra frente</td></tr>
+    <tr><td>Hora fora do expediente entrava calada</td>
+      <td>o horario existia no sistema e o fluxo nao consultava</td>
+      <td>"no domingo a gente atende das 6h30 as 12h e das 16h as 20h"</td></tr>
+    <tr><td>Pedido fechava sem sabor escolhido</td>
+      <td>a regra so existia pro bolo</td>
+      <td>vale onde o cardapio manda escolher: risolis, trufa, cuca recheada, empadao, torta, franciscano</td></tr>
   </table>
 
-  <h2>7. O que ainda falta</h2>
+  <h3>A conversa</h3>
   <div class="grid g2">
-    <div class="card">
-      <h3 style="margin-top:0">Becos que eu ja vi e ainda nao fechei</h3>
-      <ul>
-        <li>"nao sei quantas pessoas ainda" trava a etapa</li>
-        <li>"nao sei a hora ainda" trava a etapa</li>
-      </ul>
-      <p style="margin-bottom:0">Os dois pedem a mesma regra: a padaria nao repete a mesma pergunta duas vezes
-      sem sair do lugar. Na segunda ela muda de tatica em vez de insistir.</p>
+    <div>
+      <div class="zap ruim">
+        <div class="rot mal">O pior defeito do dia</div>
+        <div class="bolha pad">O bolo será entregue no prato de MDF aberto ou na embalagem com tampa?</div>
+        <div class="bolha cli">Com tampa</div>
+        <div class="bolha pad">O bolo é com tampa?</div>
+        <div class="bolha cli">Sim</div>
+      </div>
+      <p style="font-size:14.5px">O codigo tinha escrito <b>"O bolo vai com topo?"</b>. A camada que
+      reescreve viu a ultima fala da cliente e trocou o assunto da pergunta. Ela respondeu "Sim"
+      achando que confirmava a embalagem, e o sistema gravou <b>topo = sim</b>.</p>
+      <p style="font-size:14.5px"><b>Agora pergunta com botao sai exatamente como o codigo escreveu.</b>
+      Onde a resposta e fechada, o toque vira dado, e trocar a pergunta e trocar o dado.</p>
     </div>
-    <div class="card">
-      <h3 style="margin-top:0">Caminhos que ainda nao foram construidos</h3>
-      <ul>
-        <li>pizza</li>
-        <li>pedido avulso fora de festa, testado de ponta a ponta</li>
-        <li>cliente mudando de ideia no meio</li>
-        <li>comanda impressa: topo e papel aparecendo duas vezes, e o tema do bolo saindo no ticket
-          dos salgados</li>
-      </ul>
+    <div>
+      <div class="zap ruim">
+        <div class="rot mal">E o que nasceu dele</div>
+        <div class="bolha pad">O nome do topo vai ser qual?</div>
+        <div class="bolha cli">nao quero topo</div>
+        <div class="bolha pad">Em nome de quem vai o topo?</div>
+        <div class="bolha cli">nao quero topo de bolo</div>
+        <div class="bolha pad">Para quem eu coloco o nome no topo?</div>
+      </div>
+      <p style="font-size:14.5px">Toda pergunta sabia gravar sim e gravar nao, e <b>nao sabia voltar
+      atras</b>. Agora recusa desfaz: tira o topo, solta o nome e a idade que estavam presos nele e
+      limpa a marca da comanda.</p>
     </div>
   </div>
-  <p>Sua ordem foi terminar a festa a 100% antes de comecar outra familia, e e o que esta sendo seguido.</p>
+
+  <table>
+    <tr><th>O que acontecia</th><th>Agora</th></tr>
+    <tr><td>Duas mensagens suas viravam duas respostas ("Bom dia!" e "Tudo bem?")</td>
+      <td>ela espera <b>10 segundos</b>; se voce falar de novo, ela responde tudo junto. Tres mensagens picadas viram UMA chamada de IA</td></tr>
+    <tr><td>A mesma pergunta saiu tres vezes quase igual</td>
+      <td>na segunda ela mostra as opcoes, na terceira para e chama a equipe</td></tr>
+    <tr><td>"vcs fazem bolo?" nao levava a lugar nenhum</td>
+      <td>o que o cliente traz vira o assunto e manda ate se resolver</td></tr>
+    <tr><td>Ela escolhia os sabores sozinha ao aceitar a proposta</td>
+      <td>a proposta diz QUANTO, o cliente diz QUAL, com o cardapio junto</td></tr>
+    <tr><td>"Quero ajustar" devolvia a mesma proposta</td>
+      <td>pergunta o que muda, de graca</td></tr>
+    <tr><td>Perguntar preco virava pedido</td>
+      <td>perguntar nao e pedir: responde com o preco do cardapio e nao anota nada</td></tr>
+    <tr><td>Escrever "pode fechar" nao fechava o pedido</td>
+      <td>a palavra fecha, e so embaixo do resumo</td></tr>
+  </table>
+
+  <h3>Producao, com as regras que a dona deu em audio</h3>
+  <div class="grid g2">
+    <div class="card">
+      <div class="rot">Ela disse</div>
+      <p style="margin:6px 0"><i>"Na hora que a pessoa escolher docinho, a gente SEMPRE pergunta a
+      cor da forminha que ela quer."</i></p>
+      <p style="margin-bottom:0;font-size:14.5px">A cor virou parte da etapa, e vai na observacao de
+      CADA docinho: "azul e rosa" com dois docinhos vira um azul e um rosa, cada um na sua comanda.</p>
+    </div>
+    <div class="card">
+      <div class="rot">Ela disse</div>
+      <p style="margin:6px 0"><i>"Se a pessoa pedir 100 salgadinhos sortidos, ela vai dizer: entao
+      manda a tabela. Voce quer escolher? Daí o robô vai discriminar."</i></p>
+      <p style="margin-bottom:0;font-size:14.5px">Manda o cardapio, o cliente escolhe, e o pedido sai
+      discriminado por sabor. Era o contrario do que acontecia.</p>
+    </div>
+    <div class="card">
+      <div class="rot">Ela disse</div>
+      <p style="margin:6px 0"><i>"Topos e papel de arroz tem que ser encomendado com dois dias de
+      antecedência. Nao e nos que fazemos, a gente encomenda."</i></p>
+      <p style="margin-bottom:0;font-size:14.5px">Prazo apertado ou pedido no fim de semana: a equipe
+      recebe o aviso de que precisa confirmar com quem fabrica.</p>
+    </div>
+    <div class="card">
+      <div class="rot">Ela disse</div>
+      <p style="margin:6px 0"><i>"Ela vai ter que sempre confirmar com nos. Vai que passa 30 reais
+      quando e so o nome e a pessoa acha caro."</i></p>
+      <p style="margin-bottom:0;font-size:14.5px">A Dora nunca diz o valor do topo. O pedido chega no
+      painel com o motivo escrito: falta a equipe lancar o valor.</p>
+    </div>
+  </div>
+  <p>Entraram tambem: o <b>prato do bolo</b> (MDF aberto ou tampa), que nenhuma versao do sistema
+  tinha perguntado; o <b>tema, nome e idade</b> valendo pras duas pecas; e as <b>fotos grudando no
+  pedido</b> ao fechar, que antes sumiam das abas de aprovacao.</p>
+
+  <h3>O painel</h3>
+  <table>
+    <tr><td>O cardapio chegava no WhatsApp e nao aparecia pra dona</td>
+      <td>vira mensagem da conversa, com a peca</td></tr>
+    <tr><td>"1 conversa esperando voce responder" sem a IA ter chamado ninguem</td>
+      <td>era um cliente do meu QA automatizado esquecido no banco. Apagados, e o aviso agora tem uma
+        fonte so: a Dora desistiu depois de insistir</td></tr>
+    <tr><td>Item conhecido entrando como "Outro / bolo / 0 quilos"</td>
+      <td>a categoria vem do catalogo: o nome do produto ja diz a familia</td></tr>
+  </table>
+
+  <h2>4. Os oito cardapios, refeitos e automatizados</h2>
+  <p>O de docinhos nao trazia as cores da forminha, e a Dora tinha que listar 21 cores no texto. O
+  HTML ja estava certo; a imagem e que ficou pra tras, porque virar imagem era manual: abrir no
+  Chrome, F12, ajustar o tamanho, capturar, salvar. Oito vezes, toda vez que a dona mexesse num preco.</p>
+  <p>Ninguem refaz oito imagens a mao. Agora sao dois comandos e as oito saem do catalogo:</p>
+  <div class="card" style="font-family:ui-monospace,monospace;font-size:14px">
+    node scripts/gerar-cardapio.mjs<br>
+    node scripts/gerar-cardapio-imagens.mjs
+  </div>
+  <p style="color:var(--fraco);font-size:14.5px">De quebra as imagens cairam de 4320 px e 1,3 MB
+  para 1080 px e 200 KB, que e o que abre rapido no celular de quem esta comprando.</p>
+
+  <h2>5. As travas</h2>
+  <p>Todo defeito encontrado vira teste, e os 61 rodam antes de qualquer coisa subir pro servidor.
+  Alguns nao conferem casos, conferem <b>estrutura</b>, e sao esses que pegam defeito que ninguem
+  imaginou:</p>
+  <table>
+    <tr><th>Trava</th><th>O que ela impede</th></tr>
+    <tr><td>campo que o modelo devolve e o codigo ignora</td>
+      <td>foi assim que "isso e uma festa" e "pode fechar" morreram no caminho</td></tr>
+    <tr><td>botao tratado que nenhuma etapa oferece</td>
+      <td>eu acreditava num botao de recusa que nunca rodou, e o beco ficou aberto por dias</td></tr>
+    <tr><td>simbolo exportado que ninguem usa</td>
+      <td>241 linhas de andaime meu que estavam no meio do caminho</td></tr>
+    <tr><td>campo do estado que ninguem grava</td>
+      <td>a conversa esquecia a festa entre uma mensagem e outra</td></tr>
+    <tr><td>instrucao passando de 1.500 caracteres</td>
+      <td>instrucao longa e o que deixa o modelo confuso e caro</td></tr>
+  </table>
+
+  <h2>6. O que falta</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3 style="margin-top:0">Combinado pra depois</h3>
+      <ul>
+        <li>o caminho da <b>pizza</b></li>
+        <li>o pedido avulso testado de ponta a ponta no celular</li>
+        <li>cliente mudando de ideia no meio, testado de verdade</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Perguntas que ainda sao suas</h3>
+      <ul>
+        <li>tem hora limite pra encomenda, diferente do horario da loja?</li>
+        <li>quanto tempo de antecedencia a cozinha precisa pra festa grande?</li>
+      </ul>
+      <p style="margin-bottom:0;font-size:14.5px">Hoje ela usa dois dias, que veio do audio do topo.</p>
+    </div>
+  </div>
 
   <div class="rodape">
-    Documento gerado em 23/08/2026 a partir do codigo e dos testes do repositorio painel-docepao.
-    Os numeros de linhas, testes e custo sao medidos, nao estimados.
+    Gerado em 23/08/2026 a partir do codigo, dos testes e dos audios da dona no repositorio
+    painel-docepao. Numeros de linhas, testes e custo sao medidos, nao estimados.
   </div>
 
 </div>

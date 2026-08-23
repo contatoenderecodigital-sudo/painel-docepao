@@ -39,6 +39,7 @@ const FORMATO = `Responda SÓ com um JSON, sem texto em volta, neste formato:
   "pecas": { "topo": true },
   "aniversariante": { "nome": "Arthur", "idade": "5 anos" },
   "tema": "Minnie",
+  "perguntou": { "sobre": "preco", "familia": "salgado" },
   "forminha": "rosa",
   "prato": "aberto",
   "dados": { "nome": "", "data": "DD/MM/AAAA", "hora": "HH:MM", "pagamento": "pix" },
@@ -132,6 +133,12 @@ export function pensarComOpenAI(
         if (typeof lido.pecas.topo === "boolean") pec.topo = lido.pecas.topo;
         if (typeof lido.pecas.papelDeArroz === "boolean") pec.papelDeArroz = lido.pecas.papelDeArroz;
         if (Object.keys(pec).length) limpo.pecas = pec;
+      }
+      if (lido.perguntou?.sobre) {
+        limpo.perguntou = {
+          sobre: lido.perguntou.sobre,
+          ...(lido.perguntou.familia ? { familia: String(lido.perguntou.familia) } : {}),
+        };
       }
       if (String(lido.tema ?? "").trim()) limpo.tema = String(lido.tema).trim();
       if (String(lido.forminha ?? "").trim()) limpo.forminha = String(lido.forminha).trim();

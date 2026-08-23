@@ -31,6 +31,7 @@ import {
   registrarPedido,
   marcarWebhookNovo,
   salvarFotoPendente,
+  falasSemResposta,
   resumoPedidoFechado,
   mensagemPorWamid,
   marcarStatusMensagem,
@@ -96,6 +97,21 @@ function tempoDeDigitar(texto: string): number {
 // mandava um joinha na mensagem anterior enquanto esperava. A execução da
 // pergunta desistia por causa do joinha, a execução do joinha não responde nada
 // por natureza, e a pergunta ficava sem resposta nenhuma.
+/**
+ * QUANTO ELA ESPERA ANTES DE RESPONDER.
+ *
+ * Tempo suficiente pra quem esta escrevendo terminar a frase seguinte, e curto
+ * o bastante pra nao parecer que ninguem viu.
+ *
+ * DEZ SEGUNDOS, decidido pelo dono em 23/08/2026 depois de ver a conversa: ele
+ * comecou em sete e mandou aumentar. Quem escreve no celular digita devagar, e
+ * a Dora cortando a pessoa no meio do raciocinio e pior que a Dora demorando um
+ * pouco: a mensagem seguinte quase sempre e o pedido de verdade.
+ *
+ * Da pra mexer sem deploy pela variavel ESPERA_SEGUNDOS.
+ */
+const ESPERA_ANTES_DE_RESPONDER = Math.max(0, Number(process.env.ESPERA_SEGUNDOS ?? 10) * 1000);
+
 async function clienteFalouDepois(
   negocioId: string,
   clienteId: string,
@@ -463,11 +479,59 @@ async function processar(corpo: WebhookPayload) {
       // ================================================================
       if (ehDoFluxoNovo(telefone)) {
         try {
+          // ================================================================
+          //  ELA ESPERA VOCE TERMINAR DE FALAR
+          //
+          //  Pedido do dono, 23/08/2026, duas vezes: "tem que fazer ela esperar
+          //  pra responder quando o cliente esta digitando ou mandou outra
+          //  mensagem, ela pensar e mandar junto".
+          //
+          //  No teste dele:
+          //
+          //    Kemilly: Bom dia!        Dora: Bom dia, tudo bem? Como posso ajudar?
+          //    Kemilly: Tudo bem?       Dora: Posso ajudar em algo?
+          //
+          //  Duas respostas pra uma pessoa que ainda nem tinha dito o que
+          //  queria. Ninguem escreve no WhatsApp em paragrafo unico.
+          //
+          //  COMO FUNCIONA
+          //
+          //  Chega a mensagem, ela espera alguns segundos. Se nesse tempo
+          //  chegar outra do mesmo cliente, ESTA execucao cala a boca e sai: a
+          //  proxima responde, agora com as duas falas juntas. So a ultima
+          //  responde, e responde tudo.
+          //
+          //  De quebra economiza: tres mensagens picadas viram UMA chamada de
+          //  IA em vez de tres.
+          //
+          //  Botao nao espera: o toque e a fala inteira, nao tem continuacao.
+          // ================================================================
+          const botaoId = msg.interactive?.button_reply?.id ?? null;
+          let textoJunto = texto ?? "";
+
+          if (!botaoId) {
+            const marco = Date.now();
+            await pausa(ESPERA_ANTES_DE_RESPONDER);
+            const falouDeNovo = await clienteFalouDepois(negocioId, clienteId, marco).catch(() => false);
+            if (falouDeNovo) {
+              console.log("[fluxo-novo] o cliente ainda esta falando; quem responde e a proxima mensagem");
+              continue;
+            }
+            // Junta tudo que ele falou e ainda nao foi respondido. Se a consulta
+            // falhar, segue com a mensagem desta execucao: melhor responder uma
+            // do que nao responder nenhuma.
+            const pendentes = await falasSemResposta(negocioId, clienteId).catch(() => []);
+            if (pendentes.length > 1) {
+              textoJunto = pendentes.join(String.fromCharCode(10));
+              console.log("[fluxo-novo] respondendo " + pendentes.length + " mensagens juntas");
+            }
+          }
+
           const novo = await atenderComFluxoNovo(
             new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
             negocioId,
             clienteId,
-            { texto: texto ?? "", botaoId: msg.interactive?.button_reply?.id ?? null },
+            { texto: textoJunto, botaoId },
             // A padaria ja falou com este cliente nesta conversa? Se falou, nao
             // cumprimenta de novo. O historico ja esta carregado aqui em cima, e
             // ele e a unica fonte que sabe disso: o pedido em montagem nao
