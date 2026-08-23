@@ -29,7 +29,24 @@ import catalogo from "../dados/catalogo.json";
 import { brl } from "../orcamento";
 import { DOCE_PAO } from "../persona";
 
-export type SobreOQue = "preco" | "horario" | "endereco" | "pagamento" | "entrega" | "prazo";
+export type SobreOQue =
+  | "preco"
+  | "horario"
+  | "endereco"
+  | "pagamento"
+  | "entrega"
+  | "prazo"
+  /**
+   * ALGUMA COISA QUE A PADARIA NAO GUARDA AQUI.
+   *
+   * Teste da Kemilly, 23/08/2026: ela pediu o CNPJ e recebeu o ENDERECO. O
+   * modelo empurrou a pergunta pra caixa mais parecida que existia, porque nao
+   * havia uma caixa pra "nao sei".
+   *
+   * CNPJ, nota fiscal, dados bancarios, cardapio de coisa que a casa nao faz:
+   * quem responde e a equipe. Responder perto e pior que nao responder.
+   */
+  | "outro";
 
 export type Pergunta = { sobre: SobreOQue; familia?: string };
 
@@ -131,6 +148,13 @@ export function respostaDeInformacao(p: Pergunta): { texto: string; precisaHuman
         texto:
           "Sobre entrega quem te responde melhor é a equipe, porque depende do dia e do endereço. " +
           "Já vou chamar alguém pra falar com você.",
+        precisaHumano: true,
+      };
+
+    case "outro":
+      return {
+        texto:
+          "Essa eu não sei te responder de cabeça. Já vou chamar alguém da equipe pra te passar certinho.",
         precisaHumano: true,
       };
 

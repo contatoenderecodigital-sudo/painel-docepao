@@ -33,7 +33,7 @@ import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMon
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, type Leitura } from "./leitura";
 import { calcularBase } from "./base";
-import { motorPadrao } from "../orcamento";
+import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
 import { coresDaForminha } from "./sabor";
@@ -238,8 +238,20 @@ function categoriaDoCatalogo(nome: string): string {
  * SE ELE DISSER A QUANTIDADE, A DELE MANDA. Quem escreve "200 coxinhas" quer
  * 200 coxinhas, e a proposta era proposta, nao contrato.
  */
-function repartirABase(e: Estado, rastro: string[]): Estado {
+function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado {
   if (!e.baseAceita || !e.base) return e;
+
+  // ELE DISSE ALGUM NUMERO NESTA MENSAGEM?
+  //
+  // Teste da Kemilly, 23/08/2026: ela escreveu "coxinha e mini bolha de carne",
+  // sem numero nenhum, e o pedido saiu com 1 coxinha e 1 mini bolha. A proposta
+  // de 200 salgados que ela tinha acabado de aceitar nao foi repartida.
+  //
+  // A instrucao mandava o modelo devolver zero quando ele nao dissesse a
+  // quantidade, e o modelo devolveu 1. Prompt pede, codigo garante: quem sabe
+  // se houve numero e a MENSAGEM, nao o modelo. Sem digito na fala, a
+  // quantidade e da proposta, e o que o modelo mandou nao vale.
+  const disseNumero = /\d/.test(String(falaDoCliente));
 
   const alvos: [string, number][] = [
     ["salgado", e.base.salgados],
@@ -255,12 +267,15 @@ function repartirABase(e: Estado, rastro: string[]): Estado {
       .filter(({ i }) => String(i.categoria || "").startsWith(familia));
     if (!daFamilia.length) continue;
 
-    // Sem numero nenhum escolhido, reparte o total da proposta. Se ele ja disse
-    // quantidade em alguma linha, respeita o que ele disse e nao mexe em nada.
-    const semQtd = daFamilia.filter(({ i }) => !(Number(i.qtd) > 0));
+    // Sem numero na fala dele, TODAS as linhas da familia entram na divisao,
+    // mesmo as que ja tem quantidade: aquele numero nao veio dele. Com numero na
+    // fala, respeita o que ele disse e so completa quem ficou sem.
+    const semQtd = disseNumero ? daFamilia.filter(({ i }) => !(Number(i.qtd) > 0)) : daFamilia;
     if (!semQtd.length) continue;
 
-    const jaEscolhido = daFamilia.reduce((s, { i }) => s + (Number(i.qtd) > 0 ? Number(i.qtd) : 0), 0);
+    const jaEscolhido = disseNumero
+      ? daFamilia.reduce((s, { i }) => s + (Number(i.qtd) > 0 ? Number(i.qtd) : 0), 0)
+      : 0;
     const sobra = Math.max(0, total - jaEscolhido);
     if (!sobra) continue;
 
@@ -489,7 +504,27 @@ export async function responder(
     // A conversa nao sai do lugar: ele continua na mesma etapa, e a proxima
     // mensagem dele segue de onde parou.
     if (limpa.perguntou?.sobre) {
-      const resposta = respostaDeInformacao(limpa.perguntou);
+      // "QUANTO FICA?" NO MEIO DO PEDIDO E O TOTAL DELE, NAO TABELA DE PRECO.
+      //
+      // Teste da Kemilly: ela perguntou "quanto fica?" com o pedido montado e a
+      // padaria respondeu perguntando a forma de pagamento. A pergunta caiu no
+      // vazio porque nao tinha familia junto.
+      const perguntouOTotal =
+        limpa.perguntou.sobre === "preco" && !limpa.perguntou.familia && estado.itens.length > 0;
+      const resposta = perguntouOTotal
+        ? {
+            texto:
+              "Do jeito que está, seu pedido fica em " +
+              brl(
+                Number(
+                  motorPadrao.cotarPorItens(
+                    estado.itens.map((i) => ({ item: i.produto, qtd: i.qtd, obs: i.obs ?? undefined })),
+                  ).total || 0,
+                ),
+              ) + ".",
+            precisaHumano: false,
+          }
+        : respostaDeInformacao(limpa.perguntou);
       if (resposta) {
         rastro.push("ele perguntou sobre " + limpa.perguntou.sobre + "; respondi sem anotar nada");
         return {
@@ -539,7 +574,7 @@ export async function responder(
   //
   // O que a base faz agora e guardar o total. Quando ele escolher os sabores
   // sem dizer quantidade, o codigo reparte esse total entre o que ele escolheu.
-  estado = repartirABase(estado, rastro);
+  estado = repartirABase(estado, rastro, mensagem.texto);
 
   // ------------------------------------------- as pecas do bolo viram pedido
   //
@@ -602,6 +637,53 @@ export async function responder(
     if (estado.pecas?.papelDeArroz === true) anotar((c) => c === "papel_de_arroz", "");
   }
 
+  // ------------------------------------------- BOLO MISTO E UM BOLO SO
+  //
+  // Teste da Kemilly: ela pediu "4 leites e biz" e o pedido saiu com DOIS bolos
+  // de um quilo. Ela queria um bolo com os dois sabores, que e o que qualquer
+  // pessoa entende por "4 leites e biz".
+  //
+  // Nota da dona no cardapio: "bolo misto vale o sabor mais caro". Entao o
+  // pedido fica com o sabor caro na linha (pra conta sair certa) e os dois
+  // escritos na observacao, que e o que a cozinha le.
+  //
+  // So junta quando ele NAO disse numero: "quero dois bolos de 1 kg" e outra
+  // coisa, e ai sao dois mesmo.
+  if (!/\d/.test(String(mensagem.texto))) {
+    // "bolo" sem sabor e marcador de lugar, nao sabor: e o que a proposta anota
+    // e o que a IA le de "quero encomendar bolo". Ele sai da mistura, senao a
+    // comanda pede "misto: bolo e 4 leites e biz".
+    const bolos = estado.itens.filter(
+      (i) => String(i.categoria || "").startsWith("bolo") && String(i.produto).trim().toLowerCase() !== "bolo",
+    );
+    const semSabor = estado.itens.filter(
+      (i) => String(i.categoria || "").startsWith("bolo") && String(i.produto).trim().toLowerCase() === "bolo",
+    );
+    if (bolos.length > 1 || (bolos.length === 1 && semSabor.length)) {
+      const preco = (nome: string) =>
+        Number(motorPadrao.cotarPorItens([{ item: nome, qtd: 1 }]).total || 0);
+      const caro = [...bolos].sort((a, b) => preco(b.produto) - preco(a.produto))[0];
+      const sabores = bolos.map((b) => b.produto).join(" e ");
+      const misto = bolos.length > 1 ? "misto: " + sabores : null;
+      // O peso vem do maior dos dois, e do marcador tambem: a proposta anotou os
+      // 2 kg no "bolo" sem sabor antes de ele escolher.
+      const peso = [...bolos, ...semSabor].reduce((s, b) => Math.max(s, Number(b.qtd) || 0), 0);
+      const outros = estado.itens.filter((i) => !String(i.categoria || "").startsWith("bolo"));
+      estado = {
+        ...estado,
+        itens: [
+          ...outros,
+          { ...caro, qtd: peso, obs: [caro.obs, misto].filter(Boolean).join(" | ") || null },
+        ],
+      };
+      rastro.push(
+        misto
+          ? "bolo misto: " + sabores + ", cotado pelo sabor mais caro (" + caro.produto + ")"
+          : "o bolo sem sabor virou o bolo de " + caro.produto,
+      );
+    }
+  }
+
   // ------------------------------------------------- a etapa seguinte
   let proxima = etapaDaVez(estado, roteiro());
 
@@ -629,8 +711,21 @@ export async function responder(
   // falar de bolo. Por isso aqui o pulavel nao vale, e a etapa cumprida sim:
   // assunto ja resolvido nao volta pra mesa.
   if (estado.assunto && estado.assunto !== proxima.id) {
-    const alvo = roteiro().find((x) => x.id === estado.assunto);
-    if (alvo && !alvo.cumprida(estado)) {
+    const lista = roteiro();
+    const alvo = lista.find((x) => x.id === estado.assunto);
+    // O ASSUNTO PODE VOLTAR, NAO PODE PULAR A FILA.
+    //
+    // Teste da Kemilly: ela abriu com "quero encomendar pra uma festa bolo e
+    // docinhos e salgados" e a primeira pergunta foi o SABOR DO BOLO, antes de
+    // "quantas pessoas" e antes da proposta. O assunto que ela trouxe atropelou
+    // a ordem do roteiro, e ela escolheu bolo sem saber quanto ia dar.
+    //
+    // Voltar pra tras continua valendo ("na verdade quero trocar o docinho"), e
+    // da abertura sai pra qualquer lugar, que e o caso de "vcs fazem bolo?".
+    const daVez = lista.findIndex((x) => x.id === proxima.id);
+    const doAssunto = lista.findIndex((x) => x.id === estado.assunto);
+    const podeIr = proxima.id === "abertura" || doAssunto <= daVez;
+    if (alvo && !alvo.cumprida(estado) && podeIr) {
       proxima = alvo;
       rastro.push("o assunto e " + alvo.id + " (foi ele quem trouxe)");
     } else {

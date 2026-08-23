@@ -172,11 +172,18 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
   // O nome e a idade vao impressos na peca. Sem os dois, a cozinha nao tem o
   // que escrever.
   if ((topo === true || papel === true) && (!p.topoNome || !p.topoIdade)) {
+    // A PERGUNTA TEM QUE FALAR DA PECA QUE ELE PEDIU.
+    //
+    // Teste da Kemilly, 23/08/2026: ela respondeu NAO pro topo, disse sim pro
+    // papel de arroz, e a padaria perguntou "qual nome e idade vao no TOPO?".
+    // Ela ja tinha dito que nao queria topo. Palavra do dono: "pediu qual nome e
+    // idade vai no TOPO se ela selecionou que nao quer TOPO".
+    const peca = topo === true ? "o topo" : "o papel de arroz";
     const falta =
       !p.topoNome && !p.topoIdade
-        ? "O topo vai com qual nome e qual idade?"
+        ? "Qual nome e qual idade vão n" + (topo === true ? "o topo" : "o papel de arroz") + "?"
         : !p.topoNome
-          ? "O topo vai no nome de quem?"
+          ? "Qual o nome que vai n" + peca + "?"
           : "E quantos anos ele faz?";
     return { texto: falta, botoes: [], cardapio: null, podeReescrever: true };
   }
@@ -349,12 +356,50 @@ function falaDaOferta(p: PedidoEmMontagem): Fala {
 }
 
 function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
-  // "3 kg de bombom" nao e comida: o sabor do bolo sozinho nao diz que e bolo.
-  // Saiu assim no resumo do teste de 23/08/2026.
-  const linhas = p.itens.map((i) => {
+  // CADA LINHA COM O SEU VALOR, IGUAL A COMANDA.
+  //
+  // Pedido do dono, 23/08/2026: "ja tem que colocar o valor de cada produto do
+  // lado de cada um, igual na comanda, quantidade x preco". Ele esta certo:
+  // resumo que so mostra o total obriga o cliente a confiar, e cliente que nao
+  // consegue conferir liga pra padaria.
+  //
+  // O valor sai do MOTOR, linha por linha, o mesmo que soma o total e o mesmo
+  // que imprime a comanda. Se algum item nao for cotado, a linha sai sem valor
+  // em vez de sair com valor inventado.
+  //
+  // "3 kg de bombom" tambem nao e comida: o sabor do bolo sozinho nao diz que e
+  // bolo, e saiu assim no resumo do teste anterior.
+  const cot = motorPadrao.cotarPorItens(
+    p.itens.map((i) => ({ item: i.produto, qtd: i.qtd, obs: i.obs ?? undefined })),
+  );
+  // O MOTOR PODE DEVOLVER A LINHA COM OUTRO NOME.
+  //
+  // "biz" volta como "bolo biz", porque no cardapio o sabor e do bolo. Casando
+  // so pelo nome exato, a linha do bolo saia SEM valor no resumo, e justo a
+  // mais cara. Aqui casa por posicao primeiro, que e o jeito certo, e cai pro
+  // nome quando o motor pular algum item que ele nao conhece.
+  const linhasDoMotor = cot.linhas ?? [];
+  const valorDe = (produto: string, posicao: number) => {
+    const semAc = (t: string) =>
+      String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+    if (linhasDoMotor.length === p.itens.length) return linhasDoMotor[posicao];
+    const alvo = semAc(produto);
+    return linhasDoMotor.find((l) => {
+      const nome = semAc(String(l.item));
+      return nome === alvo || nome.endsWith(" " + alvo) || nome.startsWith(alvo + " ");
+    });
+  };
+
+  const linhas = p.itens.map((i, posicao) => {
     const ehBolo = i.categoria.startsWith("bolo");
     const nome = ehBolo && !/bolo/i.test(i.produto) ? "bolo de " + i.produto : i.produto;
-    return "- " + i.qtd + (ehBolo ? " kg de " : " ") + nome + (i.obs ? " (" + i.obs + ")" : "");
+    const l = valorDe(i.produto, posicao);
+    const quanto = l
+      ? "  " + brl(Number(l.unit)) + (l.unidade === "kg" ? "/kg" : " cada") + " = " + brl(Number(l.subtotal))
+      : "";
+    return (
+      "- " + i.qtd + (ehBolo ? " kg de " : " ") + nome + (i.obs ? " (" + i.obs + ")" : "") + quanto
+    );
   });
   const d = p.dados;
   return (

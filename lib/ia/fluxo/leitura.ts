@@ -83,7 +83,10 @@ export type Leitura = {
    *
    * A resposta sai do codigo, com o dado da casa, e nada e anotado.
    */
-  perguntou?: { sobre: "preco" | "horario" | "endereco" | "pagamento" | "entrega" | "prazo"; familia?: string };
+  perguntou?: {
+    sobre: "preco" | "horario" | "endereco" | "pagamento" | "entrega" | "prazo" | "outro";
+    familia?: string;
+  };
   /** Como o bolo vai embalado: prato de MDF aberto ou embalagem com tampa. */
   prato?: "aberto" | "tampa";
   /** Dados da retirada. */
@@ -189,10 +192,10 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     //
     // No sistema antigo a cliente perguntou "0% lactose nao e sem acucar ne?" e
     // ganhou um bolo 0% lactose no pedido dela.
-    "SEMPRE: se ele PERGUNTOU em vez de pedir (quanto custa, que horas abre, " +
-    "onde fica, como pagar, se entrega, antecedência), devolva perguntou.sobre " +
-    "= preco, horario, endereco, pagamento, entrega ou prazo, e em preco a " +
-    "familia. NÃO devolva itens: perguntar não é pedir.";
+    // Este bloco entra em TODA etapa, entao cada palavra aqui custa em todas.
+    "SEMPRE: PERGUNTA em vez de pedido devolve perguntou.sobre = preco (com " +
+    "familia), horario, endereco, pagamento, entrega, prazo, ou outro (CNPJ, " +
+    "nota fiscal, o que a padaria não tem). Pergunta não vira item.";
 
   // A RECUSA E RESPOSTA, NAO SILENCIO.
   //
