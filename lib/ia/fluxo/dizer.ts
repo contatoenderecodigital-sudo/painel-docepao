@@ -101,7 +101,13 @@ export async function dizerComJeito(
     }
 
     // Duas perguntas viram formulario: o codigo faz uma por vez de proposito.
-    if ((saiu.match(/\?/g) ?? []).length > 1) {
+    //
+    // SAUDACAO NAO CONTA COMO PERGUNTA. "Boa noite, tudo bem? Qual bolo voce
+    // quer?" e UMA pergunta com um cumprimento na frente, e a guarda estava
+    // barrando isso: sobrava sempre a mesma frase do codigo, que e justamente o
+    // robotismo que a reescrita existe pra evitar.
+    const semSaudacao = saiu.replace(/(tudo bem|tudo bom|como vai|como voc[êe] est[áa])\s*\?/gi, "");
+    if ((semSaudacao.match(/\?/g) ?? []).length > 1) {
       console.warn("[fala] a reescrita fez duas perguntas; mandei o texto do codigo:", saiu.slice(0, 80));
       return texto;
     }

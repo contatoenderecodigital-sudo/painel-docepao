@@ -41,6 +41,15 @@ export type Leitura = {
   itens?: { produto: string; qtd: number; obs?: string | null }[];
   /** Quantas pessoas vao na festa. */
   pessoas?: number;
+  /**
+   * E FESTA?
+   *
+   * Festa e uma conclusao, nao um ponto de partida. Ela comecava marcada como
+   * verdadeira no estado inicial, e quem mandava "boa noite" ouvia "Quantas
+   * pessoas vao na festa?" de volta. Agora so vira festa quando a pessoa fala
+   * de festa, aniversario, formatura ou de um numero de gente.
+   */
+  ehFesta?: boolean;
   /** Aceitou a base como esta? So vale na etapa da base. */
   aceitouBase?: boolean;
   /** O que ele disse que NAO quer, pra nao oferecer de novo. */
@@ -152,9 +161,12 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "Se ele pediu para mudar algo, devolva falouDeOutraEtapa com a etapa do " +
       "que ele quer mudar.",
     abertura:
-      "A conversa está começando. Descubra se é festa (várias famílias, número " +
-      "de pessoas) ou pedido simples (um item, quantidade certa), e devolva o " +
-      "que ele já falou.",
+      "A conversa está começando e você ainda não sabe o que ele quer." + String.fromCharCode(10) + 
+      "Se ele falou de FESTA, aniversário, formatura, coffee break ou de um " +
+      "número de pessoas, devolva ehFesta = true." + String.fromCharCode(10) + 
+      "Se ele pediu um produto direto (100 coxinhas, uma torta), devolva em itens." + String.fromCharCode(10) + 
+      "Se ele só cumprimentou ou perguntou uma coisa qualquer, devolva {} e " +
+      "não invente nada: quem diz o que quer é ele.",
   };
 
   const jaTem = p.itens.length

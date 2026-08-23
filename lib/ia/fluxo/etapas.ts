@@ -126,6 +126,13 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     pergunta: "Quantas pessoas vão na festa?",
     espera: { tipo: "texto", oQue: "o numero de pessoas" },
     cumprida: (p) => (p.pessoas ?? 0) > 0,
+    // PEDIDO SIMPLES NAO TEM FESTA.
+    //
+    // "quero 100 coxinhas pra sabado" recebia "Quantas pessoas vao na festa?".
+    // Quem pede um item com a quantidade certa ja disse tudo o que a padaria
+    // precisa saber sobre quantidade: perguntar de festa ali e burocracia, e foi
+    // o que o dono viu no primeiro teste.
+    pulavel: (p) => !p.ehFesta,
   },
   {
     id: "base_da_festa",
@@ -140,6 +147,8 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       ],
     },
     cumprida: (p) => p.baseAceita,
+    // So festa tem base: pedido simples nao passa por aqui.
+    pulavel: (p) => !p.ehFesta,
   },
   {
     id: "salgado",
@@ -147,7 +156,8 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     pergunta: "Quais salgados você quer?",
     espera: { tipo: "escolha_do_cardapio", cardapio: "salgados" },
     cumprida: (p) => temCategoria(p, "salgado"),
-    pulavel: (p) => recusou(p, "salgado"),
+    // Fora da festa ninguem oferece salgado a quem pediu uma torta.
+    pulavel: (p) => !p.ehFesta || recusou(p, "salgado"),
   },
   {
     id: "docinho",
@@ -155,7 +165,7 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     pergunta: "Quais docinhos você quer?",
     espera: { tipo: "escolha_do_cardapio", cardapio: "docinhos" },
     cumprida: (p) => temCategoria(p, "docinho"),
-    pulavel: (p) => recusou(p, "docinho|doce"),
+    pulavel: (p) => !p.ehFesta || recusou(p, "docinho|doce"),
   },
   {
     id: "bolo",
@@ -173,7 +183,7 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       p.itens.some(
         (i) => String(i.categoria || "").startsWith("bolo") && String(i.produto).trim().toLowerCase() !== "bolo",
       ),
-    pulavel: (p) => recusou(p, "bolo"),
+    pulavel: (p) => !p.ehFesta || recusou(p, "bolo"),
   },
   {
     id: "pecas_do_bolo",

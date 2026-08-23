@@ -107,7 +107,13 @@ function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
 function aplicar(e: Estado, l: Leitura, etapa: EtapaId): Estado {
   let novo: Estado = { ...e };
 
-  if (typeof l.pessoas === "number" && l.pessoas > 0) novo.pessoas = l.pessoas;
+  if (l.ehFesta === true) novo.ehFesta = true;
+  // Numero de pessoas E festa, mesmo que ele nao tenha usado a palavra: quem
+  // diz "somos 20" esta organizando alguma coisa.
+  if (typeof l.pessoas === "number" && l.pessoas > 0) {
+    novo.pessoas = l.pessoas;
+    novo.ehFesta = true;
+  }
   if (l.aceitouBase === true) novo.baseAceita = true;
   if (l.pecas) novo.pecas = l.pecas;
   if (l.naoQuer?.length) novo.naoQuer = [...novo.naoQuer, ...l.naoQuer];

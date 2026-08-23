@@ -23,7 +23,7 @@ import { lerEstadoDoBanco, gravarEstado, zerar } from "./gravar";
 import { fecharPedido } from "./fechar";
 import { falaDaEtapa } from "./pergunta";
 import { ETAPAS_DA_FESTA } from "./etapas";
-import { mandouRecomecar } from "../guardas";
+import { mandouRecomecar, comCumprimento } from "./falas-do-cliente";
 
 export type RespostaDoFluxo = {
   texto: string;
@@ -55,7 +55,16 @@ export function ehDoFluxoNovo(_telefone: string): boolean {
 }
 
 const VAZIO: Estado = {
-  ehFesta: true,
+  // NAO NASCE FESTA.
+  //
+  // Estava true aqui, e por isso quem mandava "boa noite" recebia "Quantas
+  // pessoas vao na festa?" na cara. O dono viu isso na primeira mensagem que
+  // mandou pro fluxo novo, e com razao: ninguem chega numa padaria e ouve uma
+  // pergunta sobre festa que ele nao mencionou.
+  //
+  // Festa e uma conclusao, nao um ponto de partida: so vira festa quando a
+  // pessoa fala de festa, de aniversario ou de um numero de gente.
+  ehFesta: false,
   pessoas: null,
   base: null,
   baseAceita: false,
@@ -120,7 +129,27 @@ export async function atenderComFluxoNovo(
   }
 
   // O jeito de falar vem por ultimo, e nao encosta onde tem dinheiro.
-  const texto = await dizerComJeito(cliente, r.fala, mensagem.texto, contar);
+  let texto = await dizerComJeito(cliente, r.fala, mensagem.texto, contar);
+
+  // A SAUDACAO NAO DEPENDE DE A IA LEMBRAR.
+  //
+  // Ela sai escrita do codigo na abertura, mas a reescrita passa por cima do
+  // texto e podia comer justamente ela. Aqui se confere depois: se sumiu,
+  // volta. A guarda nao duplica quando ja tem, e segue o relogio de Sao Paulo,
+  // nao a palavra do cliente — quem manda "bom dia" as duas da tarde recebe
+  // "boa tarde".
+  try {
+    const agora = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+    const primeiraDaPadaria = r.etapa === "abertura" && !r.estado.itens.length;
+    if (primeiraDaPadaria) {
+      // O segundo argumento e o gatilho da guarda: na abertura ela cumprimenta
+      // mesmo que o cliente nao tenha cumprimentado, porque quem atende
+      // cumprimenta primeiro.
+      texto = comCumprimento(texto, agora);
+    }
+  } catch (e) {
+    console.error("[fluxo-novo] falha ao garantir o cumprimento:", e);
+  }
 
   return {
     texto,

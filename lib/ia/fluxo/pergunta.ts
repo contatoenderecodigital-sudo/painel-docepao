@@ -19,6 +19,7 @@
 
 import { brl } from "../orcamento";
 import type { Etapa, PedidoEmMontagem } from "./etapas";
+import { saudacaoDaHora } from "./falas-do-cliente";
 
 export type Fala = {
   /** O que a padaria diz. Uma pergunta so, sempre. */
@@ -191,6 +192,32 @@ export function falaDaEtapa(
       };
 
     case "abertura":
+      // A PRIMEIRA FALA DA PADARIA COMECA COM O CUMPRIMENTO. SEMPRE.
+      //
+      // Regra do dono, em 23/08/2026: "nem boa noite ela me deu, que e o basico
+      // de todo atendimento; a primeira fala dela vai ser dizendo bom dia,
+      // tarde ou noite e tudo bem".
+      //
+      // Ele esta certo, e isso nao pode depender de a IA lembrar. A saudacao
+      // sai do RELOGIO e vem escrita daqui: quem manda "boa noite" as duas da
+      // tarde recebe "boa tarde", que e o certo, e quem nao cumprimentou
+      // recebe do mesmo jeito, porque quem atende cumprimenta primeiro.
+      // A PRIMEIRA MENSAGEM DA PADARIA.
+      //
+      // Voltava vazia, e por isso quem mandou "boa noite" recebeu "Quantas
+      // pessoas vao na festa?": sem fala propria, o fluxo caia direto na etapa
+      // seguinte. Ninguem chega numa padaria e ouve uma pergunta sobre uma
+      // festa que ele nao mencionou.
+      //
+      // Aqui a pergunta e aberta de proposito: quem chega pode querer uma
+      // festa, dez paes ou so o preco da torta, e e ele quem diz.
+      return {
+        texto: saudacaoDaHora() + ", tudo bem? O que você precisa?",
+        botoes: [],
+        cardapio: null,
+        podeReescrever: true,
+      };
+
     default:
       return { texto: "", botoes: [], cardapio: null, podeReescrever: true };
   }
