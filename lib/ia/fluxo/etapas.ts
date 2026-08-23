@@ -104,7 +104,28 @@ export type PedidoEmMontagem = {
     hora: string | null;
     pagamento: string | null;
   };
-  pecas: { topo: boolean; papelDeArroz: boolean } | null;
+  /**
+   * TOPO E PAPEL DE ARROZ, UM DE CADA VEZ.
+   *
+   * Cada um tem tres estados: null e "ainda nao perguntei", true e sim, false e
+   * nao. Antes era um par de sim e nao so, e por isso a padaria nao conseguia
+   * perguntar um sem ja ter resposta do outro.
+   *
+   * Decisao do dono em 23/08/2026, escolhendo entre lista de quatro opcoes e
+   * duas perguntas de sim e nao: ficou com as duas perguntas, porque a lista
+   * esconde as opcoes atras de um toque e a clientela da padaria ve melhor o
+   * botao na tela.
+   */
+  pecas: { topo: boolean | null; papelDeArroz: boolean | null } | null;
+  /**
+   * DE QUEM E O ANIVERSARIO, E QUANTOS ANOS FAZ.
+   *
+   * Pedido do dono, e ele tem razao: "importantissimo". O topo e fabricado com
+   * o tema, o nome e a idade, entao quem faz a peca precisa dos dois. Sem isso
+   * a comanda chega na cozinha sem o que escrever no topo.
+   */
+  topoNome: string | null;
+  topoIdade: string | null;
 };
 
 const temCategoria = (p: PedidoEmMontagem, pref: string) =>
@@ -195,17 +216,22 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
   {
     id: "pecas_do_bolo",
     rotulo: "topo e papel de arroz",
-    pergunta: "O bolo vai com topo e papel de arroz?",
+    pergunta: "O bolo vai com topo?",
     espera: {
       tipo: "botao",
       opcoes: [
-        { id: "peca_os_dois", titulo: "Os dois" },
-        { id: "peca_so_topo", titulo: "Só o topo" },
-        { id: "peca_nenhum", titulo: "Nenhum" },
+        { id: "topo_sim", titulo: "Sim" },
+        { id: "topo_nao", titulo: "Não" },
       ],
     },
-    // Responder "nenhum" tambem cumpre: o que nao pode e ficar sem resposta.
-    cumprida: (p) => p.pecas !== null,
+    // A etapa so acaba com os DOIS respondidos, e com nome e idade quando o
+    // topo for sim. Responder "nao" tambem cumpre: o que nao pode e ficar sem
+    // resposta.
+    cumprida: (p) => {
+      if (p.pecas?.topo == null || p.pecas?.papelDeArroz == null) return false;
+      if (p.pecas.topo === false) return true;
+      return Boolean(p.topoNome && p.topoIdade);
+    },
     pulavel: (p) => !temCategoria(p, "bolo"),
   },
   {

@@ -76,17 +76,34 @@ export function estadoDosDados(d: Record<string, string | null | undefined>): Pa
     ehFesta: d.fluxo_festa === "sim",
     pessoas: Number(d.fluxo_pessoas) > 0 ? Number(d.fluxo_pessoas) : null,
     baseAceita: d.fluxo_base_aceita === "sim",
-    pecas: lerPecas(d.fluxo_pecas),
+    pecas: lerPecas(d.fluxo_topo, d.fluxo_papel),
+    topoNome: d.fluxo_topo_nome || null,
+    topoIdade: d.fluxo_topo_idade || null,
     assunto: d.fluxo_assunto && d.fluxo_assunto !== "nenhum" ? (d.fluxo_assunto as EtapaId) : null,
     retomarEm: d.fluxo_retomar && d.fluxo_retomar !== "nenhum" ? (d.fluxo_retomar as EtapaId) : null,
   };
 }
 
-/** "topo,papel" volta a ser o par de sim e nao que o fluxo entende. */
-function lerPecas(bruto: string | null | undefined): { topo: boolean; papelDeArroz: boolean } | null {
-  const t = String(bruto ?? "").trim().toLowerCase();
-  if (!t) return null; // nunca perguntado
-  return { topo: /topo/.test(t), papelDeArroz: /papel/.test(t) };
+/**
+ * Cada peca tem tres estados, e o banco guarda os tres.
+ *
+ * Ausente e "ainda nao perguntei", que e diferente de "ele disse que nao". Sem
+ * essa diferenca a padaria nao consegue perguntar de uma peca de cada vez: ela
+ * nao saberia qual das duas ja tem resposta.
+ */
+function lerPecas(
+  topo: string | null | undefined,
+  papel: string | null | undefined,
+): { topo: boolean | null; papelDeArroz: boolean | null } | null {
+  const ler = (v: string | null | undefined) => {
+    const t = String(v ?? "").trim().toLowerCase();
+    if (!t) return null;
+    return t === "sim";
+  };
+  const t = ler(topo);
+  const p = ler(papel);
+  if (t === null && p === null) return null;
+  return { topo: t, papelDeArroz: p };
 }
 
 /**
@@ -167,10 +184,15 @@ export function dadosQueMudaram(antes: Estado, depois: Estado): Record<string, s
   if (depois.ehFesta && !antes.ehFesta) mudou.fluxo_festa = "sim";
   if (depois.pessoas && depois.pessoas !== antes.pessoas) mudou.fluxo_pessoas = String(depois.pessoas);
   if (depois.baseAceita && !antes.baseAceita) mudou.fluxo_base_aceita = "sim";
-  if (depois.pecas && depois.pecas !== antes.pecas) {
-    const p = [depois.pecas.topo ? "topo" : "", depois.pecas.papelDeArroz ? "papel" : ""].filter(Boolean);
-    mudou.fluxo_pecas = p.length ? p.join(",") : "nenhum";
-  }
+  const simNao = (v: boolean | null | undefined) => (v === true ? "sim" : v === false ? "nao" : null);
+  const topoAntes = simNao(antes.pecas?.topo);
+  const topoDepois = simNao(depois.pecas?.topo);
+  if (topoDepois && topoDepois !== topoAntes) mudou.fluxo_topo = topoDepois;
+  const papelAntes = simNao(antes.pecas?.papelDeArroz);
+  const papelDepois = simNao(depois.pecas?.papelDeArroz);
+  if (papelDepois && papelDepois !== papelAntes) mudou.fluxo_papel = papelDepois;
+  if (depois.topoNome && depois.topoNome !== antes.topoNome) mudou.fluxo_topo_nome = depois.topoNome;
+  if (depois.topoIdade && depois.topoIdade !== antes.topoIdade) mudou.fluxo_topo_idade = depois.topoIdade;
   if ((depois.assunto ?? null) !== (antes.assunto ?? null)) mudou.fluxo_assunto = depois.assunto ?? "nenhum";
   if ((depois.retomarEm ?? null) !== (antes.retomarEm ?? null)) mudou.fluxo_retomar = depois.retomarEm ?? "nenhum";
   return mudou;

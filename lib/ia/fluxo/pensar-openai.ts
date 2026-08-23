@@ -36,7 +36,8 @@ const FORMATO = `Responda SÓ com um JSON, sem texto em volta, neste formato:
   "aceitouBase": false,
   "naoQuer": ["salgado"],
   "confirmou": true,
-  "pecas": { "topo": false, "papelDeArroz": false },
+  "pecas": { "topo": true },
+  "aniversariante": { "nome": "Arthur", "idade": "5 anos" },
   "dados": { "nome": "", "data": "DD/MM/AAAA", "hora": "HH:MM", "pagamento": "pix" },
   "falouDeOutraEtapa": "bolo",
   "recomecar": false
@@ -110,11 +111,24 @@ export function pensarComOpenAI(
       if (Array.isArray(lido.naoQuer) && lido.naoQuer.length) {
         limpo.naoQuer = lido.naoQuer.map(String).filter(Boolean);
       }
+      // SO O QUE ELE FALOU ENTRA.
+      //
+      // Antes isto virava true ou false pros dois campos sempre, e um "quero o
+      // topo" respondia por ele que nao queria papel de arroz. Campo ausente
+      // agora fica ausente, e quem decide o que fazer com isso e o fluxo.
       if (lido.pecas && typeof lido.pecas === "object") {
-        limpo.pecas = {
-          topo: lido.pecas.topo === true,
-          papelDeArroz: lido.pecas.papelDeArroz === true,
-        };
+        const pec: NonNullable<Leitura["pecas"]> = {};
+        if (typeof lido.pecas.topo === "boolean") pec.topo = lido.pecas.topo;
+        if (typeof lido.pecas.papelDeArroz === "boolean") pec.papelDeArroz = lido.pecas.papelDeArroz;
+        if (Object.keys(pec).length) limpo.pecas = pec;
+      }
+      if (lido.aniversariante && typeof lido.aniversariante === "object") {
+        const a: NonNullable<Leitura["aniversariante"]> = {};
+        const nome = String(lido.aniversariante.nome ?? "").trim();
+        const idade = String(lido.aniversariante.idade ?? "").trim();
+        if (nome) a.nome = nome;
+        if (idade) a.idade = idade;
+        if (Object.keys(a).length) limpo.aniversariante = a;
       }
       if (lido.dados && typeof lido.dados === "object") {
         const d: NonNullable<Leitura["dados"]> = {};

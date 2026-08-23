@@ -92,9 +92,12 @@ export type Resposta = {
 const DO_BOTAO: Record<string, (e: Estado) => Estado> = {
   base_sim: (e) => ({ ...e, baseAceita: true }),
   base_ajustar: (e) => ({ ...e, baseAceita: false }),
-  peca_os_dois: (e) => ({ ...e, pecas: { topo: true, papelDeArroz: true } }),
-  peca_so_topo: (e) => ({ ...e, pecas: { topo: true, papelDeArroz: false } }),
-  peca_nenhum: (e) => ({ ...e, pecas: { topo: false, papelDeArroz: false } }),
+  // Um de cada vez, e sem apagar a resposta do outro: quem responde do topo
+  // ainda nao respondeu do papel, e vice-versa.
+  topo_sim: (e) => ({ ...e, pecas: { topo: true, papelDeArroz: e.pecas?.papelDeArroz ?? null } }),
+  topo_nao: (e) => ({ ...e, pecas: { topo: false, papelDeArroz: e.pecas?.papelDeArroz ?? null } }),
+  papel_sim: (e) => ({ ...e, pecas: { topo: e.pecas?.topo ?? null, papelDeArroz: true } }),
+  papel_nao: (e) => ({ ...e, pecas: { topo: e.pecas?.topo ?? null, papelDeArroz: false } }),
   pag_pix: (e) => ({ ...e, dados: { ...e.dados, pagamento: "pix" } }),
   pag_cartao: (e) => ({ ...e, dados: { ...e.dados, pagamento: "cartao" } }),
   pag_dinheiro: (e) => ({ ...e, dados: { ...e.dados, pagamento: "dinheiro" } }),
@@ -149,7 +152,19 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId): Estado {
     novo.ehFesta = true;
   }
   if (l.aceitouBase === true) novo.baseAceita = true;
-  if (l.pecas) novo.pecas = l.pecas;
+  // Escrevendo tambem se responde, e so o que ele falou entra: dizer "quero
+  // topo" nao pode apagar o papel de arroz que ele ja tinha recusado.
+  if (l.pecas) {
+    novo.pecas = {
+      topo: typeof l.pecas.topo === "boolean" ? l.pecas.topo : (novo.pecas?.topo ?? null),
+      papelDeArroz:
+        typeof l.pecas.papelDeArroz === "boolean"
+          ? l.pecas.papelDeArroz
+          : (novo.pecas?.papelDeArroz ?? null),
+    };
+  }
+  if (l.aniversariante?.nome) novo.topoNome = String(l.aniversariante.nome).trim();
+  if (l.aniversariante?.idade) novo.topoIdade = String(l.aniversariante.idade).trim();
   if (l.naoQuer?.length) novo.naoQuer = [...novo.naoQuer, ...l.naoQuer];
 
   if (l.dados) {
@@ -266,6 +281,36 @@ export async function responder(
     if (novos.length) {
       estado = { ...estado, itens: [...estado.itens, ...novos] };
       rastro.push("base aceita virou pedido: " + novos.map((i) => i.qtd + " " + i.produto).join(", "));
+    }
+  }
+
+  // ------------------------------------------- as pecas do bolo viram pedido
+  //
+  // PAPEL DE ARROZ TEM PRECO DE TABELA; TOPO NAO TEM.
+  //
+  // Papel de arroz e produto: o motor cota, entra na conta e sai na comanda como
+  // linha. Topo nao esta no motor de proposito, porque cada peca e orcada pela
+  // equipe. Se ele virasse item, a conta ficaria com um produto de valor zero e
+  // a comanda imprimiria duas vezes a mesma coisa, que e um defeito que ja
+  // aconteceu aqui.
+  //
+  // Entao topo vira OBSERVACAO do bolo, que e onde a cozinha le o que escrever
+  // na peca, e o valor fica pendente pra dona lancar na tela.
+  if (estado.pecas?.papelDeArroz === true && !estado.itens.some((i) => /papel de arroz/i.test(i.produto))) {
+    estado = {
+      ...estado,
+      itens: [...estado.itens, { produto: "papel de arroz", categoria: "papel_de_arroz", qtd: 1, obs: null }],
+    };
+    rastro.push("papel de arroz virou item do pedido");
+  }
+  if (estado.pecas?.topo === true && estado.topoNome && estado.topoIdade) {
+    const marca = "Topo: " + estado.topoNome + ", " + estado.topoIdade;
+    const i = estado.itens.findIndex((x) => String(x.categoria || "").startsWith("bolo"));
+    if (i >= 0 && !/topo:/i.test(String(estado.itens[i].obs ?? ""))) {
+      const itens = [...estado.itens];
+      itens[i] = { ...itens[i], obs: [itens[i].obs, marca].filter(Boolean).join(" | ") };
+      estado = { ...estado, itens };
+      rastro.push("topo anotado na observacao do bolo: " + marca);
     }
   }
 

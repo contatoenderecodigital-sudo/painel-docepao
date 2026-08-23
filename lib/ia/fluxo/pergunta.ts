@@ -17,7 +17,7 @@
 //  ja esta fechado quando chega nela.
 // ============================================================================
 
-import { brl } from "../orcamento";
+import { brl, motorPadrao } from "../orcamento";
 import type { Etapa, PedidoEmMontagem } from "./etapas";
 import { saudacaoDaHora } from "./falas-do-cliente";
 
@@ -77,6 +77,79 @@ function falaDosDados(p: PedidoEmMontagem): { texto: string; botoes: Fala["botoe
 }
 
 /** O resumo que vai antes de confirmar: item por item, com a conta fechada. */
+/**
+ * TOPO E PAPEL DE ARROZ, UMA PERGUNTA DE CADA VEZ.
+ *
+ * O WhatsApp so deixa mandar tres botoes por mensagem, e as opcoes de verdade
+ * sao quatro: os dois, so o topo, so o papel, nenhum. O dono escolheu resolver
+ * com duas perguntas de sim e nao em vez de uma lista de quatro linhas, porque
+ * a lista esconde as opcoes atras de um toque e ele conhece a clientela.
+ *
+ * Duas perguntas cobrem as quatro combinacoes e deixam tudo visivel na tela.
+ *
+ * E O NOME E A IDADE DO ANIVERSARIANTE
+ *
+ * So quando o topo for sim, porque so o topo precisa deles: a peca e fabricada
+ * com o tema, o nome e o numero. A pergunta sai numa frase so, que e como uma
+ * atendente perguntaria, e o CODIGO confere se vieram os dois. Se faltar um, ele
+ * cobra o que faltou.
+ *
+ * Foi o medo do dono que desenhou isso: "numa pergunta so e mais real, mas meu
+ * medo e ela errar". Perguntar junto e cobrar no codigo resolve os dois lados.
+ */
+function falaDasPecas(p: PedidoEmMontagem): Fala {
+  const topo = p.pecas?.topo ?? null;
+  const papel = p.pecas?.papelDeArroz ?? null;
+
+  if (topo === null) {
+    return {
+      texto: "O bolo vai com topo?",
+      botoes: [
+        { id: "topo_sim", titulo: "Sim" },
+        { id: "topo_nao", titulo: "Não" },
+      ],
+      cardapio: null,
+      podeReescrever: true,
+    };
+  }
+
+  if (papel === null) {
+    // O VALOR SAI DO MOTOR, NAO DA MINHA MEMORIA.
+    //
+    // Papel de arroz e o unico adicional do bolo com preco de tabela. Escrever
+    // "R$ 12" aqui na mao seria mais um numero pra divergir do cardapio no dia
+    // em que a dona mudar. Por ter valor, esta fala nao passa pela reescrita.
+    const cot = motorPadrao.cotarPorItens([{ item: "papel de arroz", qtd: 1 }]);
+    const preco = Number(cot.linhas?.[0]?.subtotal ?? 0);
+    return {
+      texto:
+        "E papel de arroz, com a foto impressa no bolo?" +
+        (preco > 0 ? " Fica " + brl(preco) + "." : ""),
+      botoes: [
+        { id: "papel_sim", titulo: "Sim" },
+        { id: "papel_nao", titulo: "Não" },
+      ],
+      cardapio: null,
+      podeReescrever: preco <= 0,
+    };
+  }
+
+  // O topo e feito com o nome e a idade. Sem os dois, a cozinha nao tem o que
+  // escrever na peca.
+  if (topo === true && (!p.topoNome || !p.topoIdade)) {
+    const falta =
+      !p.topoNome && !p.topoIdade
+        ? "O topo vai com qual nome e qual idade?"
+        : !p.topoNome
+          ? "O topo vai no nome de quem?"
+          : "E quantos anos ele faz?";
+    return { texto: falta, botoes: [], cardapio: null, podeReescrever: true };
+  }
+
+  // Tudo respondido: quem escolhe a proxima etapa e a lista, nao esta fala.
+  return { texto: "", botoes: [], cardapio: null, podeReescrever: true };
+}
+
 function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
   const linhas = p.itens.map(
     (i) => "- " + i.qtd + (i.categoria.startsWith("bolo") ? " kg de " : " ") + i.produto +
@@ -87,7 +160,20 @@ function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
     "Fechando o pedido:" + "\n" + linhas.join("\n") + "\n\n" +
     "Retirada " + (d.data ?? "") + (d.hora ? " às " + d.hora : "") + "\n" +
     "No nome de " + (d.nome ?? "") + ", pagamento " + (d.pagamento ?? "") + "\n" +
-    "*Total: " + brl(totalCentavos / 100) + "*"
+    "*Total: " + brl(totalCentavos / 100) + "*" +
+    // O TOPO NAO ENTRA NO TOTAL, E O CLIENTE PRECISA SABER DISSO ANTES.
+    //
+    // Ele e o unico item da casa sem preco de tabela: cada peca e fabricada com
+    // o tema, o nome e a idade, e quem lanca o valor e a equipe, na tela do
+    // painel. Dizer "em torno de R$ 30" e ancora, nao estimativa: o cliente le
+    // 30, a equipe lanca 45, e a diferenca vira discussao no balcao com a dona.
+    // Uma companhia aerea ja foi obrigada por tribunal a honrar o numero que o
+    // robo dela inventou.
+    //
+    // Entao o resumo avisa que falta o topo, e nao diz quanto.
+    (p.pecas?.topo === true
+      ? "\n\n_O topo entra à parte: a equipe faz o orçamento dele e confirma com você._"
+      : "")
   );
 }
 
@@ -155,16 +241,7 @@ export function falaDaEtapa(
       };
 
     case "pecas_do_bolo":
-      return {
-        texto: "O bolo vai com topo e papel de arroz?",
-        botoes: [
-          { id: "peca_os_dois", titulo: "Os dois" },
-          { id: "peca_so_topo", titulo: "Só o topo" },
-          { id: "peca_nenhum", titulo: "Nenhum" },
-        ],
-        cardapio: null,
-        podeReescrever: true,
-      };
+      return falaDasPecas(p);
 
     case "dados": {
       const d = falaDosDados(p);

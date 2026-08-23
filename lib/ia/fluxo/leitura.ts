@@ -54,8 +54,22 @@ export type Leitura = {
   aceitouBase?: boolean;
   /** O que ele disse que NAO quer, pra nao oferecer de novo. */
   naoQuer?: string[];
-  /** Topo e papel de arroz. So vale na etapa das pecas. */
-  pecas?: { topo: boolean; papelDeArroz: boolean };
+  /**
+   * Topo e papel de arroz. So vale na etapa das pecas.
+   *
+   * Os dois sao opcionais de proposito: quem responde "quero o topo" nao disse
+   * nada sobre papel de arroz, e obrigar o modelo a devolver os dois faria ele
+   * chutar um. O que ele nao falar fica como estava.
+   */
+  pecas?: { topo?: boolean; papelDeArroz?: boolean };
+  /**
+   * DE QUEM E O ANIVERSARIO, E QUANTOS ANOS FAZ.
+   *
+   * O topo e fabricado com o tema, o nome e a idade. A padaria pergunta os dois
+   * numa frase so, e o codigo cobra o que faltar: se ele responder so "Arthur",
+   * a proxima pergunta e a idade.
+   */
+  aniversariante?: { nome?: string; idade?: string };
   /** Dados da retirada. */
   dados?: { nome?: string; data?: string; hora?: string; pagamento?: string };
   /**
@@ -174,9 +188,15 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "O peso em quilos vai na quantidade; o pão de ló vai na observação." +
       recusa("bolo") + lista,
     pecas_do_bolo:
-      "A etapa é TOPO E PAPEL DE ARROZ do bolo. Devolva pecas com topo e " +
-      "papelDeArroz, cada um true ou false. O tema e o nome do aniversariante " +
-      "vão na observação do bolo.",
+      "A etapa é TOPO E PAPEL DE ARROZ do bolo, e o NOME e a IDADE do " +
+      "aniversariante." + String.fromCharCode(10) +
+      "Devolva em pecas SÓ o que ele falou nesta mensagem: topo true ou false, " +
+      "papelDeArroz true ou false. Não devolva o que ele não falou." +
+      String.fromCharCode(10) +
+      "Se ele disser o nome ou a idade de quem faz aniversário, devolva em " +
+      "aniversariante (nome e idade). \"Arthur, 5 anos\" é nome Arthur e idade " +
+      "5 anos. \"Vai fazer 5\" é só a idade." + String.fromCharCode(10) +
+      "O tema do bolo vai na observação do bolo.",
     dados:
       "A etapa é PEGAR OS DADOS DA RETIRADA: nome de quem retira, dia, hora e " +
       "forma de pagamento. Devolva só o que ele falou nesta mensagem. " +

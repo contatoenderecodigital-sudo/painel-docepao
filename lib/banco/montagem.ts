@@ -63,7 +63,10 @@ export type DadosMontagem = {
   fluxo_festa?: string | null; // "sim" quando a conversa e de festa
   fluxo_pessoas?: string | null; // quantas pessoas vao
   fluxo_base_aceita?: string | null; // "sim" depois que ele aceita a proposta
-  fluxo_pecas?: string | null; // "topo", "papel", "topo,papel" ou "nenhum"
+  fluxo_topo?: string | null; // "sim" ou "nao" (ausente = ainda nao perguntado)
+  fluxo_papel?: string | null; // "sim" ou "nao" (ausente = ainda nao perguntado)
+  fluxo_topo_nome?: string | null; // nome do aniversariante, pro topo
+  fluxo_topo_idade?: string | null; // idade do aniversariante, pro topo
   fluxo_assunto?: string | null; // a etapa que ELE pos na mesa, ou "nenhum"
   fluxo_retomar?: string | null; // a etapa pra onde voltar depois do desvio
 };

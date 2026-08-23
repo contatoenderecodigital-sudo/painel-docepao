@@ -45,6 +45,15 @@ export function oQueFaltaPraFechar(e: Estado): string[] {
   if (!e.dados.nome) falta.push("o nome de quem retira");
   if (!e.dados.pagamento) falta.push("a forma de pagamento");
   // Bolo sem sabor nao se produz: a cozinha fica sem saber o que assar.
+  // TOPO SEM NOME E IDADE NAO SE PRODUZ.
+  //
+  // Cada topo e fabricado com o tema, o nome e o numero. Fechar assim manda pra
+  // cozinha uma peca que ninguem sabe montar, e a equipe teria que ligar pro
+  // cliente pra perguntar o que a conversa ja podia ter perguntado.
+  if (e.pecas?.topo === true && (!e.topoNome || !e.topoIdade)) {
+    if (!e.topoNome) falta.push("o nome do aniversariante, pro topo");
+    if (!e.topoIdade) falta.push("a idade do aniversariante, pro topo");
+  }
   const boloSemSabor = e.itens.find(
     (i) => String(i.categoria).startsWith("bolo") && String(i.produto).trim().toLowerCase() === "bolo",
   );
@@ -108,6 +117,15 @@ export async function fecharPedido(
     // Primeira regra que o dono me deu: a IA nunca confirma sozinha. O pedido
     // entra na fila e espera a dona olhar, e so depois vira producao.
     precisaConfirmacao: true,
+    // E QUANDO TEM TOPO, A DONA PRECISA SABER QUE FALTA LANCAR O VALOR.
+    //
+    // O topo e o unico item da casa sem preco de tabela: o total que o cliente
+    // viu esta certo e nao inclui o topo. O painel ja tem tela propria pra
+    // pedido que espera a equipe, e o motivo aparece na frente dele.
+    motivoHumano:
+      e.pecas?.topo === true
+        ? "Topo de bolo (" + e.topoNome + ", " + e.topoIdade + "): falta a equipe lançar o valor."
+        : undefined,
   });
 
   return { pedidoId, totalCentavos, linhas };

@@ -34,13 +34,15 @@ fs.writeFileSync(
     "  'bolo de ninho': { itens:[{produto:'ninho',qtd:2}] },",
     "  'entao o de morango': { itens:[{produto:'morango',qtd:2}] },",
     "  'sandro, dia 12/09 as 11h': { dados:{nome:'Sandro',data:'12/09/2026',hora:'11:00'} },",
+    "  'arthur, 5 anos': { aniversariante:{nome:'Arthur',idade:'5 anos'} },",
     "};",
     "const pensar = async ({ mensagem }: { mensagem: string }) => (gravado[mensagem] ?? {}) as never;",
-    "let e: Record<string, unknown> = { ehFesta:true, pessoas:null, base:{salgados:200,docinhos:100,boloKg:2,totalCentavos:41880}, baseAceita:false, itens:[], naoQuer:[], dados:{nome:null,data:null,hora:null,pagamento:null}, pecas:null, retomarEm:null };",
+    "let e: Record<string, unknown> = { ehFesta:true, pessoas:null, base:{salgados:200,docinhos:100,boloKg:2,totalCentavos:41880}, baseAceita:false, itens:[], naoQuer:[], dados:{nome:null,data:null,hora:null,pagamento:null}, pecas:null, topoNome:null, topoIdade:null, retomarEm:null };",
     "const passos = [",
     "  {texto:'20 pessoas'}, {texto:'',botaoId:'base_sim'}, {texto:'quero coxinha e risoles'},",
     "  {texto:'brigadeiro e beijinho'}, {texto:'bolo de ninho'}, {texto:'entao o de morango'},",
-    "  {texto:'',botaoId:'peca_os_dois'}, {texto:'sandro, dia 12/09 as 11h'}, {texto:'',botaoId:'pag_pix'},",
+    "  {texto:'',botaoId:'topo_sim'}, {texto:'',botaoId:'papel_sim'}, {texto:'arthur, 5 anos'},",
+    "  {texto:'sandro, dia 12/09 as 11h'}, {texto:'',botaoId:'pag_pix'},",
     "];",
     "const linhas = [];",
     "let chamadas = 0;",
@@ -110,7 +112,7 @@ if (estado.itens.some((i) => /ninho/i.test(i.produto))) {
 }
 
 // -------------------------------------------- botao nao chama a IA
-const deBotao = linhas.filter((l) => /^(base_|peca_|pag_)/.test(l.entrada));
+const deBotao = linhas.filter((l) => /^(base_|topo_|papel_|pag_)/.test(l.entrada));
 for (const l of deBotao) {
   if (l.chamouIA) falhas.push("o toque em " + l.entrada + " chamou a IA; botao tem que sair de graca");
 }

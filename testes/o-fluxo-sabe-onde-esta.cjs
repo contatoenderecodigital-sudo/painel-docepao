@@ -36,7 +36,7 @@ fs.writeFileSync(
   sonda,
   [
     'import { etapaDaVez, ETAPAS_DA_FESTA } from "../lib/ia/fluxo/etapas.ts";',
-    "const vazio = { ehFesta:false, pessoas:null, base:null, baseAceita:false, itens:[], naoQuer:[], dados:{nome:null,data:null,hora:null,pagamento:null}, pecas:null };",
+    "const vazio = { ehFesta:false, pessoas:null, base:null, baseAceita:false, itens:[], naoQuer:[], dados:{nome:null,data:null,hora:null,pagamento:null}, pecas:null, topoNome:null, topoIdade:null };",
     "const p = (x: Record<string, unknown>) => ({ ...vazio, ...x });",
     "const salgado = [{produto:'coxinha',categoria:'salgado_frito',qtd:40,obs:null}];",
     "const bolo = [{produto:'bolo ninho',categoria:'bolo_festa',qtd:2,obs:null}];",
@@ -50,7 +50,7 @@ fs.writeFileSync(
     "  ['nao quer docinho', p({...festa, naoQuer:['docinho'], itens:salgado})],",
     "  ['so bolo', p({...festa, naoQuer:['salgado','docinho']})],",
     "  ['tem bolo falta peca', p({...festa, naoQuer:['salgado','docinho'], itens:bolo})],",
-    "  ['peca ok falta dado', p({...festa, naoQuer:['salgado','docinho'], itens:bolo, pecas:{topo:true,papelDeArroz:false}})],",
+    "  ['peca ok falta dado', p({...festa, naoQuer:['salgado','docinho'], itens:bolo, pecas:{topo:true,papelDeArroz:false}, topoNome:'Arthur', topoIdade:'5 anos'})],",
     "  ['tudo pronto', p({...festa, naoQuer:['salgado','docinho'], itens:bolo, pecas:{topo:false,papelDeArroz:false}, dados:{nome:'Sandro',data:'12/09',hora:'11:30',pagamento:'pix'}})],",
     "];",
     "const saida = casos.map(([nome, est]) => [nome, etapaDaVez(est as never).id]);",

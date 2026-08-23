@@ -72,6 +72,8 @@ const VAZIO: Estado = {
   naoQuer: [],
   dados: { nome: null, data: null, hora: null, pagamento: null },
   pecas: null,
+  topoNome: null,
+  topoIdade: null,
   retomarEm: null,
   assunto: null,
 };
