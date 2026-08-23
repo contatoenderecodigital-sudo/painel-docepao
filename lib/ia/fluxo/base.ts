@@ -31,7 +31,7 @@
 // ============================================================================
 
 import { motorPadrao } from "../orcamento";
-import { FAMILIAS } from "./familias";
+import catalogo from "../dados/catalogo.json";
 import type { PedidoEmMontagem } from "./etapas";
 
 export type Base = {
@@ -110,11 +110,18 @@ export function baseVirandoItens(base: Base, p: PedidoEmMontagem): PedidoEmMonta
     });
   };
 
-  const fam = (id: string) => FAMILIAS.find((f) => f.id === id);
+  // OS NOMES SAEM DO CARDAPIO, QUE E A MESMA FONTE DO PRECO.
+  //
+  // Sairam de uma tabela minha de 235 linhas (familias.ts) que o sistema usava
+  // por dez: a tabela ja lia o cardapio, entao nao era dado errado, era andaime.
+  // O dono viu o mesmo tipo de sobra nos botoes e reclamou com razao. Quando as
+  // outras familias forem construidas de verdade, a tabela volta com elas.
+  const nomes = (lista: { nome: string }[]) => lista.map((i) => String(i.nome));
 
-  // Salgado: os mais pedidos primeiro, na ordem em que a casa costuma sugerir.
-  dividir(base.salgados, (fam("salgado")?.itens ?? []).slice(0, 5), "salgado_frito");
-  dividir(base.docinhos, (fam("docinho")?.itens ?? []).slice(0, 4), "docinho");
+  // Os primeiros do cardapio sao os mais pedidos, na ordem em que a casa
+  // costuma sugerir: coxinha, bolinha de queijo, almofadinha.
+  dividir(base.salgados, nomes((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]).slice(0, 5), "salgado_frito");
+  dividir(base.docinhos, nomes((catalogo.doces?.itens ?? []) as { nome: string }[]).slice(0, 4), "docinho");
 
   // O bolo e um so, e o sabor fica pra etapa dele: o cliente escolhe o sabor,
   // nao a casa. So o PESO vem da base, que e a conta de 100 g por pessoa.

@@ -69,6 +69,15 @@ export type Leitura = {
   falouDeOutraEtapa?: EtapaId;
   /** Ele mandou apagar tudo e comecar de novo. */
   recomecar?: boolean;
+  /**
+   * ELE CONFIRMOU O PEDIDO ESCREVENDO.
+   *
+   * O pedido so fechava com o toque no botao Confirmar, e isso era um beco de
+   * verdade: quem escreve "pode fechar" nao fecha nada, e quem volta depois de
+   * 24 horas NEM RECEBE BOTAO, porque o WhatsApp so deixa mandar botao dentro
+   * da janela de conversa. O cliente ficava vendo o mesmo resumo pra sempre.
+   */
+  confirmou?: boolean;
 };
 
 const nomes = (lista: { nome: string }[]) => lista.map((i) => String(i.nome));
@@ -127,6 +136,20 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "de quem retira ou a FORMA DE PAGAMENTO, devolva em dados. Isso vale mesmo " +
     "que a etapa seja outra, porque o cliente fala esses quatro quando lembra.";
 
+  // A RECUSA E RESPOSTA, NAO SILENCIO.
+  //
+  // So a etapa da proposta sabia ouvir "nao quero". Nas etapas de familia, quem
+  // dissesse "nao quero docinho" nao anotava item (nao pediu nada) e nao
+  // recusava nada (ninguem estava ouvindo), entao a etapa continuava aberta e a
+  // padaria perguntava de docinho pra sempre. Beco igual ao de "vcs fazem
+  // bolo?", e nas tres familias.
+  //
+  // Escrita uma vez e usada nas tres de proposito: o dono pediu que as regras
+  // fossem as mesmas em todas as familias, senao cada uma quebra de um jeito.
+  const recusa = (familia: string) =>
+    " Se ele disser que NÃO quer " + familia + " (não quero, sem " + familia +
+    ", pode tirar, deixa pra lá), devolva naoQuer com a palavra " + familia + ".";
+
   const daEtapa: Record<string, string> = {
     quantas_pessoas:
       "A etapa é QUANTAS PESSOAS vão na festa. Devolva o número em pessoas. " +
@@ -138,16 +161,18 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "alguma família (salgado, docinho, bolo), devolva em naoQuer.",
     salgado:
       "A etapa é ESCOLHER OS SALGADOS. Só existe salgado aqui: se ele falar de " +
-      "docinho ou de bolo, devolva falouDeOutraEtapa em vez de anotar." + lista,
+      "docinho ou de bolo, devolva falouDeOutraEtapa em vez de anotar." +
+      recusa("salgado") + lista,
     docinho:
       "A etapa é ESCOLHER OS DOCINHOS. Só existe docinho aqui: se ele falar de " +
       "bolo ou de salgado, devolva falouDeOutraEtapa em vez de anotar. " +
-      "A cor da forminha vai na observação do item." + lista,
+      "A cor da forminha vai na observação do item." + recusa("docinho") + lista,
     bolo:
       "A etapa é ESCOLHER O BOLO. Só existe sabor de bolo aqui: se ele falar de " +
       "docinho, devolva falouDeOutraEtapa em vez de anotar, MESMO que o nome do " +
       "docinho também seja sabor de bolo (brigadeiro, beijinho). " +
-      "O peso em quilos vai na quantidade; o pão de ló vai na observação." + lista,
+      "O peso em quilos vai na quantidade; o pão de ló vai na observação." +
+      recusa("bolo") + lista,
     pecas_do_bolo:
       "A etapa é TOPO E PAPEL DE ARROZ do bolo. Devolva pecas com topo e " +
       "papelDeArroz, cada um true ou false. O tema e o nome do aniversariante " +
@@ -157,9 +182,10 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "forma de pagamento. Devolva só o que ele falou nesta mensagem. " +
       "Data no formato DD/MM/AAAA.",
     confirmacao:
-      "A etapa é CONFIRMAR O PEDIDO. Se ele confirmou, não há nada a mudar. " +
-      "Se ele pediu para mudar algo, devolva falouDeOutraEtapa com a etapa do " +
-      "que ele quer mudar.",
+      "A etapa é CONFIRMAR O PEDIDO. Se ele confirmou de qualquer jeito (pode " +
+      "fechar, isso mesmo, confirmo, tá certo, pode ser, fechado), devolva " +
+      "confirmou = true. Se ele pediu para mudar algo, devolva falouDeOutraEtapa " +
+      "com a etapa do que ele quer mudar.",
     abertura:
       "A conversa está começando e você ainda não sabe o que ele quer." + String.fromCharCode(10) + 
       "Se ele falou de FESTA, aniversário, formatura, coffee break ou de um " +

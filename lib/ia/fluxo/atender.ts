@@ -122,8 +122,18 @@ export async function atenderComFluxoNovo(
   await gravarEstado(negocioId, clienteId, antes, r.estado);
 
   // ---------------------------------------------------------- fechamento
+  //
+  // FECHA PELO BOTAO OU PELA PALAVRA, PORQUE O BOTAO NEM SEMPRE EXISTE.
+  //
+  // Antes so o toque em Confirmar fechava, e isso era um beco: quem escreve
+  // "pode fechar" nao fechava nada, e quem volta depois de 24 horas nem recebe
+  // botao, porque o WhatsApp so deixa mandar botao dentro da janela de conversa.
+  // O cliente ficava olhando o mesmo resumo pra sempre.
+  //
+  // A palavra so vale na etapa da confirmacao, e quem confere isso e o fluxo:
+  // "pode ser" no meio dos docinhos e conversa, embaixo do resumo e ordem.
   let pedidoId: string | undefined;
-  if (mensagem.botaoId === "fecha_sim") {
+  if (mensagem.botaoId === "fecha_sim" || r.confirmouEscrevendo) {
     const fechado = await fecharPedido(negocioId, clienteId, r.estado);
     if (fechado) {
       pedidoId = fechado.pedidoId;
@@ -132,6 +142,23 @@ export async function atenderComFluxoNovo(
       return { texto: semEmoji(fim.texto), botoes: [], cardapio: null, etapa: "registrado", pedidoId, rastro: r.rastro, uso };
     }
     r.rastro.push("tocou em confirmar mas o pedido ainda nao podia fechar");
+  }
+
+  // "MUDAR ALGO" PERGUNTA O QUE MUDAR.
+  //
+  // Tocar em Mudar algo devolvia o mesmo resumo com os mesmos dois botoes, o
+  // que da no mesmo que nao ter botao. Aqui a padaria faz a pergunta obvia, sem
+  // chamar a IA: nao ha o que interpretar num toque de botao, e a resposta dele
+  // ("quero trocar o bolo") o fluxo ja sabe atender pela etapa certa.
+  if (mensagem.botaoId === "fecha_mudar") {
+    return {
+      texto: "Claro. O que você quer mudar no pedido?",
+      botoes: [],
+      cardapio: null,
+      etapa: r.etapa,
+      rastro: [...r.rastro, "tocou em mudar algo; perguntei o que (sem chamar a IA)"],
+      uso,
+    };
   }
 
   // O jeito de falar vem por ultimo, e nao encosta onde tem dinheiro.

@@ -74,6 +74,13 @@ export type Resposta = {
   rastro: string[];
   /** Chamou a IA? Botao nao chama, e isso e dinheiro. */
   chamouIA: boolean;
+  /**
+   * ELE CONFIRMOU ESCREVENDO, sem tocar no botao.
+   *
+   * Vale so na etapa da confirmacao: "pode fechar" no meio dos docinhos e
+   * conversa, nao e ordem de fechar pedido.
+   */
+  confirmouEscrevendo: boolean;
 };
 
 /**
@@ -91,11 +98,21 @@ const DO_BOTAO: Record<string, (e: Estado) => Estado> = {
   pag_pix: (e) => ({ ...e, dados: { ...e.dados, pagamento: "pix" } }),
   pag_cartao: (e) => ({ ...e, dados: { ...e.dados, pagamento: "cartao" } }),
   pag_dinheiro: (e) => ({ ...e, dados: { ...e.dados, pagamento: "dinheiro" } }),
-  salgado_nao: (e) => ({ ...e, naoQuer: [...e.naoQuer, "salgado"] }),
-  salgado_sim: (e) => e,
-  mais_nao: (e) => e,
-  mais_sim: (e) => e,
+  // "Mudar algo", no resumo final. Nao muda nada sozinho de proposito: quem
+  // sabe o que ele quer mudar e ele, e a proxima fala dele diz. O que este
+  // botao faz e desmarcar o aceite da proposta, pra conversa nao ficar tentando
+  // fechar enquanto ele resolve.
+  fecha_mudar: (e) => ({ ...e, retomarEm: null, assunto: null }),
 };
+
+// OS BOTOES FANTASMA SAIRAM DAQUI.
+//
+// salgado_sim, salgado_nao, mais_sim e mais_nao estavam nesta lista e NENHUMA
+// etapa oferecia eles: codigo que nao roda, mas que quem le acredita. Pior: so
+// o salgado tinha recusa, e o dono pediu explicitamente que as familias
+// seguissem as mesmas regras. A recusa agora e por texto e vale nas tres
+// (leitura.ts), que e o jeito que funciona tambem fora da janela de 24 horas,
+// quando o WhatsApp nao deixa mandar botao nenhum.
 
 /**
  * A CATEGORIA DO ITEM VEM DA ETAPA.
@@ -180,6 +197,7 @@ export async function responder(
   let estado: Estado = { ...estadoAtual };
   let chamouIA = false;
   let naoTemos: string[] = [];
+  let confirmouEscrevendo = false;
 
   const etapaAgora = etapaDaVez(estado, etapas);
   rastro.push("etapa: " + etapaAgora.id);
@@ -210,6 +228,16 @@ export async function responder(
       // WhatsApp a proxima chega numa chamada nova, com o estado lido do banco.
       estado = { ...estado, retomarEm: voltar, assunto: limpa.falouDeOutraEtapa };
       rastro.push("falou de " + limpa.falouDeOutraEtapa + "; retomo em " + (voltar ?? "nada"));
+    }
+
+    // SO NA ETAPA DA CONFIRMACAO, E COM O PEDIDO NA TELA DELE.
+    //
+    // "pode ser" no meio dos docinhos e conversa; "pode ser" embaixo do resumo
+    // de R$ 543,00 e ordem de fechar. O que separa os dois e a etapa, e por isso
+    // isto e conferido aqui e nao no prompt.
+    if (limpa.confirmou && etapaAgora.id === "confirmacao") {
+      confirmouEscrevendo = true;
+      rastro.push("confirmou escrevendo, sem tocar no botao");
     }
 
     estado = aplicar(estado, limpa, etapaAgora.id);
@@ -284,5 +312,5 @@ export async function responder(
   const fala = falaDaEtapa(proxima, estado, 0, proxima.id === etapaAgora.id ? naoTemos : []);
   rastro.push("proxima: " + proxima.id);
 
-  return { fala, estado, etapa: proxima.id, rastro, chamouIA };
+  return { fala, estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo };
 }

@@ -35,6 +35,7 @@ const FORMATO = `Responda SÓ com um JSON, sem texto em volta, neste formato:
   "pessoas": 0,
   "aceitouBase": false,
   "naoQuer": ["salgado"],
+  "confirmou": true,
   "pecas": { "topo": false, "papelDeArroz": false },
   "dados": { "nome": "", "data": "DD/MM/AAAA", "hora": "HH:MM", "pagamento": "pix" },
   "falouDeOutraEtapa": "bolo",
@@ -85,9 +86,27 @@ export function pensarComOpenAI(
           .map((i) => ({ produto: String(i.produto).trim(), qtd: Number(i.qtd), obs: i.obs ?? null }));
         if (!limpo.itens.length) delete limpo.itens;
       }
+      // "VOU FAZER UMA FESTA" MORRIA AQUI.
+      //
+      // Achado pelo teste o-cliente-sempre-tem-saida em 23/08/2026, e era dos
+      // grandes: aplicar() le ehFesta, e este limpador nunca copiava. Quem
+      // dissesse "festa de aniversario do meu filho" sem falar em quantas
+      // pessoas nao virava festa nenhuma, e a conversa pulava a proposta e ia
+      // direto perguntar dia e hora de retirada.
+      //
+      // Meia entrada de festa entrava pelo numero de pessoas, que sobrevivia. A
+      // outra metade, pela palavra, se perdia inteira.
+      if (lido.ehFesta === true) limpo.ehFesta = true;
       if (Number(lido.pessoas) > 0) limpo.pessoas = Number(lido.pessoas);
       if (lido.aceitouBase === true) limpo.aceitouBase = true;
       if (lido.recomecar === true) limpo.recomecar = true;
+      // SEM ESTA LINHA O "pode fechar" DELE MORRIA AQUI.
+      //
+      // Este limpador e uma lista fechada: campo que nao esta escrito aqui e
+      // jogado fora, mesmo que o modelo tenha acertado. E o defeito que mais se
+      // repetiu neste projeto, sempre no mesmo formato: uma camada minha
+      // comendo a resposta certa da outra.
+      if (lido.confirmou === true) limpo.confirmou = true;
       if (Array.isArray(lido.naoQuer) && lido.naoQuer.length) {
         limpo.naoQuer = lido.naoQuer.map(String).filter(Boolean);
       }

@@ -41,8 +41,15 @@ export type EtapaId =
   | "confirmacao"
   | "registrado";
 
-/** O caminho curto: quem pede "100 coxinhas pra sabado" nao passa pela festa. */
-export type EtapaSimplesId = "item_simples" | "dados" | "confirmacao" | "registrado";
+// AQUI TINHA UM "EtapaSimplesId", QUE NINGUEM USAVA.
+//
+// Era o desenho de um caminho curto separado pra pedido simples. Na hora de
+// construir, o caminho curto saiu melhor de outro jeito: as etapas da festa se
+// marcam como pulaveis quando nao ha festa, e quem pede "100 coxinhas pra
+// sabado" cai direto nos dados sem precisar de lista propria.
+//
+// O tipo ficou pra tras e nunca foi apagado. Some agora junto com os outros
+// restos de andaime que a varredura de 23/08/2026 achou.
 
 /** O que a etapa espera receber de volta do cliente. */
 export type Espera =
