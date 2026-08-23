@@ -13,6 +13,9 @@
 // ============================================================================
 
 import { botoesDaPergunta } from "@/lib/ia/guardas";
+import OpenAI from "openai";
+import { registrarUsoIA } from "@/lib/ia/uso";
+import { atenderComFluxoNovo, ehDoFluxoNovo } from "@/lib/ia/fluxo/atender";
 import { NextRequest, after } from "next/server";
 import { responder, pecaDaEtapa, ehFestaNaFala, unidadeDoProduto, categoriaDoProduto } from "@/lib/ia/cerebro";
 import { carregarTenant } from "@/lib/ia/tenant";
@@ -445,6 +448,58 @@ async function processar(corpo: WebhookPayload) {
         marcarLidaEDigitando(msg.id, creds).catch((e) =>
           console.error("[whatsapp] falha ao renovar o 'digitando':", e),
         );
+      }
+
+      // ================================================================
+      //  O FLUXO NOVO, QUANDO LIGADO
+      //
+      //  Enquanto FLUXO_NOVO_PARA estiver vazio, nada disto roda e a Dora
+      //  antiga atende como sempre. Com "todos", todo mundo cai aqui; com uma
+      //  lista de numeros, so eles.
+      //
+      //  Apagar a variavel no Coolify volta tudo em segundos, sem deploy: se o
+      //  fluxo novo fizer besteira com um cliente na linha, ninguem espera
+      //  build.
+      // ================================================================
+      if (ehDoFluxoNovo(telefone)) {
+        try {
+          const novo = await atenderComFluxoNovo(
+            new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+            negocioId,
+            clienteId,
+            { texto: texto ?? "", botaoId: msg.interactive?.button_reply?.id ?? null },
+          );
+          console.log("[fluxo-novo] " + novo.rastro.join(" / "));
+          await pausa(tempoDeDigitar(novo.texto));
+          const wamid = novo.botoes.length
+            ? await enviarBotoes(telefone, novo.texto, novo.botoes, creds)
+            : await enviarTexto(telefone, novo.texto, creds);
+          await salvarMensagem(negocioId, clienteId, "assistant", novo.texto, { wamid: wamid ?? undefined }).catch(() => {});
+          await registrarUsoIA(
+            negocioId,
+            process.env.OPENAI_MODEL_FLUXO || "gpt-4.1-mini",
+            { tokensIn: novo.uso.tokensIn, tokensOut: novo.uso.tokensOut, cacheRead: novo.uso.cacheRead },
+            "whatsapp-fluxo-novo",
+            clienteId,
+            telefone,
+          ).catch(() => {});
+          if (novo.cardapio) {
+            // A peca vai DEPOIS do texto aqui, ao contrario do fluxo antigo: no
+            // novo o texto ja diz "te mandei o cardapio", entao a imagem chega
+            // logo atras e a conversa fica na ordem que o cliente le.
+            await enviarImagemPorLink(telefone, urlDoCardapio(novo.cardapio as never), undefined, creds).catch(
+              (e: unknown) => console.error("[fluxo-novo] falha ao mandar o cardapio:", e),
+            );
+          }
+          return;
+        } catch (e) {
+          // O FLUXO NOVO CAINDO NAO PODE DEIXAR O CLIENTE SEM RESPOSTA.
+          //
+          // Ele e o que esta em teste; a Dora antiga e o que ja roda. Se o novo
+          // falhar, o turno segue pelo caminho de sempre e o cliente nem fica
+          // sabendo.
+          console.error("[fluxo-novo] falhou; caindo pro fluxo antigo:", e);
+        }
       }
 
       let resp;
