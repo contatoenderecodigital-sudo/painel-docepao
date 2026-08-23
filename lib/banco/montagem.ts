@@ -72,6 +72,7 @@ export type DadosMontagem = {
   fluxo_prato?: string | null; // "aberto" ou "tampa"
   fluxo_ultima_fala?: string | null; // a ultima pergunta que a padaria fez
   fluxo_insistiu?: string | null; // quantas vezes ela repetiu essa pergunta
+  fluxo_ofereceu?: string | null; // "sim" depois que ela ofereceu docinho/bolo
   fluxo_assunto?: string | null; // a etapa que ELE pos na mesa, ou "nenhum"
   fluxo_retomar?: string | null; // a etapa pra onde voltar depois do desvio
 };

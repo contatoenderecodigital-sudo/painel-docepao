@@ -22,7 +22,7 @@ import { dizerComJeito } from "./dizer";
 import { lerEstadoDoBanco, gravarEstado, zerar } from "./gravar";
 import { fecharPedido } from "./fechar";
 import { falaDaEtapa } from "./pergunta";
-import { ETAPAS_DA_FESTA } from "./etapas";
+import { ROTEIRO_DA_FESTA, roteiroDoPedido } from "./etapas";
 import { mandouRecomecar, comCumprimento, tirarCumprimento, semEmoji } from "./falas-do-cliente";
 
 export type RespostaDoFluxo = {
@@ -79,6 +79,7 @@ const VAZIO: Estado = {
   tema: null,
   forminha: null,
   prato: null,
+  ofereceu: false,
   ultimaFala: null,
   insistiu: 0,
   retomarEm: null,
@@ -126,7 +127,10 @@ export async function atenderComFluxoNovo(
   const doBanco = await lerEstadoDoBanco(negocioId, clienteId);
   const antes: Estado = { ...VAZIO, ...doBanco } as Estado;
 
-  const r = await responder(antes, mensagem, pensarComOpenAI(cliente, contar), ETAPAS_DA_FESTA);
+  // Sem roteiro fixo: quem escolhe e o tipo do pedido, e a escolha se refaz a
+  // cada mensagem. Quem so cumprimentou segue o roteiro comum, que e curto, e
+  // troca pro da festa no instante em que falar de festa.
+  const r = await responder(antes, mensagem, pensarComOpenAI(cliente, contar));
 
   await gravarEstado(negocioId, clienteId, antes, r.estado);
 
@@ -147,7 +151,8 @@ export async function atenderComFluxoNovo(
     if (fechado) {
       pedidoId = fechado.pedidoId;
       r.rastro.push("pedido fechado: " + fechado.pedidoId + " (R$ " + (fechado.totalCentavos / 100).toFixed(2) + ")");
-      const fim = falaDaEtapa(ETAPAS_DA_FESTA[ETAPAS_DA_FESTA.length - 1], r.estado);
+      const lista = roteiroDoPedido(r.estado);
+      const fim = falaDaEtapa(lista[lista.length - 1], r.estado);
       return { texto: semEmoji(fim.texto), botoes: [], cardapio: null, etapa: "registrado", pedidoId, rastro: r.rastro, uso };
     }
     r.rastro.push("tocou em confirmar mas o pedido ainda nao podia fechar");

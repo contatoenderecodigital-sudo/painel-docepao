@@ -316,6 +316,38 @@ function falaDoFim(p: PedidoEmMontagem): string {
   );
 }
 
+/**
+ * O QUE COMBINA COM O QUE ELE JA PEDIU.
+ *
+ * Ideia do dono, 23/08/2026: quem leva cem salgados pra sabado quase sempre
+ * leva docinho junto, e ate hoje ninguem oferecia. E o que a atendente do
+ * balcao faz sem pensar.
+ *
+ * DUAS REGRAS QUE MANTEM ISSO HONESTO
+ *
+ * So oferece o que ele NAO pediu, e uma vez so. Oferta repetida vira empurra, e
+ * padaria de bairro vive de o cliente voltar.
+ */
+function falaDaOferta(p: PedidoEmMontagem): Fala {
+  const tem = (pref: string) => p.itens.some((i) => String(i.categoria || "").startsWith(pref));
+  const faltaDocinho = !tem("docinho");
+  const faltaBolo = !tem("bolo");
+
+  const botoes: Fala["botoes"] = [];
+  if (faltaDocinho) botoes.push({ id: "oferta_docinho", titulo: "Quero docinho" });
+  if (faltaBolo) botoes.push({ id: "oferta_bolo", titulo: "Quero bolo" });
+  botoes.push({ id: "oferta_nao", titulo: "Só isso" });
+
+  const oQue =
+    faltaDocinho && faltaBolo ? "docinho ou bolo" : faltaDocinho ? "docinho" : "bolo";
+  return {
+    texto: "Quer levar " + oQue + " junto?",
+    botoes,
+    cardapio: null,
+    podeReescrever: true,
+  };
+}
+
 function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
   // "3 kg de bombom" nao e comida: o sabor do bolo sozinho nao diz que e bolo.
   // Saiu assim no resumo do teste de 23/08/2026.
@@ -408,6 +440,9 @@ export function falaDaEtapa(
 
     case "pecas_do_bolo":
       return falaDasPecas(p);
+
+    case "oferta":
+      return falaDaOferta(p);
 
     case "dados": {
       const d = falaDosDados(p);

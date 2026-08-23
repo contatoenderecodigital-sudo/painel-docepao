@@ -82,6 +82,7 @@ export function estadoDosDados(d: Record<string, string | null | undefined>): Pa
     tema: d.fluxo_tema || null,
     forminha: d.fluxo_forminha || null,
     prato: d.fluxo_prato === "aberto" || d.fluxo_prato === "tampa" ? d.fluxo_prato : null,
+    ofereceu: d.fluxo_ofereceu === "sim",
     ultimaFala: d.fluxo_ultima_fala || null,
     insistiu: Number(d.fluxo_insistiu) || 0,
     assunto: d.fluxo_assunto && d.fluxo_assunto !== "nenhum" ? (d.fluxo_assunto as EtapaId) : null,
@@ -201,6 +202,7 @@ export function dadosQueMudaram(antes: Estado, depois: Estado): Record<string, s
   if (depois.tema && depois.tema !== antes.tema) mudou.fluxo_tema = depois.tema;
   if (depois.forminha && depois.forminha !== antes.forminha) mudou.fluxo_forminha = depois.forminha;
   if (depois.prato && depois.prato !== antes.prato) mudou.fluxo_prato = depois.prato;
+  if (depois.ofereceu && !antes.ofereceu) mudou.fluxo_ofereceu = "sim";
   // A ultima pergunta e a contagem de insistencia: sem isso a padaria nao sabe
   // que ja perguntou aquilo, porque cada mensagem e uma execucao nova.
   if ((depois.ultimaFala ?? null) !== (antes.ultimaFala ?? null)) {

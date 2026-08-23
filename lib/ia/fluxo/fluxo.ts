@@ -29,7 +29,7 @@
 // ============================================================================
 
 import catalogo from "../dados/catalogo.json";
-import { ETAPAS_DA_FESTA, etapaDaVez, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
+import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, type Leitura } from "./leitura";
 import { calcularBase } from "./base";
@@ -130,6 +130,12 @@ const DO_BOTAO: Record<string, (e: Estado) => Estado> = {
   // Como o bolo vai embalado. A dona pergunta sempre, e sao duas opcoes exatas.
   prato_aberto: (e) => ({ ...e, prato: "aberto" }),
   prato_tampa: (e) => ({ ...e, prato: "tampa" }),
+
+  // A oferta: aceitar leva pra etapa da familia, recusar segue pros dados. Nos
+  // tres casos ela fica marcada como feita, porque oferta repetida vira empurra.
+  oferta_docinho: (e) => ({ ...e, ofereceu: true, assunto: "docinho" }),
+  oferta_bolo: (e) => ({ ...e, ofereceu: true, assunto: "bolo" }),
+  oferta_nao: (e) => ({ ...e, ofereceu: true }),
 
   // "Mudar algo", no resumo final. Nao muda nada sozinho de proposito: quem
   // sabe o que ele quer mudar e ele, e a proxima fala dele diz. O que este
@@ -418,7 +424,10 @@ export async function responder(
   estadoAtual: Estado,
   mensagem: { texto: string; botaoId?: string | null },
   pensar: Pensar,
-  etapas: Etapa[] = ETAPAS_DA_FESTA,
+  // O roteiro pode vir de fora (os testes passam o deles). Sem ele, quem
+  // escolhe e o tipo do pedido, e a escolha e refeita DEPOIS de ler a mensagem:
+  // "festa pra 20 pessoas" troca o roteiro no meio da propria mensagem.
+  etapas: Etapa[] | null = null,
 ): Promise<Resposta> {
   const rastro: string[] = [];
   let estado: Estado = { ...estadoAtual };
@@ -427,7 +436,8 @@ export async function responder(
   let confirmouEscrevendo = false;
   let precisaHumano = false;
 
-  const etapaAgora = etapaDaVez(estado, etapas);
+  const roteiro = () => etapas ?? roteiroDoPedido(estado);
+  const etapaAgora = etapaDaVez(estado, roteiro());
   rastro.push("etapa: " + etapaAgora.id);
 
   // ---------------------------------------------------------------- botao
@@ -567,12 +577,12 @@ export async function responder(
   }
 
   // ------------------------------------------------- a etapa seguinte
-  let proxima = etapaDaVez(estado, etapas);
+  let proxima = etapaDaVez(estado, roteiro());
 
   // A volta so acontece quando o desvio ja se resolveu, senao a conversa fica
   // pulando entre duas etapas sem terminar nenhuma.
   if (estado.retomarEm && estado.retomarEm !== proxima.id) {
-    const alvo = etapas.find((x) => x.id === estado.retomarEm);
+    const alvo = roteiro().find((x) => x.id === estado.retomarEm);
     if (alvo && !alvo.cumprida(estado) && !alvo.pulavel?.(estado)) {
       proxima = alvo;
       rastro.push("retomando em " + alvo.id);
@@ -593,7 +603,7 @@ export async function responder(
   // falar de bolo. Por isso aqui o pulavel nao vale, e a etapa cumprida sim:
   // assunto ja resolvido nao volta pra mesa.
   if (estado.assunto && estado.assunto !== proxima.id) {
-    const alvo = etapas.find((x) => x.id === estado.assunto);
+    const alvo = roteiro().find((x) => x.id === estado.assunto);
     if (alvo && !alvo.cumprida(estado)) {
       proxima = alvo;
       rastro.push("o assunto e " + alvo.id + " (foi ele quem trouxe)");

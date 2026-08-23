@@ -37,6 +37,7 @@ export type EtapaId =
   | "docinho"
   | "bolo"
   | "pecas_do_bolo"
+  | "oferta"
   | "dados"
   | "confirmacao"
   | "registrado";
@@ -160,6 +161,17 @@ export type PedidoEmMontagem = {
    * que muda o que a cozinha monta.
    */
   prato: "aberto" | "tampa" | null;
+  /**
+   * A PADARIA JA OFERECEU O QUE FALTA?
+   *
+   * Ideia do dono, 23/08/2026: "tem que pedir se quer docinhos e bolo recheado
+   * ne, tem que ter os order bump kkk".
+   *
+   * Ele esta certo e e o que a atendente do balcao faz: quem leva cem salgados
+   * pra sabado quase sempre leva docinho junto, e ninguem ofereceu. Uma vez so,
+   * sem insistir: oferta repetida vira empurra.
+   */
+  ofereceu: boolean;
 };
 
 /**
@@ -238,7 +250,10 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // pede, porque o recheio dela e fixo. Quem separa os dois e o catalogo.
     cumprida: (p) => temCategoria(p, "salgado") && !faltaSabor(p, "salgado"),
     // Fora da festa ninguem oferece salgado a quem pediu uma torta.
-    pulavel: (p) => !p.ehFesta || recusou(p, "salgado"),
+    // Na festa ela pergunta por iniciativa propria (a proposta ja combinou o
+    // total). No pedido comum ela so entra se o cliente TIVER pedido salgado:
+    // quem quer dez paes nao e interrogado sobre coxinha.
+    pulavel: (p) => recusou(p, "salgado") || (!p.ehFesta && !temCategoria(p, "salgado")),
   },
   {
     id: "docinho",
@@ -251,7 +266,7 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // rechear, entao a cor precisa estar na comanda quando a producao comeca.
     cumprida: (p) =>
       temCategoria(p, "docinho") && !faltaSabor(p, "docinho") && !docinhoSemForminha(p),
-    pulavel: (p) => !p.ehFesta || recusou(p, "docinho|doce"),
+    pulavel: (p) => recusou(p, "docinho|doce") || (!p.ehFesta && !temCategoria(p, "docinho")),
   },
   {
     id: "bolo",
@@ -274,7 +289,12 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       p.itens.some(
         (i) => String(i.categoria || "").startsWith("bolo") && String(i.produto).trim().toLowerCase() !== "bolo",
       ) && p.prato !== null,
-    pulavel: (p) => !p.ehFesta || recusou(p, "bolo"),
+    // O SABOR DO BOLO VALE FORA DA FESTA TAMBEM.
+    //
+    // Ate 23/08/2026 esta etapa era pulada em todo pedido que nao fosse festa,
+    // entao quem encomendava um bolo avulso nunca era perguntado do sabor: a
+    // comanda saia com "1 kg de bolo" e a cozinha sem saber o que assar.
+    pulavel: (p) => recusou(p, "bolo") || (!p.ehFesta && !temCategoria(p, "bolo")),
   },
   {
     id: "pecas_do_bolo",
@@ -299,6 +319,26 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       return Boolean(p.tema && p.topoNome && p.topoIdade);
     },
     pulavel: (p) => !temCategoria(p, "bolo"),
+  },
+  {
+    id: "oferta",
+    rotulo: "oferecendo o que combina",
+    pergunta: "Quer levar docinho ou bolo junto?",
+    espera: {
+      tipo: "botao",
+      opcoes: [
+        { id: "oferta_docinho", titulo: "Quero docinho" },
+        { id: "oferta_bolo", titulo: "Quero bolo" },
+        { id: "oferta_nao", titulo: "Só isso" },
+      ],
+    },
+    cumprida: (p) => p.ofereceu,
+    // Nao se oferece o que ele ja pediu, e nao se oferece na festa: la a
+    // proposta ja traz salgado, docinho e bolo juntos.
+    pulavel: (p) =>
+      p.ehFesta ||
+      !p.itens.length ||
+      (temCategoria(p, "docinho") && temCategoria(p, "bolo")),
   },
   {
     id: "dados",
@@ -339,6 +379,66 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
  * Funcao pura: mesma entrada, mesma saida, sem ler banco nem chamar modelo. E
  * assim que da pra testar o fluxo inteiro sem gastar um centavo de API.
  */
+/**
+ * O ROTEIRO DE CADA TIPO DE PEDIDO.
+ *
+ * Pedido do dono em 23/08/2026, e ele estava certo: "preciso que voce tenha uma
+ * lista de ordem de coisas que voce tem que perguntar, mas apenas se o cliente
+ * responder que sim para querer o produto em questao".
+ *
+ * Ate aqui existia UMA lista, a da festa, e cada etapa carregava uma marca
+ * dizendo quando ela nao se aplicava. O resultado pro cliente era o mesmo, mas
+ * pra saber o que acontece num pedido comum era preciso ler as treze etapas
+ * marcando na cabeca quais sao puladas. Foi lendo assim que eu me perdi antes.
+ *
+ * Agora cada tipo de pedido tem o seu roteiro escrito, e da pra conferir de
+ * bater o olho.
+ */
+const SO = (ids: EtapaId[]): Etapa[] =>
+  ids.map((id) => ETAPAS_DA_FESTA.find((e) => e.id === id)!).filter(Boolean);
+
+/** Festa: a proposta combina o total e o cliente escolhe os sabores. */
+export const ROTEIRO_DA_FESTA: Etapa[] = SO([
+  "abertura",
+  "quantas_pessoas",
+  "base_da_festa",
+  "salgado",
+  "docinho",
+  "bolo",
+  "pecas_do_bolo",
+  "dados",
+  "confirmacao",
+  "registrado",
+]);
+
+/**
+ * Pedido comum: ele ja disse o que quer, entao nao ha proposta nem numero de
+ * pessoas. As etapas de familia continuam na lista porque e nelas que mora a
+ * pergunta do sabor, e cada uma so entra se o pedido tiver aquele produto.
+ */
+export const ROTEIRO_COMUM: Etapa[] = SO([
+  "abertura",
+  "salgado",
+  "docinho",
+  "bolo",
+  "pecas_do_bolo",
+  "oferta",
+  "dados",
+  "confirmacao",
+  "registrado",
+]);
+
+/**
+ * QUAL ROTEIRO ESTA CONVERSA SEGUE?
+ *
+ * Festa e conclusao, nao ponto de partida: so vira festa quando a pessoa fala
+ * de festa, de aniversario ou de um numero de gente. Enquanto isso nao
+ * acontece, a conversa segue o roteiro comum, que e mais curto.
+ */
+export function roteiroDoPedido(p: PedidoEmMontagem): Etapa[] {
+  return p.ehFesta ? ROTEIRO_DA_FESTA : ROTEIRO_COMUM;
+}
+
 export function etapaDaVez(p: PedidoEmMontagem, etapas: Etapa[] = ETAPAS_DA_FESTA): Etapa {
   for (const e of etapas) {
     if (e.pulavel?.(p)) continue;
