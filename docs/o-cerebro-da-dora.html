@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>O cerebro da Dora</title>
+<style>
+  :root{--navy:#0b1220;--card:#16233b;--linha:#24354f;--texto:#e8eef7;--fraco:#9bb0cc;
+    --ouro:#d4af6a;--verde:#4ade80;--vermelho:#f87171;--amarelo:#fbbf24;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--navy);color:var(--texto);font:16px/1.65 "Segoe UI",system-ui,sans-serif}
+  .wrap{max-width:1100px;margin:0 auto;padding:48px 24px 96px}
+  h1{font-size:34px;line-height:1.2;margin:0 0 8px;letter-spacing:-.02em}
+  h2{font-size:23px;margin:56px 0 6px;padding-bottom:10px;border-bottom:1px solid var(--linha)}
+  h3{font-size:17px;margin:26px 0 8px;color:var(--ouro)}
+  p{margin:12px 0}
+  .sub{color:var(--fraco);font-size:17px}
+  .selo{display:inline-block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ouro);border:1px solid var(--ouro);border-radius:99px;padding:5px 14px;margin-bottom:20px}
+  .card{background:var(--card);border:1px solid var(--linha);border-radius:12px;padding:18px 20px;margin:14px 0}
+  .grid{display:grid;gap:14px}
+  @media(min-width:820px){.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}}
+  .num{font-size:28px;font-weight:700;color:var(--ouro);line-height:1.1}
+  .num small{display:block;font-size:13px;font-weight:400;color:var(--fraco);margin-top:6px}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14.5px}
+  th,td{text-align:left;padding:10px 11px;border-bottom:1px solid var(--linha);vertical-align:top}
+  th{color:var(--fraco);font-weight:600;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase}
+  .tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:99px;white-space:nowrap}
+  .t-ok{background:#0f3524;color:var(--verde);border:1px solid #1f5f3d}
+  .t-falta{background:#3a1418;color:var(--vermelho);border:1px solid #6b2229}
+  .t-meio{background:#3a2f0e;color:var(--amarelo);border:1px solid #6b551a}
+  code{background:#0d1626;border:1px solid var(--linha);border-radius:5px;padding:1px 6px;font-size:13.5px;color:var(--ouro)}
+  .lado{border-left:3px solid var(--ouro);padding-left:16px;margin:18px 0;color:var(--fraco)}
+  .zap{background:#0a1a12;border:1px solid #1f4d33;border-radius:10px;padding:12px 14px;font-size:14px;margin:10px 0}
+  .bolha{max-width:90%;padding:8px 12px;border-radius:11px;margin:6px 0}
+  .cli{background:#134d33;margin-left:auto;border-bottom-right-radius:3px}
+  .pad{background:#1e2a3d;border-bottom-left-radius:3px}
+  ul{margin:8px 0;padding-left:20px}li{margin:6px 0}
+  .rodape{margin-top:64px;padding-top:18px;border-top:1px solid var(--linha);color:var(--fraco);font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="selo">Padaria Doce Pao</div>
+  <h1>O cerebro da Dora</h1>
+  <p class="sub">Tudo que a gente descobriu em dez dias, o que ja esta de pe no fluxo novo,
+  e o que ficou pra tras na troca. Levantado do codigo em 23/08/2026, antes de mexer em nada.</p>
+
+  <div class="grid g3" style="margin-top:30px">
+    <div class="card"><div class="num">52<small>regras encontradas no sistema antigo</small></div></div>
+    <div class="card"><div class="num">21<small>ja funcionam no fluxo novo</small></div></div>
+    <div class="card"><div class="num">31<small>ainda nao foram levadas</small></div></div>
+  </div>
+
+  <div class="lado">
+    Nenhuma dessas regras foi inventada por mim. Cada uma nasceu de um audio da dona, de um
+    teste ao vivo que deu errado, ou de uma decisao que voce tomou no meio de uma conversa.
+    E por isso que elas valem mais que codigo: refazer o codigo e barato, redescobrir a regra
+    custou dez dias.
+  </div>
+
+  <h2>1. O que ja esta de pe no fluxo novo</h2>
+  <p>Isto nao precisa ser refeito nem revisto. Esta funcionando e tem teste travando.</p>
+
+  <table>
+    <tr><th>Regra</th><th>De onde veio</th></tr>
+    <tr><td><b>O preco nunca sai da boca dela.</b> Todo numero vem do motor de preco, e onde tem valor a IA nem reescreve a frase</td><td>ela respondeu "R$ 44,90 o quilo" numa torta de R$ 36,90</td></tr>
+    <tr><td><b>O topo nao tem preco.</b> Ela nunca diz quanto custa, nem "em torno de R$ 30"</td><td>teste ao vivo de 20/08; e a jurisprudencia da Air Canada</td></tr>
+    <tr><td><b>Quem aprova e a equipe.</b> A IA nunca confirma pedido sozinha</td><td>primeira regra que voce deu no projeto</td></tr>
+    <tr><td><b>Quem manda recomecar, recomeca</b>, e sem passar pela IA</td><td>ela respondeu "fechou" e nao apagou nada</td></tr>
+    <tr><td><b>Quem atende cumprimenta primeiro</b>, pelo relogio, e so na primeira fala</td><td>seu teste de 23/08</td></tr>
+    <tr><td><b>Sem emoji</b>, peneirado no fim de tudo</td><td>regra sua desde o primeiro dia</td></tr>
+    <tr><td><b>A retirada e sempre no futuro</b></td><td>"dia 05 de setembro" virou 05/09/2024</td></tr>
+    <tr><td><b>Botao so onde a resposta e fechada.</b> Pergunta aberta pede teclado</td><td>decidido com voce em 23/08</td></tr>
+    <tr><td><b>O resumo do pedido e escrito pelo codigo</b>, item por item</td><td>ela cortava itens do resumo</td></tr>
+    <tr><td><b>Pedido so fecha completo</b>: itens, data, hora, nome, pagamento, sabor do bolo</td><td>pedido de R$ 0,00 na tela da dona</td></tr>
+    <tr><td><b>Pedido nao fecha sem quantidade</b> em nenhum item</td><td>achado hoje, na varredura</td></tr>
+    <tr><td><b>Topo e papel: as quatro combinacoes</b>, com tema, nome e idade</td><td>seu teste de hoje</td></tr>
+    <tr><td><b>Nenhuma foto se perde</b>: toda imagem do cliente vira registro</td><td>ja existia; falta grudar no pedido</td></tr>
+    <tr><td><b>A conversa lembra entre uma mensagem e outra</b></td><td>achado hoje: o aceite caia no vazio</td></tr>
+    <tr><td><b>O que a padaria nao faz, ela diz</b> (bolo de ninho)</td><td>conversa da kemilly, 22/08</td></tr>
+    <tr><td><b>O docinho nao vira recheio do bolo.</b> A quantidade desempata o nome</td><td>"brigadeiro" e docinho e sabor de bolo</td></tr>
+    <tr><td><b>Item repetido substitui, nao soma</b></td><td>"na verdade quero 200" dobrava o pedido</td></tr>
+    <tr><td><b>A unidade sai do cardapio</b>: kg e kg, unidade e unidade</td><td>1,5 kg de empadao virava "1 un"</td></tr>
+    <tr><td><b>Uma pergunta por vez</b>, na ordem que importa pra padaria</td><td>cliente respondia so a primeira</td></tr>
+    <tr><td><b>A dona edita na tela e a IA respeita</b></td><td>pedido seu de 23/08</td></tr>
+    <tr><td><b>Pedido fechado nao volta como conversa</b></td><td>itens velhos reapareciam no pedido novo</td></tr>
+  </table>
+
+  <h2>2. O que o cerebro antigo sabia e o fluxo novo ainda nao usa</h2>
+  <p>Esta e a lista de resgate. Ordenei por risco: primeiro o que custa dinheiro ou producao,
+  depois o que faz ela parecer gente.</p>
+
+  <h3>Dinheiro e producao</h3>
+  <table>
+    <tr><th>Regra</th><th>O caso real</th><th>Hoje</th></tr>
+    <tr>
+      <td><b>Sabor em aberto e buraco no pedido</b><br><span style="color:var(--fraco)">produto que o cardapio manda escolher nao fecha sem escolha</span></td>
+      <td>trufa, cuca recheada, torta, empadao, franciscano, cupcake, bolo. Salgado frito tem recheio fixo e nao se pergunta</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>Preco de familia quando ele pergunta</b><br><span style="color:var(--fraco)">"quanto e o cento de salgado?" e "e o de docinho?"</span></td>
+      <td>a pergunta mais comum da padaria, e a mais facil de errar valor</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>O cliente que da o total</b><br><span style="color:var(--fraco)">"quero uns R$ 300 no total" reescala o pedido inteiro</span></td>
+      <td>a conta e refeita pelo codigo, nunca estimada</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>Preco beneficente e da equipe</b><br><span style="color:var(--fraco)">pediu desconto, ajuda ou disse que e beneficente: a IA nunca cota</span></td>
+      <td>audio da dona, 11/08. Cachorro-quente e pao de X mudam de preco, e so ela aplica</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>Entrega e sempre humano</b><br><span style="color:var(--fraco)">nao tem aplicativo, depende do entregador e do dia</span></td>
+      <td>audio da dona: "sempre pedir ajuda pro humano quando e entrega"</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>Minimo por sabor: sugerir 20, nunca recusar</b></td>
+      <td>audio da dona, 19/08: "se a cliente falar 15, 15, 15, abre excecao, nao tem problema"</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>Producao antes de venda a mais</b><br><span style="color:var(--fraco)">encomenda grande pra amanha passa pela equipe</span></td>
+      <td>vender o que a cozinha nao da conta e pior que nao vender</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>Data que briga com o dia da semana</b><br><span style="color:var(--fraco)">"sabado, dia 12" e o dia 12 e domingo</span></td>
+      <td>a comanda saia com o dia errado e ninguem percebia</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>Hora fora do expediente</b><br><span style="color:var(--fraco)">seg a sab 6h30 as 20h; domingo e feriado 6h30 as 12h e 16h as 20h</span></td>
+      <td>o horario ja esta no sistema, o fluxo novo e que nao consulta</td>
+      <td><span class="tag t-meio">existe, nao ligado</span></td>
+    </tr>
+    <tr>
+      <td><b>Restricao que a casa nao faz</b><br><span style="color:var(--fraco)">sem gluten, sem lactose, vegano</span></td>
+      <td>prometer o que a cozinha nao cumpre volta como reclamacao no balcao</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+  </table>
+
+  <h3>O que fazia ela parecer gente</h3>
+  <table>
+    <tr><th>Regra</th><th>O caso real</th><th>Hoje</th></tr>
+    <tr>
+      <td><b>"Escolhe voce pra mim"</b><br><span style="color:var(--fraco)">o codigo monta o sortido e mostra o que escolheu</span></td>
+      <td>e o oposto do defeito de hoje: aqui ele PEDIU pra ela escolher</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>"Tira isso do pedido"</b></td>
+      <td>nao existe jeito de remover item na conversa nova</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>"Me mostra como ficou o pedido"</b></td>
+      <td>o cliente pede isso o tempo todo no meio da conversa</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>"Nao quero ver cardapio, manda por escrito"</b></td>
+      <td>tem cliente que nao abre imagem</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>Perguntar nao e pedir</b><br><span style="color:var(--fraco)">"voces tem coxinha?" nao anota coxinha nenhuma</span></td>
+      <td>ja anotou pedido de quem so perguntou preco</td>
+      <td><span class="tag t-meio">parcial</span></td>
+    </tr>
+    <tr>
+      <td><b>"Nao anota ainda, so quero saber"</b></td>
+      <td>o cliente proibiu e ela anotou assim mesmo</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>Tema nao e sabor</b><br><span style="color:var(--fraco)">"bolo da Minnie" nao e bolo sabor Minnie</span></td>
+      <td>virava um sabor que nao existe e o pedido travava</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>A cor da forminha do docinho</b><br><span style="color:var(--fraco)">23 cores no cardapio, e a escolha vai na observacao</span></td>
+      <td>a dona monta a forminha antes de rechear</td>
+      <td><span class="tag t-meio">parcial</span></td>
+    </tr>
+    <tr>
+      <td><b>Observacao so com o que ele disse</b></td>
+      <td>ela escrevia observacao que o cliente nunca falou</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>Ela espera o cliente terminar de falar</b></td>
+      <td>voce mandou "Bom dia!" e "Tudo bem?" e levou duas respostas</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+    <tr>
+      <td><b>Nao repetir a mesma pergunta sem sair do lugar</b></td>
+      <td>"nao sei quantas pessoas ainda" trava a etapa</td>
+      <td><span class="tag t-falta">falta</span></td>
+    </tr>
+  </table>
+
+  <h2>3. Os numeros da dona, que ja estao confirmados</h2>
+  <p>Estes vieram de audio dela e ninguem precisa perguntar de novo. Sao a base do orcamento
+  automatico da festa.</p>
+  <div class="grid g3">
+    <div class="card"><div class="num">10<small>salgados por pessoa</small></div></div>
+    <div class="card"><div class="num">5<small>docinhos por pessoa</small></div></div>
+    <div class="card"><div class="num">10<small>pessoas por bolo recheado</small></div></div>
+  </div>
+  <p style="color:var(--fraco);font-size:14.5px">Pizza inteira serve 7, meia serve 4. O sabor nunca
+  muda o preco: quem define o valor e a linha (frito ou assado, faixa do bolo).</p>
+
+  <h2>4. O que eu proponho fazer, nesta ordem</h2>
+  <p>Nao mexi em nada ainda. Esta e a proposta pra voce aprovar ou remontar.</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">Bloco 1: o que faz a padaria perder dinheiro ou nao produzir</h3>
+    <ul>
+      <li>sabor obrigatorio onde o cardapio manda escolher</li>
+      <li>data e hora conferidas contra o expediente, com o motivo dito ao cliente</li>
+      <li>preco de familia quando ele pergunta ("quanto e o cento?")</li>
+      <li>entrega e preco beneficente sempre pro humano</li>
+      <li>a foto grudando no pedido na hora de fechar</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Bloco 2: a conversa parar de travar</h3>
+    <ul>
+      <li>ela espera o cliente terminar de falar antes de responder</li>
+      <li>nao repetir a mesma pergunta sem sair do lugar</li>
+      <li>"tira isso", "me mostra o pedido", "escolhe voce pra mim"</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Bloco 3: os detalhes que a dona sente na producao</h3>
+    <ul>
+      <li>cor da forminha, tema que nao vira sabor, observacao so com o que ele disse</li>
+      <li>minimo por sabor sugerido, nunca imposto</li>
+      <li>restricao que a casa nao faz</li>
+    </ul>
+  </div>
+
+  <h2>5. O que eu ainda preciso de voce</h2>
+  <div class="card">
+    <p style="margin-top:0"><b>1. O horario continua esse?</b> Segunda a sabado 6h30 as 20h, domingo
+    e feriado 6h30 as 12h e 16h as 20h. Esta escrito no sistema desde o comeco do projeto.</p>
+    <p><b>2. Tem hora limite pra encomenda?</b> Uma coisa e a padaria estar aberta, outra e ela
+    aceitar retirada de encomenda naquele horario. Se for igual, tudo bem.</p>
+    <p style="margin-bottom:0"><b>3. Quanto tempo de antecedencia</b> a cozinha precisa pra uma festa
+    grande? Isso decide se ela aceita "pra amanha" ou manda pra equipe.</p>
+  </div>
+
+  <div class="rodape">
+    Levantado em 23/08/2026 direto de lib/ia/cerebro.ts, lib/ia/guardas.ts, catalogo.json,
+    rendimento.json, padaria-aberta.ts e dos 58 testes do repositorio. Nenhum numero foi estimado.
+  </div>
+
+</div>
+</body>
+</html>

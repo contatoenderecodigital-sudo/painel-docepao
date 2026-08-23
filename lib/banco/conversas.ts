@@ -423,6 +423,31 @@ export async function anexarFotoAoPedido(
 
 // A imagem de um pedido pra rota que serve a foto (escopada por negócio).
 // Pega a mais recente caso haja mais de uma.
+/**
+ * AS FOTOS QUE O CLIENTE MANDOU PASSAM A SER DO PEDIDO.
+ *
+ * Toda imagem que chega no WhatsApp ja era salva, mas ficava com o pedido em
+ * branco. Quando o pedido fechava, ninguem fazia essa ligacao: a foto aparecia
+ * na tela do pedido em montagem e sumia das abas de aprovacao e de pedidos,
+ * justamente onde a equipe confere o bolo antes de produzir.
+ *
+ * Gruda TODAS as pendentes, nao so a ultima: o cliente manda duas ou tres fotos
+ * de referencia e todas valem pra quem vai fazer a peca.
+ */
+export async function grudarFotosNoPedido(
+  negocioId: string,
+  clienteId: string,
+  pedidoId: string,
+): Promise<number> {
+  const r = await query<{ id: string }>(
+    `update pedido_fotos set pedido_id = $3
+      where negocio_id = $1 and cliente_id = $2 and pedido_id is null
+      returning id`,
+    [negocioId, clienteId, pedidoId],
+  );
+  return r.length;
+}
+
 export async function buscarFotoPedido(
   negocioId: string,
   pedidoId: string,

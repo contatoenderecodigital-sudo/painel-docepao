@@ -1,0 +1,102 @@
+// ============================================================================
+//  SABOR EM ABERTO E BURACO NO PEDIDO
+//
+//  Regra do dono, 23/08/2026: "nunca pode produto com sabor ser fechado sem
+//  sabor escolhido, tanto trufa, docinho, cuca, tudo; isso e geral da padaria".
+//
+//  E ele completou o desenho: "tem itens que ja tem sabor e nao precisa
+//  selecionar, so os que precisa selecionar tem a regra". E exatamente o que o
+//  catalogo ja diz, com as palavras da dona:
+//
+//    "FRITO = sabor fixo, a IA NAO pergunta recheio (o recheio ja esta no
+//     campo 'recheio'). ASSADO = se tiver 'recheios', a IA PERGUNTA qual o
+//     cliente quer. Frito com 'recheios' (risolis, mini bolha) a IA PERGUNTA
+//     igual ao assado."
+//
+//  QUEM DECIDE E A TABELA, NAO EU
+//
+//  A lista do que pede escolha sai do proprio catalogo, item por item: o que
+//  tiver 'recheios' ou 'sabores' pergunta, o resto nao. No dia em que a dona
+//  acrescentar um sabor de cuca na tela, a regra passa a valer pra ele sozinha,
+//  sem ninguem mexer em codigo.
+//
+//  Hoje sao 21 produtos que pedem escolha: coxinha nao pede (recheio fixo),
+//  risolis pede, esfirra pede, trufa pede, cuca recheada pede, franciscano
+//  pede, empadao pede, torta pede, cupcake pede.
+//
+//  POR QUE ISSO E DE PRODUCAO, NAO DE CONVERSA
+//
+//  Comanda com "2 kg de empadao" sem dizer se e de frango ou de palmito para a
+//  cozinha no meio da manha, e alguem tem que ligar pro cliente. O pedido nao
+//  pode fechar assim.
+// ============================================================================
+
+import catalogo from "../dados/catalogo.json";
+
+type ItemDoCardapio = { nome?: string; recheios?: string[]; sabores?: string[] };
+
+/** Todo produto do cardapio que tem lista de sabor ou recheio pra escolher. */
+function comEscolha(): { nome: string; opcoes: string[] }[] {
+  const listas: ItemDoCardapio[][] = [
+    (catalogo.salgados?.frito?.itens ?? []) as ItemDoCardapio[],
+    (catalogo.salgados?.assado?.itens ?? []) as ItemDoCardapio[],
+    (catalogo.doces?.itens ?? []) as ItemDoCardapio[],
+    (catalogo.outros_produtos ?? []) as ItemDoCardapio[],
+  ];
+  const saida: { nome: string; opcoes: string[] }[] = [];
+  for (const lista of listas) {
+    for (const i of lista) {
+      const opcoes = i.recheios ?? i.sabores ?? [];
+      if (i.nome && opcoes.length) saida.push({ nome: String(i.nome), opcoes: opcoes.map(String) });
+    }
+  }
+  return saida;
+}
+
+const semAcMin = (t: string) =>
+  String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+/**
+ * ESTE ITEM PRECISA DE SABOR, E ELE JA FOI ESCOLHIDO?
+ *
+ * Devolve as opcoes que faltam escolher, ou null quando o item nao pede escolha
+ * ou quando a escolha ja esta no pedido.
+ *
+ * A escolha vale escrita em QUALQUER lugar da linha: no nome do produto
+ * ("esfirra de carne") ou na observacao ("carne"). O cliente escreve dos dois
+ * jeitos e os dois chegam na cozinha igual.
+ */
+export function saborQueFalta(produto: string, obs?: string | null): { nome: string; opcoes: string[] } | null {
+  const linha = semAcMin(produto) + " " + semAcMin(obs ?? "");
+  const nome = semAcMin(produto);
+
+  // Casamento pelo comeco do nome: "esfirra de carne" e uma esfirra. O mais
+  // longo primeiro pra "empadao com palmito" nao virar "empadao".
+  const candidatos = comEscolha()
+    .filter((c) => nome.startsWith(semAcMin(c.nome)) || nome === semAcMin(c.nome))
+    .sort((a, b) => b.nome.length - a.nome.length);
+  const item = candidatos[0];
+  if (!item) return null;
+
+  // Alguma das opcoes ja aparece escrita na linha? Entao esta escolhido.
+  const escolhido = item.opcoes.some((o) => {
+    // "frango com legumes" casa por inteiro; "carne" casa como palavra.
+    const alvo = semAcMin(o);
+    return linha.includes(alvo);
+  });
+  return escolhido ? null : item;
+}
+
+/** O que falta escolher no pedido inteiro, em portugues, pra cobrar do cliente. */
+export function saboresQueFaltam(
+  itens: { produto: string; obs?: string | null }[],
+): { produto: string; opcoes: string[] }[] {
+  const falta: { produto: string; opcoes: string[] }[] = [];
+  for (const i of itens) {
+    const f = saborQueFalta(i.produto, i.obs);
+    if (f && !falta.some((x) => x.produto === i.produto)) {
+      falta.push({ produto: i.produto, opcoes: f.opcoes });
+    }
+  }
+  return falta;
+}

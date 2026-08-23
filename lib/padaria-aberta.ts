@@ -66,3 +66,38 @@ export function avisoDeProblema(): string {
     ? "Tive um probleminha aqui agora, ja ja te respondo, ta?"
     : "Tive um probleminha aqui agora, e a padaria ja fechou. Anotei sua mensagem e a equipe te responde assim que abrir.";
 }
+
+/**
+ * A RETIRADA CABE NO EXPEDIENTE?
+ *
+ * Pedido do dono em 23/08/2026: "se ele marcar pra retirar numa data ou horario
+ * que a empresa nao trabalha, tem que avisar o cliente". Ficar calado e
+ * perguntar de novo faz ele achar que nao foi entendido.
+ *
+ * Usa o MESMO horario que a Dora fala pro cliente e que decide se ela promete
+ * atendimento agora. Fonte unica: se mudar aqui, muda em tudo junto.
+ *
+ * Devolve o motivo escrito pra ela dizer, ou null quando cabe.
+ */
+export function retiradaForaDoExpediente(
+  dataDDMMAAAA: string | null | undefined,
+  horaHHMM: string | null | undefined,
+): string | null {
+  const d = String(dataDDMMAAAA ?? "").match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  const h = String(horaHHMM ?? "").match(/(\d{1,2})[h:]?(\d{2})?/);
+  if (!d || !h) return null;
+
+  const quando = new Date(Number(d[3]), Number(d[2]) - 1, Number(d[1]));
+  const minutos = Number(h[1]) * 60 + Number(h[2] ?? 0);
+  const domingo = quando.getDay() === 0;
+  const faixas = domingo ? DOMINGO : SEMANA;
+  if (faixas.some((f) => minutos >= f.de && minutos < f.ate)) return null;
+
+  const escrever = (m: number) =>
+    String(Math.floor(m / 60)) + "h" + (m % 60 ? String(m % 60).padStart(2, "0") : "");
+  const janelas = faixas.map((f) => escrever(f.de) + " às " + escrever(f.ate)).join(" e das ");
+  return (
+    (domingo ? "No domingo" : "Nesse dia") +
+    " a gente atende das " + janelas + ". Qual horário fica bom pra você?"
+  );
+}

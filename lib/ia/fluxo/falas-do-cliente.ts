@@ -131,3 +131,90 @@ export function saudacaoDaHora(agora = new Date()): string {
   if (h < 18) return "Boa tarde";
   return "Boa noite";
 }
+
+/**
+ * A RETIRADA E SEMPRE NO FUTURO.
+ *
+ * Teste do dono em 23/08/2026: ele disse "dia 05 de setembro" e o pedido foi
+ * anotado pra 05/09/2024. Um ano e meio no passado, numa padaria que produz sob
+ * encomenda: a comanda sairia com uma data que ja passou e ninguem saberia
+ * quando assar.
+ *
+ * O modelo nao tem relogio, entao ele chuta o ano. A instrucao agora diz que dia
+ * e hoje, e ESTA FUNCAO CONFERE DEPOIS: prompt pede, codigo garante. Data que
+ * caiu pra tras ganha o ano que faz ela cair pra frente.
+ *
+ * Devolve null pro que nao da pra entender. Null faz a padaria perguntar de
+ * novo, que e melhor que anotar uma data inventada.
+ */
+export function dataDeRetirada(bruto: string | null | undefined, agora = new Date()): string | null {
+  const t = String(bruto ?? "").trim();
+  if (!t) return null;
+
+  const m = t.match(/(\d{1,2})[/\-.](\d{1,2})(?:[/\-.](\d{2,4}))?/);
+  if (!m) return null;
+
+  const dia = Number(m[1]);
+  const mes = Number(m[2]);
+  if (dia < 1 || dia > 31 || mes < 1 || mes > 12) return null;
+
+  const hoje = new Date(agora.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  hoje.setHours(0, 0, 0, 0);
+
+  let ano = m[3] ? Number(m[3]) : hoje.getFullYear();
+  if (ano < 100) ano += 2000;
+
+  // Ano que caiu pra tras vira o ano que faz a data cair pra frente. Vale tanto
+  // pro ano chutado pelo modelo quanto pro dia 05/01 pedido em dezembro.
+  let quando = new Date(ano, mes - 1, dia);
+  while (quando < hoje) {
+    ano += 1;
+    quando = new Date(ano, mes - 1, dia);
+  }
+
+  // O dia tem que existir: 31 de fevereiro vira 3 de marco em JavaScript, e
+  // anotar isso e pior que perguntar de novo.
+  if (quando.getDate() !== dia || quando.getMonth() !== mes - 1) return null;
+
+  const dd = String(dia).padStart(2, "0");
+  const mm = String(mes).padStart(2, "0");
+  return dd + "/" + mm + "/" + ano;
+}
+
+/**
+ * O TOPO E O PAPEL DE ARROZ SAO ENCOMENDADOS FORA, E ISSO TEM PRAZO.
+ *
+ * Audio da dona, 29/07/2026:
+ *
+ *   "Topos de bolo e papel de arroz tem que ser encomendado com DOIS DIAS de
+ *   antecedencia, e no maximo ate SEXTA-FEIRA. Caso o cliente peca sabado de
+ *   manha e a Dora nao souber responder, a gente investiga pra ver se a pessoa
+ *   ainda pega pedido. Porque os topos e papel de arroz nao e nos que fazemos,
+ *   a gente encomenda."
+ *
+ * Entao aqui nao se promete: quando o prazo aperta, quem responde e a equipe.
+ * Aceitar sozinha um topo que a fornecedora nao vai fazer e vender o que a
+ * padaria nao tem.
+ *
+ * Devolve o motivo escrito, ou null quando o prazo esta folgado.
+ */
+export function prazoDoTopoAperta(dataRetirada: string | null, agora = new Date()): string | null {
+  const t = String(dataRetirada ?? "").trim();
+  const m = t.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!m) return null;
+
+  const hoje = new Date(agora.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  hoje.setHours(0, 0, 0, 0);
+  const quando = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  const dias = Math.round((quando.getTime() - hoje.getTime()) / 86400000);
+
+  if (dias < 2) return "topo ou papel de arroz com menos de dois dias de antecedência";
+
+  // Fim de semana: quem fabrica nao pega pedido, e a encomenda so entra na
+  // segunda. A dona pediu pra investigar caso a caso em vez de recusar.
+  const diaDaSemana = hoje.getDay(); // 0 domingo, 6 sabado
+  if (diaDaSemana === 6 || diaDaSemana === 0) {
+    return "pedido de topo feito no fim de semana, quando quem fabrica não pega encomenda";
+  }
+  return null;
+}

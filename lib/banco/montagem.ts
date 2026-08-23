@@ -67,6 +67,9 @@ export type DadosMontagem = {
   fluxo_papel?: string | null; // "sim" ou "nao" (ausente = ainda nao perguntado)
   fluxo_topo_nome?: string | null; // nome do aniversariante, pro topo
   fluxo_topo_idade?: string | null; // idade do aniversariante, pro topo
+  fluxo_tema?: string | null; // tema da peca personalizada ("Minnie")
+  fluxo_forminha?: string | null; // cor da forminha do docinho
+  fluxo_prato?: string | null; // "aberto" ou "tampa"
   fluxo_assunto?: string | null; // a etapa que ELE pos na mesa, ou "nenhum"
   fluxo_retomar?: string | null; // a etapa pra onde voltar depois do desvio
 };

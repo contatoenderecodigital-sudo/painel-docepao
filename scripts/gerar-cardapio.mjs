@@ -214,7 +214,7 @@ const faixaDoce = (preco) => docinhos.filter((i) => i.preco === preco).map((i) =
 
 peca({
   arquivo: "docinhos",
-  altura: 1400,
+  altura: 1720,
   etiqueta: "CARDÁPIO · DOCINHOS",
   titulo: "Docinhos",
   subtitulo: "De festa, na forminha da cor que você quiser",
@@ -230,8 +230,18 @@ peca({
     { tipo: "pastilhas", titulo: "Tradicionais", itens: faixaDoce(1.25) },
     { tipo: "pastilhas", titulo: "Especiais", itens: faixaDoce(1.75) },
     { tipo: "pastilhas", titulo: "Trufas", itens: trufa.sabores.map(maiuscula) },
+    // AS CORES DA FORMINHA ENTRAM NA PECA.
+    //
+    // A dona pergunta a cor toda vez que o cliente escolhe docinho ("voce quer
+    // rosa, azul, marrom, tem uma cor da tua preferencia?"), e o cardapio so
+    // dizia "na forminha da cor que voce quiser", sem dizer QUAIS. O cliente
+    // ficava adivinhando e a Dora tinha que listar 21 cores no texto.
+    //
+    // Saem do catalogo, como todo o resto desta peca: cor que a dona tirar da
+    // tabela some daqui junto.
+    { tipo: "pastilhas", titulo: "Cores da forminha", itens: (catalogo.forminhas_docinho?.cores ?? []).map(maiuscula) },
   ],
-  nota: "Mínimo de 20 de cada sabor",
+  nota: "Mínimo de 20 de cada sabor · todas as cores podem ser laminadas",
 });
 
 // ---------------------------------------------------------------------------

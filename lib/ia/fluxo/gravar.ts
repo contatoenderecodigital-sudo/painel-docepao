@@ -79,6 +79,9 @@ export function estadoDosDados(d: Record<string, string | null | undefined>): Pa
     pecas: lerPecas(d.fluxo_topo, d.fluxo_papel),
     topoNome: d.fluxo_topo_nome || null,
     topoIdade: d.fluxo_topo_idade || null,
+    tema: d.fluxo_tema || null,
+    forminha: d.fluxo_forminha || null,
+    prato: d.fluxo_prato === "aberto" || d.fluxo_prato === "tampa" ? d.fluxo_prato : null,
     assunto: d.fluxo_assunto && d.fluxo_assunto !== "nenhum" ? (d.fluxo_assunto as EtapaId) : null,
     retomarEm: d.fluxo_retomar && d.fluxo_retomar !== "nenhum" ? (d.fluxo_retomar as EtapaId) : null,
   };
@@ -193,6 +196,9 @@ export function dadosQueMudaram(antes: Estado, depois: Estado): Record<string, s
   if (papelDepois && papelDepois !== papelAntes) mudou.fluxo_papel = papelDepois;
   if (depois.topoNome && depois.topoNome !== antes.topoNome) mudou.fluxo_topo_nome = depois.topoNome;
   if (depois.topoIdade && depois.topoIdade !== antes.topoIdade) mudou.fluxo_topo_idade = depois.topoIdade;
+  if (depois.tema && depois.tema !== antes.tema) mudou.fluxo_tema = depois.tema;
+  if (depois.forminha && depois.forminha !== antes.forminha) mudou.fluxo_forminha = depois.forminha;
+  if (depois.prato && depois.prato !== antes.prato) mudou.fluxo_prato = depois.prato;
   if ((depois.assunto ?? null) !== (antes.assunto ?? null)) mudou.fluxo_assunto = depois.assunto ?? "nenhum";
   if ((depois.retomarEm ?? null) !== (antes.retomarEm ?? null)) mudou.fluxo_retomar = depois.retomarEm ?? "nenhum";
   return mudou;

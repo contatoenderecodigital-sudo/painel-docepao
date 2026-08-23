@@ -75,59 +75,13 @@ export function calcularBase(p: PedidoEmMontagem): Base | null {
   };
 }
 
-/**
- * A BASE ACEITA VIRA ITEM.
- *
- * Divide o total de cada familia entre os tipos que a casa mais vende, com a
- * soma exata: a conta fecha no numero da base, sempre. Sobra de arredondamento
- * vai no primeiro, senao a padaria produz a mais ou a menos.
- *
- * O cliente pode trocar qualquer um depois, numa frase. Oferecer e perguntar
- * item a item pra quem ja disse "pode ser" e o oposto de atender: foi o que fez
- * o coffee break de 200 salgados morrer em loop na versao antiga.
- */
-export function baseVirandoItens(base: Base, p: PedidoEmMontagem): PedidoEmMontagem["itens"] {
-  const itens: PedidoEmMontagem["itens"] = [];
-  const jaTem = (nome: string) =>
-    p.itens.some((i) => i.produto.toLowerCase() === nome.toLowerCase());
-
-  const dividir = (total: number, nomes: string[], categoria: string) => {
-    if (total <= 0 || !nomes.length) return;
-    // Cinco tipos e o que a dona sugere no cento ("cinco sabores, 20 de cada");
-    // pedido pequeno nao se divide em cinco.
-    const quantos = Math.min(nomes.length, total >= 100 ? 5 : total >= 40 ? 3 : 2);
-    const escolhidos = nomes.slice(0, quantos);
-    const cada = Math.floor(total / quantos);
-    const sobra = total - cada * quantos;
-    escolhidos.forEach((nome, i) => {
-      if (jaTem(nome)) return;
-      itens.push({
-        produto: nome,
-        categoria,
-        qtd: cada + (i === 0 ? sobra : 0),
-        obs: null,
-      });
-    });
-  };
-
-  // OS NOMES SAEM DO CARDAPIO, QUE E A MESMA FONTE DO PRECO.
-  //
-  // Sairam de uma tabela minha de 235 linhas (familias.ts) que o sistema usava
-  // por dez: a tabela ja lia o cardapio, entao nao era dado errado, era andaime.
-  // O dono viu o mesmo tipo de sobra nos botoes e reclamou com razao. Quando as
-  // outras familias forem construidas de verdade, a tabela volta com elas.
-  const nomes = (lista: { nome: string }[]) => lista.map((i) => String(i.nome));
-
-  // Os primeiros do cardapio sao os mais pedidos, na ordem em que a casa
-  // costuma sugerir: coxinha, bolinha de queijo, almofadinha.
-  dividir(base.salgados, nomes((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]).slice(0, 5), "salgado_frito");
-  dividir(base.docinhos, nomes((catalogo.doces?.itens ?? []) as { nome: string }[]).slice(0, 4), "docinho");
-
-  // O bolo e um so, e o sabor fica pra etapa dele: o cliente escolhe o sabor,
-  // nao a casa. So o PESO vem da base, que e a conta de 100 g por pessoa.
-  if (base.boloKg > 0 && !p.itens.some((i) => i.categoria === "bolo_festa")) {
-    itens.push({ produto: "bolo", categoria: "bolo_festa", qtd: base.boloKg, obs: null });
-  }
-
-  return itens;
-}
+// AQUI FICAVA baseVirandoItens, QUE ESCOLHIA OS SABORES SOZINHA.
+//
+// Ela pegava os cinco salgados e os quatro docinhos mais pedidos e dividia a
+// proposta entre eles no instante em que o cliente tocava em "Pode ser". O dono
+// viu no teste de 23/08/2026 e chamou pelo nome: "escolheu os salgadinhos e os
+// docinhos sortidos por conta propria", sem nunca mandar o cardapio.
+//
+// A proposta diz QUANTO. QUAL e escolha do cliente, e e pra isso que existem as
+// etapas do salgado e do docinho. Quem reparte o total entre o que ele escolheu
+// agora e repartirABase, no fluxo, e so depois de ele escolher.

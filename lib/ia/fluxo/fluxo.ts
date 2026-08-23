@@ -32,7 +32,10 @@ import catalogo from "../dados/catalogo.json";
 import { ETAPAS_DA_FESTA, etapaDaVez, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, type Leitura } from "./leitura";
-import { calcularBase, baseVirandoItens } from "./base";
+import { calcularBase } from "./base";
+import { motorPadrao } from "../orcamento";
+import { dataDeRetirada } from "./falas-do-cliente";
+import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
 
 /** O estado da conversa. E tudo que existe: nao ha memoria escondida. */
 export type Estado = PedidoEmMontagem & {
@@ -101,6 +104,10 @@ const DO_BOTAO: Record<string, (e: Estado) => Estado> = {
   pag_pix: (e) => ({ ...e, dados: { ...e.dados, pagamento: "pix" } }),
   pag_cartao: (e) => ({ ...e, dados: { ...e.dados, pagamento: "cartao" } }),
   pag_dinheiro: (e) => ({ ...e, dados: { ...e.dados, pagamento: "dinheiro" } }),
+  // Como o bolo vai embalado. A dona pergunta sempre, e sao duas opcoes exatas.
+  prato_aberto: (e) => ({ ...e, prato: "aberto" }),
+  prato_tampa: (e) => ({ ...e, prato: "tampa" }),
+
   // "Mudar algo", no resumo final. Nao muda nada sozinho de proposito: quem
   // sabe o que ele quer mudar e ele, e a proxima fala dele diz. O que este
   // botao faz e desmarcar o aceite da proposta, pra conversa nao ficar tentando
@@ -141,6 +148,54 @@ function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
 }
 
 /** Aplica no estado o que a IA leu. Nada entra sem passar por aqui. */
+/**
+ * O CLIENTE ESCOLHE O SABOR; A PROPOSTA DIZ QUANTO.
+ *
+ * Ele escreve "quero coxinha, risoles e esfirra" e nao fala numero nenhum,
+ * porque o numero ja foi combinado: sao os 300 salgados da proposta que ele
+ * aceitou. Entao o codigo reparte os 300 entre os tres, com o resto na primeira
+ * linha pra soma bater exatamente.
+ *
+ * SE ELE DISSER A QUANTIDADE, A DELE MANDA. Quem escreve "200 coxinhas" quer
+ * 200 coxinhas, e a proposta era proposta, nao contrato.
+ */
+function repartirABase(e: Estado, rastro: string[]): Estado {
+  if (!e.baseAceita || !e.base) return e;
+
+  const alvos: [string, number][] = [
+    ["salgado", e.base.salgados],
+    ["docinho", e.base.docinhos],
+    ["bolo", e.base.boloKg],
+  ];
+
+  let itens = [...e.itens];
+  for (const [familia, total] of alvos) {
+    if (!total) continue;
+    const daFamilia = itens
+      .map((i, idx) => ({ i, idx }))
+      .filter(({ i }) => String(i.categoria || "").startsWith(familia));
+    if (!daFamilia.length) continue;
+
+    // Sem numero nenhum escolhido, reparte o total da proposta. Se ele ja disse
+    // quantidade em alguma linha, respeita o que ele disse e nao mexe em nada.
+    const semQtd = daFamilia.filter(({ i }) => !(Number(i.qtd) > 0));
+    if (!semQtd.length) continue;
+
+    const jaEscolhido = daFamilia.reduce((s, { i }) => s + (Number(i.qtd) > 0 ? Number(i.qtd) : 0), 0);
+    const sobra = Math.max(0, total - jaEscolhido);
+    if (!sobra) continue;
+
+    const cada = Math.floor(sobra / semQtd.length);
+    const resto = sobra - cada * semQtd.length;
+    semQtd.forEach(({ idx }, ordem) => {
+      itens[idx] = { ...itens[idx], qtd: cada + (ordem === 0 ? resto : 0) };
+    });
+    rastro.push("reparti " + sobra + " de " + familia + " entre " + semQtd.length + " escolha(s)");
+  }
+
+  return itens === e.itens ? e : { ...e, itens };
+}
+
 function aplicar(e: Estado, l: Leitura, etapa: EtapaId): Estado {
   let novo: Estado = { ...e };
 
@@ -165,12 +220,20 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId): Estado {
   }
   if (l.aniversariante?.nome) novo.topoNome = String(l.aniversariante.nome).trim();
   if (l.aniversariante?.idade) novo.topoIdade = String(l.aniversariante.idade).trim();
+  if (l.tema) novo.tema = String(l.tema).trim();
+  if (l.forminha) novo.forminha = String(l.forminha).trim();
+  if (l.prato) novo.prato = l.prato;
   if (l.naoQuer?.length) novo.naoQuer = [...novo.naoQuer, ...l.naoQuer];
 
   if (l.dados) {
     novo.dados = {
       nome: l.dados.nome ?? novo.dados.nome,
-      data: l.dados.data ?? novo.dados.data,
+      // A DATA PASSA PELA CONFERENCIA DO CODIGO.
+      //
+      // O modelo escreveu "05/09/2024" pra quem disse "dia 05 de setembro" em
+      // agosto de 2026. Data que nao da pra entender vira null, e null faz a
+      // padaria perguntar de novo em vez de anotar dia inventado.
+      data: dataDeRetirada(l.dados.data) ?? novo.dados.data,
       hora: l.dados.hora ?? novo.dados.hora,
       pagamento: l.dados.pagamento ?? novo.dados.pagamento,
     };
@@ -276,13 +339,21 @@ export async function responder(
       );
     }
   }
-  if (estado.baseAceita && estado.base && !estado.itens.length) {
-    const novos = baseVirandoItens(estado.base, estado);
-    if (novos.length) {
-      estado = { ...estado, itens: [...estado.itens, ...novos] };
-      rastro.push("base aceita virou pedido: " + novos.map((i) => i.qtd + " " + i.produto).join(", "));
-    }
-  }
+  // ACEITAR A PROPOSTA NAO ESCOLHE SABOR NENHUM.
+  //
+  // Ate 23/08/2026 aceitar virava pedido pronto: o codigo pegava os cinco
+  // salgados e os quatro docinhos mais pedidos e dividia a conta entre eles. O
+  // dono viu isso no teste dele e chamou pelo nome: "escolheu os salgadinhos e
+  // os docinhos sortidos por conta propria". A conversa pulava direto pro bolo
+  // e o cliente nunca via o cardapio.
+  //
+  // A proposta diz QUANTO (300 salgados, 150 docinhos, 3 kg de bolo). QUAL e
+  // dele, e e por isso que existem as etapas do salgado e do docinho, cada uma
+  // com o cardapio junto.
+  //
+  // O que a base faz agora e guardar o total. Quando ele escolher os sabores
+  // sem dizer quantidade, o codigo reparte esse total entre o que ele escolheu.
+  estado = repartirABase(estado, rastro);
 
   // ------------------------------------------- as pecas do bolo viram pedido
   //
@@ -303,15 +374,65 @@ export async function responder(
     };
     rastro.push("papel de arroz virou item do pedido");
   }
-  if (estado.pecas?.topo === true && estado.topoNome && estado.topoIdade) {
-    const marca = "Topo: " + estado.topoNome + ", " + estado.topoIdade;
+  // A COR DA FORMINHA VAI NA OBSERVACAO DE CADA DOCINHO.
+  //
+  // Nao numa observacao geral do pedido: a comanda dos docinhos e separada da
+  // do bolo (a dona produz por segmento), e a cor precisa estar NA comanda que
+  // a producao vai pegar. Foi assim que a forminha ja vazou pra comanda errada.
+  if (estado.forminha) {
+    const marca = "forminha " + estado.forminha;
+    const itens = estado.itens.map((i) => {
+      if (!String(i.categoria || "").startsWith("docinho")) return i;
+      const obs = String(i.obs ?? "");
+      if (/forminha/i.test(obs)) return i;
+      return { ...i, obs: [obs, marca].filter(Boolean).join(" | ") };
+    });
+    if (itens.some((i, n) => i !== estado.itens[n])) {
+      estado = { ...estado, itens };
+      rastro.push("anotei a " + marca + " nos docinhos");
+    }
+  }
+
+  // Como o bolo vai embalado, na observacao do bolo.
+  if (estado.prato) {
+    const marca = estado.prato === "aberto" ? "prato de MDF aberto" : "embalagem com tampa";
     const i = estado.itens.findIndex((x) => String(x.categoria || "").startsWith("bolo"));
-    if (i >= 0 && !/topo:/i.test(String(estado.itens[i].obs ?? ""))) {
+    if (i >= 0 && !/prato de MDF|embalagem com tampa/i.test(String(estado.itens[i].obs ?? ""))) {
       const itens = [...estado.itens];
       itens[i] = { ...itens[i], obs: [itens[i].obs, marca].filter(Boolean).join(" | ") };
       estado = { ...estado, itens };
-      rastro.push("topo anotado na observacao do bolo: " + marca);
+      rastro.push("anotei no bolo: " + marca);
     }
+  }
+
+  // CADA PECA LEVA A SUA PROPRIA OBSERVACAO.
+  //
+  // O topo vira observacao do BOLO, porque nao e item; o papel de arroz vira
+  // observacao da propria linha dele, que existe e tem preco. Assim cada ticket
+  // impresso sai com o que aquela peca precisa, e nada aparece duas vezes, que
+  // e um defeito que ja saiu no papel aqui.
+  const descricao = [estado.tema ? "tema " + estado.tema : "", estado.topoNome, estado.topoIdade]
+    .filter(Boolean)
+    .join(", ");
+  if (descricao) {
+    const anotar = (acharCategoria: (c: string) => boolean, prefixo: string) => {
+      const i = estado.itens.findIndex((x) => acharCategoria(String(x.categoria || "")));
+      if (i < 0) return;
+      const marca = prefixo + descricao;
+      if (String(estado.itens[i].obs ?? "").includes(marca)) return;
+      const itens = [...estado.itens];
+      // Substitui a marca anterior em vez de empilhar: o cliente pode trocar o
+      // tema no meio da conversa, e a comanda nao pode sair com os dois.
+      const limpo = String(itens[i].obs ?? "")
+        .split(" | ")
+        .filter((x) => x && !x.startsWith(prefixo))
+        .join(" | ");
+      itens[i] = { ...itens[i], obs: [limpo, marca].filter(Boolean).join(" | ") };
+      estado = { ...estado, itens };
+      rastro.push("anotei na comanda: " + marca);
+    };
+    if (estado.pecas?.topo === true) anotar((c) => c.startsWith("bolo"), "Topo: ");
+    if (estado.pecas?.papelDeArroz === true) anotar((c) => c === "papel_de_arroz", "");
   }
 
   // ------------------------------------------------- a etapa seguinte
@@ -354,7 +475,45 @@ export async function responder(
 
   // O aviso so vale se a conversa continuar na MESMA etapa: se ela ja andou, o
   // cliente resolveu e o "a gente nao faz" chegaria fora de hora.
-  const fala = falaDaEtapa(proxima, estado, 0, proxima.id === etapaAgora.id ? naoTemos : []);
+  // O TOTAL SAI DO MOTOR, E EU ESTAVA MANDANDO ZERO.
+  //
+  // Teste do dono em 23/08/2026: o resumo do pedido dele, com onze linhas de
+  // comida, terminava em "*Total: R$ 0,00*". Ele perguntou "total ficou 0
+  // reais?" e recebeu o mesmo resumo de volta.
+  //
+  // Nao era o motor errando: era eu passando 0 no lugar do total, na unica
+  // chamada que monta a fala. O numero certo estava a uma linha de distancia.
+  const total = estado.itens.length
+    ? Math.round(
+        Number(
+          motorPadrao.cotarPorItens(
+            estado.itens.map((i) => ({ item: i.produto, qtd: i.qtd, obs: i.obs ?? undefined })),
+          ).total || 0,
+        ) * 100,
+      )
+    : 0;
+
+  // A RETIRADA CABE NO EXPEDIENTE?
+  //
+  // Pedido do dono: hora que a padaria nao atende tem que ser DITA, nao
+  // engolida. O horario sai de padaria-aberta.ts, o mesmo que a Dora usa pra
+  // responder "que horas voces abrem": fonte unica, sem lista paralela.
+  //
+  // A hora que nao cabe e apagada, entao a etapa dos dados volta a perguntar, e
+  // agora com o motivo na frente.
+  const foraDoHorario = retiradaForaDoExpediente(estado.dados.data, estado.dados.hora);
+  if (foraDoHorario) {
+    estado = { ...estado, dados: { ...estado.dados, hora: null } };
+    rastro.push("hora fora do expediente; avisei e perguntei de novo");
+  }
+
+  const fala = falaDaEtapa(proxima, estado, total, proxima.id === etapaAgora.id ? naoTemos : []);
+  if (foraDoHorario) {
+    return {
+      fala: { ...fala, texto: foraDoHorario, botoes: [], cardapio: null, podeReescrever: false },
+      estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo,
+    };
+  }
   rastro.push("proxima: " + proxima.id);
 
   return { fala, estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo };

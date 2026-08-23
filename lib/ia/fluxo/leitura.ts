@@ -70,6 +70,12 @@ export type Leitura = {
    * a proxima pergunta e a idade.
    */
   aniversariante?: { nome?: string; idade?: string };
+  /** O tema da peca personalizada: "Minnie", "Homem Aranha", "futebol". */
+  tema?: string;
+  /** A cor da forminha do docinho, do cardapio de cores. */
+  forminha?: string;
+  /** Como o bolo vai embalado: prato de MDF aberto ou embalagem com tampa. */
+  prato?: "aberto" | "tampa";
   /** Dados da retirada. */
   dados?: { nome?: string; data?: string; hora?: string; pagamento?: string };
   /**
@@ -127,6 +133,13 @@ export function vocabularioDaEtapa(etapa: EtapaId): string[] {
  * Curta de proposito. A carta de trinta paginas da versao antiga existia porque
  * a IA precisava saber tudo pra decidir tudo; aqui ela decide uma coisa so.
  */
+/** Que dia e hoje, pelo relogio da padaria. O modelo nao tem relogio. */
+function hojeEmSaoPaulo(): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Sao_Paulo",
+  }).format(new Date());
+}
+
 export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
   const vocab = vocabularioDaEtapa(etapa);
   const lista = vocab.length ? "\n\nO cardápio desta etapa: " + vocab.join(", ") + "." : "";
@@ -148,7 +161,19 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     // salgado. Item continua preso a etapa, que e onde mora a ambiguidade.
     "SEMPRE, em qualquer etapa: se ele falar o DIA da retirada, a HORA, o NOME " +
     "de quem retira ou a FORMA DE PAGAMENTO, devolva em dados. Isso vale mesmo " +
-    "que a etapa seja outra, porque o cliente fala esses quatro quando lembra.";
+    "que a etapa seja outra, porque o cliente fala esses quatro quando lembra." +
+    String.fromCharCode(10) +
+    // HOJE E QUE DIA?
+    //
+    // Sem esta linha o modelo chuta o ano. No teste do dono em 23/08/2026 ele
+    // disse "dia 05 de setembro" e o pedido foi anotado pra 05/09/2024: um ano
+    // e meio no passado, numa padaria que produz sob encomenda.
+    //
+    // O modelo nao tem relogio. Quem tem e o codigo, e por isso a data de hoje
+    // vai escrita na instrucao, e a conferencia continua sendo feita no codigo
+    // depois: prompt pede, codigo garante.
+    "Hoje é " + hojeEmSaoPaulo() + ". Toda data de retirada é NO FUTURO: se ele " +
+    "disser só o dia e o mês, use o ano que faz a data cair pra frente.";
 
   // A RECUSA E RESPOSTA, NAO SILENCIO.
   //
@@ -160,6 +185,16 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
   //
   // Escrita uma vez e usada nas tres de proposito: o dono pediu que as regras
   // fossem as mesmas em todas as familias, senao cada uma quebra de um jeito.
+  // NA FESTA, O NUMERO JA FOI COMBINADO.
+  //
+  // Ele aceitou "300 salgados no total" e agora diz quais quer. Se o modelo
+  // inventar uma quantidade, ela briga com a proposta; se devolver 0, o codigo
+  // reparte os 300 entre o que ele escolheu.
+  const semNumero =
+    p.baseAceita && p.base
+      ? " Se ele NÃO disser a quantidade, devolva qtd 0: o total já foi combinado na proposta."
+      : "";
+
   const recusa = (familia: string) =>
     " Se ele disser que NÃO quer " + familia + " (não quero, sem " + familia +
     ", pode tirar, deixa pra lá), devolva naoQuer com a palavra " + familia + ".";
@@ -176,17 +211,20 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     salgado:
       "A etapa é ESCOLHER OS SALGADOS. Só existe salgado aqui: se ele falar de " +
       "docinho ou de bolo, devolva falouDeOutraEtapa em vez de anotar." +
-      recusa("salgado") + lista,
+      recusa("salgado") + semNumero + lista,
     docinho:
       "A etapa é ESCOLHER OS DOCINHOS. Só existe docinho aqui: se ele falar de " +
       "bolo ou de salgado, devolva falouDeOutraEtapa em vez de anotar. " +
-      "A cor da forminha vai na observação do item." + recusa("docinho") + lista,
+      "Se ele disser a COR da forminha (rosa, azul, dourada, verde tiffany), " +
+      "devolva em forminha." + recusa("docinho") + semNumero + lista,
     bolo:
       "A etapa é ESCOLHER O BOLO. Só existe sabor de bolo aqui: se ele falar de " +
       "docinho, devolva falouDeOutraEtapa em vez de anotar, MESMO que o nome do " +
       "docinho também seja sabor de bolo (brigadeiro, beijinho). " +
       "O peso em quilos vai na quantidade; o pão de ló vai na observação." +
-      recusa("bolo") + lista,
+      recusa("bolo") + semNumero +
+      " Se ele disser como quer o bolo embalado, devolva prato: \"aberto\" pro " +
+      "prato de MDF aberto, \"tampa\" pra embalagem tradicional com tampa." + lista,
     pecas_do_bolo:
       "A etapa é TOPO E PAPEL DE ARROZ do bolo, e o NOME e a IDADE do " +
       "aniversariante." + String.fromCharCode(10) +
@@ -196,11 +234,18 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "Se ele disser o nome ou a idade de quem faz aniversário, devolva em " +
       "aniversariante (nome e idade). \"Arthur, 5 anos\" é nome Arthur e idade " +
       "5 anos. \"Vai fazer 5\" é só a idade." + String.fromCharCode(10) +
-      "O tema do bolo vai na observação do bolo.",
+      "Se ele disser o TEMA da peça (Minnie, Homem Aranha, futebol, princesa), " +
+      "devolva em tema.",
     dados:
       "A etapa é PEGAR OS DADOS DA RETIRADA: nome de quem retira, dia, hora e " +
       "forma de pagamento. Devolva só o que ele falou nesta mensagem. " +
-      "Data no formato DD/MM/AAAA.",
+      "Data no formato DD/MM/AAAA." + String.fromCharCode(10) +
+      // "Quero decidir os sabores dos salgados" no meio dos dados foi ignorado
+      // no teste de 23/08/2026: ela respondeu perguntando a forma de pagamento.
+      // Esta etapa e a unica que nao sabia mandar a conversa de volta.
+      "Se ele quiser mexer no PEDIDO (trocar sabor, escolher salgado, mudar o " +
+      "bolo, tirar item), devolva falouDeOutraEtapa com a etapa: salgado, " +
+      "docinho, bolo ou pecas_do_bolo.",
     confirmacao:
       "A etapa é CONFIRMAR O PEDIDO. Se ele confirmou de qualquer jeito (pode " +
       "fechar, isso mesmo, confirmo, tá certo, pode ser, fechado), devolva " +

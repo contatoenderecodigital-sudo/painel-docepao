@@ -44,7 +44,7 @@ fs.writeFileSync(
     "const base = {",
     "  ehFesta:true, pessoas:20, base:null, baseAceita:true, naoQuer:[], itens:[bolo],",
     "  dados:{nome:'Sandro', data:'12/09/2026', hora:'11:30', pagamento:'pix'},",
-    "  pecas:null, topoNome:null, topoIdade:null, retomarEm:null, assunto:null,",
+    "  pecas:null, topoNome:null, topoIdade:null, tema:null, retomarEm:null, assunto:null,",
     "};",
     "const com = (p) => ({ ...base, ...p });",
     "const fala = (p) => falaDaEtapa(etapa, com(p));",
@@ -56,21 +56,24 @@ fs.writeFileSync(
     "  depoisDoTopo: fala({ pecas: { topo: true, papelDeArroz: null } }),",
     "  depoisDoTopoNao: fala({ pecas: { topo: false, papelDeArroz: null } }),",
     "  // topo sim, papel respondido: falta nome e idade",
-    "  faltaTudo: fala({ pecas: { topo: true, papelDeArroz: false } }),",
-    "  faltaIdade: fala({ pecas: { topo: true, papelDeArroz: false }, topoNome: 'Arthur' }),",
-    "  faltaNome: fala({ pecas: { topo: true, papelDeArroz: false }, topoIdade: '5 anos' }),",
+    "  tema: fala({ pecas: { topo: true, papelDeArroz: false } }),",
+    "  temaDoPapel: fala({ pecas: { topo: false, papelDeArroz: true } }),",
+    "  faltaTudo: fala({ pecas: { topo: true, papelDeArroz: false }, tema: 'Minnie' }),",
+    "  faltaIdade: fala({ pecas: { topo: true, papelDeArroz: false }, tema: 'Minnie', topoNome: 'Arthur' }),",
+    "  faltaNome: fala({ pecas: { topo: true, papelDeArroz: false }, tema: 'Minnie', topoIdade: '5 anos' }),",
     "  // as quatro combinacoes cumprem a etapa?",
     "  cumpre: {",
-    "    osDois: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:true}, topoNome:'Arthur', topoIdade:'5' })),",
-    "    soTopo: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:false}, topoNome:'Arthur', topoIdade:'5' })),",
-    "    soPapel: etapa.cumprida(com({ pecas:{topo:false,papelDeArroz:true} })),",
+    "    osDois: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:true}, tema:'Minnie', topoNome:'Arthur', topoIdade:'5' })),",
+    "    soTopo: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:false}, tema:'Minnie', topoNome:'Arthur', topoIdade:'5' })),",
+    "    soPapel: etapa.cumprida(com({ pecas:{topo:false,papelDeArroz:true}, tema:'Minnie', topoNome:'Arthur', topoIdade:'5' })),",
     "    nenhum: etapa.cumprida(com({ pecas:{topo:false,papelDeArroz:false} })),",
     "    metade: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:null} })),",
-    "    topoSemNome: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:true} })),",
+    "    topoSemNome: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:true}, tema:'Minnie' })),",
+    "    papelSemTema: etapa.cumprida(com({ pecas:{topo:false,papelDeArroz:true} })),",
     "  },",
     "  // o pedido fecha sem o nome do aniversariante?",
     "  fechaSemNome: oQueFaltaPraFechar(com({ pecas:{topo:true,papelDeArroz:true} })),",
-    "  fechaComTudo: oQueFaltaPraFechar(com({ pecas:{topo:true,papelDeArroz:true}, topoNome:'Arthur', topoIdade:'5 anos' })),",
+    "  fechaComTudo: oQueFaltaPraFechar(com({ pecas:{topo:true,papelDeArroz:true}, tema:'Minnie', topoNome:'Arthur', topoIdade:'5 anos' })),",
     "}));",
   ].join("\n"),
   "utf8",
@@ -116,6 +119,12 @@ if (r.depoisDoTopo.podeReescrever !== false) {
   falhas.push("a fala do papel de arroz tem valor e ainda assim pode ser reescrita pela IA");
 }
 
+// -------------------------------- o tema e a foto de referencia
+for (const [nome, f] of [["topo", r.tema], ["papel de arroz", r.temaDoPapel]]) {
+  if (!/tema/i.test(f.texto)) falhas.push("com " + nome + " ela nao pergunta o tema: " + f.texto);
+  if (!/imagem|foto|refer/i.test(f.texto)) falhas.push("com " + nome + " ela nao pede imagem de referencia: " + f.texto);
+}
+
 // ----------------------------------------- o nome e a idade sao cobrados
 if (!/nome/i.test(r.faltaTudo.texto) || !/idade/i.test(r.faltaTudo.texto)) {
   falhas.push("com topo, ela nao pergunta nome e idade numa frase so: " + r.faltaTudo.texto);
@@ -128,7 +137,8 @@ if (!/nome/i.test(r.faltaNome.texto)) {
 }
 
 // ---------------------------------------- as quatro combinacoes existem
-const esperado = { osDois: true, soTopo: true, soPapel: true, nenhum: true, metade: false, topoSemNome: false };
+const esperado = { osDois: true, soTopo: true, soPapel: true, nenhum: true, metade: false,
+  topoSemNome: false, papelSemTema: false };
 for (const [caso, deve] of Object.entries(esperado)) {
   if (r.cumpre[caso] !== deve) {
     falhas.push("a etapa das pecas com '" + caso + "' devia " + (deve ? "" : "NAO ") + "estar cumprida");

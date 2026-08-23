@@ -38,6 +38,9 @@ const FORMATO = `Responda SÓ com um JSON, sem texto em volta, neste formato:
   "confirmou": true,
   "pecas": { "topo": true },
   "aniversariante": { "nome": "Arthur", "idade": "5 anos" },
+  "tema": "Minnie",
+  "forminha": "rosa",
+  "prato": "aberto",
   "dados": { "nome": "", "data": "DD/MM/AAAA", "hora": "HH:MM", "pagamento": "pix" },
   "falouDeOutraEtapa": "bolo",
   "recomecar": false
@@ -82,9 +85,17 @@ export function pensarComOpenAI(
       // com tudo null apagaria o que ja estava anotado.
       const limpo: Leitura = {};
       if (Array.isArray(lido.itens) && lido.itens.length) {
+        // QUANTIDADE ZERO E RESPOSTA, NAO LIXO.
+        //
+        // Na festa o cliente escolhe o SABOR e o numero ja foi combinado na
+        // proposta: "quero coxinha, risoles e esfirra" nao tem quantidade
+        // nenhuma, e antes esses tres itens eram jogados fora aqui. Quem
+        // reparte o total da proposta entre eles e o fluxo, depois.
+        //
+        // Numero negativo continua fora: isso nao e resposta de ninguem.
         limpo.itens = lido.itens
-          .filter((i) => i && String(i.produto ?? "").trim() && Number(i.qtd) > 0)
-          .map((i) => ({ produto: String(i.produto).trim(), qtd: Number(i.qtd), obs: i.obs ?? null }));
+          .filter((i) => i && String(i.produto ?? "").trim() && Number(i.qtd) >= 0)
+          .map((i) => ({ produto: String(i.produto).trim(), qtd: Number(i.qtd) || 0, obs: i.obs ?? null }));
         if (!limpo.itens.length) delete limpo.itens;
       }
       // "VOU FAZER UMA FESTA" MORRIA AQUI.
@@ -122,6 +133,9 @@ export function pensarComOpenAI(
         if (typeof lido.pecas.papelDeArroz === "boolean") pec.papelDeArroz = lido.pecas.papelDeArroz;
         if (Object.keys(pec).length) limpo.pecas = pec;
       }
+      if (String(lido.tema ?? "").trim()) limpo.tema = String(lido.tema).trim();
+      if (String(lido.forminha ?? "").trim()) limpo.forminha = String(lido.forminha).trim();
+      if (lido.prato === "aberto" || lido.prato === "tampa") limpo.prato = lido.prato;
       if (lido.aniversariante && typeof lido.aniversariante === "object") {
         const a: NonNullable<Leitura["aniversariante"]> = {};
         const nome = String(lido.aniversariante.nome ?? "").trim();

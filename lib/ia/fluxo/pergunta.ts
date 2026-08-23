@@ -17,9 +17,11 @@
 //  ja esta fechado quando chega nela.
 // ============================================================================
 
+import catalogo from "../dados/catalogo.json";
 import { brl, motorPadrao } from "../orcamento";
 import type { Etapa, PedidoEmMontagem } from "./etapas";
-import { saudacaoDaHora } from "./falas-do-cliente";
+import { saudacaoDaHora, prazoDoTopoAperta } from "./falas-do-cliente";
+import { saboresQueFaltam } from "./sabor";
 
 export type Fala = {
   /** O que a padaria diz. Uma pergunta so, sempre. */
@@ -87,12 +89,15 @@ function falaDosDados(p: PedidoEmMontagem): { texto: string; botoes: Fala["botoe
  *
  * Duas perguntas cobrem as quatro combinacoes e deixam tudo visivel na tela.
  *
- * E O NOME E A IDADE DO ANIVERSARIANTE
+ * O TEMA, O NOME E A IDADE
  *
- * So quando o topo for sim, porque so o topo precisa deles: a peca e fabricada
- * com o tema, o nome e o numero. A pergunta sai numa frase so, que e como uma
- * atendente perguntaria, e o CODIGO confere se vieram os dois. Se faltar um, ele
- * cobra o que faltou.
+ * Sempre que houver topo OU papel de arroz, porque as duas pecas sao fabricadas
+ * com o tema, o nome e o numero. Era so o topo ate 23/08/2026, e no teste do
+ * dono o papel de arroz passou sem nada: nem tema, nem nome, nem idade.
+ *
+ * A pergunta do nome e da idade sai numa frase so, que e como uma atendente
+ * perguntaria, e o CODIGO confere se vieram os dois. Se faltar um, ele cobra o
+ * que faltou.
  *
  * Foi o medo do dono que desenhou isso: "numa pergunta so e mais real, mas meu
  * medo e ela errar". Perguntar junto e cobrar no codigo resolve os dois lados.
@@ -134,9 +139,30 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
     };
   }
 
-  // O topo e feito com o nome e a idade. Sem os dois, a cozinha nao tem o que
-  // escrever na peca.
-  if (topo === true && (!p.topoNome || !p.topoIdade)) {
+  // O TEMA, E A FOTO DE REFERENCIA.
+  //
+  // Vale pras duas pecas: topo e papel de arroz sao fabricados com o tema. No
+  // teste de 23/08/2026 o cliente escreveu "pode ser da miney" por conta
+  // propria, ninguem tinha perguntado, e o tema sumiu do pedido.
+  //
+  // A foto e pedida junto porque o sistema ja sabe guardar imagem no pedido, e
+  // porque tema escrito ("minnie rosa") e tema visto sao coisas diferentes na
+  // hora de fabricar.
+  if ((topo === true || papel === true) && !p.tema) {
+    const oQue = topo === true && papel === true ? "o topo e o papel de arroz" : topo === true ? "o topo" : "o papel de arroz";
+    return {
+      texto:
+        "Qual vai ser o tema d" + (oQue.startsWith("o topo e") ? "essas peças" : "esse " + oQue.replace("o ", "")) +
+        "? Se você quiser, me manda uma imagem pra gente fazer parecido.",
+      botoes: [],
+      cardapio: null,
+      podeReescrever: true,
+    };
+  }
+
+  // O nome e a idade vao impressos na peca. Sem os dois, a cozinha nao tem o
+  // que escrever.
+  if ((topo === true || papel === true) && (!p.topoNome || !p.topoIdade)) {
     const falta =
       !p.topoNome && !p.topoIdade
         ? "O topo vai com qual nome e qual idade?"
@@ -150,11 +176,131 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
   return { texto: "", botoes: [], cardapio: null, podeReescrever: true };
 }
 
-function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
-  const linhas = p.itens.map(
-    (i) => "- " + i.qtd + (i.categoria.startsWith("bolo") ? " kg de " : " ") + i.produto +
-      (i.obs ? " (" + i.obs + ")" : ""),
+/**
+ * ALGUM ITEM DESTA FAMILIA ESTA SEM O RECHEIO ESCOLHIDO?
+ *
+ * "2 kg de empadao" sem dizer se e de frango ou de palmito para a cozinha no
+ * meio da manha, e alguem tem que ligar pro cliente. A pergunta sai com as
+ * opcoes do proprio cardapio, entao ela nunca oferece o que a casa nao faz.
+ */
+function perguntaDoSabor(p: PedidoEmMontagem, familia: string): Fala | null {
+  const falta = saboresQueFaltam(p.itens.filter((i) => String(i.categoria || "").startsWith(familia)));
+  if (!falta.length) return null;
+  const f = falta[0];
+  return {
+    texto: "O " + f.produto + " vai de quê? Tem " + f.opcoes.join(", ") + ".",
+    botoes: [],
+    cardapio: null,
+    podeReescrever: true,
+  };
+}
+
+/**
+ * OS DOCINHOS, E A COR DA FORMINHA.
+ *
+ * Audio da dona, 29/07/2026: "na hora que a pessoa escolher docinho, a gente
+ * SEMPRE pergunta a cor da forminha que ela quer: voce quer rosa, azul, marrom,
+ * tem uma cor da tua preferencia?".
+ *
+ * A cor vai na comanda dos docinhos, porque ela monta a forminha antes de
+ * rechear: se a cor chega depois, a producao ja comecou errada.
+ *
+ * SEM BOTAO, DE PROPOSITO. Sao 21 cores no cardapio e o WhatsApp so deixa
+ * mandar tres botoes. Escolher tres seria escolher pelo cliente, entao a lista
+ * vai escrita e ele responde o que quiser. Decisao do dono em 23/08/2026.
+ */
+function falaDoDocinho(p: PedidoEmMontagem, aviso: string): Fala {
+  const semSabor = perguntaDoSabor(p, "docinho");
+  if (semSabor) return semSabor;
+
+  const temDocinho = p.itens.some((i) => String(i.categoria || "").startsWith("docinho"));
+
+  if (!temDocinho) {
+    return {
+      texto: aviso + "Agora os docinhos: quais você quer?",
+      botoes: [],
+      cardapio: "docinhos",
+      podeReescrever: true,
+    };
+  }
+
+  const cores = (catalogo.forminhas_docinho?.cores ?? []) as string[];
+  return {
+    texto:
+      "De que cor você quer a forminha dos docinhos?" +
+      (cores.length ? "\n\nTem " + cores.join(", ") + "." : ""),
+    botoes: [],
+    cardapio: null,
+    podeReescrever: true,
+  };
+}
+
+/**
+ * O BOLO: O SABOR, E COMO ELE VAI EMBALADO.
+ *
+ * Audio da dona, 29/07/2026: "e interessante perguntar se ela quer no prato em
+ * MDF aberto, do jeito que esta na foto, ou se ela quer aquela embalagem
+ * tradicional que vai a tampa".
+ *
+ * Nunca foi perguntado por nenhuma versao do sistema. Aqui vale botao, porque
+ * as opcoes sao exatamente duas e a resposta e fechada.
+ */
+function falaDoBolo(p: PedidoEmMontagem, aviso: string): Fala {
+  const temSabor = p.itens.some(
+    (i) => String(i.categoria || "").startsWith("bolo") && String(i.produto).trim().toLowerCase() !== "bolo",
   );
+
+  if (!temSabor) {
+    return {
+      texto: aviso + "E o bolo, qual sabor?",
+      botoes: [],
+      cardapio: "bolos-festa",
+      podeReescrever: true,
+    };
+  }
+
+  return {
+    texto: "O bolo vai no prato de MDF aberto ou na embalagem com tampa?",
+    botoes: [
+      { id: "prato_aberto", titulo: "Prato aberto" },
+      { id: "prato_tampa", titulo: "Com tampa" },
+    ],
+    cardapio: null,
+    podeReescrever: true,
+  };
+}
+
+/**
+ * O QUE ELA DIZ DEPOIS DE REGISTRAR O PEDIDO.
+ *
+ * Tres situacoes diferentes, e o cliente precisa saber em qual esta:
+ *
+ *   pedido comum   -> foi pra fila, a equipe confirma
+ *   com topo       -> foi pra fila E a equipe ainda vai orcar o topo
+ *   topo em cima da hora -> a equipe ainda vai ver se quem fabrica pega
+ */
+function falaDoFim(p: PedidoEmMontagem): string {
+  const base = "Pronto, seu pedido foi pra fila da equipe da padaria. Assim que eles confirmarem, eu te aviso por aqui.";
+  if (p.pecas?.topo !== true) return base;
+
+  const aperta = prazoDoTopoAperta(p.dados.data);
+  return (
+    base +
+    "\n\n_O topo entra à parte: a equipe faz o orçamento dele e confirma o valor com você._" +
+    (aperta
+      ? "\n_Como é " + aperta + ", eles também vão confirmar se dá tempo de fazer._"
+      : "")
+  );
+}
+
+function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
+  // "3 kg de bombom" nao e comida: o sabor do bolo sozinho nao diz que e bolo.
+  // Saiu assim no resumo do teste de 23/08/2026.
+  const linhas = p.itens.map((i) => {
+    const ehBolo = i.categoria.startsWith("bolo");
+    const nome = ehBolo && !/bolo/i.test(i.produto) ? "bolo de " + i.produto : i.produto;
+    return "- " + i.qtd + (ehBolo ? " kg de " : " ") + nome + (i.obs ? " (" + i.obs + ")" : "");
+  });
   const d = p.dados;
   return (
     "Fechando o pedido:" + "\n" + linhas.join("\n") + "\n\n" +
@@ -216,29 +362,26 @@ export function falaDaEtapa(
         podeReescrever: false,
       };
 
-    case "salgado":
+    case "salgado": {
+      // O SABOR PRIMEIRO, SE ALGUM ITEM ESTIVER SEM.
+      //
+      // Risolis e mini bolha sao fritos e pedem recheio; coxinha nao pede. Quem
+      // separa os dois e o catalogo, nao uma lista minha.
+      const semSabor = perguntaDoSabor(p, "salgado");
+      if (semSabor) return semSabor;
       return {
-        texto: aviso + "Quais salgados você quer? Te mandei o cardápio aqui.",
+        texto: aviso + "Quais salgados você quer?",
         botoes: [],
         cardapio: "salgados",
         podeReescrever: true,
       };
+    }
 
     case "docinho":
-      return {
-        texto: aviso + "Agora os docinhos: quais você quer?",
-        botoes: [],
-        cardapio: "docinhos",
-        podeReescrever: true,
-      };
+      return falaDoDocinho(p, aviso);
 
     case "bolo":
-      return {
-        texto: aviso + "E o bolo, qual sabor?",
-        botoes: [],
-        cardapio: "bolos-festa",
-        podeReescrever: true,
-      };
+      return falaDoBolo(p, aviso);
 
     case "pecas_do_bolo":
       return falaDasPecas(p);
@@ -262,7 +405,16 @@ export function falaDaEtapa(
 
     case "registrado":
       return {
-        texto: "Já passei pra equipe da padaria. Assim que confirmarem, eu te aviso por aqui.",
+        // A ULTIMA FALA MUDA COM O QUE O PEDIDO TEM.
+        //
+        // Pedido do dono em 23/08/2026: "uma mensagem customizada dependendo da
+        // coisa; se for pra confirmacao, avisar que a equipe vai orcar o valor;
+        // se for pra aprovacao, avisar que foi pra fila".
+        //
+        // Sao coisas diferentes de verdade: com topo o cliente ainda nao sabe o
+        // valor final, e mandar ele embora achando que sabe e o comeco de uma
+        // discussao no balcao.
+        texto: falaDoFim(p),
         botoes: [],
         cardapio: null,
         podeReescrever: true,

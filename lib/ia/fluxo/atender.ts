@@ -74,6 +74,9 @@ const VAZIO: Estado = {
   pecas: null,
   topoNome: null,
   topoIdade: null,
+  tema: null,
+  forminha: null,
+  prato: null,
   retomarEm: null,
   assunto: null,
 };
@@ -152,6 +155,29 @@ export async function atenderComFluxoNovo(
   // que da no mesmo que nao ter botao. Aqui a padaria faz a pergunta obvia, sem
   // chamar a IA: nao ha o que interpretar num toque de botao, e a resposta dele
   // ("quero trocar o bolo") o fluxo ja sabe atender pela etapa certa.
+  // "QUERO AJUSTAR" PRECISA FAZER ALGUMA COISA.
+  //
+  // Teste do dono em 23/08/2026: ele tocou em "Quero ajustar" e recebeu a mesma
+  // proposta de R$ 628,20 de volta, palavra por palavra. O botao so desmarcava o
+  // aceite por dentro e nao dizia nada, entao pra quem estava do outro lado ele
+  // era enfeite. Palavras dele: "os botoes tem uns que ta la pra bonito".
+  //
+  // Aqui a padaria faz a pergunta obvia, e de graca: nao ha o que interpretar
+  // num toque de botao. A resposta dele ("quero 200 salgados", "sem docinho") o
+  // fluxo ja sabe atender na etapa da proposta.
+  if (mensagem.botaoId === "base_ajustar") {
+    return {
+      texto:
+        "Claro, é só dizer o que muda. Pode falar a quantidade que você quer " +
+        "de cada coisa, ou tirar alguma delas.",
+      botoes: [],
+      cardapio: null,
+      etapa: r.etapa,
+      rastro: [...r.rastro, "tocou em ajustar; perguntei o que muda (sem chamar a IA)"],
+      uso,
+    };
+  }
+
   if (mensagem.botaoId === "fecha_mudar") {
     return {
       texto: "Claro. O que você quer mudar no pedido?",

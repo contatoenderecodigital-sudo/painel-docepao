@@ -82,6 +82,8 @@ export type Etapa = {
   pulavel?: (p: PedidoEmMontagem) => boolean;
 };
 
+import { saboresQueFaltam } from "./sabor";
+
 /** O que a conversa ja acumulou. E o unico estado que existe. */
 export type PedidoEmMontagem = {
   ehFesta: boolean;
@@ -126,7 +128,43 @@ export type PedidoEmMontagem = {
    */
   topoNome: string | null;
   topoIdade: string | null;
+  /**
+   * O TEMA DA PECA PERSONALIZADA.
+   *
+   * "pode ser da miney" no teste do dono em 23/08/2026 caiu no vazio: ele falou
+   * o tema, ninguem perguntou, ninguem anotou, e o pedido final saiu sem a
+   * Minnie em lugar nenhum.
+   *
+   * Vale pro topo e pro papel de arroz: os dois sao fabricados com o tema.
+   */
+  tema: string | null;
+  /**
+   * A COR DA FORMINHA DO DOCINHO.
+   *
+   * Audio da dona, 29/07/2026: "na hora que a pessoa escolher docinho, a gente
+   * SEMPRE pergunta a cor da forminha que ela quer: voce quer rosa, azul,
+   * marrom, tem uma cor da tua preferencia?".
+   *
+   * Sao 21 cores no cardapio, entao nao cabe em botao: ela manda a lista e o
+   * cliente escreve. Decisao do dono em 23/08/2026.
+   */
+  forminha: string | null;
+  /**
+   * COMO O BOLO VAI EMBALADO.
+   *
+   * Audio da dona, 29/07/2026: "e interessante perguntar se ela quer no prato
+   * em MDF aberto, do jeito que esta na foto, ou se ela quer aquela embalagem
+   * tradicional que vai a tampa".
+   *
+   * Nunca foi perguntado por nenhuma versao do sistema, e e escolha do cliente
+   * que muda o que a cozinha monta.
+   */
+  prato: "aberto" | "tampa" | null;
 };
+
+/** Falta escolher recheio ou sabor em algum item desta familia? */
+const faltaSabor = (p: PedidoEmMontagem, pref: string) =>
+  saboresQueFaltam(p.itens.filter((i) => String(i.categoria || "").startsWith(pref))).length > 0;
 
 const temCategoria = (p: PedidoEmMontagem, pref: string) =>
   p.itens.some((i) => String(i.categoria || "").startsWith(pref));
@@ -183,7 +221,11 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     rotulo: "escolhendo os salgados",
     pergunta: "Quais salgados você quer?",
     espera: { tipo: "escolha_do_cardapio", cardapio: "salgados" },
-    cumprida: (p) => temCategoria(p, "salgado"),
+    // SABOR EM ABERTO E BURACO NO PEDIDO.
+    //
+    // Risolis e mini bolha sao fritos e mesmo assim pedem recheio; coxinha nao
+    // pede, porque o recheio dela e fixo. Quem separa os dois e o catalogo.
+    cumprida: (p) => temCategoria(p, "salgado") && !faltaSabor(p, "salgado"),
     // Fora da festa ninguem oferece salgado a quem pediu uma torta.
     pulavel: (p) => !p.ehFesta || recusou(p, "salgado"),
   },
@@ -192,7 +234,11 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     rotulo: "escolhendo os docinhos",
     pergunta: "Quais docinhos você quer?",
     espera: { tipo: "escolha_do_cardapio", cardapio: "docinhos" },
-    cumprida: (p) => temCategoria(p, "docinho"),
+    // A COR DA FORMINHA FAZ PARTE DE ESCOLHER O DOCINHO.
+    //
+    // A dona pergunta sempre, e nao e detalhe: ela monta a forminha antes de
+    // rechear, entao a cor precisa estar na comanda quando a producao comeca.
+    cumprida: (p) => temCategoria(p, "docinho") && !faltaSabor(p, "docinho") && Boolean(p.forminha),
     pulavel: (p) => !p.ehFesta || recusou(p, "docinho|doce"),
   },
   {
@@ -207,10 +253,15 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // dele, nao da casa: enquanto o produto for so "bolo", a etapa continua
     // aberta e ela pergunta o sabor. Sem isto, a festa fechava com um bolo sem
     // sabor nenhum e a cozinha ficava sem saber o que assar.
+    // SABOR ESCOLHIDO E EMBALAGEM ESCOLHIDA.
+    //
+    // "bolo" sozinho nao e sabor: e o que a proposta anota quando o cliente
+    // ainda nao escolheu. E o prato vem junto porque a dona pergunta junto, e
+    // porque muda o que a cozinha monta na hora de embalar.
     cumprida: (p) =>
       p.itens.some(
         (i) => String(i.categoria || "").startsWith("bolo") && String(i.produto).trim().toLowerCase() !== "bolo",
-      ),
+      ) && p.prato !== null,
     pulavel: (p) => !p.ehFesta || recusou(p, "bolo"),
   },
   {
@@ -229,8 +280,11 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // resposta.
     cumprida: (p) => {
       if (p.pecas?.topo == null || p.pecas?.papelDeArroz == null) return false;
-      if (p.pecas.topo === false) return true;
-      return Boolean(p.topoNome && p.topoIdade);
+      // Sem topo e sem papel nao ha peca personalizada: acabou aqui.
+      if (p.pecas.topo === false && p.pecas.papelDeArroz === false) return true;
+      // Com qualquer uma das duas, a fabrica precisa do tema, do nome e da
+      // idade. Sem isso a peca nao se produz.
+      return Boolean(p.tema && p.topoNome && p.topoIdade);
     },
     pulavel: (p) => !temCategoria(p, "bolo"),
   },
