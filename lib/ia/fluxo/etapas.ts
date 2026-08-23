@@ -162,7 +162,17 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     rotulo: "escolhendo o bolo",
     pergunta: "Qual sabor de bolo você quer?",
     espera: { tipo: "escolha_do_cardapio", cardapio: "bolos-festa" },
-    cumprida: (p) => temCategoria(p, "bolo"),
+    // O BOLO DA BASE ENTRA SO COM O PESO, E ISSO NAO CUMPRE A ETAPA.
+    //
+    // Quando o cliente aceita a base, o codigo ja anota "bolo" com os quilos
+    // que a conta da casa mandou (100 g por pessoa). Mas o SABOR e escolha
+    // dele, nao da casa: enquanto o produto for so "bolo", a etapa continua
+    // aberta e ela pergunta o sabor. Sem isto, a festa fechava com um bolo sem
+    // sabor nenhum e a cozinha ficava sem saber o que assar.
+    cumprida: (p) =>
+      p.itens.some(
+        (i) => String(i.categoria || "").startsWith("bolo") && String(i.produto).trim().toLowerCase() !== "bolo",
+      ),
     pulavel: (p) => recusou(p, "bolo"),
   },
   {

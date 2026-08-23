@@ -102,7 +102,21 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
   const comum =
     "Você é a atendente de uma padaria e está anotando um pedido. " +
     "Leia SÓ a última mensagem do cliente e diga o que mudou no pedido. " +
-    "Não escreva resposta pro cliente, não invente valor, não decida a próxima pergunta.";
+    "Não escreva resposta pro cliente, não invente valor, não decida a próxima pergunta." +
+    String.fromCharCode(10, 10) +
+    // DIA, HORA, NOME E PAGAMENTO VALEM EM QUALQUER ETAPA.
+    //
+    // O cliente nao anda na ordem do sistema. Na conversa da kemilly ele
+    // escreveu "dia 02" enquanto a etapa era outra, e o dado se perdia: a
+    // padaria perguntava de novo depois, e quem ja tinha respondido acha que
+    // ninguem leu.
+    //
+    // Estes quatro sao a unica excecao ao vocabulario da etapa, e sao seguros
+    // porque nao competem com produto nenhum: ninguem confunde uma data com um
+    // salgado. Item continua preso a etapa, que e onde mora a ambiguidade.
+    "SEMPRE, em qualquer etapa: se ele falar o DIA da retirada, a HORA, o NOME " +
+    "de quem retira ou a FORMA DE PAGAMENTO, devolva em dados. Isso vale mesmo " +
+    "que a etapa seja outra, porque o cliente fala esses quatro quando lembra.";
 
   const daEtapa: Record<string, string> = {
     quantas_pessoas:

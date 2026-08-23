@@ -32,6 +32,7 @@ import catalogo from "../dados/catalogo.json";
 import { ETAPAS_DA_FESTA, etapaDaVez, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, type Leitura } from "./leitura";
+import { calcularBase, baseVirandoItens } from "./base";
 
 /** O estado da conversa. E tudo que existe: nao ha memoria escondida. */
 export type Estado = PedidoEmMontagem & {
@@ -187,6 +188,32 @@ export async function responder(
     }
 
     estado = aplicar(estado, limpa, etapaAgora.id);
+  }
+
+  // ------------------------------------------- a base, calculada e aceita
+  //
+  // Duas coisas que o primeiro teste com conversa real mostrou faltando:
+  //
+  //   a base saia com "0 docinhos e 0 kg de bolo" porque eu pedia ao motor sem
+  //   dizer quais familias entram;
+  //
+  //   e aceitar a base nao anotava nada, entao o pedido continuava vazio
+  //   depois de um aceite de R$ 418,80 (a conversa do Sandro, de 22/08).
+  if (estado.pessoas && !estado.base) {
+    estado = { ...estado, base: calcularBase(estado) };
+    if (estado.base) {
+      rastro.push(
+        "base: " + estado.base.salgados + " salgados, " + estado.base.docinhos +
+          " docinhos, " + estado.base.boloKg + " kg de bolo",
+      );
+    }
+  }
+  if (estado.baseAceita && estado.base && !estado.itens.length) {
+    const novos = baseVirandoItens(estado.base, estado);
+    if (novos.length) {
+      estado = { ...estado, itens: [...estado.itens, ...novos] };
+      rastro.push("base aceita virou pedido: " + novos.map((i) => i.qtd + " " + i.produto).join(", "));
+    }
   }
 
   // ------------------------------------------------- a etapa seguinte

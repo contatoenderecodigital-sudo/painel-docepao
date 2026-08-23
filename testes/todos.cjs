@@ -26,6 +26,11 @@ const FORA = [
   "painel-visto-de-fora.cjs",
   "papel-de-arroz-segue-o-botao.cjs",
   "auditoria-do-atendimento.cjs",
+  // Ferramentas sob demanda: falam com o servidor ou com a OpenAI e pedem
+  // chave. Nao sao portao, sao instrumento.
+  "comparar-velho-e-novo.cjs",
+  "ver-os-botoes-no-celular.cjs",
+  "previa-whatsapp.cjs",
 ];
 
 const aqui = __dirname;
