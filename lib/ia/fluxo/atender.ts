@@ -36,34 +36,22 @@ export type RespostaDoFluxo = {
 };
 
 /**
- * QUEM CAI NO FLUXO NOVO.
+ * QUEM CAI NO FLUXO NOVO: TODO MUNDO.
  *
- * FLUXO_NOVO_PARA aceita:
+ * A padaria ainda nao esta atendendo cliente de verdade, entao nao ha o que
+ * migrar aos poucos. Manter dois sistemas ligados ao mesmo tempo seria trabalho
+ * de convivencia que ninguem precisa: o fluxo novo E o sistema.
  *
- *   vazio    ninguem. E o padrao: sem a variavel, nada muda.
- *   todos    todo mundo. Vale enquanto a padaria nao esta atendendo cliente de
- *            verdade, que e o caso agora (23/08/2026).
- *   numeros  so esses, separados por virgula. E o modo seguro pra quando
- *            houver cliente comprando: o dono testa no celular dele e a
- *            padaria continua no fluxo antigo.
+ * A CHAVE DE DESLIGAR CONTINUA EXISTINDO, e so ela.
  *
- * A CHAVE DE DESLIGAR IMPORTA MAIS QUE A DE LIGAR.
- *
- * Apagar a variavel no Coolify volta tudo pro fluxo antigo em segundos, sem
- * deploy e sem git. Se o fluxo novo fizer besteira com um cliente na linha,
- * ninguem precisa esperar build nenhum.
+ * FLUXO_NOVO_PARA=nao (ou "off", "antigo") volta pra Dora antiga em segundos,
+ * sem deploy e sem git. Ela fica aqui pro dia em que houver cliente comprando e
+ * alguma coisa der errado: nesse dia ninguem vai querer esperar build.
  */
-export function ehDoFluxoNovo(telefone: string): boolean {
+export function ehDoFluxoNovo(_telefone: string): boolean {
   const bruto = String(process.env.FLUXO_NOVO_PARA ?? "").trim();
-  if (!bruto) return false;
-  if (/^(todos|todas|all|1|sim|true)$/i.test(bruto)) return true;
-
-  const lista = bruto.split(/[,;\s]+/).map((x) => x.replace(/\D/g, "")).filter(Boolean);
-  if (!lista.length) return false;
-  const meu = String(telefone ?? "").replace(/\D/g, "");
-  // Compara pelos ultimos oito digitos: o WhatsApp manda o numero as vezes com
-  // o nono digito e as vezes sem, e o mesmo celular chegava como dois numeros.
-  return lista.some((n) => n.slice(-8) === meu.slice(-8));
+  if (/^(nao|não|off|0|false|antigo|desligado)$/i.test(bruto)) return false;
+  return true;
 }
 
 const VAZIO: Estado = {
