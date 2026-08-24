@@ -34,7 +34,7 @@ import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, type Leitura } from "./leitura";
 import { calcularBase } from "./base";
 import { motorPadrao, brl } from "../orcamento";
-import { dataDeRetirada } from "./falas-do-cliente";
+import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
 import { coresDaForminha } from "./sabor";
 import { respostaDeInformacao } from "./informacao";
@@ -251,7 +251,7 @@ function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado 
   // quantidade, e o modelo devolveu 1. Prompt pede, codigo garante: quem sabe
   // se houve numero e a MENSAGEM, nao o modelo. Sem digito na fala, a
   // quantidade e da proposta, e o que o modelo mandou nao vale.
-  const disseNumero = /\d/.test(String(falaDoCliente));
+  const disseNumero = disseQuantidade(String(falaDoCliente));
 
   const alvos: [string, number][] = [
     ["salgado", e.base.salgados],
@@ -649,7 +649,7 @@ export async function responder(
   //
   // So junta quando ele NAO disse numero: "quero dois bolos de 1 kg" e outra
   // coisa, e ai sao dois mesmo.
-  if (!/\d/.test(String(mensagem.texto))) {
+  if (!disseQuantidade(String(mensagem.texto))) {
     // "bolo" sem sabor e marcador de lugar, nao sabor: e o que a proposta anota
     // e o que a IA le de "quero encomendar bolo". Ele sai da mistura, senao a
     // comanda pede "misto: bolo e 4 leites e biz".

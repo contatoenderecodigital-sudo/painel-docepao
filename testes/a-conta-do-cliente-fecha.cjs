@@ -85,8 +85,29 @@ fs.writeFileSync(
     "const total = Math.round(Number(cot.total || 0) * 100);",
     "const resumo = falaDaEtapa(ROTEIRO_DA_FESTA.find((x) => x.id === 'confirmacao')!, fechado as never, total);",
     "",
+    "",
+    "// CADA CLIENTE ESCREVE DE UM JEITO.",
+    "//",
+    "// Pergunta do dono: 'vc corrigiu pra agora funcionar ou pra todos os casos,",
+    "// pq cada cliente eh de um jeito ne mano'. Ele estava certo: a primeira",
+    "// versao procurava DIGITO na mensagem, e 'quero cinquenta coxinhas' virava",
+    "// 200 coxinhas, porque o codigo achava que ele nao tinha dito numero.",
+    "const soSalgado = { ...VAZIO, ehFesta:true, pessoas:20, baseAceita:true, naoQuer:['docinho','bolo'],",
+    "  base:{salgados:200,docinhos:100,boloKg:2,totalCentavos:41880} };",
+    "const jeitos = [];",
+    "for (const [fala, itens] of [",
+    "  ['coxinha e risoles', [{produto:'coxinha',qtd:1},{produto:'risólis',qtd:1}]],",
+    "  ['quero cinquenta coxinhas', [{produto:'coxinha',qtd:50}]],",
+    "  ['meia duzia de coxinha', [{produto:'coxinha',qtd:6}]],",
+    "  ['so coxinha mesmo', [{produto:'coxinha',qtd:1}]],",
+    "  ['100 coxinhas', [{produto:'coxinha',qtd:100}]],",
+    "] as never[]) {",
+    "  const r = await responder(soSalgado as never, { texto: fala } as never, (async () => ({ itens })) as never);",
+    "  jeitos.push({ fala, itens: (r.estado.itens as never[]).map((i: never) => i.qtd + ' ' + i.produto) });",
+    "}",
+    "",
     "console.log(JSON.stringify({",
-    "  itens: e.itens, falas, resumo: resumo.texto, total,",
+    "  itens: e.itens, falas, resumo: resumo.texto, total, jeitos,",
     "}));",
   ].join("\n"),
   "utf8",
@@ -152,6 +173,22 @@ if (ordem.indexOf("bolo") >= 0 && ordem.indexOf("base_da_festa") > ordem.indexOf
   falhas.push("ela perguntou o sabor do bolo antes da proposta; o cliente escolhe sem saber quanto da");
 }
 
+// ------------------- 5. cada cliente escreve a quantidade de um jeito
+const jeito = (fala) => (r.jeitos.find((j) => j.fala === fala) ?? {}).itens?.join(", ") ?? "";
+const esperado = {
+  "coxinha e risoles": "100 coxinha, 100 risólis", // sem numero: reparte a proposta
+  "quero cinquenta coxinhas": "50 coxinha", // por extenso, e a dele manda
+  "meia duzia de coxinha": "6 coxinha",
+  "so coxinha mesmo": "200 coxinha", // um sabor so leva a proposta inteira
+  "100 coxinhas": "100 coxinha",
+};
+for (const [fala, deve] of Object.entries(esperado)) {
+  if (jeito(fala) !== deve) {
+    falhas.push("'" + fala + "' virou '" + jeito(fala) + "' em vez de '" + deve + "'");
+  }
+}
+
+console.log("Jeitos de dizer a quantidade: " + r.jeitos.map((j) => j.fala + " -> " + j.itens.join("+")).join(" | "));
 console.log("Pedido: " + r.itens.map((i) => i.qtd + " " + i.produto).join(", "));
 console.log("Total: R$ " + (r.total / 100).toFixed(2));
 console.log("");

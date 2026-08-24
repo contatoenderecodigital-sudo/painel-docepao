@@ -218,3 +218,52 @@ export function prazoDoTopoAperta(dataRetirada: string | null, agora = new Date(
   }
   return null;
 }
+
+/**
+ * ELE DISSE UMA QUANTIDADE NESTA MENSAGEM?
+ *
+ * Serve pra decidir de quem e o numero do item: dele, ou da proposta que ele
+ * aceitou. Quando ele nao diz numero, a quantidade vem da proposta; quando ele
+ * diz, a dele manda.
+ *
+ * POR QUE NAO BASTA PROCURAR DIGITO
+ *
+ * Pergunta do dono, 23/08/2026: "vc corrigiu pra agora funcionar ou pra todos os
+ * casos, pq cada cliente eh de um jeito ne mano". Ele estava certo: procurando
+ * so digito, "quero cinquenta coxinhas" virava 200 coxinhas, porque o codigo
+ * achava que ele nao tinha dito numero e jogava a proposta por cima.
+ *
+ * Meia padaria escreve por extenso, e "cento", "duzia" e "meio cento" sao
+ * numero tanto quanto 100.
+ *
+ * "UM" E "UMA" FICAM DE FORA, DE PROPOSITO
+ *
+ * Sao palavra de conversa antes de serem numero: "quero um bolo de morango"
+ * numa festa de 20 pessoas nao quer dizer 1 quilo, quer dizer o bolo da
+ * proposta. Ninguem encomenda uma coxinha pra festa.
+ */
+export function disseQuantidade(fala: string): boolean {
+  const t = semAcMin(fala);
+  if (/[0-9]/.test(t)) return true;
+
+  // SEM BARRA INVERTIDA NENHUMA NESTA REGRA, DE PROPOSITO.
+  //
+  // A primeira versao usava a borda de palavra do regex e ela virou byte de
+  // backspace no caminho ate o arquivo: a regra nunca casava e "quero cinquenta
+  // coxinhas" continuava virando 200 coxinhas. Ja aconteceu antes neste projeto,
+  // e custou horas nas duas vezes.
+  //
+  // Aqui as palavras sao separadas na mao: qualquer coisa que nao seja letra
+  // conta como fronteira, e assim "cem" casa em "cem coxinhas" e nao casa em
+  // "centopeia".
+  const palavras = t.split(/[^a-z]+/);
+  const numeros = new Set([
+    "dois", "duas", "tres", "quatro", "cinco", "seis", "sete", "oito", "nove",
+    "dez", "onze", "doze", "treze", "quatorze", "catorze", "quinze", "dezesseis",
+    "dezessete", "dezoito", "dezenove", "vinte", "trinta", "quarenta", "cinquenta",
+    "sessenta", "setenta", "oitenta", "noventa", "cem", "cento", "duzentos",
+    "trezentos", "quatrocentos", "quinhentos", "mil", "duzia", "duzias",
+  ]);
+  return palavras.some((p) => numeros.has(p));
+}
+
