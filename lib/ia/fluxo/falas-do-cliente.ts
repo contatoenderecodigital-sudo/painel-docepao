@@ -267,3 +267,34 @@ export function disseQuantidade(fala: string): boolean {
   return palavras.some((p) => numeros.has(p));
 }
 
+
+/**
+ * ELE ACEITOU O VALOR QUE A EQUIPE LANCOU?
+ *
+ * Teste do dono, 23/08/2026: a equipe lancou o valor do topo, a Dora mandou o
+ * total novo, ele respondeu "sim", e o pedido NAO foi pra fila de aprovacao. Ele
+ * teve que aprovar na mao. A Dora ainda respondeu "pronto, seu pedido foi pra
+ * fila" tres vezes, que era mentira: ele continuava esperando.
+ *
+ * ISTO NAO PASSA PELO MODELO, DE PROPOSITO
+ *
+ * E resposta a uma pergunta de dinheiro, com duas saidas conhecidas, e o preco
+ * de errar e alto dos dois lados: um "sim" perdido deixa o pedido no limbo, e
+ * um "nao" lido como sim manda pra producao um valor que o cliente recusou.
+ *
+ * Na duvida devolve null, e ai a padaria pergunta de novo em vez de decidir por
+ * ele.
+ */
+export function respostaAoValor(fala: string): "aceitou" | "recusou" | null {
+  const t = semAcMin(fala).trim();
+  if (!t) return null;
+
+  const recusa = /(nao|nao quero|nao da|nao vai dar|muito caro|caro demais|deixa|deixa pra la|desisti|cancela|nem|ta caro|esquece)/;
+  const aceite = /(sim|isso|pode ser|pode|ok|okay|beleza|fechado|fechou|combinado|aceito|ta bom|tudo bem|perfeito|certo|confirma|manda|bora|show|otimo|maravilha)/;
+
+  // A recusa e conferida ANTES: "nao, pode ser mais barato?" tem as duas
+  // palavras, e quem diz "nao" primeiro esta recusando.
+  if (recusa.test(t)) return "recusou";
+  if (aceite.test(t)) return "aceitou";
+  return null;
+}

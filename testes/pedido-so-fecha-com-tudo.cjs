@@ -104,9 +104,31 @@ for (const oQue of ["nome", "hora", "pagamento"]) {
 }
 
 // --------------------------------- a IA nunca confirma sozinha
+//
+// ATENCAO: "precisa confirmacao" NAO quer dizer "a equipe precisa aprovar".
+//
+// Eu li errado ate 23/08/2026 e marcava TODO pedido assim, e um pedido sem
+// pendencia nenhuma caiu na tela de espera dizendo "falta confirmar detalhe com
+// o cliente", sem detalhe nenhum a confirmar.
+//
+// As duas filas do painel sao coisas diferentes:
+//
+//   APROVACAO             o pedido esta completo e so espera a dona aprovar
+//   AGUARDANDO CONFIRMACAO  a EQUIPE precisa resolver algo antes (o valor do
+//                           topo, que nao tem preco de tabela)
+//
+// O que garante que a IA nunca confirma sozinha e o pedido passar por
+// registrarPedido e ficar esperando a dona nas duas filas. O que este teste
+// cobra e que a pendencia SAIA DO MOTIVO, em vez de ser ligada em todo pedido.
 const fonte = fs.readFileSync(path.join(__dirname, "..", "lib/ia/fluxo/fechar.ts"), "utf8");
-if (!/precisaConfirmacao: true/.test(fonte)) {
-  falhas.push("o pedido parou de entrar como 'precisa confirmacao'; a IA passaria a confirmar sozinha");
+if (/precisaConfirmacao: true/.test(fonte)) {
+  falhas.push("todo pedido voltou a entrar como 'precisa confirmacao'; pedido sem pendencia cai na fila errada");
+}
+if (!/precisaConfirmacao: Boolean\(motivoParaAEquipe/.test(fonte)) {
+  falhas.push("a pendencia da equipe deixou de sair do motivo");
+}
+if (!/registrarPedido\(/.test(fonte)) {
+  falhas.push("o pedido deixou de passar por registrarPedido; a IA estaria fechando sozinha");
 }
 
 console.log("Total cotado: R$ " + Number(r.cotacao.total).toFixed(2) + " em " + r.cotacao.linhas.length + " linhas");

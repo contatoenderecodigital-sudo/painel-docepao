@@ -23,7 +23,12 @@ import { lerEstadoDoBanco, gravarEstado, zerar } from "./gravar";
 import { fecharPedido } from "./fechar";
 import { falaDaEtapa } from "./pergunta";
 import { ROTEIRO_DA_FESTA, roteiroDoPedido } from "./etapas";
-import { mandouRecomecar, comCumprimento, tirarCumprimento, semEmoji } from "./falas-do-cliente";
+import { mandouRecomecar, comCumprimento, tirarCumprimento, semEmoji, respostaAoValor } from "./falas-do-cliente";
+import {
+  temPedidoAguardandoCliente,
+  registrarAceiteCliente,
+  devolverPedidoParaEquipe,
+} from "@/lib/banco/pedidos";
 
 export type RespostaDoFluxo = {
   texto: string;
@@ -120,6 +125,71 @@ export async function atenderComFluxoNovo(
       rastro: ["recomecar: zerei o pedido em montagem"],
       uso,
     };
+  }
+
+  // ================================================================
+  //  O PEDIDO ESTA ESPERANDO A RESPOSTA DELE SOBRE O VALOR
+  //
+  //  A equipe lancou o valor do topo, a Dora mandou o total novo, e o pedido
+  //  ficou parado esperando ele dizer se aceita. Ate 23/08/2026 esse "sim" caia
+  //  no vazio: o pedido nao saia do lugar e o dono teve que aprovar na mao. Pior,
+  //  a Dora respondia "pronto, seu pedido foi pra fila da equipe", que era
+  //  mentira.
+  //
+  //  Aqui a conversa nem chega no fluxo: e resposta a uma pergunta de dinheiro,
+  //  com duas saidas conhecidas, e quem decide e o codigo.
+  // ================================================================
+  try {
+    if (await temPedidoAguardandoCliente(negocioId, clienteId)) {
+      const resposta = respostaAoValor(mensagem.texto);
+
+      if (resposta === "aceitou") {
+        const foi = await registrarAceiteCliente(negocioId, clienteId);
+        return {
+          texto: semEmoji(
+            foi
+              ? "Perfeito, obrigado. Seu pedido foi pra fila de aprovação da equipe e eu te aviso assim que confirmarem."
+              : "Anotei aqui, obrigado. Assim que a equipe confirmar eu te aviso.",
+          ),
+          botoes: [],
+          cardapio: null,
+          etapa: "registrado",
+          rastro: ["ele aceitou o valor da equipe; o pedido foi pra fila de aprovacao"],
+          uso,
+        };
+      }
+
+      if (resposta === "recusou") {
+        await devolverPedidoParaEquipe(
+          negocioId,
+          clienteId,
+          "O cliente nao aceitou o valor: " + String(mensagem.texto).slice(0, 200),
+        );
+        return {
+          texto:
+            "Entendi. Vou passar pra equipe da padaria pra eles verem o que dá pra fazer, e te respondo por aqui.",
+          botoes: [],
+          cardapio: null,
+          etapa: "registrado",
+          precisaHumano: true,
+          rastro: ["ele nao aceitou o valor; devolvi o pedido pra equipe"],
+          uso,
+        };
+      }
+
+      // Nao deu pra entender se foi sim ou nao. Perguntar de novo e melhor que
+      // decidir por ele: e dinheiro, e a resposta muda o que vai pra producao.
+      return {
+        texto: "Só pra eu não errar: esse valor tá certo pra você, posso passar pra confirmação?",
+        botoes: [],
+        cardapio: null,
+        etapa: "registrado",
+        rastro: ["nao entendi se ele aceitou o valor; perguntei de novo"],
+        uso,
+      };
+    }
+  } catch (e) {
+    console.error("[fluxo-novo] falha ao checar pedido aguardando o cliente:", e);
   }
 
   // O que ja estava gravado manda: a dona pode ter editado na tela entre uma

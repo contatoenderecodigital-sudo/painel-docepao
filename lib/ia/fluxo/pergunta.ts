@@ -22,6 +22,7 @@ import { brl, motorPadrao } from "../orcamento";
 import type { Etapa, PedidoEmMontagem } from "./etapas";
 import { saudacaoDaHora, prazoDoTopoAperta } from "./falas-do-cliente";
 import { saboresQueFaltam, coresDoCardapio } from "./sabor";
+import { paraOMotor } from "./cotar";
 
 export type Fala = {
   /** O que a padaria diz. Uma pergunta so, sempre. */
@@ -281,11 +282,22 @@ function falaDoBolo(p: PedidoEmMontagem, aviso: string): Fala {
   );
 
   if (!temSabor) {
+    // PODE MISTURAR DOIS SABORES, E ELA TEM QUE DIZER ISSO.
+    //
+    // Esta na nota do cardapio, com as palavras da dona: "bolo misto vale o
+    // sabor mais caro". O sistema ja cobrava certo, mas nunca contava pro
+    // cliente que dava pra misturar, e quem nao sabe nao pede.
+    //
+    // Esta fala nao passa pela reescrita: e regra de preco, e reescrita de
+    // regra de preco vira promessa errada no balcao.
     return {
-      texto: aviso + "E o bolo, qual sabor?",
+      texto:
+        aviso +
+        "E o bolo, qual sabor?" +
+        "\n\nSe quiser, dá pra misturar dois sabores no mesmo bolo. Nesse caso vale o valor do mais caro dos dois.",
       botoes: [],
       cardapio: "bolos-festa",
-      podeReescrever: true,
+      podeReescrever: false,
     };
   }
 
@@ -369,9 +381,7 @@ function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
   //
   // "3 kg de bombom" tambem nao e comida: o sabor do bolo sozinho nao diz que e
   // bolo, e saiu assim no resumo do teste anterior.
-  const cot = motorPadrao.cotarPorItens(
-    p.itens.map((i) => ({ item: i.produto, qtd: i.qtd, obs: i.obs ?? undefined })),
-  );
+  const cot = motorPadrao.cotarPorItens(paraOMotor(p.itens));
   // O MOTOR PODE DEVOLVER A LINHA COM OUTRO NOME.
   //
   // "biz" volta como "bolo biz", porque no cardapio o sabor e do bolo. Casando

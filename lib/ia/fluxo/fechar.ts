@@ -31,6 +31,7 @@ import { motorPadrao } from "../orcamento";
 import type { Estado } from "./fluxo";
 import { prazoDoTopoAperta } from "./falas-do-cliente";
 import { saboresQueFaltam } from "./sabor";
+import { paraOMotor } from "./cotar";
 
 /**
  * O QUE A EQUIPE PRECISA RESOLVER NESTE PEDIDO.
@@ -121,9 +122,7 @@ export async function fecharPedido(
   if (oQueFaltaPraFechar(e).length) return null;
 
   // O PRECO SAI DO MOTOR, NUNCA DA CONVERSA.
-  const cot = motorPadrao.cotarPorItens(
-    e.itens.map((i) => ({ item: i.produto, qtd: i.qtd, obs: i.obs ?? undefined })),
-  );
+  const cot = motorPadrao.cotarPorItens(paraOMotor(e.itens));
   const linhas = (cot.linhas ?? []).map((l) => ({
     item: String(l.item),
     categoria: String(l.categoria ?? ""),
@@ -158,11 +157,25 @@ export async function fecharPedido(
     formaPagamento: e.dados.pagamento ?? undefined,
     totalCentavos,
     linhas,
-    // A EQUIPE APROVA, SEMPRE.
+    // AS DUAS FILAS DO PAINEL SAO COISAS DIFERENTES, E EU TROQUEI AS BOLAS.
     //
-    // Primeira regra que o dono me deu: a IA nunca confirma sozinha. O pedido
-    // entra na fila e espera a dona olhar, e so depois vira producao.
-    precisaConfirmacao: true,
+    // APROVACAO e a fila normal: o pedido esta completo e so espera a dona
+    // olhar e aprovar. E o caminho de quase todo pedido.
+    //
+    // AGUARDANDO CONFIRMACAO e pra pedido que a equipe precisa RESOLVER antes
+    // de poder aprovar: hoje, so o topo de bolo, que nao tem preco de tabela e
+    // alguem precisa lancar.
+    //
+    // Eu marcava TODO pedido como "precisa confirmacao", achando que era "a
+    // equipe precisa aprovar". Resultado no teste de 23/08/2026: um pedido sem
+    // topo nenhum caiu na tela de espera com "falta confirmar detalhe com o
+    // cliente", e nao havia detalhe nenhum a confirmar. Palavras do dono: "nao
+    // tem nada pra padaria confirmar valor ne fiot".
+    //
+    // A regra que continua valendo, e ela nunca esteve em duvida: a IA NUNCA
+    // confirma sozinha. Todo pedido passa pela dona; o que muda e em qual fila
+    // ele espera.
+    precisaConfirmacao: Boolean(motivoParaAEquipe(e)),
     // E QUANDO TEM TOPO, A DONA PRECISA SABER QUE FALTA LANCAR O VALOR.
     //
     // O topo e o unico item da casa sem preco de tabela: o total que o cliente

@@ -37,6 +37,7 @@ import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
 import { coresDaForminha } from "./sabor";
+import { paraOMotor } from "./cotar";
 import { respostaDeInformacao } from "./informacao";
 
 /** O estado da conversa. E tudo que existe: nao ha memoria escondida. */
@@ -518,7 +519,7 @@ export async function responder(
               brl(
                 Number(
                   motorPadrao.cotarPorItens(
-                    estado.itens.map((i) => ({ item: i.produto, qtd: i.qtd, obs: i.obs ?? undefined })),
+                    paraOMotor(estado.itens),
                   ).total || 0,
                 ),
               ) + ".",
@@ -749,7 +750,7 @@ export async function responder(
     ? Math.round(
         Number(
           motorPadrao.cotarPorItens(
-            estado.itens.map((i) => ({ item: i.produto, qtd: i.qtd, obs: i.obs ?? undefined })),
+            paraOMotor(estado.itens),
           ).total || 0,
         ) * 100,
       )
