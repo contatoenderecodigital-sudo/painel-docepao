@@ -70,6 +70,14 @@ export type Leitura = {
    * a proxima pergunta e a idade.
    */
   aniversariante?: { nome?: string; idade?: string };
+  /**
+   * O QUE VAI ESCRITO NA PECA, quando ele quiser algo escrito.
+   *
+   * "Nada" e resposta valida: tem topo que e so o desenho, e exigir nome e idade
+   * de quem nao quer nada escrito trava a conversa por uma regra que a padaria
+   * nao tem.
+   */
+  escrito?: string;
   /** O tema da peca personalizada: "Minnie", "Homem Aranha", "futebol". */
   tema?: string;
   /** A cor da forminha do docinho, do cardapio de cores. */
@@ -250,9 +258,9 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       String.fromCharCode(10) +
       "Em pecas, devolva SÓ o que ele falou: topo e papelDeArroz, true ou false." +
       String.fromCharCode(10) +
-      "Nome e idade de quem faz aniversário vão em aniversariante. " +
-      "\"Arthur, 5 anos\" é nome e idade; \"vai fazer 5\" é só a idade." +
-      String.fromCharCode(10) +
+      "O que ele quiser ESCRITO na peça vai em escrito, e \"nada\" ou \"só o " +
+      "desenho\" também é resposta. Nome e idade vão em aniversariante: " +
+      "\"Arthur, 5 anos\" é nome e idade." + String.fromCharCode(10) +
       "O TEMA vai em tema, e tema é tudo que vá escrito ou desenhado na peça: " +
       "personagem, cor, frase (\"escrito trintei em rosa\"), assunto." +
       String.fromCharCode(10) +

@@ -51,7 +51,8 @@ import { paraOMotor } from "./cotar";
 function motivoParaAEquipe(e: Estado): string | undefined {
   if (e.pecas?.topo !== true) return undefined;
   const partes = [
-    "Topo de bolo (tema " + e.tema + ", " + e.topoNome + ", " + e.topoIdade +
+    "Topo de bolo (tema " + e.tema + ", " +
+      (e.escrito || [e.topoNome, e.topoIdade].filter(Boolean).join(", ") || "sem nada escrito") +
       "): falta a equipe lançar o valor.",
   ];
   const aperta = prazoDoTopoAperta(e.dados.data);
@@ -97,9 +98,18 @@ export function oQueFaltaPraFechar(e: Estado): string[] {
   // cozinha uma peca que ninguem sabe montar, e a equipe teria que ligar pro
   // cliente pra perguntar o que a conversa ja podia ter perguntado.
   if (e.pecas?.topo === true || e.pecas?.papelDeArroz === true) {
+    // O TEMA E OBRIGATORIO; O QUE VAI ESCRITO E RESPOSTA, MAS PODE SER "NADA".
+    //
+    // Regra do dono, 24/08/2026: "a informacao que voce precisa coletar e o tema
+    // e o que o cliente quer escrito no topo, ISSO SE ELE QUISER algo escrito".
+    //
+    // Tem topo que e so o desenho. O que nao pode e a peca ir pra fabrica sem
+    // ninguem ter perguntado: por isso "nada" conta como respondido e a falta so
+    // aparece quando ninguem respondeu coisa nenhuma.
     if (!e.tema) falta.push("o tema da peça");
-    if (!e.topoNome) falta.push("o nome do aniversariante");
-    if (!e.topoIdade) falta.push("a idade do aniversariante");
+    if (!e.escrito && !(e.topoNome && e.topoIdade)) {
+      falta.push("o que vai escrito na peça");
+    }
   }
   const boloSemSabor = e.itens.find(
     (i) => String(i.categoria).startsWith("bolo") && String(i.produto).trim().toLowerCase() === "bolo",

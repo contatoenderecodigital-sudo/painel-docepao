@@ -44,7 +44,8 @@ fs.writeFileSync(
     "const base = {",
     "  ehFesta:true, pessoas:20, base:null, baseAceita:true, naoQuer:[], itens:[bolo],",
     "  dados:{nome:'Sandro', data:'12/09/2026', hora:'11:30', pagamento:'pix'},",
-    "  pecas:null, topoNome:null, topoIdade:null, tema:null, retomarEm:null, assunto:null,",
+    "  pecas:null, topoNome:null, topoIdade:null, tema:null, escrito:null, forminha:null,",
+    "  prato:null, ofereceu:false, ultimaFala:null, insistiu:0, retomarEm:null, assunto:null,",
     "};",
     "const com = (p) => ({ ...base, ...p });",
     "const fala = (p) => falaDaEtapa(etapa, com(p));",
@@ -59,13 +60,12 @@ fs.writeFileSync(
     "  tema: fala({ pecas: { topo: true, papelDeArroz: false } }),",
     "  temaDoPapel: fala({ pecas: { topo: false, papelDeArroz: true } }),",
     "  faltaTudo: fala({ pecas: { topo: true, papelDeArroz: false }, tema: 'Minnie' }),",
-    "  faltaIdade: fala({ pecas: { topo: true, papelDeArroz: false }, tema: 'Minnie', topoNome: 'Arthur' }),",
-    "  faltaNome: fala({ pecas: { topo: true, papelDeArroz: false }, tema: 'Minnie', topoIdade: '5 anos' }),",
+    "  escritoNada: fala({ pecas: { topo: true, papelDeArroz: false }, tema: 'Minnie', escrito: 'nada' }),",
     "  // as quatro combinacoes cumprem a etapa?",
     "  cumpre: {",
-    "    osDois: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:true}, tema:'Minnie', topoNome:'Arthur', topoIdade:'5' })),",
-    "    soTopo: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:false}, tema:'Minnie', topoNome:'Arthur', topoIdade:'5' })),",
-    "    soPapel: etapa.cumprida(com({ pecas:{topo:false,papelDeArroz:true}, tema:'Minnie', topoNome:'Arthur', topoIdade:'5' })),",
+    "    osDois: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:true}, tema:'Minnie', escrito:'Arthur, 5 anos' })),",
+    "    soTopo: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:false}, tema:'Minnie', escrito:'Arthur, 5 anos' })),",
+    "    soPapel: etapa.cumprida(com({ pecas:{topo:false,papelDeArroz:true}, tema:'Minnie', escrito:'Arthur, 5 anos' })),",
     "    nenhum: etapa.cumprida(com({ pecas:{topo:false,papelDeArroz:false} })),",
     "    metade: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:null} })),",
     "    topoSemNome: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:true}, tema:'Minnie' })),",
@@ -73,7 +73,7 @@ fs.writeFileSync(
     "  },",
     "  // o pedido fecha sem o nome do aniversariante?",
     "  fechaSemNome: oQueFaltaPraFechar(com({ pecas:{topo:true,papelDeArroz:true} })),",
-    "  fechaComTudo: oQueFaltaPraFechar(com({ pecas:{topo:true,papelDeArroz:true}, tema:'Minnie', topoNome:'Arthur', topoIdade:'5 anos' })),",
+    "  fechaComTudo: oQueFaltaPraFechar(com({ pecas:{topo:true,papelDeArroz:true}, tema:'Minnie', escrito:'Arthur, 5 anos' })),",
     "}));",
   ].join("\n"),
   "utf8",
@@ -125,15 +125,23 @@ for (const [nome, f] of [["topo", r.tema], ["papel de arroz", r.temaDoPapel]]) {
   if (!/imagem|foto|refer/i.test(f.texto)) falhas.push("com " + nome + " ela nao pede imagem de referencia: " + f.texto);
 }
 
-// ----------------------------------------- o nome e a idade sao cobrados
-if (!/nome/i.test(r.faltaTudo.texto) || !/idade/i.test(r.faltaTudo.texto)) {
-  falhas.push("com topo, ela nao pergunta nome e idade numa frase so: " + r.faltaTudo.texto);
+// ------------------------- o que vai escrito na peca, e "nada" tambem vale
+//
+// Ate 23/08 a padaria exigia nome E idade, e cobrava um de cada vez. Em
+// 24/08/2026 o dono cortou: "a informacao que voce precisa coletar e o tema e o
+// que o cliente quer escrito no topo, ISSO SE ELE QUISER algo escrito".
+//
+// Tem topo que e so o desenho, e exigir nome e idade de quem nao quer nada
+// escrito trava a conversa por uma regra que a padaria nao tem.
+if (!/escrito/i.test(r.faltaTudo.texto)) {
+  falhas.push("com topo, ela nao pergunta o que vai escrito na peca: " + r.faltaTudo.texto);
 }
-if (!/idade|anos/i.test(r.faltaIdade.texto) || /nome/i.test(r.faltaIdade.texto)) {
-  falhas.push("faltando so a idade, ela devia perguntar so a idade: " + r.faltaIdade.texto);
+if (!/nada|desenho/i.test(r.faltaTudo.texto)) {
+  falhas.push("a pergunta nao deixa claro que 'nada' e resposta: " + r.faltaTudo.texto);
 }
-if (!/nome/i.test(r.faltaNome.texto)) {
-  falhas.push("faltando so o nome, ela devia perguntar so o nome: " + r.faltaNome.texto);
+// E ela fala da peca que ele pediu, nunca do topo pra quem recusou o topo.
+if (/topo/i.test(r.temaDoPapel.texto)) {
+  falhas.push("falou em topo pra quem so quer papel de arroz: " + r.temaDoPapel.texto);
 }
 
 // ---------------------------------------- as quatro combinacoes existem
@@ -146,11 +154,13 @@ for (const [caso, deve] of Object.entries(esperado)) {
 }
 
 // -------------------------------------- pedido com topo nao fecha sem nome
-if (!r.fechaSemNome.some((x) => /nome do aniversariante/i.test(x))) {
-  falhas.push("pedido com topo fecharia sem o nome do aniversariante: a cozinha nao sabe o que escrever");
+// Sem NINGUEM ter perguntado o que vai escrito, o pedido nao fecha: a peca iria
+// pra fabrica sem ninguem saber se leva nome, frase ou nada.
+if (!r.fechaSemNome.some((x) => /escrito/i.test(x))) {
+  falhas.push("pedido com topo fecharia sem ninguem perguntar o que vai escrito na peca");
 }
-if (!r.fechaSemNome.some((x) => /idade/i.test(x))) {
-  falhas.push("pedido com topo fecharia sem a idade do aniversariante");
+if (!r.fechaSemNome.some((x) => /tema/i.test(x))) {
+  falhas.push("pedido com topo fecharia sem o tema da peca");
 }
 if (r.fechaComTudo.length) {
   falhas.push("com nome e idade o pedido ainda nao fecha, falta: " + r.fechaComTudo.join(", "));

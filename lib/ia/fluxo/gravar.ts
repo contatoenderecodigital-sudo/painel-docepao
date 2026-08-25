@@ -80,6 +80,7 @@ export function estadoDosDados(d: Record<string, string | null | undefined>): Pa
     topoNome: d.fluxo_topo_nome || null,
     topoIdade: d.fluxo_topo_idade || null,
     tema: d.fluxo_tema || null,
+    escrito: d.fluxo_escrito || null,
     forminha: d.fluxo_forminha || null,
     prato: d.fluxo_prato === "aberto" || d.fluxo_prato === "tampa" ? d.fluxo_prato : null,
     ofereceu: d.fluxo_ofereceu === "sim",
@@ -200,6 +201,7 @@ export function dadosQueMudaram(antes: Estado, depois: Estado): Record<string, s
   if (depois.topoNome && depois.topoNome !== antes.topoNome) mudou.fluxo_topo_nome = depois.topoNome;
   if (depois.topoIdade && depois.topoIdade !== antes.topoIdade) mudou.fluxo_topo_idade = depois.topoIdade;
   if (depois.tema && depois.tema !== antes.tema) mudou.fluxo_tema = depois.tema;
+  if (depois.escrito && depois.escrito !== antes.escrito) mudou.fluxo_escrito = depois.escrito;
   if (depois.forminha && depois.forminha !== antes.forminha) mudou.fluxo_forminha = depois.forminha;
   if (depois.prato && depois.prato !== antes.prato) mudou.fluxo_prato = depois.prato;
   if (depois.ofereceu && !antes.ofereceu) mudou.fluxo_ofereceu = "sim";

@@ -82,6 +82,7 @@ const VAZIO: Estado = {
   topoNome: null,
   topoIdade: null,
   tema: null,
+  escrito: null,
   forminha: null,
   prato: null,
   ofereceu: false,

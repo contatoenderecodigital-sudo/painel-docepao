@@ -323,38 +323,33 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId): Estado {
           : (novo.pecas?.papelDeArroz ?? null),
     };
   }
+  if (l.escrito) novo.escrito = String(l.escrito).trim();
   if (l.aniversariante?.nome) novo.topoNome = String(l.aniversariante.nome).trim();
   if (l.aniversariante?.idade) novo.topoIdade = String(l.aniversariante.idade).trim();
   if (l.tema) novo.tema = String(l.tema).trim();
   if (l.forminha) novo.forminha = String(l.forminha).trim();
-  // A COR VAI PARA CADA DOCINHO, NAO PARA UMA OBSERVACAO GERAL.
+  // AS CORES VALEM PRO PEDIDO TODO, E TODAS ELAS.
   //
-  // "quero azul e rosa" com cajuzinho e beijinho na mesa e duas respostas, nao
-  // uma frase: a primeira cor pro primeiro docinho, a segunda pro segundo. E o
-  // que uma atendente faria, e e o que a comanda precisa, porque a dona monta a
-  // forminha antes de rechear.
+  // Regra do dono, 24/08/2026: uma ou mais cores, e nunca perguntar cor por
+  // docinho. Quem diz "azul e rosa" escolheu as cores da festa dela; separar
+  // qual docinho vai em qual e detalhe que a padaria resolve na bancada.
   if (l.forminha) {
     const cores = coresDaForminha(String(l.forminha));
     if (cores.length) {
-      const docinhos = novo.itens
-        .map((i, idx) => ({ i, idx }))
-        .filter(({ i }) => String(i.categoria || "").startsWith("docinho"));
-      const itens = [...novo.itens];
-      docinhos.forEach(({ idx }, n) => {
-        // Uma cor so vale pra todos; varias vao na ordem em que ele falou. Se
-        // ele falou menos cores que docinhos, os que sobram ficam sem, e a
-        // padaria pergunta a cor daquele item.
-        const cor = cores.length === 1 ? cores[0] : cores[n];
-        if (!cor) return;
-        const obs = String(itens[idx].obs ?? "")
+      novo.forminha = cores.join(" e ");
+      const marca = "forminha " + novo.forminha;
+      novo.itens = novo.itens.map((i) => {
+        if (!String(i.categoria || "").startsWith("docinho")) return i;
+        const obs = String(i.obs ?? "")
           .split(" | ")
           .filter((x) => x && !/^forminha /i.test(x))
           .join(" | ");
-        itens[idx] = { ...itens[idx], obs: [obs, "forminha " + cor].filter(Boolean).join(" | ") };
+        return { ...i, obs: [obs, marca].filter(Boolean).join(" | ") };
       });
-      novo.itens = itens;
     }
   }
+
+  if (l.tema) novo.tema = String(l.tema).trim();
   if (l.prato) novo.prato = l.prato;
   // ------------------------------------------------- "NAO QUERO" DESFAZ
   //
@@ -541,6 +536,21 @@ export async function responder(
     }
 
     estado = aplicar(estado, limpa, etapaAgora.id);
+
+    // A FOTO QUE ELE MANDOU JA E O TEMA.
+    //
+    // Regra do dono, 24/08/2026: "topo de bolo e papel de arroz aceitam imagens
+    // e texto". Quem manda a foto do Homem Aranha ja disse o tema, e insistir
+    // depois da foto e o tipo de coisa que faz o cliente achar que ninguem
+    // olhou. Aconteceu no teste da Kemilly: ela mandou a imagem e a padaria
+    // perguntou o tema de novo.
+    //
+    // A foto ja fica guardada no pedido pela rota do WhatsApp; aqui so se anota
+    // que o tema veio por ela, pra conversa seguir.
+    if (!estado.tema && /foto de refer|enviou uma foto|\[imagem\]/i.test(String(mensagem.texto))) {
+      estado = { ...estado, tema: "conforme a foto que ele mandou" };
+      rastro.push("a foto virou o tema da peca");
+    }
   }
 
   // ------------------------------------------- a base, calculada e aceita
@@ -614,9 +624,13 @@ export async function responder(
   // observacao da propria linha dele, que existe e tem preco. Assim cada ticket
   // impresso sai com o que aquela peca precisa, e nada aparece duas vezes, que
   // e um defeito que ja saiu no papel aqui.
-  const descricao = [estado.tema ? "tema " + estado.tema : "", estado.topoNome, estado.topoIdade]
-    .filter(Boolean)
-    .join(", ");
+  const escrito =
+    estado.escrito && !/^(nada|nenhum|nao|sem nada|so o desenho)/i.test(estado.escrito)
+      ? "escrito: " + estado.escrito
+      : estado.escrito
+        ? "sem nada escrito"
+        : [estado.topoNome, estado.topoIdade].filter(Boolean).join(", ");
+  const descricao = [estado.tema ? "tema " + estado.tema : "", escrito].filter(Boolean).join(", ");
   if (descricao) {
     const anotar = (acharCategoria: (c: string) => boolean, prefixo: string) => {
       const i = estado.itens.findIndex((x) => acharCategoria(String(x.categoria || "")));

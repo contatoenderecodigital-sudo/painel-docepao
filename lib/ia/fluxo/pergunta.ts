@@ -170,23 +170,27 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
     };
   }
 
-  // O nome e a idade vao impressos na peca. Sem os dois, a cozinha nao tem o
-  // que escrever.
-  if ((topo === true || papel === true) && (!p.topoNome || !p.topoIdade)) {
-    // A PERGUNTA TEM QUE FALAR DA PECA QUE ELE PEDIU.
-    //
-    // Teste da Kemilly, 23/08/2026: ela respondeu NAO pro topo, disse sim pro
-    // papel de arroz, e a padaria perguntou "qual nome e idade vao no TOPO?".
-    // Ela ja tinha dito que nao queria topo. Palavra do dono: "pediu qual nome e
-    // idade vai no TOPO se ela selecionou que nao quer TOPO".
-    const peca = topo === true ? "o topo" : "o papel de arroz";
-    const falta =
-      !p.topoNome && !p.topoIdade
-        ? "Qual nome e qual idade vão n" + (topo === true ? "o topo" : "o papel de arroz") + "?"
-        : !p.topoNome
-          ? "Qual o nome que vai n" + peca + "?"
-          : "E quantos anos ele faz?";
-    return { texto: falta, botoes: [], cardapio: null, podeReescrever: true };
+  // O QUE VAI ESCRITO NA PECA, SE ELE QUISER ALGO ESCRITO.
+  //
+  // Regra do dono, 24/08/2026: "a informacao que voce precisa coletar e o tema e
+  // o que o cliente quer escrito no topo, ISSO SE ELE QUISER algo escrito".
+  //
+  // Tem topo que e so o desenho. Antes a padaria exigia nome E idade e nao
+  // aceitava "nada", entao quem so queria o desenho ficava presos na pergunta.
+  //
+  // E a pergunta fala da PECA QUE ELE PEDIU: no teste da Kemilly ela respondeu
+  // nao pro topo, sim pro papel de arroz, e levou "qual nome e idade vao no
+  // TOPO?".
+  if ((topo === true || papel === true) && !p.escrito && (!p.topoNome || !p.topoIdade)) {
+    const peca = topo === true && papel === true ? "nas peças" : topo === true ? "no topo" : "no papel de arroz";
+    return {
+      texto:
+        "O que você quer escrito " + peca + "? Pode ser o nome e a idade, uma frase, " +
+        "ou nada se for só o desenho.",
+      botoes: [],
+      cardapio: null,
+      podeReescrever: true,
+    };
   }
 
   // Tudo respondido: quem escolhe a proxima etapa e a lista, nao esta fala.
@@ -242,23 +246,20 @@ function falaDoDocinho(p: PedidoEmMontagem, aviso: string): Fala {
     };
   }
 
-  // QUEM AINDA ESTA SEM COR?
+  // UMA PERGUNTA SO, PRO PEDIDO INTEIRO.
   //
-  // Se ninguem tem, pergunta uma vez pra todos. Se falta so em alguns (ele
-  // falou duas cores e escolheu tres docinhos), pergunta pelo item que falta,
-  // com o nome dele: "e o cajuzinho, vai em qual cor?". Perguntar de novo "de
-  // que cor voce quer a forminha dos docinhos" pra quem ja respondeu duas e o
-  // tipo de repeticao que faz o cliente achar que nao foi lido.
-  const docinhos = p.itens.filter((i) => String(i.categoria || "").startsWith("docinho"));
-  const semCor = docinhos.filter((i) => !/forminha /i.test(String(i.obs ?? "")));
+  // Regra do dono, 24/08/2026: "voce pode aceitar uma ou mais cor e NAO quero
+  // que peca o cliente qual cor de forminha usar para X docinho".
+  //
+  // Eu tinha feito ela cobrar item por item quando faltasse cor ("e o
+  // cajuzinho, vai em qual cor?"), e isso vira interrogatorio: a cliente escolhe
+  // as cores da festa dela, nao a cor de cada docinho. Todas as cores que ele
+  // falar valem pro pedido todo.
   const cores = coresDoCardapio();
-
   return {
     texto:
-      semCor.length === docinhos.length
-        ? "De que cor você quer a forminha dos docinhos?" +
-          (cores.length ? "\n\nTem " + cores.join(", ") + "." : "")
-        : "E o " + semCor[0].produto + ", vai em qual cor de forminha?",
+      "De que cor você quer a forminha dos docinhos?" +
+      (cores.length ? "\n\nTem " + cores.join(", ") + ". Pode escolher mais de uma." : ""),
     botoes: [],
     cardapio: null,
     podeReescrever: true,

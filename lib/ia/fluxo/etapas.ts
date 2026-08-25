@@ -130,6 +130,17 @@ export type PedidoEmMontagem = {
   topoNome: string | null;
   topoIdade: string | null;
   /**
+   * O QUE VAI ESCRITO NA PECA, se ele quiser algo escrito.
+   *
+   * Regra do dono, 24/08/2026: "a informacao que voce precisa coletar e o tema e
+   * o que o cliente quer escrito no topo, ISSO SE ELE QUISER algo escrito".
+   *
+   * Tem topo que e so o desenho. Exigir nome e idade de quem nao quer nada
+   * escrito e travar a conversa por uma regra que a padaria nao tem. "Nada" e
+   * resposta valida e fica gravada como resposta, nao como falta.
+   */
+  escrito: string | null;
+  /**
    * O TEMA DA PECA PERSONALIZADA.
    *
    * "pode ser da miney" no teste do dono em 23/08/2026 caiu no vazio: ele falou
@@ -175,15 +186,19 @@ export type PedidoEmMontagem = {
 };
 
 /**
- * Algum docinho ainda esta sem a cor da forminha?
+ * A COR DA FORMINHA JA FOI PERGUNTADA?
  *
- * A cor mora na observacao do PROPRIO docinho, nao numa observacao geral: a
- * comanda dos docinhos e separada e a dona monta a forminha antes de rechear.
+ * UMA PERGUNTA SO, PRO PEDIDO INTEIRO.
+ *
+ * Regra do dono, 24/08/2026: "voce pode aceitar uma ou mais cor e NAO quero que
+ * peca o cliente qual cor de forminha usar para X docinho".
+ *
+ * Eu tinha feito ela cobrar item por item quando faltasse cor, e isso vira
+ * interrogatorio: a cliente escolhe as cores da festa dela, nao a cor de cada
+ * docinho. As cores que ele falar valem pro pedido todo, e a comanda dos
+ * docinhos leva todas elas.
  */
-const docinhoSemForminha = (p: PedidoEmMontagem) =>
-  p.itens.some(
-    (i) => String(i.categoria || "").startsWith("docinho") && !/forminha /i.test(String(i.obs ?? "")),
-  );
+const semForminha = (p: PedidoEmMontagem) => !p.forminha;
 
 /** Falta escolher recheio ou sabor em algum item desta familia? */
 const faltaSabor = (p: PedidoEmMontagem, pref: string) =>
@@ -265,7 +280,7 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // A dona pergunta sempre, e nao e detalhe: ela monta a forminha antes de
     // rechear, entao a cor precisa estar na comanda quando a producao comeca.
     cumprida: (p) =>
-      temCategoria(p, "docinho") && !faltaSabor(p, "docinho") && !docinhoSemForminha(p),
+      temCategoria(p, "docinho") && !faltaSabor(p, "docinho") && !semForminha(p),
     pulavel: (p) => recusou(p, "docinho|doce") || (!p.ehFesta && !temCategoria(p, "docinho")),
   },
   {
@@ -314,9 +329,10 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       if (p.pecas?.topo == null || p.pecas?.papelDeArroz == null) return false;
       // Sem topo e sem papel nao ha peca personalizada: acabou aqui.
       if (p.pecas.topo === false && p.pecas.papelDeArroz === false) return true;
-      // Com qualquer uma das duas, a fabrica precisa do tema, do nome e da
-      // idade. Sem isso a peca nao se produz.
-      return Boolean(p.tema && p.topoNome && p.topoIdade);
+      // Com qualquer uma das duas, a fabrica precisa do TEMA (que pode ter
+      // vindo por foto) e de saber o que vai ESCRITO, sendo "nada" uma resposta
+      // valida: tem topo que e so o desenho.
+      return Boolean(p.tema && (p.escrito || (p.topoNome && p.topoIdade)));
     },
     pulavel: (p) => !temCategoria(p, "bolo"),
   },

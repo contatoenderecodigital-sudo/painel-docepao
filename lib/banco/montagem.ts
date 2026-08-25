@@ -68,6 +68,7 @@ export type DadosMontagem = {
   fluxo_topo_nome?: string | null; // nome do aniversariante, pro topo
   fluxo_topo_idade?: string | null; // idade do aniversariante, pro topo
   fluxo_tema?: string | null; // tema da peca personalizada ("Minnie")
+  fluxo_escrito?: string | null; // o que vai escrito na peca, ou "nada"
   fluxo_forminha?: string | null; // cor da forminha do docinho
   fluxo_prato?: string | null; // "aberto" ou "tampa"
   fluxo_ultima_fala?: string | null; // a ultima pergunta que a padaria fez

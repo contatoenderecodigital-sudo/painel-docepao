@@ -34,10 +34,20 @@
 //    tres entraram como categoria "outro", porque eu so sabia dar categoria
 //    dentro da etapa da familia. No painel da dona: "Outro / bolo / 0 quilos".
 //
-// 4. DUAS CORES DE FORMINHA VIRAVAM UMA FRASE
+// 4. A COR DA FORMINHA
 //
-//    "quero azul e rosa" com dois docinhos na mesa virava "forminha azul e
-//    rosa" escrito nos dois, e a producao sem saber qual e qual.
+//    Duas correcoes seguidas aqui, e a segunda desfez a primeira de proposito.
+//
+//    Em 23/08 eu fiz a primeira cor ir pro primeiro docinho e a segunda pro
+//    segundo, e passei a perguntar item por item quando faltasse cor.
+//
+//    Em 24/08 o dono cortou isso: "voce pode aceitar uma ou mais cor e NAO quero
+//    que peca o cliente qual cor de forminha usar para X docinho". Ele esta
+//    certo: a cliente escolhe as cores da FESTA dela, nao a cor de cada docinho,
+//    e perguntar item por item vira interrogatorio.
+//
+//    Agora e uma pergunta so, aceita quantas cores ele falar, e todas valem pro
+//    pedido inteiro.
 //
 // 5. A MESMA PERGUNTA SAIU TRES VEZES
 //
@@ -131,12 +141,19 @@ if (r.abertura.some((i) => i.categoria === "outro")) {
   falhas.push("item conhecido do cardapio entrou como 'outro'; a dona ve isso na tela dela");
 }
 
-// -------------------------------- 4. uma cor para cada docinho, na ordem
+// ------------------- 4. as cores valem pro pedido todo, e sao uma pergunta so
 const obsDe = (nome) => String((r.cores.find((i) => i.produto === nome) ?? {}).obs ?? "");
-if (!/forminha azul/.test(obsDe("cajuzinho"))) falhas.push("o cajuzinho nao ficou com a primeira cor: " + obsDe("cajuzinho"));
-if (!/forminha rosa/.test(obsDe("beijinho"))) falhas.push("o beijinho nao ficou com a segunda cor: " + obsDe("beijinho"));
 for (const p of ["cajuzinho", "beijinho"]) {
-  if (/azul e rosa/.test(obsDe(p))) falhas.push("as duas cores foram escritas juntas no " + p + ": a producao nao sabe qual e qual");
+  if (!/forminha azul e rosa/.test(obsDe(p))) {
+    falhas.push("o " + p + " nao ficou com as duas cores que ela pediu: " + obsDe(p));
+  }
+}
+// E o codigo nao pode voltar a perguntar cor item por item.
+const perguntaPorItem = fs
+  .readFileSync(path.join(__dirname, "..", "lib/ia/fluxo/pergunta.ts"), "utf8")
+  .includes("vai em qual cor de forminha");
+if (perguntaPorItem) {
+  falhas.push("voltou a perguntar a cor item por item; o dono cortou isso em 24/08");
 }
 
 // -------------------------------------------- 2. "nao quero" desfaz mesmo
