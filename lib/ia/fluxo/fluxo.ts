@@ -302,7 +302,42 @@ function tirarMarca(itens: Estado["itens"], prefixo: string): Estado["itens"] {
   });
 }
 
-function aplicar(e: Estado, l: Leitura, etapa: EtapaId): Estado {
+/**
+ * TOPO E PAPEL DE ARROZ LIDOS DIRETO DA FRASE.
+ *
+ * "sem topo e sem papel de arroz" responde as duas de uma vez, e o modelo
+ * costuma devolver so uma. Aqui o codigo procura cada uma separadamente e olha
+ * a negacao que vem ANTES dela na mesma frase.
+ *
+ * Sem barra invertida de borda de palavra: ela vira byte de backspace no
+ * caminho ate o arquivo e a regra nunca casa. Ja custou caro tres vezes aqui.
+ */
+function lerPecasDaFala(fala: string): { topo: boolean | null; papelDeArroz: boolean | null } {
+  const t = String(fala || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+
+  const resposta = (termo: RegExp): boolean | null => {
+    const m = termo.exec(t);
+    if (!m) return null;
+    // O pedaco da frase ate o termo. "sem topo" nega, "com topo" e "quero topo"
+    // afirmam. Olha so as poucas palavras antes, pra nao pegar um "sem" de
+    // outra parte da frase.
+    const antes = t.slice(Math.max(0, m.index - 22), m.index);
+    if (/(sem|nao quero|nao vou querer|nao precisa|dispenso)\s*$/.test(antes.trim() + " ")) return false;
+    if (/(^|[^a-z])(sem|nao)([^a-z][^.,;]*)?$/.test(antes)) return false;
+    if (/(com|quero|vai com|pode por|poe|bota)\s*$/.test(antes.trim() + " ")) return true;
+    return null;
+  };
+
+  return {
+    topo: resposta(/topo/),
+    papelDeArroz: resposta(/papel de arroz/),
+  };
+}
+
+function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Estado {
   let novo: Estado = { ...e };
 
   if (l.ehFesta === true) novo.ehFesta = true;
@@ -315,12 +350,28 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId): Estado {
   if (l.aceitouBase === true) novo.baseAceita = true;
   // Escrevendo tambem se responde, e so o que ele falou entra: dizer "quero
   // topo" nao pode apagar o papel de arroz que ele ja tinha recusado.
-  if (l.pecas) {
+  // UMA FRASE PODE RESPONDER AS DUAS PERGUNTAS.
+  //
+  // Na medicao de 25/08 o cliente escreveu "na embalagem com tampa, sem topo e
+  // sem papel de arroz" e o modelo devolveu so o prato. A padaria perguntou o
+  // papel de arroz DUAS vezes depois disso e a conversa travou sem fechar.
+  // Quem sabe o que ele respondeu e a MENSAGEM, nao o modelo: aqui o codigo le
+  // a frase e completa o que o modelo deixou passar.
+  const daFala = lerPecasDaFala(falaDoCliente);
+  const pecasDitas =
+    l.pecas || daFala.topo != null || daFala.papelDeArroz != null
+      ? {
+          topo: typeof l.pecas?.topo === "boolean" ? l.pecas.topo : daFala.topo,
+          papelDeArroz:
+            typeof l.pecas?.papelDeArroz === "boolean" ? l.pecas.papelDeArroz : daFala.papelDeArroz,
+        }
+      : null;
+  if (pecasDitas) {
     novo.pecas = {
-      topo: typeof l.pecas.topo === "boolean" ? l.pecas.topo : (novo.pecas?.topo ?? null),
+      topo: typeof pecasDitas.topo === "boolean" ? pecasDitas.topo : (novo.pecas?.topo ?? null),
       papelDeArroz:
-        typeof l.pecas.papelDeArroz === "boolean"
-          ? l.pecas.papelDeArroz
+        typeof pecasDitas.papelDeArroz === "boolean"
+          ? pecasDitas.papelDeArroz
           : (novo.pecas?.papelDeArroz ?? null),
     };
   }
@@ -334,8 +385,13 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId): Estado {
   // Regra do dono, 24/08/2026: uma ou mais cores, e nunca perguntar cor por
   // docinho. Quem diz "azul e rosa" escolheu as cores da festa dela; separar
   // qual docinho vai em qual e detalhe que a padaria resolve na bancada.
-  if (l.forminha) {
-    const cores = coresDaForminha(String(l.forminha));
+  if (l.forminha || coresDaForminha(falaDoCliente).length) {
+    // O modelo mandou "azul" quando o cliente escreveu "forminha azul e
+    // amarelo", e o amarelo sumiu do pedido sem ninguem avisar. As cores da
+    // FRASE mandam: o que o modelo extraiu so completa.
+    const doModelo = coresDaForminha(String(l.forminha ?? ""));
+    const daFrase = coresDaForminha(falaDoCliente);
+    const cores = [...new Set([...daFrase, ...doModelo])];
     if (cores.length) {
       novo.forminha = cores.join(" e ");
       const marca = "forminha " + novo.forminha;
@@ -561,7 +617,7 @@ export async function responder(
       }
     }
 
-    estado = aplicar(estado, limpa, etapaAgora.id);
+    estado = aplicar(estado, limpa, etapaAgora.id, String(mensagem.texto ?? ""));
 
     // A FOTO QUE ELE MANDOU JA E O TEMA.
     //
