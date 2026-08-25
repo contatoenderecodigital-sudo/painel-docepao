@@ -79,6 +79,9 @@ const CENARIOS = [
       "bolo de 4 leites e strogonoff de nozes, 2,5 kg",
       "na embalagem com tampa, sem topo e sem papel de arroz",
       "dia 02/09 as 14h, nome Ana Prass, cartao",
+      // Sem esta fala o pedido fica esperando o cliente e o cenario reprova por
+      // "nao registrou", que e o teste faltando um turno, nao a IA errando.
+      "isso mesmo, pode confirmar",
     ],
     esperado: {
       itens: ["quiche", "coxinha", "brigadeiro", "beijinho"],
