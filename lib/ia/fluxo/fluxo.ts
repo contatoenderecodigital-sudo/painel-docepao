@@ -33,6 +33,7 @@ import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMon
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, type Leitura } from "./leitura";
 import { juntarComAFrase } from "./leitor-da-frase";
+import { nomePeloApelido } from "../dados/apelidos";
 import { calcularBase } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
@@ -344,20 +345,11 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
   // docinho. Quem diz "azul e rosa" escolheu as cores da festa dela; separar
   // qual docinho vai em qual e detalhe que a padaria resolve na bancada.
   if (l.forminha) {
-    // As cores ja vieram juntadas com a frase: aqui e so normalizar.
+    // As cores ja vieram juntadas com a frase: aqui e so normalizar e guardar.
+    // O CARIMBO NOS ITENS ACONTECE NO FIM DESTA FUNCAO, de proposito: ver o
+    // comentario la embaixo.
     const cores = coresDaForminha(String(l.forminha));
-    if (cores.length) {
-      novo.forminha = cores.join(" e ");
-      const marca = "forminha " + novo.forminha;
-      novo.itens = novo.itens.map((i) => {
-        if (!String(i.categoria || "").startsWith("docinho")) return i;
-        const obs = String(i.obs ?? "")
-          .split(" | ")
-          .filter((x) => x && !/^forminha /i.test(x))
-          .join(" | ");
-        return { ...i, obs: [obs, marca].filter(Boolean).join(" | ") };
-      });
-    }
+    if (cores.length) novo.forminha = cores.join(" e ");
   }
 
   if (l.tema) novo.tema = String(l.tema).trim();
@@ -420,21 +412,69 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
   if (l.itens?.length) {
     const itens = [...novo.itens];
     for (const i of l.itens) {
-      const mesmo = (x: { produto: string }) =>
-        x.produto.toLowerCase().trim() === String(i.produto).toLowerCase().trim();
-      const achou = itens.findIndex(mesmo);
+      // O NOME QUE O CORRETOR DO CELULAR ESTRAGOU.
+      //
+      // "chique" e o que o teclado escreve no lugar de "quiche", e o item
+      // entrava no pedido com esse nome: a cozinha receberia "chique de
+      // frango" escrito na comanda. A lista de apelidos e a mesma das guardas.
+      const nomeCru = String(i.produto);
+      const produto = nomePeloApelido(nomeCru) ?? nomeCru;
+      const categoria = categoriaDaEtapa(etapa, produto);
+
+      // O PESO DO BOLO E QUANTIDADE, NAO OBSERVACAO.
+      //
+      // "um bolo de 2 kg de 4 leites": o modelo manda qtd 1 e escreve "2 kg" na
+      // observacao. O bolo sai cobrado como UMA unidade, R$ 46,90 em vez de
+      // R$ 93,80. Bolo e vendido por quilo, entao o numero de quilos que ele
+      // falou E a quantidade.
+      let qtd = Number(i.qtd) || 0;
+      if (String(categoria).startsWith("bolo")) {
+        const dito = falaDoCliente + " " + String(i.obs ?? "");
+        const kg = (dito.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:kg|quilos?)(?![a-z])/i) ?? [])[1];
+        const peso = kg ? Number(String(kg).replace(",", ".")) : 0;
+        if (peso > 0 && peso <= 30) qtd = peso;
+      }
+
       const linha = {
-        produto: String(i.produto),
-        categoria: categoriaDaEtapa(etapa, String(i.produto)),
-        qtd: Number(i.qtd) || 0,
+        produto,
+        categoria,
+        qtd,
         obs: i.obs ?? null,
       };
+
+      // A busca pelo item que ja existe usa o nome NORMALIZADO, senao "chique"
+      // e "quiche" viram duas linhas do mesmo produto no pedido.
+      const achou = itens.findIndex(
+        (x) => x.produto.toLowerCase().trim() === produto.toLowerCase().trim(),
+      );
       // Repetir o mesmo item SUBSTITUI, nao soma: "na verdade quero 200" e
       // correcao, nao pedido de mais 200. Somar ja dobrou pedido de festa.
       if (achou >= 0) itens[achou] = { ...itens[achou], ...linha };
       else itens.push(linha);
     }
     novo.itens = itens;
+  }
+
+  // A COR DA FORMINHA E CARIMBADA DEPOIS DOS ITENS, NAO ANTES.
+  //
+  // Bateria dos cinco jeitos, 25/08/2026: a cor ficava quando vinha sozinha
+  // ("50 brigadeiro" e depois "forminha rosa") e SUMIA quando vinha na mesma
+  // frase ("50 brigadeiro, forminha rosa"), em tres dos cinco jeitos de falar.
+  //
+  // O carimbo rodava no comeco desta funcao, quando o docinho daquele turno
+  // ainda nao existia na lista, e o bloco dos itens logo abaixo substituia
+  // novo.itens inteiro, apagando o que tinha sido carimbado. A cor certa estava
+  // gravada no pedido e nao aparecia em item nenhum.
+  if (novo.forminha) {
+    const marca = "forminha " + novo.forminha;
+    novo.itens = novo.itens.map((i) => {
+      if (!String(i.categoria || "").startsWith("docinho")) return i;
+      const obs = String(i.obs ?? "")
+        .split(" | ")
+        .filter((x) => x && !/^forminha /i.test(x))
+        .join(" | ");
+      return { ...i, obs: [obs, marca].filter(Boolean).join(" | ") };
+    });
   }
 
   return novo;

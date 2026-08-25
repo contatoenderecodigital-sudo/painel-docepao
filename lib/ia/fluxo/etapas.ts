@@ -347,6 +347,14 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // topo for sim. Responder "nao" tambem cumpre: o que nao pode e ficar sem
     // resposta.
     cumprida: (p) => {
+      // DETALHE OPCIONAL NAO SEGURA PEDIDO COMPLETO.
+      //
+      // Consertei o prato e a conversa travou no topo, que e o degrau seguinte
+      // e tem o mesmo bloqueio. Corrigir degrau por degrau nao termina: a regra
+      // vale para a classe. Quem ja disse item, data, hora, nome e pagamento
+      // nao fica preso por topo nem por papel de arroz que ele nunca foi
+      // perguntado. Os dois continuam sendo perguntados no caminho normal.
+      if (jaTemOsDados(p) && (p.pecas?.topo == null || p.pecas?.papelDeArroz == null)) return true;
       if (p.pecas?.topo == null || p.pecas?.papelDeArroz == null) return false;
       // Sem topo e sem papel nao ha peca personalizada: acabou aqui.
       if (p.pecas.topo === false && p.pecas.papelDeArroz === false) return true;
