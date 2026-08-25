@@ -3099,21 +3099,30 @@ ATENCAO: recusar o registro NAO quer dizer recomecar a coletar. Tudo que o clien
       }
     }
 
+    // ITEM NUNCA SOME DO PEDIDO. O QUE FALTA VIRA PERGUNTA.
+    //
+    // Antes daqui esta guarda recusava o registro inteiro quando faltava o
+    // recheio. A saida mais barata pra IA satisfazer a recusa era APAGAR o item
+    // que incomodava, e foi o que ela fez: o cliente pediu "quiche e coxinha"
+    // tres vezes na conversa de 25/08 e fechou com 250 coxinha e nenhum quiche.
+    // Ele nunca foi avisado de que o quiche tinha sido descartado.
+    //
+    // Agora o item ENTRA com o recheio marcado como pendente. Assim ele nao tem
+    // como sumir, a equipe ve o que falta na tela, e a IA e mandada perguntar.
+    const RECHEIO_PENDENTE = "recheio a confirmar";
     const semRecheio = c.linhas.filter((l) => PEDE_RECHEIO.test(l.item) && !String(l.obs ?? "").trim());
     if (semRecheio.length > 0) {
-      // Devolve SEM registrar: o recheio ainda dá pra perguntar, e perguntar é
-      // melhor que a equipe adivinhar depois. Avisar só no painel deixava o
-      // cliente com um pedido fechado que ninguém sabe produzir.
-      const faltam = semRecheio.map((l) => l.item).join(", ");
-      return (
-        `NÃO registrei: ${faltam} veio sem o recheio no campo obs do item.\n` +
-        `PRIMEIRO releia a conversa: se o cliente JÁ disse o recheio desses itens, ele está lá. ` +
-        `Só copie pro campo obs de cada item e chame registrar_pedido de novo, SEM perguntar nada. ` +
-        `Perguntar de novo o que ele já respondeu faz ele achar que você não anotou nada.\n` +
-        `Só pergunte se ele realmente NÃO disse (opções: carne, frango, calabresa, bacon ou brócolis; ` +
-        `empadinha também tem palmito), e aí numa mensagem só.` + `
-
-ATENCAO: recusar o registro NAO quer dizer recomecar a coletar. Tudo que o cliente ja respondeu continua valendo. Releia a conversa, preencha os campos com o que ele JA disse, e chame registrar_pedido de novo. Perguntar outra vez a data, o nome, o pagamento ou o recheio que ele ja deu faz ele achar que voce nao anotou nada.`
+      const faltam = [...new Set(semRecheio.map((l) => l.item))];
+      for (const l of c.linhas) {
+        if (PEDE_RECHEIO.test(l.item) && !String(l.obs ?? "").trim()) l.obs = RECHEIO_PENDENTE;
+      }
+      for (const it of itens as { item?: string; produto?: string; obs?: string | null }[]) {
+        const nome = String(it.item ?? it.produto ?? "");
+        if (PEDE_RECHEIO.test(nome) && !String(it.obs ?? "").trim()) it.obs = RECHEIO_PENDENTE;
+      }
+      precisaConfirmacao = true;
+      pendencias.push(
+        `perguntar o recheio de: ${faltam.join(", ")} (o cliente ainda nao disse)`,
       );
     }
 
@@ -3746,6 +3755,16 @@ export function categoriaDoProduto(nome: string): string {
 
 export function unidadeDoProduto(nome: string, categoria?: string): "kg" | "un" {
   const limpo = String(nome || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  // BOLO DE FESTA E SEMPRE POR QUILO, E QUEM DIZ ISSO E A CATEGORIA.
+  //
+  // A regra la embaixo testa o NOME comecar com "bolo". So que em bolo de festa
+  // o nome do item e o SABOR ("4 leites", "strogonoff de nozes"), entao nunca
+  // casava e o item nascia com unidade "un". Na conversa de 25/08 o resumo saiu
+  // "2.5 kg de bolo R$ 30,90 cada", cobrando por unidade um produto vendido por
+  // quilo. Pior: "4 leites" ainda casava por includes com item do cardapio
+  // caseiro e ja voltava "un" antes de chegar na regra do bolo.
+  if (categoria === "bolo_festa") return "kg";
+
   const todos: { nome: string; unidade?: string }[] = [
     ...((catalogo.salgados?.frito?.itens ?? []) as { nome: string; unidade?: string }[]),
     ...((catalogo.salgados?.assado?.itens ?? []) as { nome: string; unidade?: string }[]),

@@ -678,6 +678,28 @@ export async function responder(
     if (estado.pecas?.papelDeArroz === true) anotar((c) => c === "papel_de_arroz", "");
   }
 
+  // "dois bolos", "2 bolos", "3 bolos de 1 kg" contam bolos. "2,5 kg de bolo",
+  // "tres quilos" dizem o peso de UM bolo. So o primeiro grupo vira dois bolos.
+  function pediuVariosBolos(fala: string): boolean {
+    const t = fala
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase();
+    const porExtenso = "(dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez)";
+    // numero colado em "bolo(s)", sem kg/quilo no meio
+    const contagem = new RegExp("(?:[2-9][0-9]*|" + porExtenso + ")\s+bolos?\b");
+    if (!contagem.test(t)) return false;
+    // "2 bolos de 1 kg" e contagem. "2 kg de bolo" nao casa acima, entao ok.
+    return true;
+  }
+
+  // Tira qualquer "misto: ..." que ja esteja na observacao, pra nao empilhar.
+  const semMisto = (obs?: string | null) =>
+    String(obs ?? "")
+      .split(" | ")
+      .filter((p) => p.trim() && !/^misto\s*:/i.test(p.trim()))
+      .join(" | ") || null;
+
   // ------------------------------------------- BOLO MISTO E UM BOLO SO
   //
   // Teste da Kemilly: ela pediu "4 leites e biz" e o pedido saiu com DOIS bolos
@@ -688,9 +710,13 @@ export async function responder(
   // pedido fica com o sabor caro na linha (pra conta sair certa) e os dois
   // escritos na observacao, que e o que a cozinha le.
   //
-  // So junta quando ele NAO disse numero: "quero dois bolos de 1 kg" e outra
-  // coisa, e ai sao dois mesmo.
-  if (!disseQuantidade(String(mensagem.texto))) {
+  // So junta quando ele nao pediu VARIOS BOLOS.
+  //
+  // Antes o teste era disseQuantidade(), que da true em qualquer digito. Ai
+  // "quero 2,5kg de bolo" pulava a fusao, e a conversa de 25/08 fechou com TRES
+  // bolos somando 6 kg pra quem pediu 2,5. Peso nao e contagem: quem diz o peso
+  // esta redimensionando o mesmo bolo, quem diz "dois bolos" quer dois.
+  if (!pediuVariosBolos(String(mensagem.texto))) {
     // "bolo" sem sabor e marcador de lugar, nao sabor: e o que a proposta anota
     // e o que a IA le de "quero encomendar bolo". Ele sai da mistura, senao a
     // comanda pede "misto: bolo e 4 leites e biz".
@@ -714,7 +740,14 @@ export async function responder(
         ...estado,
         itens: [
           ...outros,
-          { ...caro, qtd: peso, obs: [caro.obs, misto].filter(Boolean).join(" | ") || null },
+          {
+            ...caro,
+            qtd: peso,
+            // Sem limpar o "misto:" anterior a observacao empilhava a cada
+            // mensagem: na conversa de 25/08 chegou a sete copias da mesma
+            // frase, e isso vai impresso no cupom da cozinha.
+            obs: [semMisto(caro.obs), misto].filter(Boolean).join(" | ") || null,
+          },
         ],
       };
       rastro.push(

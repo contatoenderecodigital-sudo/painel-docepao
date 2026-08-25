@@ -338,22 +338,35 @@ export async function anotarItem(
       }
     }
   }
-  // A COR DA FORMINHA E DO LOTE, NAO DE UM DOCINHO SO.
+  // A COR DA FORMINHA E INFORMACAO DO PEDIDO, NAO ATRIBUTO DO DOCINHO.
   //
-  // O cliente disse "azul royal pra todos" e ela anotou so no brigadeiro e no
-  // beijinho: a trufa ficava sem cor, a pendencia nunca fechava e ela perguntava
-  // a cor de novo a cada mensagem. Cor dita num docinho preenche os que ainda
-  // estao sem; quem ja tem a sua nao e tocado, pra quem quer uma cor por sabor
-  // continuar podendo.
+  // Tinha dois defeitos aqui, os dois vistos na conversa de 25/08:
+  //
+  // 1. `achou[0]` pegava UMA cor so. O cliente disse "azul e amarelo" e o
+  //    pedido gravou "forminha azul". O amarelo sumiu sem ninguem avisar.
+  // 2. quem ja tinha cor era pulado (`continue`), entao corrigir a cor depois
+  //    nao funcionava: o docinho antigo ficava com a cor velha pra sempre.
+  //
+  // E o desenho estava errado na raiz: a cor ficava colada em cada docinho,
+  // como se fosse sabor. Ela e uma informacao do lote, igual a data ou o nome.
+  // Agora mora em dados.fluxo_forminha, e os itens so espelham pra cozinha ler
+  // no cupom sem ter que olhar o cabecalho.
   if (item.categoria === "docinho") {
-    const achou = String(item.obs ?? "").match(COR_FORMINHA);
-    if (achou) {
-      const cor = achou[0].trim();
+    const ditas = String(item.obs ?? "").match(new RegExp(COR_FORMINHA.source, "gi"));
+    if (ditas?.length) {
+      // "azul e amarelo" continua "azul e amarelo", nao vira so "azul".
+      const cores = [...new Set(ditas.map((x) => x.trim().toLowerCase()))].join(" e ");
+      m.dados.fluxo_forminha = cores;
       for (const x of m.itens) {
         if (x.categoria !== "docinho") continue;
-        if (COR_FORMINHA.test(String(x.obs ?? ""))) continue;
-        const base = (x.obs ?? "").trim();
-        x.obs = base ? base + ", forminha " + cor : "forminha " + cor;
+        // Tira a cor antiga antes de escrever a nova, senao trocar de cor
+        // deixava as duas na mesma linha ("forminha azul, forminha rosa").
+        const base = String(x.obs ?? "")
+          .split(",")
+          .map((p) => p.trim())
+          .filter((p) => p && !/^forminha($|[^a-z])/i.test(p))
+          .join(", ");
+        x.obs = base ? base + ", forminha " + cores : "forminha " + cores;
       }
     }
   }

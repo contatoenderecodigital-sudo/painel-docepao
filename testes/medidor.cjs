@@ -55,6 +55,41 @@ const psql = (sql) =>
 // ---------------------------------------------------------------------------
 const CENARIOS = [
   {
+    // A CONVERSA DE 25/08/2026, QUE QUEBROU EM DEZ LUGARES DE UMA VEZ.
+    //
+    // Ela tinha 48 mensagens e passou por todas as etapas. Os setenta testes do
+    // repositorio estavam verdes e nenhum viu, porque nenhum media uma conversa
+    // inteira de festa com troca no meio. Os defeitos:
+    //
+    //   1. o quiche foi pedido TRES vezes e nunca entrou (a guarda de recheio
+    //      recusava o registro e a IA apagava o item pra satisfazer a guarda)
+    //   2. sobraram TRES bolos somando 6 kg pra quem pediu 2,5
+    //   3. bolo de festa gravado com unidade "un", cobrado por unidade
+    //   4. "azul e amarelo" virou "azul": a segunda cor sumia
+    //   5. "misto: ..." repetido sete vezes na observacao do cupom
+    //
+    // Este cenario cobre os cinco de uma vez. Se qualquer um voltar, ele reprova.
+    nome: "festa completa com troca no meio nao perde item nem duplica bolo",
+    fala: [
+      "boa tarde, quero fazer pedido de bolo, doces e salgados pra 25 pessoas",
+      "pode ser essa base mesmo",
+      "metade quiche de frango e metade coxinha",
+      "cafe, churros, brigadeiro e beijinho",
+      "forminha azul e amarelo",
+      "bolo de 4 leites e strogonoff de nozes, 2,5 kg",
+      "na embalagem com tampa, sem topo e sem papel de arroz",
+      "dia 02/09 as 14h, nome Ana Prass, cartao",
+    ],
+    esperado: {
+      itens: ["quiche", "coxinha", "brigadeiro", "beijinho"],
+      // Um bolo so, cotado pelo sabor mais caro dos dois.
+      obsTem: ["azul e amarelo", "strogonoff"],
+      // 4 salgados/docinhos + 1 bolo. Tres bolos aqui e o defeito voltando.
+      linhas: 7,
+      fechou: true,
+    },
+  },
+  {
     nome: "troca de bolo nao duplica",
     fala: [
       "boa tarde, quero um bolo de 2 kg de prestigio pra festa dia 12/09",
