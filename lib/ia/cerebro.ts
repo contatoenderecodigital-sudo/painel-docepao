@@ -2305,9 +2305,42 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     return `Anotei ${qtd} de ${produto} no pedido.${avisoDivisao}${avisoSabor} Continue a conversa normalmente; o pedido fica guardado e você não precisa repetir os itens anteriores.${avisoRestricao}${avisoInventada}`;
   }
   if (nome === "remover_item") {
+    // ITEM SO SAI DO PEDIDO SE O CLIENTE PEDIU PRA TIRAR.
+    //
+    // Esta era a porta pela qual o item sumia. Toda guarda que recusa registro
+    // ("falta o sabor", "falta o recheio") pode ser satisfeita de duas formas:
+    // perguntando ao cliente, que da trabalho, ou APAGANDO o item que
+    // incomoda, que resolve na hora. Na conversa de 25/08/2026 o cliente pediu
+    // quiche tres vezes e fechou com 250 coxinha e nenhum quiche.
+    //
+    // A descricao da ferramenta ja dizia "quando o cliente desistir dele", mas
+    // isso e pedido, nao regra. Decisao que custa dinheiro mora no codigo.
+    const produto = String(input.produto || "").trim();
+    const ditoPeloCliente = [...falasDoCliente, falaDoCliente]
+      .filter(Boolean)
+      .join(" ")
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase();
+
+    // As formas de dizer "tira isso". Sem barra invertida de borda de palavra:
+    // ela vira byte de backspace no caminho ate o arquivo e a regra nunca casa.
+    const PEDIU_PRA_TIRAR =
+      /(^|[^a-z])(tira|tirar|tire|remove|remover|retira|retirar|cancela|cancelar|exclui|excluir|apaga|apagar|desconsidera|esquece|deixa pra la|nao quero mais|nao vou querer|sem o|sem a|nao precisa|desisti|troca|trocar|muda|mudar|em vez de|no lugar de)($|[^a-z])/;
+
+    if (!PEDIU_PRA_TIRAR.test(ditoPeloCliente)) {
+      console.warn("[ia] remover_item recusado, o cliente nao pediu: " + produto);
+      return (
+        `NAO tirei o ${produto} do pedido: o cliente nao pediu pra tirar em nenhum momento da conversa. ` +
+        `Item que o cliente pediu NUNCA sai do pedido por sua conta. ` +
+        `Se esta faltando alguma informacao dele (sabor, recheio, cor), PERGUNTE ao cliente. ` +
+        `Se voce achou que ele desistiu, pergunte se ele ainda quer, e so tire depois que ele disser que nao quer.`
+      );
+    }
+
     estado.montagem.push({
       tipo: "remover",
-      produto: String(input.produto || "").trim(),
+      produto,
       categoria: String(input.categoria || "outro"),
     });
     return "Tirei do pedido. O resto continua guardado.";
