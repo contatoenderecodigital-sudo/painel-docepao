@@ -91,6 +91,14 @@ export type Leitura = {
    *
    * A resposta sai do codigo, com o dado da casa, e nada e anotado.
    */
+  /**
+   * A CONVERSA NAO E UM PEDIDO.
+   *
+   * A Rota C: reclamacao e cancelamento sao sempre da equipe, e status a Dora
+   * responde se souber. Ate 24/08/2026 quem escrevia "meu pao veio queimado"
+   * caia no fluxo de pedido e recebia oferta de docinho.
+   */
+  situacao?: "reclamacao" | "cancelar" | "status";
   perguntou?: {
     sobre: "preco" | "horario" | "endereco" | "pagamento" | "entrega" | "prazo" | "outro";
     familia?: string;
@@ -170,40 +178,33 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "Leia SÓ a última mensagem do cliente e diga o que mudou no pedido. " +
     "Não escreva resposta pro cliente, não invente valor, não decida a próxima pergunta." +
     String.fromCharCode(10, 10) +
-    // DIA, HORA, NOME E PAGAMENTO VALEM EM QUALQUER ETAPA.
+    // ESTE BLOCO ENTRA EM TODA ETAPA, ENTAO CADA PALAVRA AQUI CUSTA EM TODAS.
     //
-    // O cliente nao anda na ordem do sistema. Na conversa da kemilly ele
-    // escreveu "dia 02" enquanto a etapa era outra, e o dado se perdia: a
-    // padaria perguntava de novo depois, e quem ja tinha respondido acha que
-    // ninguem leu.
+    // Ele ja estourou o limite de 1.500 caracteres duas vezes, e o teste que
+    // reprova por isso existe porque instrucao comprida e exatamente o que faz
+    // o modelo se perder. Cada linha daqui virou uma linha so, com o motivo
+    // registrado aqui em cima em vez de dentro do texto que a IA le:
     //
-    // Estes quatro sao a unica excecao ao vocabulario da etapa, e sao seguros
-    // porque nao competem com produto nenhum: ninguem confunde uma data com um
-    // salgado. Item continua preso a etapa, que e onde mora a ambiguidade.
-    "SEMPRE, em qualquer etapa: se ele falar o DIA da retirada, a HORA, o NOME " +
-    "de quem retira ou a FORMA DE PAGAMENTO, devolva em dados. Isso vale mesmo " +
-    "que a etapa seja outra, porque o cliente fala esses quatro quando lembra." +
-    String.fromCharCode(10) +
-    // HOJE E QUE DIA?
+    //   DIA, HORA, NOME E PAGAMENTO em qualquer etapa. O cliente nao anda na
+    //   ordem do sistema: a Kemilly escreveu "dia 02" no meio dos salgados e o
+    //   dado se perdia. Sao seguros porque nao competem com produto nenhum.
     //
-    // Sem esta linha o modelo chuta o ano. No teste do dono em 23/08/2026 ele
-    // disse "dia 05 de setembro" e o pedido foi anotado pra 05/09/2024: um ano
-    // e meio no passado, numa padaria que produz sob encomenda.
+    //   HOJE E QUE DIA. O modelo nao tem relogio: "dia 05 de setembro" virou
+    //   05/09/2024, um ano e meio no passado, numa padaria sob encomenda.
     //
-    // O modelo nao tem relogio. Quem tem e o codigo, e por isso a data de hoje
-    // vai escrita na instrucao, e a conferencia continua sendo feita no codigo
-    // depois: prompt pede, codigo garante.
-    "Hoje é " + hojeEmSaoPaulo() + ". Toda data de retirada é NO FUTURO: se ele " +
-    "disser só o dia e o mês, use o ano que faz a data cair pra frente." +
-    String.fromCharCode(10) +
-    // PERGUNTAR NAO E PEDIR.
+    //   PERGUNTAR NAO E PEDIR. No sistema antigo a cliente perguntou "0%
+    //   lactose nao e sem acucar ne?" e ganhou um bolo 0% lactose no pedido.
     //
-    // No sistema antigo a cliente perguntou "0% lactose nao e sem acucar ne?" e
-    // ganhou um bolo 0% lactose no pedido dela.
-    // Este bloco entra em TODA etapa, entao cada palavra aqui custa em todas.
-    "SEMPRE: PERGUNTA em vez de pedido devolve perguntou.sobre = preco (com " +
-    "familia), horario, endereco, pagamento, entrega, prazo, ou outro (CNPJ, " +
-    "nota fiscal, o que a padaria não tem). Pergunta não vira item.";
+    //   A ROTA C. Quem escrevia "meu pao veio queimado" caia no fluxo de pedido
+    //   e recebia oferta de docinho.
+    "SEMPRE, em qualquer etapa:" + String.fromCharCode(10) +
+    "- dia, hora, nome de quem retira e forma de pagamento vão em dados." + String.fromCharCode(10) +
+    "- Hoje é " + hojeEmSaoPaulo() + ", e retirada é sempre no futuro." + String.fromCharCode(10) +
+    "- Perguntou em vez de pedir? perguntou.sobre = preco (com familia), " +
+    "horario, endereco, pagamento, entrega, prazo ou outro." + String.fromCharCode(10) +
+    "- Reclamou do que comprou = situacao \"reclamacao\". Quer cancelar = " +
+    "\"cancelar\". Pergunta de pedido já feito = \"status\"." + String.fromCharCode(10) +
+    "- Pergunta e reclamação NÃO viram item.";
 
   // A RECUSA E RESPOSTA, NAO SILENCIO.
   //

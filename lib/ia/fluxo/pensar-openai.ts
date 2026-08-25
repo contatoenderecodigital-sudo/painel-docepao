@@ -41,6 +41,7 @@ const FORMATO = `Responda SÓ com um JSON, sem texto em volta, neste formato:
   "tema": "Minnie",
   "escrito": "Arthur, 5 anos",
   "perguntou": { "sobre": "preco", "familia": "salgado" },
+  "situacao": "reclamacao",
   "forminha": "rosa",
   "prato": "aberto",
   "dados": { "nome": "", "data": "DD/MM/AAAA", "hora": "HH:MM", "pagamento": "pix" },
@@ -134,6 +135,9 @@ export function pensarComOpenAI(
         if (typeof lido.pecas.topo === "boolean") pec.topo = lido.pecas.topo;
         if (typeof lido.pecas.papelDeArroz === "boolean") pec.papelDeArroz = lido.pecas.papelDeArroz;
         if (Object.keys(pec).length) limpo.pecas = pec;
+      }
+      if (lido.situacao === "reclamacao" || lido.situacao === "cancelar" || lido.situacao === "status") {
+        limpo.situacao = lido.situacao;
       }
       if (lido.perguntou?.sobre) {
         limpo.perguntou = {

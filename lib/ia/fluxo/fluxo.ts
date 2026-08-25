@@ -39,6 +39,7 @@ import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
 import { coresDaForminha } from "./sabor";
 import { paraOMotor } from "./cotar";
 import { respostaDeInformacao } from "./informacao";
+import { respostaDaSituacao } from "./situacao";
 
 /** O estado da conversa. E tudo que existe: nao ha memoria escondida. */
 export type Estado = PedidoEmMontagem & {
@@ -488,6 +489,31 @@ export async function responder(
     if (limpa.confirmou && etapaAgora.id === "confirmacao") {
       confirmouEscrevendo = true;
       rastro.push("confirmou escrevendo, sem tocar no botao");
+    }
+
+    // ---------------------------------------- A CONVERSA NAO E UM PEDIDO
+    //
+    // A ROTA C, e ela vem ANTES de tudo: reclamacao, cancelamento e pergunta
+    // sobre pedido ja feito nao sao pedido nenhum.
+    //
+    // Ate 24/08/2026 quem escrevia "meu pao veio queimado" caia no fluxo e a
+    // Dora tentava montar uma encomenda. E o momento em que o cliente esta
+    // bravo e a IA esta oferecendo docinho.
+    //
+    // Reclamacao e cancelamento sao SEMPRE da equipe: mexem com dinheiro, com
+    // producao que talvez ja tenha comecado, e com a cara da padaria no bairro.
+    if (limpa.situacao) {
+      const r = respostaDaSituacao(limpa.situacao, estado.itens.length > 0 || Boolean(estado.dados.data));
+      rastro.push("situacao: " + limpa.situacao + (r.precisaHumano ? "; chamei a equipe" : ""));
+      return {
+        fala: { texto: r.texto, botoes: [], cardapio: null, podeReescrever: false },
+        estado,
+        etapa: etapaAgora.id,
+        rastro,
+        chamouIA,
+        confirmouEscrevendo: false,
+        precisaHumano: r.precisaHumano,
+      };
     }
 
     // ------------------------------------------ ELE SO PERGUNTOU: RESPONDE

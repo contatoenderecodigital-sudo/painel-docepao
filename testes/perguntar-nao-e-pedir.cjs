@@ -45,6 +45,15 @@ fs.writeFileSync(
     "const perguntar = async (leitura) =>",
     "  responder(VAZIO as never, { texto: 'pergunta' } as never, (async () => leitura) as never);",
     "",
+    "// A ROTA C: reclamacao, cancelamento e status nao sao pedido.",
+    "const situacoes = {};",
+    "for (const s of ['reclamacao', 'cancelar', 'status']) {",
+    "  const x = await responder(VAZIO as never, { texto: 'nao importa' } as never,",
+    "    (async () => ({ situacao: s })) as never);",
+    "  situacoes[s] = { texto: x.fala.texto, itens: x.estado.itens.length,",
+    "                   precisaHumano: x.precisaHumano, podeReescrever: x.fala.podeReescrever };",
+    "}",
+    "",
     "const r = {",
     "  salgado: await perguntar({ perguntou: { sobre: 'preco', familia: 'salgado' } }),",
     "  docinho: await perguntar({ perguntou: { sobre: 'preco', familia: 'docinho' } }),",
@@ -55,10 +64,10 @@ fs.writeFileSync(
     "  pagamento: await perguntar({ perguntou: { sobre: 'pagamento' } }),",
     "};",
     "",
-    "console.log(JSON.stringify(Object.fromEntries(Object.entries(r).map(([k, v]) => [k, {",
+    "console.log(JSON.stringify({ ...Object.fromEntries(Object.entries(r).map(([k, v]) => [k, {",
     "  texto: v.fala.texto, itens: v.estado.itens.length, precisaHumano: v.precisaHumano,",
     "  podeReescrever: v.fala.podeReescrever,",
-    "}]))));",
+    "}])), situacoes }));",
   ].join("\n"),
   "utf8",
 );
@@ -118,6 +127,30 @@ if (!/if \(!botaoId\)/.test(rota)) {
   falhas.push("o toque em botao passou a esperar tambem; botao nao tem continuacao");
 }
 
+// ---------------------------- A ROTA C: reclamacao nunca vira pedido
+//
+// O conselho que o dono trouxe em 24/08/2026 da o exemplo exato do buraco que
+// tinhamos: "Meu pao veio queimado. Corta a IA e chama um atendente humano."
+//
+// Ate aqui isso caia no fluxo de pedido e a Dora tentava montar uma encomenda.
+// E o momento em que o cliente esta bravo e a IA esta oferecendo docinho.
+for (const [caso, x] of Object.entries(r.situacoes)) {
+  if (x.itens > 0) falhas.push("'" + caso + "' anotou item no pedido; nada disso e pedido");
+  if (x.podeReescrever) falhas.push("a resposta de '" + caso + "' pode ser reescrita pela IA");
+}
+// Reclamacao e cancelamento sao SEMPRE da equipe: mexem com dinheiro e com
+// producao que talvez ja tenha comecado.
+for (const caso of ["reclamacao", "cancelar"]) {
+  if (!r.situacoes[caso].precisaHumano) {
+    falhas.push("'" + caso + "' nao chamou a equipe; isso nao e decisao de robo");
+  }
+}
+// E ela nao promete nada no lugar da dona.
+if (/desconto|devolv|refaz|reembols/i.test(r.situacoes.reclamacao.texto)) {
+  falhas.push("ela prometeu solucao de reclamacao no lugar da equipe: " + r.situacoes.reclamacao.texto);
+}
+
+console.log("Reclamacao: " + r.situacoes.reclamacao.texto);
 console.log("Salgado:  " + r.salgado.texto);
 console.log("Docinho:  " + r.docinho.texto);
 console.log("Entrega:  chama a equipe = " + r.entrega.precisaHumano);
