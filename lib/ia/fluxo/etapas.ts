@@ -198,6 +198,15 @@ export type PedidoEmMontagem = {
  * docinho. As cores que ele falar valem pro pedido todo, e a comanda dos
  * docinhos leva todas elas.
  */
+/**
+ * O cliente ja informou data, hora, nome e pagamento?
+ *
+ * Serve para nao segurar o pedido por um detalhe quando ele ja disse tudo o que
+ * a padaria precisa para produzir e entregar.
+ */
+const jaTemOsDados = (p: PedidoEmMontagem) =>
+  Boolean(p.dados?.data && p.dados?.hora && p.dados?.nome && p.dados?.pagamento);
+
 const semForminha = (p: PedidoEmMontagem) => !p.forminha;
 
 /** Falta escolher recheio ou sabor em algum item desta familia? */
@@ -300,10 +309,22 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // "bolo" sozinho nao e sabor: e o que a proposta anota quando o cliente
     // ainda nao escolheu. E o prato vem junto porque a dona pergunta junto, e
     // porque muda o que a cozinha monta na hora de embalar.
+    // O PRATO NAO SEGURA UM PEDIDO QUE JA ESTA COMPLETO.
+    //
+    // Bateria dos cinco jeitos, 25/08/2026: o cliente mandou o pedido inteiro
+    // numa mensagem so, com data, hora, nome e pagamento, e recebeu de volta
+    // "o bolo vai no prato de MDF aberto ou na embalagem com tampa?". Respondeu
+    // "isso mesmo, pode confirmar" e ouviu a MESMA pergunta. O pedido nunca
+    // fechou, nos cinco jeitos de falar.
+    //
+    // Regra do dono, 25/08/2026: quem manda tudo de uma vez nao e pra ser
+    // interrogado, e pra ir direto pra confirmacao. O prato continua sendo
+    // perguntado no caminho normal, quando ainda falta coisa; ele so deixa de
+    // ser o que impede o pedido de fechar.
     cumprida: (p) =>
       p.itens.some(
         (i) => String(i.categoria || "").startsWith("bolo") && String(i.produto).trim().toLowerCase() !== "bolo",
-      ) && p.prato !== null,
+      ) && (p.prato !== null || jaTemOsDados(p)),
     // O SABOR DO BOLO VALE FORA DA FESTA TAMBEM.
     //
     // Ate 23/08/2026 esta etapa era pulada em todo pedido que nao fosse festa,

@@ -16,6 +16,7 @@ import { montarSystemPrompt, DOCE_PAO, type ConfigNegocio } from "./persona";
 import { motorPadrao, formatarOrcamento, brl, citadoDeVerdade, type Motor, type LinhaCotacao } from "./orcamento";
 import { registrarUsoIA, type UsoTurno } from "./uso";
 import catalogo from "./dados/catalogo.json";
+import { nomePeloApelido } from "./dados/apelidos";
 import { padariaAberta } from "@/lib/padaria-aberta";
 import { enumDeProdutos, FORA_DO_CARDAPIO, comoSeEscreve } from "./produtos";
 import { fatosDaCasa, afirmacoesNaoAutorizadas, RECADO_DA_EQUIPE } from "./fatos";
@@ -1141,6 +1142,35 @@ Ao falar esta sugestão pro cliente, use as palavras GENÉRICAS "salgados" e "do
     }
     // A divisao entre tipos pode corrigir esse numero antes de anotar.
     let qtd = Number(input.qtd) || 0;
+
+    // O NOME QUE O CORRETOR DO CELULAR ESTRAGOU.
+    //
+    // "chique" e o que o teclado escreve no lugar de "quiche", e o item entrava
+    // no pedido com esse nome: a cozinha recebe "chique de frango" e o preco
+    // sai do lugar errado. A lista de apelidos e a mesma que as guardas usam.
+    {
+      const certo = nomePeloApelido(String(produto || ""));
+      if (certo && certo !== produto) {
+        console.log("[rastro] apelido: " + produto + " -> " + certo);
+        produto = certo;
+      }
+    }
+
+    // O PESO DO BOLO E QUANTIDADE, NAO OBSERVACAO.
+    //
+    // "um bolo de 2 kg de 4 leites": o modelo mandou qtd 1 e escreveu "2 kg" na
+    // observacao. O bolo saiu cobrado como UMA unidade, R$ 46,90 em vez de
+    // R$ 93,80. Bolo e vendido por quilo, entao o numero de quilos que ele
+    // falou E a quantidade. Achado pela bateria dos cinco jeitos, 25/08/2026.
+    if (String(categoria).startsWith("bolo")) {
+      const dito = (falasDoCliente.length ? falasDoCliente.join(" ") : String(falaDoCliente ?? "")) + " " + String(input.obs ?? "");
+      const kg = (dito.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:kg|quilos?|k)(?![a-z])/i) ?? [])[1];
+      const peso = kg ? Number(String(kg).replace(",", ".")) : 0;
+      if (peso > 0 && peso <= 30 && peso !== qtd) {
+        console.log("[rastro] peso do bolo veio da fala: " + qtd + " -> " + peso);
+        qtd = peso;
+      }
+    }
     let avisoDivisao = "";
     let avisoSabor = "";
     // QUANTIDADE ZERO NUMA FAMILIA E PEDIDO DE ORCAMENTO, NAO ERRO DE DIGITACAO.
