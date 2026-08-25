@@ -12,6 +12,7 @@
 // ============================================================================
 
 import catalogo from "./dados/catalogo.json";
+import { APELIDOS } from "@/lib/ia/dados/apelidos";
 // TODOS OS PRECOS UNITARIOS QUE A PADARIA PRATICA, em centavos.
 // Fonte unica: o catalogo. O que nao esta aqui, ela nao pode dizer que cobra.
 function precosDaCasa(): Set<number> {
@@ -403,20 +404,7 @@ export function produtoQueNinguemCitou(
   // Estes apelidos sao os que a propria casa usa, e ja estao no prompt dela:
   // "pizza de metro" e "pizza de forma" sao a retangular; o pastel frito e a
   // mini bolha.
-  const APELIDOS: Record<string, string[]> = {
-    "pizza inteira": ["pizza de forma", "de forma", "pizza de metro", "de metro", "retangular", "pizza grande", "pizza inteira", "uma pizza"],
-    "pizza meia": ["meia pizza", "metade da pizza", "meia de forma", "meia"],
-    "pizza redonda": ["redonda", "pizza redonda", "de 30", "30 cm"],
-    "mini bolha": ["pastel frito", "pastel", "bolha"],
-    "cuca recheada": ["cuca"],
-    // Esfiha e esfirra sao a mesma coisa e estao a tres letras de distancia,
-    // que e mais do que a tolerancia de digitacao aceita. Sinonimo de verdade
-    // se resolve aqui, na lista, nao afrouxando a comparacao.
-    esfirra: ["esfiha", "esfihas", "esfia", "esfias"],
-    "risólis": ["risoles", "risole", "rissoles", "rissole"],
-    "torta fria com palmito": ["torta fria"],
-    "empadao com palmito": ["empadao", "empadão"],
-  };
+
   for (const apelido of APELIDOS[nome] ?? []) {
     if (tudo.includes(semAcMin(apelido))) return false;
   }

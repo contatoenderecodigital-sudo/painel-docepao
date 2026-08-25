@@ -53,7 +53,88 @@ const psql = (sql) =>
 //  esperado.soma: quanto as quantidades tem que somar (pega mudanca de total)
 //  esperado.fechou: se tem que existir pedido registrado no fim
 // ---------------------------------------------------------------------------
+// O GABARITO DOS CINCO JEITOS. Um objeto so, usado pelos cinco de proposito:
+// se eu escrevesse cinco copias, uma divergiria sem ninguem perceber.
+const MESMO_PEDIDO = {
+  itens: ["coxinha", "quiche", "brigadeiro", "4 leites"],
+  obsTem: ["rosa", "frango"],
+  linhas: 4,
+  // 100 + 100 + 50 + 2 kg de bolo
+  soma: 252,
+  fechou: true,
+};
+
 const CENARIOS = [
+  // ==========================================================================
+  //  O MESMO PEDIDO DITO DE CINCO JEITOS.
+  //
+  //  Ate aqui eu escrevia UM cenario por defeito, entao cada teste provava que
+  //  aquele bug especifico nao voltou, e a familia dele continuava aberta. Foi
+  //  assim que dez defeitos couberam numa conversa so com setenta testes verdes.
+  //
+  //  Estes cinco pedem A MESMA COISA e tem que terminar com O MESMO PEDIDO no
+  //  banco. Muda so o jeito de falar: tudo de uma vez, picado, tres respostas
+  //  na mesma frase, com erro de digitacao, e mudando de ideia no meio.
+  //
+  //  Se um passar e outro nao, a leitura depende do jeito de falar, e e isso
+  //  que nao pode. O gabarito e identico nos cinco de proposito.
+  // ==========================================================================
+  {
+    nome: "cinco jeitos 1: tudo numa mensagem so",
+    fala: [
+      "boa tarde, quero 100 coxinha e 100 quiche de frango, 50 brigadeiro forminha rosa e um bolo de 2 kg de 4 leites, dia 05/09 as 15h, nome Carla Menezes, pix",
+      "isso mesmo, pode confirmar",
+    ],
+    esperado: MESMO_PEDIDO,
+  },
+  {
+    nome: "cinco jeitos 2: uma coisa por mensagem",
+    fala: [
+      "boa tarde, queria fazer um pedido",
+      "100 coxinha",
+      "100 quiche de frango",
+      "50 brigadeiro",
+      "forminha rosa",
+      "um bolo de 2 kg de 4 leites",
+      "dia 05/09",
+      "as 15h",
+      "nome Carla Menezes",
+      "pix",
+      "isso mesmo, pode confirmar",
+    ],
+    esperado: MESMO_PEDIDO,
+  },
+  {
+    nome: "cinco jeitos 3: tres respostas na mesma frase",
+    fala: [
+      "boa tarde, quero 100 coxinha e 100 quiche de frango",
+      "50 brigadeiro, forminha rosa, e um bolo de 2 kg de 4 leites",
+      "dia 05/09 as 15h, nome Carla Menezes, pix",
+      "isso mesmo, pode confirmar",
+    ],
+    esperado: MESMO_PEDIDO,
+  },
+  {
+    nome: "cinco jeitos 4: com erro de digitacao",
+    fala: [
+      "boa tarde, quero 100 coxinia e 100 chique de frango",
+      "50 brigadero, forminha rosa",
+      "um bolo de 2 kg de 4 leites, dia 05/09 as 15h, nome Carla Menezes, pix",
+      "isso mesmo, pode confirmar",
+    ],
+    esperado: MESMO_PEDIDO,
+  },
+  {
+    nome: "cinco jeitos 5: mudando de ideia no meio",
+    fala: [
+      "boa tarde, quero 200 coxinha e 100 quiche de frango",
+      "na verdade muda a coxinha pra 100",
+      "50 brigadeiro, forminha rosa",
+      "um bolo de 2 kg de 4 leites, dia 05/09 as 15h, nome Carla Menezes, pix",
+      "isso mesmo, pode confirmar",
+    ],
+    esperado: MESMO_PEDIDO,
+  },
   {
     // A CONVERSA DE 25/08/2026, QUE QUEBROU EM DEZ LUGARES DE UMA VEZ.
     //

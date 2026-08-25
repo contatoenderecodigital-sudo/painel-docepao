@@ -32,6 +32,7 @@ import catalogo from "../dados/catalogo.json";
 import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, type Leitura } from "./leitura";
+import { juntarComAFrase } from "./leitor-da-frase";
 import { calcularBase } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
@@ -302,41 +303,6 @@ function tirarMarca(itens: Estado["itens"], prefixo: string): Estado["itens"] {
   });
 }
 
-/**
- * TOPO E PAPEL DE ARROZ LIDOS DIRETO DA FRASE.
- *
- * "sem topo e sem papel de arroz" responde as duas de uma vez, e o modelo
- * costuma devolver so uma. Aqui o codigo procura cada uma separadamente e olha
- * a negacao que vem ANTES dela na mesma frase.
- *
- * Sem barra invertida de borda de palavra: ela vira byte de backspace no
- * caminho ate o arquivo e a regra nunca casa. Ja custou caro tres vezes aqui.
- */
-function lerPecasDaFala(fala: string): { topo: boolean | null; papelDeArroz: boolean | null } {
-  const t = String(fala || "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
-
-  const resposta = (termo: RegExp): boolean | null => {
-    const m = termo.exec(t);
-    if (!m) return null;
-    // O pedaco da frase ate o termo. "sem topo" nega, "com topo" e "quero topo"
-    // afirmam. Olha so as poucas palavras antes, pra nao pegar um "sem" de
-    // outra parte da frase.
-    const antes = t.slice(Math.max(0, m.index - 22), m.index);
-    if (/(sem|nao quero|nao vou querer|nao precisa|dispenso)\s*$/.test(antes.trim() + " ")) return false;
-    if (/(^|[^a-z])(sem|nao)([^a-z][^.,;]*)?$/.test(antes)) return false;
-    if (/(com|quero|vai com|pode por|poe|bota)\s*$/.test(antes.trim() + " ")) return true;
-    return null;
-  };
-
-  return {
-    topo: resposta(/topo/),
-    papelDeArroz: resposta(/papel de arroz/),
-  };
-}
-
 function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Estado {
   let novo: Estado = { ...e };
 
@@ -357,21 +323,13 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
   // papel de arroz DUAS vezes depois disso e a conversa travou sem fechar.
   // Quem sabe o que ele respondeu e a MENSAGEM, nao o modelo: aqui o codigo le
   // a frase e completa o que o modelo deixou passar.
-  const daFala = lerPecasDaFala(falaDoCliente);
-  const pecasDitas =
-    l.pecas || daFala.topo != null || daFala.papelDeArroz != null
-      ? {
-          topo: typeof l.pecas?.topo === "boolean" ? l.pecas.topo : daFala.topo,
-          papelDeArroz:
-            typeof l.pecas?.papelDeArroz === "boolean" ? l.pecas.papelDeArroz : daFala.papelDeArroz,
-        }
-      : null;
-  if (pecasDitas) {
+  // A leitura ja vem juntada com a frase la em cima, entao aqui e so aplicar.
+  if (l.pecas) {
     novo.pecas = {
-      topo: typeof pecasDitas.topo === "boolean" ? pecasDitas.topo : (novo.pecas?.topo ?? null),
+      topo: typeof l.pecas.topo === "boolean" ? l.pecas.topo : (novo.pecas?.topo ?? null),
       papelDeArroz:
-        typeof pecasDitas.papelDeArroz === "boolean"
-          ? pecasDitas.papelDeArroz
+        typeof l.pecas.papelDeArroz === "boolean"
+          ? l.pecas.papelDeArroz
           : (novo.pecas?.papelDeArroz ?? null),
     };
   }
@@ -385,13 +343,9 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
   // Regra do dono, 24/08/2026: uma ou mais cores, e nunca perguntar cor por
   // docinho. Quem diz "azul e rosa" escolheu as cores da festa dela; separar
   // qual docinho vai em qual e detalhe que a padaria resolve na bancada.
-  if (l.forminha || coresDaForminha(falaDoCliente).length) {
-    // O modelo mandou "azul" quando o cliente escreveu "forminha azul e
-    // amarelo", e o amarelo sumiu do pedido sem ninguem avisar. As cores da
-    // FRASE mandam: o que o modelo extraiu so completa.
-    const doModelo = coresDaForminha(String(l.forminha ?? ""));
-    const daFrase = coresDaForminha(falaDoCliente);
-    const cores = [...new Set([...daFrase, ...doModelo])];
+  if (l.forminha) {
+    // As cores ja vieram juntadas com a frase: aqui e so normalizar.
+    const cores = coresDaForminha(String(l.forminha));
     if (cores.length) {
       novo.forminha = cores.join(" e ");
       const marca = "forminha " + novo.forminha;
@@ -617,7 +571,14 @@ export async function responder(
       }
     }
 
-    estado = aplicar(estado, limpa, etapaAgora.id, String(mensagem.texto ?? ""));
+    // O CODIGO LE A FRASE, NAO SO O MODELO.
+    //
+    // Aqui a leitura do modelo e completada pelo que esta escrito com todas as
+    // letras na mensagem. E a regra unica que substituiu os resgates avulsos de
+    // cor, de topo e de papel de arroz, cada um deles nascido de um defeito ja
+    // entregue ao cliente.
+    const lida = juntarComAFrase(limpa, String(mensagem.texto ?? ""));
+    estado = aplicar(estado, lida, etapaAgora.id, String(mensagem.texto ?? ""));
 
     // A FOTO QUE ELE MANDOU JA E O TEMA.
     //
