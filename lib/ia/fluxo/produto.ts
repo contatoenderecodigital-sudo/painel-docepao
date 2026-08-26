@@ -42,7 +42,18 @@ function saboresDeBolo(): string[] {
   return (c.bolos_recheados?.faixas ?? []).flatMap((f) => f.sabores ?? []).map(String);
 }
 
-/** Nome de produto vendido avulso, fora os sabores de bolo. */
+/**
+ * Os bolos caseiros, que no cardápio vêm sem o "caseiro" no nome ("cenoura").
+ *
+ * O nome do catálogo e o nome do sistema são "bolo caseiro cenoura", porque é
+ * assim que a tabela de preço guarda e é assim que a comanda roteia.
+ */
+function bolosCaseiros(): string[] {
+  const c = catalogo as unknown as { bolos_caseiros?: { itens?: { nome?: string }[] } };
+  return (c.bolos_caseiros?.itens ?? []).map((i) => String(i?.nome ?? "")).filter(Boolean);
+}
+
+/** Nome de produto vendido avulso, fora os bolos (de festa e caseiros). */
 function produtosDoCatalogo(): string[] {
   const c = catalogo as unknown as Record<string, unknown>;
   const de = (v: unknown): string[] =>
@@ -54,7 +65,6 @@ function produtosDoCatalogo(): string[] {
     ...de(s?.frito?.itens),
     ...de(s?.assado?.itens),
     ...de((c.doces as { itens?: unknown } | undefined)?.itens),
-    ...de((c.bolos_caseiros as { itens?: unknown } | undefined)?.itens),
     ...de(c.outros_produtos),
   ];
 }
@@ -80,7 +90,11 @@ export type Identidade = {
  */
 export function identificarProduto(nomeBruto: string, categoria?: string): Identidade {
   const bruto = String(nomeBruto || "").trim();
-  const t = semAcMin(bruto);
+  // "bolo DE cenoura" e "bolo cenoura" são o mesmo bolo, e antes viravam dois
+  // nomes diferentes no pedido: o "de" fazia o nome não casar com candidato
+  // nenhum, e o fluxo devolvia o texto cru. Era exatamente a doença que este
+  // arquivo foi criado pra curar, sobrevivendo numa preposição.
+  const t = semAcMin(bruto).replace(/^bolo (de |do |da ) */, "bolo ");
   if (!t) return { produto: bruto, recheio: null, unidade: "un", unico: false };
 
   const ehEtapaDeBolo = String(categoria || "").startsWith("bolo");
@@ -97,6 +111,30 @@ export function identificarProduto(nomeBruto: string, categoria?: string): Ident
     // O sabor sozinho E com o prefixo casam, e os dois viram "bolo <sabor>".
     cand.push({ canonico: "bolo " + s, casa: semAcMin(s), deBolo: true, apelido: false });
     cand.push({ canonico: "bolo " + s, casa: semAcMin("bolo " + s), deBolo: true, apelido: false });
+  }
+  // O BOLO CASEIRO TAMBÉM PRECISA DE UM NOME SÓ.
+  //
+  // Ele não tinha. O fluxo devolvia o que o cliente escrevesse, e o mesmo bolo
+  // saía como "cenoura", "bolo cenoura" ou "bolo de cenoura". Funcionava por
+  // sorte, no casamento parcial do motor de preço. Medido em 26/08/2026, a
+  // sorte já tinha acabado em três casos:
+  //
+  //   "café" sozinho     -> cotava o DOCINHO de café, R$ 1,25 no lugar de
+  //                         R$ 35,90. É o mesmo defeito do brigadeiro, que já
+  //                         tinha transformado um bolo de 2 kg em R$ 2,50.
+  //   "bolo banana caramelizada"   -> cotava a LARANJA caramelizada, R$ 34,90
+  //                                   no lugar de R$ 30,90.
+  //   "bolo prestígio com ganache" -> cotava o bolo de FESTA de prestígio,
+  //                                   R$ 46,90 o quilo no lugar de R$ 33,90 a
+  //                                   unidade. Errava preço, produto E unidade.
+  //
+  // Marcado como bolo (`deBolo`) de propósito: "café" é docinho e é bolo
+  // caseiro, e quem desempata é a etapa da conversa, igual ao brigadeiro.
+  for (const n of bolosCaseiros()) {
+    const canonico = "bolo caseiro " + n;
+    for (const jeito of [n, "bolo " + n, "bolo caseiro " + n]) {
+      cand.push({ canonico, casa: semAcMin(jeito), deBolo: true, apelido: false });
+    }
   }
   for (const p of produtosDoCatalogo()) {
     cand.push({ canonico: p, casa: semAcMin(p), deBolo: false, apelido: false });

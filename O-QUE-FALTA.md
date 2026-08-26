@@ -55,27 +55,54 @@ reconhecido, então a disputa acontece sempre.
 
 ## 2. Padronizar o catálogo  ⟵ EM ANDAMENTO, retomar aqui
 
-**FEITO nesta sessão:**
-
-- foto da cotação de 83 produtos, versionada em
-  `testes/fotos/precos-antes-da-padronizacao.json`. É a rede de segurança: a
-  regra é que **nenhum preço pode mudar**
-- `lib/ia/dados/produtos.ts` criado: a lista única, onde todo produto responde às
-  mesmas perguntas (`nome · preco · unidade · categoria · grupo · bancada ·
-  sabores[] · saborFixo`). Tipos limpos, ainda **não ligado em ninguém**
-
 **O ACHADO QUE DEFINE O TRABALHO:** são **DEZESSETE** arquivos importando
 `catalogo.json` direto, e cada um remonta a estrutura do seu jeito. É daí que
 vêm os defeitos que a bateria acha. A lista dos dezessete sai com
 `grep -rn "dados/catalogo.json" lib/ app/ scripts/`.
 
+**FEITO, com a prova de cada coisa:**
+
+- **a lista única**, `lib/ia/dados/produtos.ts`: todo produto responde às mesmas
+  perguntas (`nome · preco · unidade · categoria · grupo · bancada · sabores[] ·
+  saborFixo`)
+- **a rede de segurança**, `testes/o-catalogo-nao-mudou-preco.cjs`: fotografa
+  preço, unidade, categoria e casamento de nome dos 83 produtos. A regra é que
+  **nenhum preço pode mudar sem alguém ver**. Refazer a foto só com
+  `--tirar-foto`, e só depois de olhar o que mudou
+- **o detector de byte quebrado passou a ver `.json` e acento destruído**
+  (U+FFFD). A primeira foto tinha nascido com dezesseis nomes acentuados
+  destruídos, e eu cheguei a anotar que o café não tinha cotação no motor. Era o
+  arquivo, não o motor. O detector foi provado com isca antes de eu acreditar
+  nele
+- **o motor de preço lê da lista única** (commit `416d46a`). Preço, unidade e
+  categoria dos 83: idênticos. Primeiro dos dezessete leitores
+- **cupcake recheado cobrava o preço do sem recheio** (commit `5d44c69`). O
+  motor cortava " recheado" do fim do nome, regra que é do bolo. R$ 2,00 em vez
+  de R$ 3,00, e R$ 5,00 em vez de R$ 7,00. A prova de que era o corte: no plural
+  ("cupcake pequeno recheados") já cotava certo
+- **`testes/a-ia-e-o-motor-falam-a-mesma-lingua.cjs`**: cobra que o nome que o
+  fluxo escreve o motor cote como ele mesmo, no preço e na unidade do catálogo.
+  Mede o caminho **vivo** (`lib/ia/fluxo/produto.ts`), não o cérebro morto
+- **o bolo caseiro ganhou nome canônico** no fluxo. Ele não tinha: o mesmo bolo
+  saía como "cenoura", "bolo cenoura" ou "bolo de cenoura". Três defeitos de
+  dinheiro medidos e consertados:
+  - `café` sozinho cotava o **docinho** de R$ 1,25 no lugar do bolo de R$ 35,90
+  - `bolo banana caramelizada` cotava a **laranja**, R$ 34,90 em vez de R$ 30,90
+  - `bolo prestígio com ganache` cotava o **bolo de festa**, R$ 46,90 o quilo em
+    vez de R$ 33,90 a unidade: errava preço, produto e unidade
+
 **PRÓXIMO PASSO, nesta ordem:**
 
-1. escrever `testes/o-catalogo-nao-mudou-preco.cjs`, que compara a cotação de
-   todos os produtos contra a foto. **Antes de ligar em qualquer lugar.**
-2. fazer `produtosDoCatalogo()` em `lib/ia/orcamento.ts:431` passar a usar a
-   lista única, e rodar o teste acima. Se um preço mudar, parar
-3. migrar os outros dezesseis leitores, um por vez
+1. **o genérico que vira produto específico sozinho.** Medido: pedir `bolo` cota
+   `bolo caseiro chocolate preto com leite ninho` (R$ 30,90), e `docinho` cota
+   `docinho de churros` (R$ 1,75). Genérico é o nome que o cliente usa **antes**
+   de escolher; quem abre em produto é a montagem, com a resposta dele na mão
+2. **os dois vocabulários de categoria.** O orçamento diz `salgado`, `doce`,
+   `bolo_recheado`; o pedido e a comanda dizem `salgado_frito`, `salgado_assado`,
+   `docinho`, `bolo_festa`. Hoje a tradução está numa tabela visível de quatro
+   linhas em `lib/ia/orcamento.ts` (`CATEGORIA_NO_ORCAMENTO`). Unificar de vez
+   **muda a comanda de cozinha**, então precisa da foto verde antes e depois
+3. migrar os outros quinze leitores, um por vez, sempre com a foto rodando
 4. regerar as oito peças com os grupos certos
 
 **Decisões já embutidas na lista única:** `recheio` singular virou
@@ -196,13 +223,12 @@ pela API, métricas de conversa.
 
 ## PERGUNTAS PARA A DONA
 
-Sete, com citação de origem, em `O-QUE-A-DONA-FALOU.md` seção 3. As duas mais
-importantes:
+**Moram todas em `PERGUNTAR-PRA-DONA.md`**, que é o arquivo vivo: numeradas, com
+o motivo de cada uma e o que muda no atendimento dependendo da resposta. São
+nove hoje. Toda pergunta nova que eu achar vai lá, e não aqui.
 
-1. **O que muda no cupcake recheado?** Ela citou duas vezes só o preço e o
-   tamanho em centímetros, nunca o que é o recheio. A IA vai precisar explicar.
-2. **O bolo com foto: a IA encaminha pro grupo da confeitaria?** É pergunta dela
-   e continua aberta.
+A citação de origem de cada uma que veio dos áudios está em
+`O-QUE-A-DONA-FALOU.md` seção 3.
 
 ---
 
