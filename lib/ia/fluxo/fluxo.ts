@@ -316,6 +316,29 @@ function tirarMarca(itens: Estado["itens"], prefixo: string): Estado["itens"] {
   });
 }
 
+/**
+ * O pedido ja tem este produto, escrito de outro jeito?
+ *
+ * "bolo 4 leites" e "4 leites" sao o mesmo bolo: o modelo poe o prefixo, o
+ * cardapio nao. Sem comparar assim, o item guardado entrava DE NOVO e a fusao
+ * do bolo misto escrevia "misto: bolo 4 leites e 4 leites" no cupom da cozinha.
+ */
+function jaTemEsseProduto(itens: { produto: string }[], produto: string): boolean {
+  const limpo = (t: string) =>
+    String(t || "")
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/^bolo +/, "")
+      .trim();
+  const alvo = limpo(produto);
+  if (!alvo) return false;
+  return itens.some((i) => {
+    const seu = limpo(i.produto);
+    return seu === alvo || seu.includes(alvo) || alvo.includes(seu);
+  });
+}
+
 function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Estado {
   let novo: Estado = { ...e };
 
@@ -553,7 +576,10 @@ export async function responder(
     const doTextoParaDepois = itensDeOutraEtapaNaFrase(
       String(mensagem.texto ?? ""),
       (produto) => etapaDesteProduto(produto) === etapaAgora.id,
-    ).filter((p) => !(limpa.itens ?? []).some((i) => i.produto.toLowerCase() === p.produto.toLowerCase()));
+    )
+      .filter((p) => !(limpa.itens ?? []).some((i) => i.produto.toLowerCase() === p.produto.toLowerCase()))
+      // Ja esta no pedido, mesmo escrito de outro jeito? Entao nao guarda.
+      .filter((p) => !jaTemEsseProduto(estado.itens, p.produto));
     if (doTextoParaDepois.length) {
       paraDepois.push(...doTextoParaDepois);
       rastro.push("achei na frase, o modelo nao leu: " + doTextoParaDepois.map((d) => d.produto).join(", "));
@@ -573,12 +599,23 @@ export async function responder(
 
     // E CHEGOU A HORA DE ALGUM QUE ESTAVA GUARDADO? Entra junto com esta leitura.
     if (estado.guardados?.length) {
-      const agora = estado.guardados.filter((g) => etapaDesteProduto(g.produto) === etapaAgora.id);
+      const agora = estado.guardados.filter(
+        (g) => etapaDesteProduto(g.produto) === etapaAgora.id && !jaTemEsseProduto(estado.itens, g.produto),
+      );
+      // O que ja entrou por outro caminho sai da lista sem virar item de novo.
+      const jaEntrou = estado.guardados.filter((g) => jaTemEsseProduto(estado.itens, g.produto));
+      if (jaEntrou.length) {
+        estado = {
+          ...estado,
+          guardados: estado.guardados.filter((g) => !jaEntrou.includes(g)),
+        };
+        rastro.push("guardado ja estava no pedido: " + jaEntrou.map((j) => j.produto).join(", "));
+      }
       if (agora.length) {
         limpa.itens = [...(limpa.itens ?? []), ...agora];
         estado = {
           ...estado,
-          guardados: estado.guardados.filter((g) => !agora.includes(g)),
+          guardados: (estado.guardados ?? []).filter((g) => !agora.includes(g)),
         };
         rastro.push("entrou o que estava guardado: " + agora.map((a) => a.produto).join(", "));
       }
