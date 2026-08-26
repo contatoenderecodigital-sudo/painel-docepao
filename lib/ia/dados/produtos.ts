@@ -277,6 +277,41 @@ export function produtoPorNome(nome: string): ProdutoDaCasa | null {
   return produtosDaCasa().find((p) => limpo(p.nome) === alvo) ?? null;
 }
 
+/**
+ * O PRODUTO QUE ESTÁ NO COMEÇO DESTE TEXTO.
+ *
+ * O nome que chega do atendimento quase nunca é só o produto: vem com o
+ * recheio colado ("esfirra de carne"), com o segundo sabor ("bolo brigadeiro
+ * com morango") ou com uma observação atrás da vírgula.
+ *
+ * O nome mais longo ganha, e isso não é detalhe: "cuca recheada" tem que
+ * ganhar de "cuca", senão a casa cobra R$ 4 a menos por quilo, e "bolo caseiro
+ * prestígio com ganache" tem que ganhar de "bolo caseiro prestígio", que nem
+ * existe mas quase casou uma vez.
+ *
+ * Devolve null quando o texto não começa em produto nenhum. Null é resposta
+ * honesta: melhor a dona ver que o sistema não reconheceu do que ele chutar a
+ * família e a comanda sair no setor errado da cozinha.
+ */
+export function produtoNoComeco(texto: string): ProdutoDaCasa | null {
+  const t = limpo(texto);
+  if (!t) return null;
+  let melhor: ProdutoDaCasa | null = null;
+  let tamanho = 0;
+  for (const p of produtosDaCasa()) {
+    const n = limpo(p.nome);
+    if (!n) continue;
+    // Vírgula e espaço marcam onde o produto acaba e o resto começa. Sem essa
+    // fronteira "cuca" casaria dentro de "cucaracha".
+    if (t !== n && !t.startsWith(n + " ") && !t.startsWith(n + ",")) continue;
+    if (n.length > tamanho) {
+      melhor = p;
+      tamanho = n.length;
+    }
+  }
+  return melhor;
+}
+
 /** Os grupos existentes, na ordem em que aparecem. */
 export function gruposDaCasa(): string[] {
   return [...new Set(produtosDaCasa().map((p) => p.grupo))];

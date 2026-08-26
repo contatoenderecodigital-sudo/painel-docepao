@@ -35,6 +35,7 @@ import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitur
 import { juntarComAFrase, itensDeOutraEtapaNaFrase } from "./leitor-da-frase";
 import { identificarProduto } from "./produto";
 import { nomePeloApelido } from "../dados/apelidos";
+import { produtoNoComeco } from "../dados/produtos";
 import { calcularBase } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
@@ -186,7 +187,20 @@ function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
     return assados.some((a) => nome === a || nome.startsWith(a + " ")) ? "salgado_assado" : "salgado_frito";
   }
   if (etapa === "docinho") return "docinho";
-  if (etapa === "bolo") return "bolo_festa";
+  if (etapa === "bolo") {
+    // NA ETAPA DO BOLO NEM TODO BOLO É DE FESTA.
+    //
+    // Estava fixo em "bolo_festa", e por isso um bolo caseiro pedido na etapa
+    // do bolo saía cobrado por QUILO (o de festa é por quilo, o caseiro é por
+    // unidade) e ia pra comanda do bolo de festa, na bancada errada.
+    //
+    // O catálogo sabe qual é qual. Só quando ele não conhece o nome é que o
+    // padrão da etapa vale, e aí de festa é o palpite certo: o caseiro tem
+    // lista fechada e já teria casado.
+    const daCasa = produtoNoComeco(nome);
+    if (daCasa?.categoria === "bolo_caseiro") return "bolo_caseiro";
+    return "bolo_festa";
+  }
 
   // FORA DAS ETAPAS DE FAMILIA, QUEM DIZ A CATEGORIA E O CATALOGO.
   //
@@ -213,29 +227,32 @@ function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
 function categoriaDoCatalogo(nome: string): string {
   const semAc = (t: string) =>
     String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
-  const bate = (lista: { nome?: string }[]) =>
-    (lista ?? []).some((i) => {
-      const n = semAc(i.nome ?? "");
-      return n && (nome === n || nome.startsWith(n + " ") || nome.startsWith(n + ","));
-    });
 
-  if (bate((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[])) return "salgado_frito";
-  if (bate((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[])) return "salgado_assado";
-  if (bate((catalogo.doces?.itens ?? []) as { nome: string }[])) return "docinho";
+  // A LISTA ÚNICA RESPONDE PRIMEIRO.
+  //
+  // Antes esta função remontava o catálogo, grupo por grupo, e cada grupo do
+  // seu jeito. Um dos jeitos era `nome.startsWith("bolo ") -> bolo_festa`, e
+  // isso mandava TODO bolo caseiro pra família errada, o que quer dizer preço
+  // por quilo no lugar de por unidade e a comanda no setor errado.
+  //
+  // A lista única sabe a família de cada produto porque ela nasce do mesmo
+  // lugar que o preço. Perguntar pra ela é uma linha.
+  const daCasa = produtoNoComeco(nome);
+  if (daCasa) return daCasa.categoria;
 
-  // Bolo de festa: o sabor E o nome do produto ("marta rocha", "4 leites").
+  // Bolo de festa: o sabor E o nome do produto ("marta rocha", "4 leites"), e
+  // o cliente pode dizer só o sabor. A lista única guarda com o prefixo, então
+  // o sabor solto ainda precisa desta passagem.
   const saboresDeBolo = ((catalogo.bolos_recheados?.faixas ?? []) as { sabores?: string[] }[])
     .flatMap((f) => f.sabores ?? []);
   if (saboresDeBolo.some((sb) => nome === semAc(sb) || nome.startsWith(semAc(sb)))) return "bolo_festa";
+
+  // "bolo" sozinho, ou um sabor que a casa ainda não cadastrou. É bolo de
+  // festa porque o caseiro tem nome fechado e já teria casado ali em cima.
   if (nome === "bolo" || nome.startsWith("bolo ")) return "bolo_festa";
 
-  const outros = (catalogo.outros_produtos ?? []) as { nome?: string; categoria?: string }[];
-  const achou = outros.find((o) => {
-    const n = semAc(o.nome ?? "");
-    return n && (nome === n || nome.startsWith(n + " "));
-  });
-  if (achou?.categoria) return String(achou.categoria);
-
+  // O que o cardápio não conhece volta como "outro", que é honesto: melhor a
+  // dona ver "outro" na tela e corrigir do que o sistema chutar família errada.
   return "outro";
 }
 

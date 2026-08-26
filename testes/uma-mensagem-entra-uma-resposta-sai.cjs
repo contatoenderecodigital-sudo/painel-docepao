@@ -90,10 +90,18 @@ if (new Set(caminho).size < 5) {
 for (const i of estado.itens) {
   if (!i.categoria) falhas.push("o item " + i.produto + " entrou sem categoria; a etapa nunca vai se cumprir");
 }
+console.log("Itens: " + estado.itens.map((i) => i.produto + " [" + i.categoria + "]").join(", "));
+// PROCURA PELO NOME CANONICO.
+//
+// O bolo de festa e guardado com o prefixo ("bolo morango"), e o prefixo nao e
+// enfeite: e ele que separa o bolo do docinho de mesmo nome. Este teste
+// procurava por "morango" cru, do jeito que o cliente fala, e por isso passou a
+// nao achar o item quando o sistema comecou a escrever um nome so por produto.
+// O item estava certo o tempo todo; a busca e que era pelo nome velho.
 const cat = (nome) => (estado.itens.find((i) => i.produto === nome) ?? {}).categoria;
 if (cat("coxinha") !== "salgado_frito") falhas.push("coxinha entrou como " + cat("coxinha"));
 if (cat("brigadeiro") !== "docinho") falhas.push("brigadeiro entrou como " + cat("brigadeiro") + " em vez de docinho");
-if (cat("morango") !== "bolo_festa") falhas.push("o bolo de morango entrou como " + cat("morango"));
+if (cat("bolo morango") !== "bolo_festa") falhas.push("o bolo de morango entrou como " + cat("bolo morango"));
 
 // ------------------------------ o que a padaria nao faz, ela diz
 // A Doce Pao nao tem bolo de ninho. Sem avisar, o fluxo repetia "E o bolo, qual

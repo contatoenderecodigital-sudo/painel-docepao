@@ -109,18 +109,45 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
     .flatMap((p) => {
       const sabor = norm(p.nome).slice(5);
       const ultima = (sabor.split(" ").pop() || "").replace(/[^a-zà-ú0-9]/g, "");
+      // O nome inteiro do sabor entra SEMPRE, seja qual for o tamanho. Antes
+      // havia um filtro de mais de três letras aqui, e ele derrubava exatamente
+      // um sabor do cardápio: "biz", de R$ 49,90.
+      //
+      // O efeito era caro e mudo: todo bolo misto com biz saía cobrado pelo
+      // OUTRO sabor, quase sempre o de R$ 46,90, e ninguém via porque o pedido
+      // fechava normal. O filtro existia pra proteger o apelido, que é um
+      // palpite; o nome do cardápio não é palpite.
       const lista = [{ sabor, produto: p }];
+      // A última palavra vale como apelido, porque o cliente fala "com nozes"
+      // e não "strogonoff de nozes". Aqui o tamanho mínimo continua valendo:
+      // apelido curto casa dentro de qualquer palavra.
       if (ultima.length > 3 && ultima !== sabor) lista.push({ sabor: ultima, produto: p });
       return lista;
     })
-    .filter((x) => x.sabor.length > 3)
+    .filter((x) => x.sabor.length > 0)
     .sort((a, b) => b.produto.preco - a.produto.preco);
+
+  // O sabor tem que aparecer como PALAVRA INTEIRA, e não como pedaço de outra.
+  // Sem isto, deixar entrar sabor de três letras faria "biz" casar dentro de
+  // qualquer palavra que tivesse essas letras juntas.
+  const contemComoPalavra = (texto: string, palavra: string): boolean => {
+    if (!palavra) return false;
+    let de = texto.indexOf(palavra);
+    while (de >= 0) {
+      const antes = de === 0 ? " " : texto[de - 1];
+      const fim = de + palavra.length;
+      const depois = fim >= texto.length ? " " : texto[fim];
+      if (!/[a-zà-ú0-9]/.test(antes) && !/[a-zà-ú0-9]/.test(depois)) return true;
+      de = texto.indexOf(palavra, de + 1);
+    }
+    return false;
+  };
 
   // "brigadeiro com morango": vale o morango. Sem isso o bolo misto saía pelo
   // preço do primeiro sabor que casasse, quase sempre o mais barato.
   function saborMaisCaro(texto: string): Produto | undefined {
     const t = norm(texto);
-    const achados = SABORES_BOLO.filter((x) => t.includes(x.sabor));
+    const achados = SABORES_BOLO.filter((x) => contemComoPalavra(t, x.sabor));
     if (achados.length < 2) return undefined;
     return achados[0].produto; // já vem ordenado do mais caro
   }
@@ -173,6 +200,24 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
       }
       // 1) match exato; 2) nome parcial (ex: "coxinha" acha "Cento de coxinha")
       let ref: Produto | undefined = PRECOS[chave];
+
+      // O BOLO CASEIRO PELO NOME CURTO.
+      //
+      // No cardápio ele é "bolo caseiro prestígio com ganache", e quem escreve
+      // "bolo prestígio com ganache" está falando dele. O fluxo já resolve isso
+      // antes de chegar aqui, mas o motor é chamado de outros lugares (o painel
+      // da dona, o pedido corrigido na mão), e nesses o nome vinha curto.
+      //
+      // Sem esta linha, "bolo prestígio com ganache" caía no casamento por
+      // pedaço e virava "bolo prestígio", que é o de FESTA: R$ 46,90 o quilo no
+      // lugar de R$ 33,90 a unidade. Errava preço, produto e unidade.
+      //
+      // Depois do exato, de propósito: "bolo prestígio" continua sendo o de
+      // festa, porque "bolo caseiro prestígio" não existe.
+      if (!ref && chave.startsWith("bolo ")) {
+        ref = PRECOS["bolo caseiro " + chave.slice(5)];
+      }
+
       if (!ref) {
         // BOLO SÓ CASA COM BOLO.
         //

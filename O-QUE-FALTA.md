@@ -177,6 +177,26 @@ palmito" só pode ser o de R$ 39,90.
 sabores), cupcake grande / recheado, cachorro-quente / mini. E o caso do produto
 citado **sem sabor nenhum** ("quero 2 kg de cuca").
 
+## 4b. O papel de arroz deixa de ser oferecido quando o resto já está pronto
+
+Achado em 26/08/2026, medindo o teste das peças do bolo.
+
+A regra `detalhe opcional não segura pedido completo` (em
+`lib/ia/fluxo/etapas.ts`, na etapa `pecas_do_bolo`) foi o conserto do pedido que
+nunca fechava, e ela está certa no espírito. Mas ela tem um efeito que vale você
+saber:
+
+**quando o cliente já deu item, data, hora, nome e pagamento, a etapa das peças
+se dá por cumprida sozinha, e o papel de arroz nunca é oferecido.** São R$ 12
+que deixam de ser vendidos, no caso do cliente que manda tudo de uma vez.
+
+Não é item sumindo do pedido: é oferta que não acontece. Mas é dinheiro.
+
+Decisão sua: continua assim, ou a padaria oferece o papel de arroz uma vez mesmo
+com tudo respondido? O teste
+`testes/topo-e-papel-tem-todas-as-opcoes.cjs` já protege as duas pontas, então
+mudar é trocar um valor esperado.
+
 ## 5. A IA confirma em vez de anotar
 
 Quando o cliente diz tudo numa mensagem, às vezes ela responde "você quer X,

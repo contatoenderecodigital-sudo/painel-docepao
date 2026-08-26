@@ -53,9 +53,9 @@ fs.writeFileSync(
     "console.log(JSON.stringify({",
     "  // a primeira pergunta, sem nada respondido",
     "  primeira: fala({}),",
-    "  // respondeu do topo: agora vem a do papel",
-    "  depoisDoTopo: fala({ pecas: { topo: true, papelDeArroz: null } }),",
-    "  depoisDoTopoNao: fala({ pecas: { topo: false, papelDeArroz: null } }),",
+    "  // respondeu do papel: agora vem a do topo",
+    "  depoisDoPapel: fala({ pecas: { topo: null, papelDeArroz: true } }),",
+    "  depoisDoPapelNao: fala({ pecas: { topo: null, papelDeArroz: false } }),",
     "  // topo sim, papel respondido: falta nome e idade",
     "  tema: fala({ pecas: { topo: true, papelDeArroz: false } }),",
     "  temaDoPapel: fala({ pecas: { topo: false, papelDeArroz: true } }),",
@@ -67,7 +67,25 @@ fs.writeFileSync(
     "    soTopo: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:false}, tema:'Minnie', escrito:'Arthur, 5 anos' })),",
     "    soPapel: etapa.cumprida(com({ pecas:{topo:false,papelDeArroz:true}, tema:'Minnie', escrito:'Arthur, 5 anos' })),",
     "    nenhum: etapa.cumprida(com({ pecas:{topo:false,papelDeArroz:false} })),",
-    "    metade: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:null} })),",
+    "    // METADE RESPONDIDA, NO MEIO DA CONVERSA.",
+    "    //",
+    "    // Aqui os dados de retirada ainda NAO foram dados, que e o estado real",
+    "    // de quem esta respondendo as pecas: e nesse ponto que a etapa tem que",
+    "    // segurar, senao a segunda pergunta nunca sai.",
+    "    //",
+    "    // Antes este caso usava a base inteira, com nome, data, hora e",
+    "    // pagamento ja preenchidos, e ali vale a regra oposta (a de baixo).",
+    "    metade: etapa.cumprida({ ...com({ pecas:{topo:null,papelDeArroz:true} }),",
+    "      dados:{nome:null,data:null,hora:null,pagamento:null} }),",
+    "    metadeOutroLado: etapa.cumprida({ ...com({ pecas:{topo:true,papelDeArroz:null} }),",
+    "      dados:{nome:null,data:null,hora:null,pagamento:null} }),",
+    "    // DETALHE OPCIONAL NAO SEGURA PEDIDO COMPLETO.",
+    "    //",
+    "    // Quem ja disse item, data, hora, nome e pagamento nao fica preso por",
+    "    // topo nem por papel de arroz que ele nunca foi perguntado. Foi o",
+    "    // conserto do pedido que nao fechava, e vale pra classe toda dos",
+    "    // detalhes opcionais, nao so pro topo.",
+    "    completoSemAsPecas: etapa.cumprida(com({ pecas:null })),",
     "    topoSemNome: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:true}, tema:'Minnie' })),",
     "    papelSemTema: etapa.cumprida(com({ pecas:{topo:false,papelDeArroz:true} })),",
     "  },",
@@ -92,19 +110,27 @@ const falhas = [];
 const ids = (f) => (f.botoes ?? []).map((b) => b.id).join(",");
 
 // --------------------------------------------- uma pergunta de cada vez
-if (!/topo/i.test(r.primeira.texto) || /papel/i.test(r.primeira.texto)) {
-  falhas.push("a primeira pergunta nao e so do topo: " + r.primeira.texto);
+//
+// O PAPEL DE ARROZ VEM PRIMEIRO. Decisao do dono em 26/08/2026, e ela tem
+// motivo de dinheiro: o papel tem preco de tabela (R$ 12) e o motor cota na
+// hora, enquanto o topo nao tem preco e depende da equipe lancar depois.
+// Perguntar primeiro o que fecha sozinho e perguntar por ultimo o que precisa
+// de gente.
+//
+// Este teste cobrava a ordem contraria, que era a de antes.
+if (!/papel/i.test(r.primeira.texto) || /topo/i.test(r.primeira.texto)) {
+  falhas.push("a primeira pergunta nao e so do papel de arroz: " + r.primeira.texto);
 }
-if (ids(r.primeira) !== "topo_sim,topo_nao") {
-  falhas.push("os botoes do topo estao errados: " + ids(r.primeira));
+if (ids(r.primeira) !== "papel_sim,papel_nao") {
+  falhas.push("os botoes do papel estao errados: " + ids(r.primeira));
 }
-for (const [nome, f] of [["depoisDoTopo", r.depoisDoTopo], ["depoisDoTopoNao", r.depoisDoTopoNao]]) {
-  if (!/papel/i.test(f.texto)) falhas.push(nome + ": depois do topo tinha que vir o papel de arroz, veio: " + f.texto);
-  if (ids(f) !== "papel_sim,papel_nao") falhas.push(nome + ": botoes do papel errados: " + ids(f));
+for (const [nome, f] of [["depoisDoPapel", r.depoisDoPapel], ["depoisDoPapelNao", r.depoisDoPapelNao]]) {
+  if (!/topo/i.test(f.texto)) falhas.push(nome + ": depois do papel tinha que vir o topo, veio: " + f.texto);
+  if (ids(f) !== "topo_sim,topo_nao") falhas.push(nome + ": botoes do topo errados: " + ids(f));
 }
 
 // Tres botoes e o limite da Meta. Dois cabem em qualquer aparelho.
-for (const f of [r.primeira, r.depoisDoTopo, r.faltaTudo]) {
+for (const f of [r.primeira, r.depoisDoPapel, r.faltaTudo]) {
   if ((f.botoes ?? []).length > 3) falhas.push("mais de tres botoes numa mensagem: o WhatsApp recusa");
   for (const b of f.botoes ?? []) {
     if (b.titulo.length > 20) falhas.push("botao com mais de 20 caracteres: " + b.titulo);
@@ -112,10 +138,11 @@ for (const f of [r.primeira, r.depoisDoTopo, r.faltaTudo]) {
 }
 
 // ------------------------------------------------ o preco do papel sai do motor
-if (!/12/.test(r.depoisDoTopo.texto)) {
-  falhas.push("a pergunta do papel de arroz nao diz o valor que o motor cota: " + r.depoisDoTopo.texto);
+// A do papel agora e a PRIMEIRA pergunta, e e ela que carrega o valor.
+if (!/12/.test(r.primeira.texto)) {
+  falhas.push("a pergunta do papel de arroz nao diz o valor que o motor cota: " + r.primeira.texto);
 }
-if (r.depoisDoTopo.podeReescrever !== false) {
+if (r.primeira.podeReescrever !== false) {
   falhas.push("a fala do papel de arroz tem valor e ainda assim pode ser reescrita pela IA");
 }
 
@@ -145,7 +172,8 @@ if (/topo/i.test(r.temaDoPapel.texto)) {
 }
 
 // ---------------------------------------- as quatro combinacoes existem
-const esperado = { osDois: true, soTopo: true, soPapel: true, nenhum: true, metade: false,
+const esperado = { osDois: true, soTopo: true, soPapel: true, nenhum: true,
+  metade: false, metadeOutroLado: false, completoSemAsPecas: true,
   topoSemNome: false, papelSemTema: false };
 for (const [caso, deve] of Object.entries(esperado)) {
   if (r.cumpre[caso] !== deve) {
@@ -182,7 +210,7 @@ if (/produto: "topo/i.test(fonte)) {
 }
 
 console.log("Primeira pergunta: " + r.primeira.texto + "   [" + ids(r.primeira) + "]");
-console.log("Segunda pergunta:  " + r.depoisDoTopo.texto + "   [" + ids(r.depoisDoTopo) + "]");
+console.log("Segunda pergunta:  " + r.depoisDoPapel.texto + "   [" + ids(r.depoisDoPapel) + "]");
 console.log("Com topo:          " + r.faltaTudo.texto);
 console.log("");
 if (falhas.length) {

@@ -140,11 +140,26 @@ if (bolos.length !== 1) falhas.push("'4 leites e biz' virou " + bolos.length + "
 if (bolos[0] && !/misto/i.test(String(bolos[0].obs ?? ""))) {
   falhas.push("o bolo misto nao diz os dois sabores na observacao: " + bolos[0]?.obs);
 }
-// O misto vale o sabor mais caro (nota da dona no cardapio): biz e faixa B.
-if (bolos[0] && bolos[0].produto !== "biz") {
-  falhas.push("o bolo misto foi cotado por '" + bolos[0].produto + "'; a dona cobra o sabor mais caro");
+// O misto vale o sabor mais caro (nota da dona no cardapio): biz e faixa B
+// (R$ 49,90) e 4 leites e faixa A (R$ 46,90).
+//
+// NAO PODE SER COBRADO PELO SABOR MAIS BARATO.
+//
+// Este teste comparava o nome com "biz", cru. Quando o sistema passou a
+// escrever "bolo biz", que e o nome canonico (o prefixo e o que separa o bolo
+// do docinho de mesmo nome), a comparacao passou a reprovar um resultado
+// CERTO.
+//
+// Agora ele cobra o que importa: o bolo NAO pode sair pelo 4 leites, que e o
+// mais barato dos dois. O preco em si esta cobrado logo abaixo, na conferencia
+// do resumo, que exige a linha "R$ 49,90/kg".
+if (bolos[0] && /4 leites/i.test(String(bolos[0].produto))) {
+  falhas.push("o bolo misto foi cotado por '" + bolos[0].produto + "'; a dona cobra o sabor mais caro (biz)");
 }
-if (String(bolos[0]?.obs ?? "").includes("misto: bolo")) {
+// O "bolo" sem sabor e marcador de lugar, nao sabor: nao pode entrar na
+// mistura. Cobrado como PALAVRA INTEIRA, senao o proprio prefixo canonico
+// ("misto: bolo 4 leites e bolo biz") seria acusado de ser o marcador.
+if (/misto:.*(^|[^a-zà-ú])bolo([^a-zà-ú]|$)/i.test(String(bolos[0]?.obs ?? "").replace(/bolo (?=[a-zà-ú0-9])/gi, ""))) {
   falhas.push("o 'bolo' sem sabor entrou na mistura; ele e marcador de lugar, nao sabor");
 }
 
@@ -190,6 +205,7 @@ for (const [fala, deve] of Object.entries(esperado)) {
 
 console.log("Jeitos de dizer a quantidade: " + r.jeitos.map((j) => j.fala + " -> " + j.itens.join("+")).join(" | "));
 console.log("Pedido: " + r.itens.map((i) => i.qtd + " " + i.produto).join(", "));
+console.log("O bolo: " + JSON.stringify(r.itens.filter((i) => String(i.categoria).startsWith("bolo"))));
 console.log("Total: R$ " + (r.total / 100).toFixed(2));
 console.log("");
 if (falhas.length) {
