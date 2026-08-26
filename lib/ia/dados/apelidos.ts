@@ -12,6 +12,26 @@
 //  e isso já aconteceu neste projeto.
 // ============================================================================
 
+// AQUI SO ENTRA SINONIMO DE VERDADE. NUNCA UM PRODUTO MAIS CARO.
+//
+// Esta lista e usada por uma guarda cujo trabalho e perguntar "o cliente
+// realmente pediu isso, ou a IA inventou?". Quem esta aqui e LIBERADO por essa
+// guarda, sem ninguem perguntar nada.
+//
+// Ate 26/08/2026 tinham entrado tres que nao sao jeito diferente de falar a
+// mesma coisa, sao OUTRO PRODUTO:
+//
+//     "cuca recheada"           liberado quando ele escreve "cuca"        +R$ 4,00
+//     "empadao com palmito"     liberado quando ele escreve "empadao"     +R$ 5,00
+//     "torta fria com palmito"  liberado quando ele escreve "torta fria"  +R$ 3,00
+//
+// A IA anotava o mais caro, a guarda via a excecao e liberava. Pior: o motor de
+// preco IGNORA esta lista e cobrava o simples, entao as duas metades do sistema
+// discordavam entre si e nada media isso.
+//
+// Decisao do dono: nesses casos a IA PERGUNTA qual dos dois. Saiu daqui.
+//
+// O criterio pra entrar: mesmo produto, mesmo preco, so escrito de outro jeito.
 export const APELIDOS: Record<string, string[]> = {
   "pizza inteira": [
     "pizza de forma",
@@ -26,13 +46,11 @@ export const APELIDOS: Record<string, string[]> = {
   "pizza meia": ["meia pizza", "metade da pizza", "meia de forma", "meia"],
   "pizza redonda": ["redonda", "pizza redonda", "de 30", "30 cm"],
   "mini bolha": ["pastel frito", "pastel", "bolha"],
-  "cuca recheada": ["cuca"],
+
   // Esfiha e esfirra sao a mesma coisa e estao a tres letras de distancia, que
   // e mais do que a tolerancia de digitacao aceita.
   esfirra: ["esfiha", "esfihas", "esfia", "esfias"],
   "risólis": ["risoles", "risole", "rissoles", "rissole"],
-  "torta fria com palmito": ["torta fria"],
-  "empadao com palmito": ["empadao", "empadão"],
   // O CORRETOR DO CELULAR TROCA QUICHE POR CHIQUE.
   //
   // Na conversa de 25/08/2026 o cliente escreveu "chique e coxinha", depois
