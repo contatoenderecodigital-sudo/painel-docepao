@@ -41,6 +41,7 @@ import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
 import { coresDaForminha } from "./sabor";
+import { restricoesQueACasaNaoFaz, obsSemRestricao, avisoDaRestricao } from "./restricao";
 import { paraOMotor } from "./cotar";
 import { respostaDeInformacao } from "./informacao";
 import { respostaDaSituacao } from "./situacao";
@@ -93,6 +94,17 @@ export type Estado = PedidoEmMontagem & {
    * Agora fica aqui e entra sozinho quando a conversa chega no bolo.
    */
   guardados?: { produto: string; qtd: number; obs?: string | null }[];
+
+  /**
+   * O QUE FOI TIRADO DA OBSERVAÇÃO POR A CASA NÃO FAZER.
+   *
+   * Vive um turno só: `aplicar` põe, `responder` transforma em frase e limpa. É
+   * o jeito de a função pura contar o que fez sem escrever em log de fora.
+   *
+   * Tirar calado é melhor que prometer "sem lactose" e entregar brigadeiro
+   * normal, mas é pior que avisar: quem pede sem lactose tem motivo.
+   */
+  restricoesTiradas?: string[];
 };
 
 /** Quem chama o modelo. Injetado pra dar pra testar sem gastar. */
@@ -460,6 +472,8 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
 
   if (l.itens?.length) {
     const itens = [...novo.itens];
+    // O que a casa nao faz e foi tirado das observacoes deste turno.
+    const restricoesTiradas: string[] = [];
     for (const i of l.itens) {
       // O NOME, O APELIDO E O RECHEIO, RESOLVIDOS DE UMA VEZ.
       //
@@ -495,6 +509,28 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
         obsItem = [obsItem, quem.recheio].filter(Boolean).join(" | ");
       }
 
+      // A PROMESSA QUE A CASA NÃO CUMPRE SAI DA OBSERVAÇÃO.
+      //
+      // Medição de 20/08/2026: o pedido fechou com "30 brigadeiro (sem lactose,
+      // forminha rosa)". A cliente PERGUNTOU se tem sem lactose, a padaria
+      // respondeu certo que não tem, e a restrição foi parar na observação.
+      //
+      // A observação vai pra comanda E pro resumo do cliente. A cozinha produz
+      // brigadeiro normal e entrega pra quem leu "sem lactose" na confirmação:
+      // se essa pessoa tem intolerância, deixa de ser prejuízo e vira problema
+      // de saúde.
+      //
+      // O ITEM FICA. Só a promessa sai, e o cliente é avisado logo abaixo.
+      // O PRODUTO ENTRA NA CONTA. A casa faz UM bolo "0% lactose", e isso nao
+      // quer dizer que ela tenha linha sem lactose: o brigadeiro continua sendo
+      // brigadeiro normal. Sem passar o produto, a checagem viraria "a casa
+      // trabalha com lactose zero" e o defeito voltaria inteiro.
+      const tiradas = restricoesQueACasaNaoFaz(obsItem, produto);
+      if (tiradas.length) {
+        obsItem = obsSemRestricao(obsItem, produto);
+        restricoesTiradas.push(...tiradas);
+      }
+
       // O PESO DO BOLO E QUANTIDADE, NAO OBSERVACAO.
       //
       // "um bolo de 2 kg de 4 leites": o modelo manda qtd 1 e escreve "2 kg" na
@@ -527,6 +563,9 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       else itens.push(linha);
     }
     novo.itens = itens;
+    // Sem repetir: se ele pediu "sem lactose" em três docinhos, a padaria diz
+    // uma vez. Repetir a mesma frase três vezes soa como robô travado.
+    if (restricoesTiradas.length) novo.restricoesTiradas = [...new Set(restricoesTiradas)];
   }
 
   // A COR DA FORMINHA E CARIMBADA DEPOIS DOS ITENS, NAO ANTES.
@@ -1033,6 +1072,25 @@ export async function responder(
   }
 
   let fala = falaDaEtapa(proxima, estado, total, proxima.id === etapaAgora.id ? naoTemos : []);
+
+  // ------------------------------- O QUE A CASA NAO FAZ, ELA DIZ QUE NAO FAZ
+  //
+  // A restricao ja saiu da observacao la em `aplicar`, senao a comanda mandava
+  // a cozinha produzir uma coisa e o resumo prometia outra pro cliente.
+  //
+  // Tirar calado seria melhor que prometer e pior que avisar: quem pede sem
+  // lactose tem motivo, e merece ouvir antes de receber. A frase vem NA FRENTE
+  // da pergunta da etapa, porque e a resposta ao que ele acabou de falar.
+  if (estado.restricoesTiradas?.length) {
+    const aviso = avisoDaRestricao(estado.restricoesTiradas);
+    if (aviso) {
+      fala = { ...fala, texto: aviso + (fala.texto ? "\n\n" + fala.texto : "") };
+      rastro.push("a casa nao faz: " + estado.restricoesTiradas.join(", ") + "; tirei da observacao e avisei");
+    }
+    // Vive um turno so: o aviso ja foi dado, e repetir na proxima mensagem
+    // seria a padaria insistindo numa coisa que o cliente ja ouviu.
+    estado = { ...estado, restricoesTiradas: undefined };
+  }
 
   // ------------------------------------ A MESMA PERGUNTA NAO SAI DUAS VEZES
   //

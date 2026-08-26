@@ -44,6 +44,16 @@ const NAO_PRECISA_GRAVAR = {
   dados: "gravado campo a campo (nome, data, hora, pagamento)",
   naoQuer: "gravado em nao_quer",
   base: "nao e memoria, e conta: sai de novo do numero de pessoas a cada mensagem",
+  // Vive UM TURNO de proposito, e gravar seria o defeito.
+  //
+  // `aplicar` poe o que foi tirado da observacao por a casa nao fazer (o "sem
+  // lactose" do brigadeiro), `responder` transforma numa frase pro cliente e
+  // limpa na mesma passada. E o jeito de a funcao pura contar o que fez.
+  //
+  // Se sobrevivesse entre mensagens, a padaria repetiria "a gente nao tem opcao
+  // sem lactose" em toda resposta seguinte, sobre uma coisa que o cliente ja
+  // ouviu. Insistir no que ja foi dito e o defeito que este projeto mais teve.
+  restricoesTiradas: "vive um turno so: vira frase pro cliente e e limpo na mesma passada",
 };
 
 const sonda = path.join(__dirname, "_sonda-memoria.mjs");
