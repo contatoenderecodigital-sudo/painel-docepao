@@ -5,7 +5,7 @@
 // ============================================================================
 
 import { query, queryUm } from "./db";
-import { unidadeDoProduto } from "@/lib/ia/cerebro";
+import { unidadeDoPedido as unidadeDoProduto } from "@/lib/ia/dados/produtos";
 import { montarCupons } from "@/lib/cupom-escpos";
 
 export type JobImpressao = {

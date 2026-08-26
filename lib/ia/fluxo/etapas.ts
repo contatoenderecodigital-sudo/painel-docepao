@@ -244,6 +244,37 @@ const faltaSabor = (p: PedidoEmMontagem, pref: string) =>
 const temCategoria = (p: PedidoEmMontagem, pref: string) =>
   p.itens.some((i) => String(i.categoria || "").startsWith(pref));
 
+/**
+ * GENERICO NAO E PRODUTO: E UMA ESCOLHA QUE AINDA FALTA.
+ *
+ * "salgado", "docinho" e "bolo" e o que a proposta anota quando o cliente
+ * aceitou a base mas ainda nao disse QUAL. Nao da pra fechar etapa com isso.
+ *
+ * O bolo ja tinha esta regra, escrita a mao na propria etapa dele. Os outros
+ * dois nao tinham, e o preco disso foi medido em 26/08/2026, com a etapa
+ * fechando e o motor escolhendo sozinho:
+ *
+ *   "docinho"  100 un  ->  cotado como DOCINHO DE CHURROS, R$ 1,75
+ *                          (o brigadeiro, que e o comum, custa R$ 1,25)
+ *   "salgado"  200 un  ->  cotado como SALGADO ASSADO, R$ 1,25
+ *                          (o frito custa R$ 1,00)
+ *
+ * Nao era nem o mais caro nem o mais pedido: era o que o casamento por pedaco
+ * alcancava primeiro. O cliente recebia preco fechado de uma coisa que ele
+ * nunca escolheu, e a cozinha recebia churros.
+ *
+ * A lista e a mesma que a montagem conhece em `lib/banco/montagem.ts`.
+ */
+const GENERICOS = new Set(["salgado", "salgado frito", "salgado assado", "docinho", "doce", "bolo", "bolo recheado"]);
+
+/** Sobrou algum item nesta familia que ainda e generico? */
+const temGenerico = (p: PedidoEmMontagem, pref: string) =>
+  p.itens.some(
+    (i) =>
+      String(i.categoria || "").startsWith(pref) &&
+      GENERICOS.has(String(i.produto || "").trim().toLowerCase()),
+  );
+
 const recusou = (p: PedidoEmMontagem, o: string) =>
   p.naoQuer.some((x) => new RegExp(o, "i").test(x));
 
@@ -300,7 +331,8 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     //
     // Risolis e mini bolha sao fritos e mesmo assim pedem recheio; coxinha nao
     // pede, porque o recheio dela e fixo. Quem separa os dois e o catalogo.
-    cumprida: (p) => temCategoria(p, "salgado") && !faltaSabor(p, "salgado"),
+    cumprida: (p) =>
+      temCategoria(p, "salgado") && !faltaSabor(p, "salgado") && !temGenerico(p, "salgado"),
     // Fora da festa ninguem oferece salgado a quem pediu uma torta.
     // Na festa ela pergunta por iniciativa propria (a proposta ja combinou o
     // total). No pedido comum ela so entra se o cliente TIVER pedido salgado:
@@ -317,7 +349,10 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // A dona pergunta sempre, e nao e detalhe: ela monta a forminha antes de
     // rechear, entao a cor precisa estar na comanda quando a producao comeca.
     cumprida: (p) =>
-      temCategoria(p, "docinho") && !faltaSabor(p, "docinho") && !semForminha(p),
+      temCategoria(p, "docinho") &&
+      !faltaSabor(p, "docinho") &&
+      !semForminha(p) &&
+      !temGenerico(p, "docinho"),
     pulavel: (p) => recusou(p, "docinho|doce") || (!p.ehFesta && !temCategoria(p, "docinho")),
   },
   {

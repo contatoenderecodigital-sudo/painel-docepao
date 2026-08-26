@@ -27,7 +27,7 @@
 
 import catalogo from "../dados/catalogo.json";
 import { APELIDOS } from "../dados/apelidos";
-import { unidadeDoProduto } from "@/lib/ia/cerebro";
+import { unidadeDoPedido as unidadeDoProduto } from "@/lib/ia/dados/produtos";
 
 const semAcMin = (t: string) =>
   String(t || "")

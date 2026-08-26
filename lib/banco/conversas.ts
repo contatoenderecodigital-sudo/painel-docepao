@@ -8,7 +8,8 @@
 // ============================================================================
 
 import { query, queryUm, transacao } from "./db";
-import type { Mensagem, RespostaIA } from "../ia/cerebro";
+import type { Mensagem, PedidoParaGravar } from "./tipos-da-conversa";
+export type { Mensagem } from "./tipos-da-conversa";
 
 const LIMITE_HISTORICO = 40; // ultimas N mensagens que a IA enxerga. 20 truncava conversa
                               // de pedido de festa e ela reperguntava o que ja tinha sido dito.
@@ -230,7 +231,7 @@ function horaPadrao(h?: string | null): string | null {
 export async function registrarPedido(
   negocioId: string,
   clienteId: string,
-  pedido: NonNullable<RespostaIA["pedidoRegistrado"]>,
+  pedido: PedidoParaGravar,
 ): Promise<string> {
   // NUNCA gravar pedido sem item. Como um pedido por conversa é ATUALIZADO, uma
   // chamada vazia apagava as linhas do pedido real e zerava o total: o cliente

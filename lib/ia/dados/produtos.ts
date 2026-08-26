@@ -316,3 +316,103 @@ export function produtoNoComeco(texto: string): ProdutoDaCasa | null {
 export function gruposDaCasa(): string[] {
   return [...new Set(produtosDaCasa().map((p) => p.grupo))];
 }
+
+// ============================================================================
+//  A CATEGORIA E A UNIDADE DE QUALQUER NOME
+//
+//  As duas moravam em `lib/ia/cerebro.ts`, o cérebro antigo, e cada uma
+//  remontava o catálogo à mão, grupo por grupo. Mudaram de casa em 26/08/2026,
+//  quando o cérebro antigo foi apagado.
+//
+//  Aqui elas são derivadas da lista única, então nunca mais podem discordar do
+//  preço: é o mesmo produto respondendo as duas perguntas.
+// ============================================================================
+
+/**
+ * A CATEGORIA DO PEDIDO, que é a mesma que decide a comanda de cozinha.
+ *
+ * O vocabulário é o de `CategoriaItem`, em `lib/banco/montagem.ts`. Ele não é
+ * igual ao do catálogo: o catálogo diz `torta_fria`, `empadao`, `calzone`, e o
+ * pedido junta todos esses em `por_quilo` ou `por_unidade`, porque o que muda
+ * na comanda é como se pesa, não o nome da família.
+ *
+ * Está escrito aqui, e não em três lugares, porque errar isto manda o pedido
+ * pro setor errado da cozinha.
+ */
+export function categoriaDoPedido(nome: string): string {
+  const t = limpo(nome);
+  if (!t) return "outro";
+  if (t.includes("papel de arroz")) return "papel_de_arroz";
+
+  const p = produtoNoComeco(t);
+  if (p) {
+    // Estas cinco o pedido chama pelo mesmo nome que o catálogo.
+    if (
+      p.categoria === "salgado_frito" ||
+      p.categoria === "salgado_assado" ||
+      p.categoria === "docinho" ||
+      p.categoria === "bolo_festa" ||
+      p.categoria === "bolo_caseiro" ||
+      p.categoria === "pizza" ||
+      p.categoria === "cupcake"
+    ) {
+      return p.categoria;
+    }
+    // A `mini bolha doce` é a mesma bolha FRITA, só que doce, e o catálogo diz
+    // isso na categoria dele. Sem esta linha ela virava "por_unidade" e saía da
+    // comanda dos salgados, que é onde ela é produzida.
+    if (p.categoria === "salgado") return "salgado_frito";
+    // O resto vira peso ou peça, que é o que a comanda precisa saber.
+    return p.unidade === "kg" ? "por_quilo" : "por_unidade";
+  }
+
+  // O SABOR DE BOLO CASEIRO DITO SOZINHO.
+  //
+  // No catálogo o bolo caseiro é "cenoura" e o nome do sistema é "bolo caseiro
+  // cenoura", então o sabor puro não casa com nome canônico nenhum. O fluxo já
+  // resolve isso antes de chegar aqui, mas esta função também é chamada com o
+  // pedido corrigido na mão, e ali o nome vem como a dona escreveu.
+  //
+  // Depois do `produtoNoComeco` de propósito: "café" é docinho E bolo caseiro,
+  // e o docinho ganha, que é o que o cliente quer dizer quando fala só "café".
+  const caseiros = (catalogo as unknown as { bolos_caseiros?: { itens?: { nome?: string }[] } })
+    .bolos_caseiros?.itens ?? [];
+  if (caseiros.some((i) => { const n = limpo(i?.nome ?? ""); return n && (t === n || t.startsWith(n + " ")); })) {
+    return "bolo_caseiro";
+  }
+
+  // O sabor de bolo de festa vive no catálogo SEM o prefixo, e o cliente pode
+  // dizer só o sabor. Quem escreve "bolo" alguma coisa está falando de bolo.
+  if (t === "bolo" || t.startsWith("bolo ")) return "bolo_festa";
+  if (t.startsWith("pizza")) return "pizza";
+  if (t.startsWith("cupcake")) return "cupcake";
+
+  // "outro" é resposta honesta: melhor a dona ver isso na tela e corrigir do
+  // que o sistema chutar família e a comanda sair na bancada errada.
+  return "outro";
+}
+
+/**
+ * PESO OU PEÇA.
+ *
+ * Errar isto já transformou 3 kg de bolo em três bolos na bancada, e já fez um
+ * bolo de 2,5 kg sair cobrado por unidade.
+ *
+ * A CATEGORIA GANHA DO NOME quando ela diz bolo de festa, e o motivo é que no
+ * bolo de festa o nome do item é o SABOR ("4 leites"), então nenhuma regra de
+ * nome alcança. Na conversa de 25/08/2026 o resumo saiu "2.5 kg de bolo
+ * R$ 30,90 cada", cobrando por unidade um produto vendido por quilo.
+ */
+export function unidadeDoPedido(nome: string, categoria?: string): "kg" | "un" {
+  if (categoria === "bolo_festa") return "kg";
+
+  const p = produtoNoComeco(nome);
+  if (p) return p.unidade;
+
+  // Sabor de bolo de festa dito sem o prefixo, ou sabor que a casa ainda não
+  // cadastrou. Bolo de festa é por quilo por definição: as faixas do catálogo
+  // são preço por kg.
+  const t = limpo(nome);
+  if ((t === "bolo" || t.startsWith("bolo ")) && categoria !== "bolo_caseiro") return "kg";
+  return "un";
+}

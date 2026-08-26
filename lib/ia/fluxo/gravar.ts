@@ -22,7 +22,7 @@
 // ============================================================================
 
 import { anotarItem, anotarDados, lerMontagem, limparMontagem } from "@/lib/banco/montagem";
-import { unidadeDoProduto } from "@/lib/ia/cerebro";
+import { unidadeDoPedido as unidadeDoProduto } from "@/lib/ia/dados/produtos";
 import type { Estado } from "./fluxo";
 import type { EtapaId } from "./etapas";
 

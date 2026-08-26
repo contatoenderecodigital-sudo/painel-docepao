@@ -12,12 +12,11 @@
 //  tempo — por isso deduplicamos pelo id da mensagem (idempotência).
 // ============================================================================
 
-import { botoesDaPergunta } from "@/lib/ia/guardas";
 import OpenAI from "openai";
 import { registrarUsoIA } from "@/lib/ia/uso";
 import { atenderComFluxoNovo, ehDoFluxoNovo } from "@/lib/ia/fluxo/atender";
 import { NextRequest, after } from "next/server";
-import { responder, pecaDaEtapa, ehFestaNaFala, unidadeDoProduto, categoriaDoProduto } from "@/lib/ia/cerebro";
+import { unidadeDoPedido as unidadeDoProduto, categoriaDoPedido as categoriaDoProduto } from "@/lib/ia/dados/produtos";
 import { carregarTenant } from "@/lib/ia/tenant";
 import { enviarTexto, enviarImagemPorLink, urlDoCardapio, RECADOS_CARDAPIO, baixarMidia, marcarLidaEDigitando, type CredsEnvio,
   enviarBotoes,
@@ -591,317 +590,33 @@ async function processar(corpo: WebhookPayload) {
           }
           return;
         } catch (e) {
-          // O FLUXO NOVO CAINDO NAO PODE DEIXAR O CLIENTE SEM RESPOSTA.
+          // O FLUXO CAINDO NAO PODE DEIXAR O CLIENTE SEM RESPOSTA.
           //
-          // Ele e o que esta em teste; a Dora antiga e o que ja roda. Se o novo
-          // falhar, o turno segue pelo caminho de sempre e o cliente nem fica
-          // sabendo.
-          console.error("[fluxo-novo] falhou; caindo pro fluxo antigo:", e);
-        }
-      }
-
-      let resp;
-      try {
-        // clienteId (o mesmo do acharOuCriarCliente/salvarMensagem) amarra o
-        // custo de IA a ESTA conversa — pra o painel mostrar o custo por atendimento.
-        resp = await responder(historico, tenant, "whatsapp", clienteId, montado, aguardando, pedidoAnterior, emAberto);
-      } catch (e) {
-        console.error("[whatsapp] IA falhou (todos os provedores):", e);
-        // O dono precisa saber na hora: sem isto, quem descobre e o cliente.
-        avisarDono(
-          "ia-caiu",
-          "A Dora nao conseguiu responder um cliente agora e pediu ajuda da equipe. " +
-            "Motivo: " + String((e as Error)?.message ?? e).slice(0, 160),
-          creds,
-        ).catch(() => {});
-        // A DESCULPA TAMBEM PODE CHEGAR POR CIMA DELE.
-        //
-        // A IA leva ate 30s pra desistir, e nesse tempo o cliente completa o
-        // raciocinio. Quem falou de novo ja vai ser atendido pela proxima
-        // execucao; mandar "tive um probleminha" agora so interrompe ele.
-        // O handoff continua valendo: a IA caiu de verdade e a conversa precisa
-        // de gente, tendo saido desculpa ou nao.
-        const falouDeNovo = await clienteFalouDepois(negocioId, clienteId, marcoDoTurno).catch(() => false);
-        if (falouDeNovo) {
-          console.log("[whatsapp] a IA caiu, mas o cliente ja falou de novo; a proxima execucao responde");
-        } else {
-          // Fora do horario a promessa muda: quem volta nao e a Dora daqui a
-          // pouco, e a equipe de manha.
-          const desculpa = avisoDeProblema();
-          try {
-            await enviarTexto(telefone, desculpa, creds);
-          } catch {
-            // se nem isso enviar, a equipe ve a conversa parada no painel
-          }
-          // A desculpa TAMBÉM entra no histórico. Sem isso a dona abre a conversa,
-          // vê o cliente esperando e não entende por que a Dora parou: a mensagem
-          // existe no WhatsApp dele e não existe no painel dela.
-          try {
-            await salvarMensagem(negocioId, clienteId, "assistant", desculpa, { autor: "ia" });
-          } catch (e2) {
-            console.error("[whatsapp] falha ao salvar a desculpa no historico:", e2);
-          }
-        }
-        // A conversa precisa de gente: a IA caiu e o cliente ficou esperando.
-        try {
-          await definirHandoff(negocioId, clienteId, true);
-        } catch {
-          // destaque na lista é conforto; não pode derrubar o webhook
-        }
-        continue;
-      }
-
-      // Registra o pedido ANTES de confirmar pro cliente (durabilidade primeiro).
-      // Se falhar, NÃO manda a confirmação de "pedido salvo" (evita pedido fantasma).
-      // Aplica no pedido em montagem o que a IA anotou neste turno. Cada
-      // chamada mexe numa linha ou num campo; o resto fica como estava. É isso
-      // que substitui a remontagem do pedido inteiro a cada mensagem.
-      for (const mud of resp.montagem ?? []) {
-        try {
-          if (mud.tipo === "item") {
-            // A unidade vem do cardapio, que e a mesma fonte do preco.
-            await anotarItem(negocioId, clienteId, {
-              produto: mud.produto,
-              categoria: mud.categoria as never,
-              qtd: mud.qtd,
-              unidade: unidadeDoProduto(mud.produto, mud.categoria),
-              obs: mud.obs ?? null,
-            });
-          } else if (mud.tipo === "zerar") {
-            // O cliente mandou recomecar: some com itens e dados de uma vez.
-            await limparMontagem(negocioId, clienteId);
-          } else if (mud.tipo === "remover") {
-            await removerItem(negocioId, clienteId, mud.produto, mud.categoria as never);
-          } else if (mud.tipo === "dados") {
-            await anotarDados(negocioId, clienteId, mud.dados);
-          }
-        } catch (e) {
-          console.error("[whatsapp] falha ao anotar no pedido em montagem:", e);
-        }
-      }
-
-      // Quem decide se o cliente aceitou é a IA, não uma lista de palavras.
-      // Antes era um regex com "sim", "ok", "isso" e alguns emojis, e o cliente
-      // mandou 👍 e nada aconteceu. Lista nunca cobre tudo: falta o "fechou
-      // então", o "pode mandar", o joinha duplo. Entender o que a pessoa quis
-      // dizer é justamente o que o modelo faz bem — diferente de calcular
-      // preço, que é onde código ganha.
-      if (resp.aceitouOrcamento) {
-        try {
-          if (await registrarAceiteCliente(negocioId, clienteId)) {
-            console.log("[whatsapp] a IA entendeu que o cliente aceitou; pedido liberado pra aprovacao");
-          }
-        } catch (e) {
-          console.error("[whatsapp] falha ao registrar aceite do cliente:", e);
-        }
-      }
-
-      if (resp.pedidoRegistrado) {
-        try {
-          await registrarPedido(negocioId, clienteId, resp.pedidoRegistrado);
-          // A montagem cumpriu o papel: o pedido existe de verdade agora.
-          await limparMontagem(negocioId, clienteId).catch(() => {});
-        } catch (e) {
-          console.error("[whatsapp] falha ao registrar pedido:", e);
-          // Este aviso sai depois da IA ter pensado, entao ele corre o mesmo
-          // risco da resposta normal: se o cliente falou nesse meio tempo, ele
-          // chega por cima. A proxima execucao trata a conversa inteira.
-          const falouDeNovo = await clienteFalouDepois(negocioId, clienteId, marcoDoTurno).catch(() => false);
-          if (falouDeNovo) {
-            console.log("[whatsapp] pedido nao gravou, mas o cliente ja falou de novo; deixo a proxima responder");
-            continue;
-          }
-          try {
-            await enviarTexto(telefone, "Recebi seu pedido, so vou confirmar com a equipe e ja te aviso, ta?", creds);
-          } catch {
-            // idem: equipe assume pelo painel
-          }
-          continue;
-        }
-      }
-
-      // Guard contra resposta vazia (modelo devolveu nada): manda algo, não body vazio.
-      // A peca da etapa vai sozinha quando ela nao pediu: mandada a mandar o
-      // cardapio, ela digitava a lista de sabores em texto e o cliente tinha
-      // que pedir a foto. Peca ja enviada nesta conversa nao repete.
-      try {
-        const falaToda = historico
-          .filter((m) => m.role === "user" && typeof m.content === "string")
-          .map((m) => m.content as string)
-          .join("  ");
-        // So manda a peca da familia que o CLIENTE ja citou. Sem isso ela
-        // despejava o cardapio de salgados em quem so perguntou "voces fazem
-        // festa?", antes de qualquer conversa.
-        const citou: Record<string, boolean> = {
-          salgados: /salgad|frito|assado|coxinha|esfirra|empadinha|risolis|ris[óo]lis/i.test(falaToda),
-          docinhos: /docinho|doce|brigadeiro|beijinho|trufa/i.test(falaToda),
-          "bolos-festa": /bolo/i.test(falaToda),
-        };
-        if (ehFestaNaFala(falaToda) && !resp.pedidoRegistrado && !aguardando) {
-          // A recusa vale JA neste turno: o que estava gravado, o que a IA
-          // acabou de anotar e o que o cliente escreveu agora.
-          const anotadoAgora = (resp.montagem ?? [])
-            .map((m) => (m.tipo === "dados" ? String(m.dados?.nao_quer ?? "") : ""))
-            .join(" ");
-          const recusaNaFala = [
-            /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}salgad/i.test(String(texto || "")) ? "salgado" : "",
-            /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}(docinho|doce)/i.test(String(texto || "")) ? "docinho" : "",
-            /(sem|nao quero|não quero|nem|nao vou querer|não vou querer)[^.]{0,24}bolo/i.test(String(texto || "")) ? "bolo" : "",
-          ].filter(Boolean).join(", ");
-          const naoQuerAgora = [String(montado?.dados?.nao_quer ?? ""), anotadoAgora, recusaNaFala]
-            .filter(Boolean)
-            .join(", ");
-          const peca = pecaDaEtapa(montado?.itens ?? [], naoQuerAgora);
-          if (peca && citou[peca] && !(resp.cardapiosParaEnviar ?? []).includes(peca)) {
-            resp.cardapiosParaEnviar = [...(resp.cardapiosParaEnviar ?? []), peca];
-          }
-        }
-      } catch (e) {
-        console.error("[whatsapp] falha ao escolher a peca da etapa:", e);
-      }
-
-      const textoResp = (resp.texto || "").trim() || "Ja recebi sua mensagem, so um instante.";
-      // Cardápio pedido: manda a peça pronta depois do texto. Uma imagem custa
-      // zero token e não corre o risco de a IA errar preço redigitando a lista.
-      // Falha de imagem nunca derruba a resposta — o texto já foi entregue.
-      const mandarCardapios = async () => {
-        // PEÇA JÁ MANDADA NÃO VAI DE NOVO.
-        //
-        // A IA repetiu enviar_cardapio em dois turnos seguidos e o cliente
-        // recebeu os três cardápios duas vezes em vinte segundos. Vira spam, e
-        // spam num número comercial é o caminho mais curto pra ele bloquear a
-        // padaria. O histórico já sabe o que foi enviado; basta perguntar.
-        let jaEnviados: string[] = [];
-        try {
-          const { query } = await import("@/lib/banco/db");
-          const linhas = await query<{ conteudo: string }>(
-            `select conteudo from mensagens
-              where negocio_id = $1 and cliente_id = $2 and tipo = 'imagem'
-                and midia_url is not null and criado_em > now() - interval '2 hours'`,
-            [negocioId, clienteId],
-          );
-          jaEnviados = linhas.map((l) => (l.conteudo || "").toLowerCase());
-        } catch (e) {
-          console.error("[whatsapp] falha ao checar cardapios ja enviados:", e);
-        }
-
-        for (const c of resp.cardapiosParaEnviar ?? []) {
-          const rotulo = `cardápio de ${c.replace(/-/g, " ")}`.toLowerCase();
-          if (jaEnviados.some((j) => j.includes(rotulo))) {
-            console.log("[whatsapp] cardapio", c, "ja foi enviado nesta conversa; nao repito");
-            continue;
-          }
-          const urlPeca = urlDoCardapio(c);
-          // A peça entra no histórico ANTES do envio, e fora do try do envio.
-          // Estava depois: quando o envio falhava (token vencido, número
-          // errado), a mensagem nunca era gravada e a dona abria a conversa
-          // vendo a Dora dizer "te mandei o cardápio" sem cardápio nenhum,
-          // sem pista de que o problema tinha sido no envio.
-          try {
-            await salvarMensagem(negocioId, clienteId, "assistant", `Cardápio de ${c.replace(/-/g, " ")}`, {
-              tipo: "imagem", mime: "image/jpeg", url: urlPeca, autor: "ia",
-            });
-          } catch (e) {
-            console.error("[whatsapp] falha ao salvar cardapio no historico:", e);
-          }
-          try {
-            await enviarImagemPorLink(telefone, urlPeca, undefined, creds);
-            // A imagem vai por LINK: a Meta ainda precisa baixar a URL antes de
-            // entregar, e um texto mandado na sequência passa na frente dela.
-            // Era por isso que o recado do bolo aparecia colado no cardápio de
-            // salgados. A pausa dá tempo da peça chegar antes da próxima.
-            await pausa(2200);
-            for (const r of RECADOS_CARDAPIO[c] ?? []) {
-              await enviarTexto(telefone, r, creds);
-              await pausa(900);
-            }
-          } catch (e) {
-            console.error("[whatsapp] falha ao enviar cardapio", c, e);
-          }
-        }
-      };
-      // CHEGOU MENSAGEM NOVA ENQUANTO ELA PENSAVA? ENTAO ESTA RESPOSTA NAO SAI.
-      //
-      // Montar a resposta leva segundos. Nesse meio tempo o cliente completa o
-      // raciocinio ("...e sem cebola"), e a resposta pronta ja nasceu velha.
-      // Descartar aqui custa uma volta; responder por cima custa a conversa.
-      try {
-        if (await clienteFalouDepois(negocioId, clienteId, marcoDoTurno)) {
-          console.log("[whatsapp] chegou mensagem nova enquanto eu pensava; deixo a proxima responder");
-          continue;
-        }
-      } catch (e) {
-        console.error("[whatsapp] falha ao conferir mensagem nova (segue enviando):", e);
-      }
-
-      // O id que o Meta devolve identifica esta resposta quando o cliente a marcar.
-      let wamidResposta: string | null = null;
-      try {
-        // Imagem ANTES do texto: a IA diz "te mandei o cardápio aqui", e se o
-        // texto chega primeiro o cliente lê a frase olhando pra uma conversa
-        // sem cardápio nenhum.
-        await mandarCardapios();
-        // Tempo de "digitação": responder no mesmo segundo entrega que é robô.
-        // Proporcional ao tamanho da resposta, com teto — ninguém espera 20s
-        // por uma frase, e o webhook tem prazo pra terminar.
-        await pausa(tempoDeDigitar(textoResp));
-        // PERGUNTA FECHADA VAI COM BOTAO.
-        //
-        // Quando a resposta so pode ser uma de tres ("pode ser assim?", "topo e
-        // papel de arroz?", "como prefere pagar?"), o cliente toca e chega um ID
-        // no webhook em vez de uma frase pra adivinhar. O caso que motivou:
-        // "Pode ser, vou querer bolo tambem dai" nao virava pedido, e eram
-        // R$ 418,80.
-        //
-        // O botao NAO cria pergunta nova: e a mesma pergunta que ela ja ia
-        // fazer, com atalho. Quem preferir digitar continua digitando, porque
-        // botao no WhatsApp nao bloqueia o teclado. E se a Meta recusar por
-        // qualquer motivo, enviarBotoes manda o texto puro sozinho: o cliente
-        // nunca fica sem resposta por causa de conforto.
-        const botoes = botoesDaPergunta(textoResp);
-        wamidResposta = botoes.length
-          ? await enviarBotoes(telefone, textoResp, botoes, creds)
-          : await enviarTexto(telefone, textoResp, creds);
-      } catch (e) {
-        console.error("[whatsapp] falha ao enviar resposta:", e);
-      }
-      try {
-        // O id do WhatsApp vem junto: sem ele nao da pra reconhecer quando o
-        // cliente responde marcando esta mensagem.
-        await salvarMensagem(negocioId, clienteId, "assistant", textoResp, { wamid: wamidResposta ?? undefined });
-      } catch (e) {
-        console.error("[whatsapp] falha ao salvar resposta:", e);
-      }
-
-      // Handoff: a IA pediu a equipe -> marca a conversa como "precisa de você"
-      // (destaque na lista do painel até alguém assumir/responder).
-      if (resp.precisaHumano) {
-        try {
-          await definirHandoff(negocioId, clienteId, true);
-        } catch (e) {
-          console.error("[whatsapp] falha ao marcar handoff:", e);
-        }
-        // O painel acende, mas se ela estiver na cozinha ninguem ve. Um
-        // recado no WhatsApp dela e o que faz o cliente ser atendido hoje.
-        avisarDona(
-          "cliente-esperando:" + clienteId,
-          "Um cliente esta esperando falar com alguem da padaria." +
-            (resp.motivoEquipe ? " Motivo: " + resp.motivoEquipe : "") +
-            " O numero e " + telefone + ". A conversa esta marcada no painel.",
-          creds,
-        ).catch(() => {});
-        // Se havia pedido esperando o aceite dele, a conversa travar aqui
-        // significa que ele NAO aceitou. O pedido volta pra fila da dona em
-        // vez de ficar preso em 'esperando o cliente' pra sempre.
-        if (aguardando) {
-          try {
-            const motivo = (resp.motivoEquipe || '').trim() || 'o cliente nao aceitou o valor que voce lancou';
-            if (await devolverPedidoParaEquipe(negocioId, clienteId, motivo)) {
-              console.log("[whatsapp] cliente nao aceitou o valor; pedido devolvido pra fila da equipe");
-            }
-          } catch (e) {
-            console.error("[whatsapp] falha ao devolver o pedido pra equipe:", e);
-          }
+          // Aqui havia uma queda automatica pro cerebro antigo. Ela fazia
+          // sentido enquanto o fluxo estava em teste e a Dora antiga era o
+          // que rodava. Em 26/08/2026 o antigo foi apagado, e o que sobra e a
+          // unica coisa honesta: avisar o cliente e chamar a equipe.
+          //
+          // Cair calado seria pior que o erro: o cliente fica olhando pro
+          // WhatsApp esperando resposta que nao vem.
+          console.error("[fluxo] falhou:", e);
+          avisarDono(
+            "fluxo-caiu",
+            "A Dora nao conseguiu responder um cliente agora. Motivo: " +
+              String((e as Error)?.message ?? e).slice(0, 160),
+            creds,
+          ).catch(() => {});
+          await definirHandoff(negocioId, clienteId, true).catch(() => {});
+          avisarDona(
+            "cliente-esperando:" + clienteId,
+            "Um cliente esta esperando falar com alguem da padaria.",
+          ).catch(() => {});
+          const desculpa =
+            "Deu um probleminha aqui do meu lado. Ja avisei a equipe da padaria, " +
+            "eles te respondem por aqui daqui a pouco.";
+          await enviarTexto(telefone, desculpa, creds).catch(() => {});
+          await salvarMensagem(negocioId, clienteId, "assistant", desculpa).catch(() => {});
+          return;
         }
       }
     }

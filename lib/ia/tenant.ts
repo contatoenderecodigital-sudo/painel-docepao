@@ -8,7 +8,32 @@ import { queryUm } from "../banco/db";
 import { motorPadrao } from "./orcamento";
 import { DOCE_PAO, type ConfigNegocio } from "./persona";
 import { ehHojeBR } from "../aviso";
-import type { Tenant } from "./cerebro";
+import type { Motor } from "./orcamento";
+
+/**
+ * O NEGOCIO CARREGADO: a persona dele mais o cardapio dele.
+ *
+ * Vivia em `lib/ia/cerebro.ts` e veio pra ca em 26/08/2026, quando o cerebro
+ * antigo foi apagado. Aqui e a casa: quem monta o Tenant e este arquivo.
+ */
+export type Tenant = {
+  persona: ConfigNegocio;
+  motor: Motor;
+  /**
+   * Id do negocio, pra creditar o consumo de tokens em `public.uso_ia`.
+   * Sem ele (o tenant padrao de demonstracao) a medicao e pulada.
+   */
+  negocioId?: string | null;
+  avisoDoDia?: string | null;
+  sistemaCustom?: string | null;
+  /**
+   * O provedor de IA escolhido POR ESTE negocio: claude, openai ou gemini.
+   * E assim que um cliente usa um e outro usa outro, com a cadeia global de
+   * reserva quando o escolhido falha.
+   */
+  provedorIa?: string | null;
+  modeloIa?: string | null;
+};
 
 type ConfigDB = {
   persona?: { horario?: string; prazoMinimoDias?: number; cobraSinal?: boolean };

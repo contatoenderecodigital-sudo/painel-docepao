@@ -15,11 +15,13 @@ import { urlDoCardapio } from "@/lib/whatsapp/api";
 import { NextRequest } from "next/server";
 import { lerSessao } from "@/lib/auth";
 import { carregarTenant } from "@/lib/ia/tenant";
-import { unidadeDoProduto } from "@/lib/ia/cerebro";
+import { unidadeDoPedido as unidadeDoProduto } from "@/lib/ia/dados/produtos";
 import { lerMontagem, anotarItem, removerItem, anotarDados, limparMontagem } from "@/lib/banco/montagem";
 import { pedidoEmAberto } from "@/lib/banco/pedidos";
-import { responder, type Mensagem } from "@/lib/ia/cerebro";
-import { acharOuCriarCliente, registrarPedido, anexarFotoAoPedido, salvarFotoPendente } from "@/lib/banco/conversas";
+import type { Mensagem } from "@/lib/banco/tipos-da-conversa";
+import { acharOuCriarCliente, salvarFotoPendente } from "@/lib/banco/conversas";
+import { atenderComFluxoNovo } from "@/lib/ia/fluxo/atender";
+import OpenAI from "openai";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -38,7 +40,10 @@ export async function POST(req: NextRequest) {
 
   // imagem: base64 (com ou sem prefixo data:) da foto de referência que o dono
   // anexou na última mensagem, pra testar o fluxo completo do /testar.
-  let corpo: { mensagens?: MsgEntrada[]; imagem?: string; imagemMime?: string; reiniciar?: boolean };
+  // botaoId: o toque no botao, que no WhatsApp chega como id e nao como frase.
+  // Sem ele a tela de teste nao consegue exercitar as respostas fechadas, que
+  // sao metade da conversa.
+  let corpo: { mensagens?: MsgEntrada[]; imagem?: string; imagemMime?: string; reiniciar?: boolean; botaoId?: string | null };
   try {
     corpo = await req.json();
   } catch {
@@ -103,10 +108,23 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ==========================================================================
+  //  O CHAT DE TESTE USA O CEREBRO QUE O CLIENTE RECEBE.
+  //
+  //  Ate 26/08/2026 esta rota chamava `responder()`, do cerebro antigo, e o
+  //  cabecalho dela dizia com todas as letras "usa o MESMO cerebro da
+  //  producao". Nao usava mais: a producao passou pro fluxo e esta tela ficou
+  //  para tras.
+  //
+  //  Entao o dono testava aqui, via um comportamento, e o cliente no WhatsApp
+  //  recebia outro. Uma tela de teste que testa outra coisa e pior do que nao
+  //  ter tela de teste.
+  //
+  //  O fluxo grava o pedido sozinho (em `fluxo/gravar.ts`), entao aqui nao ha
+  //  mais o que aplicar depois: o que ele devolve ja e o resultado.
+  // ==========================================================================
   let resp;
   try {
-    // Igual ao webhook: a IA precisa enxergar o pedido que ja esta montado,
-    // senao o teste exercita um sistema que nao existe em producao.
     // Cada cenario do teste comeca do zero: sem isso o pedido de um vaza no
     // outro e o resultado nao quer dizer nada.
     if (clienteId && corpo?.reiniciar) {
@@ -114,11 +132,9 @@ export async function POST(req: NextRequest) {
       // O PEDIDO DA RODADA ANTERIOR TAMBEM PRECISA SAIR.
       //
       // A bateria do painel usa sempre este mesmo cliente de teste, entao
-      // registrar_pedido ATUALIZA o pedido da rodada passada em vez de criar
-      // um novo. O pedido velho ja tinha sido liberado pelo proprio teste, e o
-      // atualizado nascia sem a pendencia de topo: a bateria dizia "nao achei o
-      // card", e o fluxo do topo, que e o motivo dela existir, nunca era
-      // exercitado.
+      // registrar_pedido ATUALIZA o pedido da rodada passada em vez de criar um
+      // novo. O pedido velho ja tinha sido liberado pelo proprio teste, e o
+      // atualizado nascia sem a pendencia de topo.
       //
       // O recorte e o telefone fixo do cliente de teste do painel, que nao e
       // pessoa nenhuma. Em 20/08/2026 um teste apagou banco demais e levou
@@ -141,81 +157,44 @@ export async function POST(req: NextRequest) {
         console.error("[testar-ia] falha ao limpar o pedido do cliente de teste:", e);
       }
     }
-    const montado = clienteId ? await lerMontagem(negocioId, clienteId).catch(() => null) : null;
-    const emAberto = clienteId ? await pedidoEmAberto(negocioId, clienteId).catch(() => null) : null;
-    resp = await responder(historico, tenant, "whatsapp", clienteId, montado, false, null, emAberto);
+
+    if (!clienteId) {
+      return Response.json({ erro: "Nao consegui resolver o cliente de teste no banco." });
+    }
+
+    // A ultima fala do cliente e o turno. O historico do navegador serve so pra
+    // saber se a padaria JA falou nesta conversa, que e o que decide se ela
+    // cumprimenta: o estado do pedido o fluxo le do banco sozinho.
+    const ultima = [...(corpo.mensagens ?? [])].reverse().find((m) => m?.de === "cliente");
+    const jaAtendeu = (corpo.mensagens ?? []).some((m) => m?.de === "ia");
+
+    resp = await atenderComFluxoNovo(
+      new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+      negocioId,
+      clienteId,
+      { texto: String(ultima?.texto ?? "").trim(), botaoId: corpo.botaoId ?? null },
+      jaAtendeu,
+    );
   } catch (e) {
-    // Erro real dos provedores (ex: sem crédito/chave na Anthropic/OpenAI). Devolve
-    // 200 com a mensagem crua pra UI mostrar o motivo — é útil o dono saber.
+    // Erro real do provedor (sem credito, sem chave). Devolve 200 com a
+    // mensagem crua pra tela mostrar o motivo: e util o dono saber.
     const msg = (e as Error)?.message || String(e);
     return Response.json({ erro: msg });
   }
 
-  // As mudancas do turno entram no pedido montado, como no webhook. Sem isto o
-  // teste perde tudo entre uma mensagem e outra.
-  if (clienteId) {
-    for (const mud of resp.montagem ?? []) {
-      try {
-        if (mud.tipo === "item") {
-          // Mesma fonte do preco, igual ao webhook.
-          await anotarItem(negocioId, clienteId, {
-            produto: mud.produto,
-            categoria: mud.categoria as never,
-            qtd: mud.qtd,
-            unidade: unidadeDoProduto(mud.produto, mud.categoria),
-            obs: mud.obs ?? null,
-          });
-        } else if (mud.tipo === "zerar") {
-          await limparMontagem(negocioId, clienteId);
-        } else if (mud.tipo === "remover") {
-          await removerItem(negocioId, clienteId, mud.produto, mud.categoria as never);
-        } else {
-          await anotarDados(negocioId, clienteId, mud.dados);
-        }
-      } catch (e) {
-        console.error("[testar-ia] falha ao aplicar mudanca do pedido:", e);
-      }
-    }
-  }
-
-  // Igual ao webhook: se a IA fechou o pedido, registra ANTES de responder pro
-  // cliente. Cai na fila de aprovação (status 'confirmado'). Se falhar o registro,
-  // avisa mas não derruba o teste.
-  if (resp.pedidoRegistrado) {
-    try {
-      // Reusa o cliente sintético já resolvido acima; se não resolveu (falha
-      // pontual antes de responder), acha-ou-cria de novo (idempotente).
-      const idCliente = clienteId ?? (await acharOuCriarCliente(negocioId, TESTE_TELEFONE, TESTE_NOME));
-      // registrarPedido já liga as fotos pendentes deste cliente ao pedido; só
-      // resta cobrir o caso em que a foto veio na MESMA mensagem que fechou o
-      // pedido e o cliente sintético não pôde ser resolvido antes.
-      const pedidoId = await registrarPedido(negocioId, idCliente, resp.pedidoRegistrado);
-      await limparMontagem(negocioId, idCliente).catch(() => {});
-      if (foto && pedidoId && !clienteId) {
-        try {
-          await anexarFotoAoPedido(negocioId, pedidoId, idCliente, foto.dados, foto.mime);
-        } catch (e) {
-          console.error("[testar-ia] falha ao anexar foto ao pedido de teste:", e);
-        }
-      }
-    } catch (e) {
-      console.error("[testar-ia] falha ao registrar pedido de teste:", e);
-      return Response.json({
-        resposta: resp.texto,
-        aviso: "A IA fechou o pedido, mas houve uma falha ao lançá-lo na fila de aprovação.",
-      });
-    }
-  }
-
   return Response.json({
     resposta: resp.texto,
-    pedidoRegistrado: !!resp.pedidoRegistrado,
-    precisaHumano: resp.precisaHumano,
-    // Mesmas peças que o webhook mandaria no WhatsApp. Sem isto o /testar
-    // mostrava só o texto e dava a impressão de que o cardápio não foi enviado.
-    cardapios: (resp.cardapiosParaEnviar ?? []).map(urlDoCardapio),
+    // Os botoes que o WhatsApp mostraria. Sem eles a tela de teste nao consegue
+    // exercitar as respostas fechadas, que sao metade da conversa.
+    botoes: resp.botoes,
+    etapa: resp.etapa,
+    pedidoRegistrado: !!resp.pedidoId,
+    precisaHumano: !!resp.precisaHumano,
+    rastro: resp.rastro,
+    // A mesma peca que o WhatsApp mandaria.
+    cardapios: resp.cardapio ? [urlDoCardapio(resp.cardapio as never)] : [],
     // O pedido como ficou depois deste turno: e o que o teste automatico cobra.
-    itens: clienteId ? (await lerMontagem(negocioId, clienteId).catch(() => ({ itens: [] }))).itens : [],
+    itens: (await lerMontagem(negocioId, clienteId).catch(() => ({ itens: [] }))).itens,
   });
 }
 

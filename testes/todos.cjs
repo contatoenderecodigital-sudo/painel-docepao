@@ -53,6 +53,24 @@ const FORA = [
   "qa-conversa.cjs",
   "qa-concorrencia.cjs",
   "guardar-conversas.cjs",
+
+  // O `qa-pedido-completo` e o caso mais claro de todos: ele abre um navegador
+  // de verdade contra https://docepao.enderecodigital.tech, faz login e CRIA
+  // PEDIDO NO BANCO. Esta escrito no cabecalho dele: "limpe o banco antes e
+  // depois".
+  //
+  // Duas razoes pra sair do portao, e a segunda e a que importa:
+  //
+  //   1. ele acumula estado. Passou verde com o banco limpo e ficou vermelho
+  //      na rodada seguinte com fila=21 e treze resumos enviados, sem uma
+  //      linha de codigo ter mudado no meio;
+  //   2. ele testa o que esta NO AR, e nao o codigo desta maquina. Um teste que
+  //      nao ve as minhas alteracoes nunca poderia ter aprovado nenhuma delas,
+  //      e vermelho nele nunca quis dizer defeito no que eu acabei de escrever.
+  //
+  // Rode na mao, com o banco de teste limpo, quando quiser conferir producao:
+  //   node testes/qa-pedido-completo.cjs
+  "qa-pedido-completo.cjs",
 ];
 
 const aqui = __dirname;
