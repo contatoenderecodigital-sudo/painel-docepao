@@ -53,39 +53,36 @@ em `limpa.itens` e um substitui a lista em vez de somar. Olhar em
 Piorou de 1/5 para 0/5 com o nome canônico, e faz sentido: agora o bolo é sempre
 reconhecido, então a disputa acontece sempre.
 
-## 2. Padronizar o catálogo  ⟵ COMEÇADO, NÃO TERMINADO
+## 2. Padronizar o catálogo  ⟵ EM ANDAMENTO, retomar aqui
 
-Pedido explícito do dono: padronizar tudo (comanda, cérebro, código, IA, a tela
-onde a dona edita). É a raiz das exceções no código.
+**FEITO nesta sessão:**
 
-**Já feito:** foto de segurança da cotação de **83 produtos** em
-`.tmp-pad/ANTES.json` (pasta temporária, refazer se sumir). A regra da mudança é
-que **nenhum preço pode mudar**, e isso se prova comparando a cotação de cada
-produto antes e depois.
+- foto da cotação de 83 produtos, versionada em
+  `testes/fotos/precos-antes-da-padronizacao.json`. É a rede de segurança: a
+  regra é que **nenhum preço pode mudar**
+- `lib/ia/dados/produtos.ts` criado: a lista única, onde todo produto responde às
+  mesmas perguntas (`nome · preco · unidade · categoria · grupo · bancada ·
+  sabores[] · saborFixo`). Tipos limpos, ainda **não ligado em ninguém**
 
-**Bug que a foto achou:** `café` não tem cotação nenhuma. Existe como docinho
-(R$ 1,25) e como bolo caseiro (R$ 35,90), e o motor não escolhe: a linha sai sem
-preço.
+**O ACHADO QUE DEFINE O TRABALHO:** são **DEZESSETE** arquivos importando
+`catalogo.json` direto, e cada um remonta a estrutura do seu jeito. É daí que
+vêm os defeitos que a bateria acha. A lista dos dezessete sai com
+`grep -rn "dados/catalogo.json" lib/ app/ scripts/`.
 
-**O que está errado hoje no `lib/ia/dados/catalogo.json`:**
+**PRÓXIMO PASSO, nesta ordem:**
 
-- **dois nomes de campo para a mesma ideia**: `recheio` (singular, já vem pronto,
-  não pergunta) e `recheios` (plural, pergunta qual). Um "s" muda o
-  comportamento e isso não está escrito em lugar nenhum
-- **preço em dois níveis**: salgado não tem preço no item, tem no grupo (frito
-  R$ 1,00, assado R$ 1,25). Todo o resto tem no item
-- **campo ausente com dois significados**: `sabores` faltando quer dizer "não tem
-  sabor" na maioria e "ninguém cadastrou" em outros
-- **quatro campos usados uma vez só**, na pizza redonda: `sabores_ate`,
-  `peso_minimo`, `peso_tipico_kg`, `valor_tipico`
+1. escrever `testes/o-catalogo-nao-mudou-preco.cjs`, que compara a cotação de
+   todos os produtos contra a foto. **Antes de ligar em qualquer lugar.**
+2. fazer `produtosDoCatalogo()` em `lib/ia/orcamento.ts:431` passar a usar a
+   lista única, e rodar o teste acima. Se um preço mudar, parar
+3. migrar os outros dezesseis leitores, um por vez
+4. regerar as oito peças com os grupos certos
 
-**Formato proposto:** `nome · preco · unidade · categoria · grupo · bancada ·
-sabores[] · sabor_fixo`. O código passa a ter UMA regra: se `sabores` tem itens
-e `sabor_fixo` é falso, pergunta.
-
-**Atenção antes de mexer:** quem transforma o catálogo em lista de produtos é
-`produtosDoCatalogo()`, usado em `lib/ia/orcamento.ts:431`. Mudar a estrutura do
-JSON exige mudar esse builder junto, senão o preço quebra.
+**Decisões já embutidas na lista única:** `recheio` singular virou
+`saborFixo: true`; `recheios` plural virou `sabores[]` para perguntar; o prefixo
+"bolo" entra no nome de todo sabor de bolo de festa; bancada vem da fala da dona
+(padeiro para pão, cuca e cachorro-quente; salgadeiro para mini xis e mini
+sanduíche; confeitaria para o resto).
 
 ## 3. As regras que a dona falou e a IA não sabe
 
