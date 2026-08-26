@@ -32,7 +32,11 @@ import catalogo from "../dados/catalogo.json";
 import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitura } from "./leitura";
-import { juntarComAFrase, separarProdutoERecheio } from "./leitor-da-frase";
+import {
+  juntarComAFrase,
+  separarProdutoERecheio,
+  itensDeOutraEtapaNaFrase,
+} from "./leitor-da-frase";
 import { nomePeloApelido } from "../dados/apelidos";
 import { calcularBase } from "./base";
 import { motorPadrao, brl } from "../orcamento";
@@ -538,6 +542,22 @@ export async function responder(
 
     const { limpa, barrados, paraDepois } = leituraQueCabeNaEtapa(etapaAgora.id, crua);
     if (barrados.length) rastro.push("barrado nesta etapa: " + barrados.join(", "));
+
+    // O QUE ESTA ESCRITO NA FRASE E O MODELO NAO LEU.
+    //
+    // Guardar item barrado nao cobre tudo: para ser barrado ele precisa ter
+    // sido LIDO. Quando a instrucao da etapa nao fala daquela familia, o modelo
+    // nem extrai. Foi o caso de "50 brigadeiro, forminha rosa, e um bolo de
+    // 2 kg de 4 leites" na etapa da oferta: o brigadeiro entrou, o bolo nao, e
+    // a padaria perguntou o sabor do bolo duas vezes ate a conversa morrer.
+    const doTextoParaDepois = itensDeOutraEtapaNaFrase(
+      String(mensagem.texto ?? ""),
+      (produto) => etapaDesteProduto(produto) === etapaAgora.id,
+    ).filter((p) => !(limpa.itens ?? []).some((i) => i.produto.toLowerCase() === p.produto.toLowerCase()));
+    if (doTextoParaDepois.length) {
+      paraDepois.push(...doTextoParaDepois);
+      rastro.push("achei na frase, o modelo nao leu: " + doTextoParaDepois.map((d) => d.produto).join(", "));
+    }
 
     // ITEM CITADO FORA DA HORA FICA GUARDADO, NAO E JOGADO FORA.
     if (paraDepois.length) {

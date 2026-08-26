@@ -75,11 +75,20 @@ function nomesDoCatalogo(): string[] {
   const de = (v: unknown): string[] =>
     Array.isArray(v) ? v.map((x) => String((x as { nome?: string })?.nome ?? "")).filter(Boolean) : [];
   const salgados = c.salgados as { frito?: { itens?: unknown }; assado?: { itens?: unknown } } | undefined;
+  // Os sabores de bolo entram aqui tambem. Sem eles "4 leites" nao era achado
+  // em frase nenhuma, e o bolo citado junto com o docinho se perdia: o cliente
+  // escrevia "50 brigadeiro e um bolo de 2 kg de 4 leites" e ouvia de volta "e
+  // o bolo, qual sabor?".
+  const sabores = ((c.bolos_recheados as { faixas?: { sabores?: string[] }[] } | undefined)?.faixas ?? [])
+    .flatMap((faixa) => faixa.sabores ?? [])
+    .map(String);
+
   return [
     ...de(salgados?.frito?.itens),
     ...de(salgados?.assado?.itens),
     ...de((c.doces as { itens?: unknown } | undefined)?.itens),
     ...de(c.outros_produtos),
+    ...sabores,
   ];
 }
 
@@ -359,4 +368,52 @@ export function separarProdutoERecheio(nome: string): { produto: string; recheio
     .trim();
 
   return { produto: serve.canonico, recheio: resto || null };
+}
+
+/**
+ * O ITEM DE OUTRA ETAPA QUE ESTA ESCRITO NA FRASE E O MODELO NAO DEVOLVEU.
+ *
+ * Medido em 25/08/2026: o cliente escreveu "50 brigadeiro, forminha rosa, e um
+ * bolo de 2 kg de 4 leites" e recebeu de volta "E o bolo, qual sabor?". O
+ * brigadeiro entrou, o bolo nao: a instrucao daquela etapa nao fala de sabor de
+ * bolo, entao o modelo simplesmente nao extraiu. A padaria perguntou o sabor
+ * duas vezes e o pedido nunca fechou.
+ *
+ * Guardar item barrado nao resolvia esse caso: para ser barrado ele precisa ter
+ * sido LIDO, e ele nunca foi.
+ *
+ * SO devolve o que pertence a OUTRA etapa, de proposito. O que e da etapa de
+ * agora e assunto do modelo, que le com o contexto todo; aqui o codigo so
+ * impede que o que ele nao tinha como ler seja perdido.
+ */
+export function itensDeOutraEtapaNaFrase(
+  fala: string,
+  daEtapaDeAgora: (produto: string) => boolean,
+): { produto: string; qtd: number }[] {
+  const t = semAcMin(fala);
+  if (!t.trim()) return [];
+
+  const achados: { produto: string; qtd: number }[] = [];
+  for (const nome of produtosNaFrase(fala)) {
+    if (daEtapaDeAgora(nome)) continue;
+
+    const alvo = semAcMin(nome);
+    const onde = t.indexOf(alvo);
+    if (onde < 0) continue;
+
+    // NEGACAO MANDA. "sem coxinha" nao e pedido de coxinha, e adivinhar aqui
+    // colocaria no pedido o que ele acabou de recusar.
+    const antes = t.slice(Math.max(0, onde - 24), onde);
+    if (/(^|[^a-z])(sem|nao|nem|tirar?|tira)([^a-z][^.,;]*)?$/.test(antes)) continue;
+
+    // A quantidade e o numero mais perto ANTES do nome. "2 kg de 4 leites" da
+    // 2; "50 brigadeiro" da 50. Sem numero fica 0, e quem preenche depois e a
+    // proposta da festa ou a pergunta da padaria.
+    const nums = [...antes.matchAll(/([0-9]+(?:[.,][0-9]+)?)/g)];
+    const ultimo = nums.length ? nums[nums.length - 1][1] : null;
+    const qtd = ultimo ? Number(ultimo.replace(",", ".")) : 0;
+
+    achados.push({ produto: nome, qtd: qtd > 0 && qtd <= 5000 ? qtd : 0 });
+  }
+  return achados;
 }
