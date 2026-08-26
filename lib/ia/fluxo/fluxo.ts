@@ -32,7 +32,7 @@ import catalogo from "../dados/catalogo.json";
 import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitura } from "./leitura";
-import { juntarComAFrase, recheioNaFrase } from "./leitor-da-frase";
+import { juntarComAFrase, separarProdutoERecheio } from "./leitor-da-frase";
 import { nomePeloApelido } from "../dados/apelidos";
 import { calcularBase } from "./base";
 import { motorPadrao, brl } from "../orcamento";
@@ -420,43 +420,28 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
   if (l.itens?.length) {
     const itens = [...novo.itens];
     for (const i of l.itens) {
-      // O NOME QUE O CORRETOR DO CELULAR ESTRAGOU.
+      // O NOME, O APELIDO E O RECHEIO, RESOLVIDOS DE UMA VEZ.
       //
-      // "chique" e o que o teclado escreve no lugar de "quiche", e o item
-      // entrava no pedido com esse nome: a cozinha receberia "chique de
-      // frango" escrito na comanda. A lista de apelidos e a mesma das guardas.
-      const nomeCru = String(i.produto);
-      const produto = nomePeloApelido(nomeCru) ?? nomeCru;
+      // O modelo devolve "quiche de frango" como se fosse UM produto, e o
+      // cardapio tem "quiche" com "frango" de recheio. Assim o item entrava com
+      // o nome errado e a observacao vazia, e a cozinha nao sabia o recheio.
+      //
+      // Eu tinha tentado isso de dois jeitos que NUNCA dispararam: procurar o
+      // recheio depois do nome (o nome ja continha o recheio, entao depois dele
+      // nao vinha nada) e aproveitar o que sobrava do apelido ("chique de
+      // frango" nao comeca com "quiche"). Os dois passaram no build, foram pro
+      // ar e nao fizeram efeito nenhum, e a bateria deu resultado identico duas
+      // vezes seguidas ate eu ir olhar o item gravado no banco.
+      //
+      // Agora a separacao e feita contra o CARDAPIO, que e quem sabe onde o
+      // nome do produto termina.
+      const separado = separarProdutoERecheio(String(i.produto));
+      const produto = separado.produto;
       const categoria = categoriaDaEtapa(etapa, produto);
 
-      // O QUE SOBRA DO NOME E O RECHEIO, E ELE NAO PODE SUMIR.
-      //
-      // "chique de frango" vira o produto "quiche", e o "de frango" ficava pelo
-      // caminho: a comanda chegava na cozinha sem o recheio. Medido em
-      // 25/08/2026, em quatro dos cinco jeitos de falar.
       let obsItem = i.obs ?? null;
-      {
-        const cru = nomeCru.toLowerCase().trim();
-        const curto = produto.toLowerCase().trim();
-        if (cru !== curto && cru.startsWith(curto)) {
-          const resto = nomeCru
-            .slice(produto.length)
-            .replace(/^\s*(de|da|do|com)\s+/i, "")
-            .trim();
-          const jaTem = String(obsItem ?? "").toLowerCase().includes(resto.toLowerCase());
-          if (resto && !jaTem) obsItem = [obsItem, resto].filter(Boolean).join(" | ");
-        }
-      }
-
-      // O RECHEIO QUE O MODELO NAO DEVOLVEU.
-      //
-      // O cliente escreve "100 quiche de frango" e o modelo devolve o produto
-      // "quiche" com a observacao VAZIA: nao sobra nome nenhum pra aproveitar, e
-      // a comanda chega na cozinha sem o recheio. Entao o recheio vem da frase,
-      // igual a todo o resto. Medido em tres dos cinco jeitos de falar.
-      if (!String(obsItem ?? "").trim()) {
-        const recheio = recheioNaFrase(produto, falaDoCliente);
-        if (recheio) obsItem = recheio;
+      if (separado.recheio && !String(obsItem ?? "").toLowerCase().includes(separado.recheio)) {
+        obsItem = [obsItem, separado.recheio].filter(Boolean).join(" | ");
       }
 
       // O PESO DO BOLO E QUANTIDADE, NAO OBSERVACAO.
@@ -468,7 +453,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       let qtd = Number(i.qtd) || 0;
       if (String(categoria).startsWith("bolo")) {
         const dito = falaDoCliente + " " + String(i.obs ?? "");
-        const kg = (dito.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:kg|quilos?)(?![a-z])/i) ?? [])[1];
+        const kg = (dito.match(/([0-9]+(?:[.,][0-9]+)?) *(?:kg|quilos?)(?![a-z])/i) ?? [])[1];
         const peso = kg ? Number(String(kg).replace(",", ".")) : 0;
         if (peso > 0 && peso <= 30) qtd = peso;
       }

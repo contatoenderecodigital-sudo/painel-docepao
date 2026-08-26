@@ -318,3 +318,45 @@ export function recheioNaFrase(produto: string, fala: string): string | null {
   }
   return null;
 }
+
+/**
+ * SEPARA O NOME DO PRODUTO DO RECHEIO QUE VEIO COLADO NELE.
+ *
+ * O modelo devolve "quiche de frango" como se fosse UM produto. O cardapio tem
+ * "quiche", e "frango" e recheio: assim o item entra com o nome errado e a
+ * observacao vazia, e a cozinha nao sabe o recheio. Medido em 25/08/2026, com o
+ * item gravado no banco como produto "quiche de frango" e obs null.
+ *
+ * A primeira tentativa procurava o recheio DEPOIS do nome, na frase do cliente.
+ * Nao disparava nunca: o nome ja continha o recheio, entao depois dele nao vinha
+ * nada. Aqui a separacao e feita contra o cardapio, que e quem sabe onde o nome
+ * do produto termina.
+ *
+ * Pega o nome MAIS LONGO que serve: "mini bolha de carne" e "mini bolha" mais
+ * "carne", nao "mini" mais "bolha de carne".
+ */
+export function separarProdutoERecheio(nome: string): { produto: string; recheio: string | null } {
+  const bruto = String(nome || "").trim();
+  const t = semAcMin(bruto);
+  if (!t) return { produto: bruto, recheio: null };
+
+  // Nome do cardapio e apelido valem os dois: "chique de frango" tambem separa.
+  const candidatos: { canonico: string; casa: string }[] = [];
+  for (const n of nomesDoCatalogo()) candidatos.push({ canonico: n, casa: semAcMin(n) });
+  for (const [canonico, lista] of Object.entries(APELIDOS)) {
+    for (const apelido of lista) candidatos.push({ canonico, casa: semAcMin(apelido) });
+  }
+
+  const serve = candidatos
+    .filter((c) => c.casa && (t === c.casa || t.startsWith(c.casa + " ")))
+    .sort((a, b) => b.casa.length - a.casa.length)[0];
+
+  if (!serve) return { produto: bruto, recheio: null };
+
+  const resto = t
+    .slice(serve.casa.length)
+    .replace(/^ *(de|da|do|com) +/, "")
+    .trim();
+
+  return { produto: serve.canonico, recheio: resto || null };
+}
