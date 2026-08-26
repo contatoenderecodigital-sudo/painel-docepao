@@ -31,8 +31,8 @@
 import catalogo from "../dados/catalogo.json";
 import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
 import { falaDaEtapa, type Fala } from "./pergunta";
-import { instrucaoDaEtapa, leituraQueCabeNaEtapa, type Leitura } from "./leitura";
-import { juntarComAFrase } from "./leitor-da-frase";
+import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitura } from "./leitura";
+import { juntarComAFrase, recheioNaFrase } from "./leitor-da-frase";
 import { nomePeloApelido } from "../dados/apelidos";
 import { calcularBase } from "./base";
 import { motorPadrao, brl } from "../orcamento";
@@ -83,6 +83,14 @@ export type Estado = PedidoEmMontagem & {
    */
   ultimaFala?: string | null;
   insistiu?: number;
+  /**
+   * O QUE ELE PEDIU FORA DA HORA, GUARDADO ATE CHEGAR A HORA.
+   *
+   * "50 brigadeiro, forminha rosa, e um bolo de 2 kg de 4 leites" dito na etapa
+   * do docinho: o bolo era descartado e, se ele nao repetisse, nao existia.
+   * Agora fica aqui e entra sozinho quando a conversa chega no bolo.
+   */
+  guardados?: { produto: string; qtd: number; obs?: string | null }[];
 };
 
 /** Quem chama o modelo. Injetado pra dar pra testar sem gastar. */
@@ -440,6 +448,17 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
         }
       }
 
+      // O RECHEIO QUE O MODELO NAO DEVOLVEU.
+      //
+      // O cliente escreve "100 quiche de frango" e o modelo devolve o produto
+      // "quiche" com a observacao VAZIA: nao sobra nome nenhum pra aproveitar, e
+      // a comanda chega na cozinha sem o recheio. Entao o recheio vem da frase,
+      // igual a todo o resto. Medido em tres dos cinco jeitos de falar.
+      if (!String(obsItem ?? "").trim()) {
+        const recheio = recheioNaFrase(produto, falaDoCliente);
+        if (recheio) obsItem = recheio;
+      }
+
       // O PESO DO BOLO E QUANTIDADE, NAO OBSERVACAO.
       //
       // "um bolo de 2 kg de 4 leites": o modelo manda qtd 1 e escreve "2 kg" na
@@ -532,8 +551,33 @@ export async function responder(
     const crua = await pensar({ instrucao, mensagem: mensagem.texto });
     chamouIA = true;
 
-    const { limpa, barrados } = leituraQueCabeNaEtapa(etapaAgora.id, crua);
+    const { limpa, barrados, paraDepois } = leituraQueCabeNaEtapa(etapaAgora.id, crua);
     if (barrados.length) rastro.push("barrado nesta etapa: " + barrados.join(", "));
+
+    // ITEM CITADO FORA DA HORA FICA GUARDADO, NAO E JOGADO FORA.
+    if (paraDepois.length) {
+      const jaGuardados = estado.guardados ?? [];
+      const novos = paraDepois.filter(
+        (p) => !jaGuardados.some((g) => g.produto.toLowerCase().trim() === p.produto.toLowerCase().trim()),
+      );
+      if (novos.length) {
+        estado = { ...estado, guardados: [...jaGuardados, ...novos] };
+        rastro.push("guardado pra depois: " + novos.map((n) => n.produto).join(", "));
+      }
+    }
+
+    // E CHEGOU A HORA DE ALGUM QUE ESTAVA GUARDADO? Entra junto com esta leitura.
+    if (estado.guardados?.length) {
+      const agora = estado.guardados.filter((g) => etapaDesteProduto(g.produto) === etapaAgora.id);
+      if (agora.length) {
+        limpa.itens = [...(limpa.itens ?? []), ...agora];
+        estado = {
+          ...estado,
+          guardados: estado.guardados.filter((g) => !agora.includes(g)),
+        };
+        rastro.push("entrou o que estava guardado: " + agora.map((a) => a.produto).join(", "));
+      }
+    }
     // O que foi barrado por NAO EXISTIR no cardapio vira aviso pro cliente. O
     // que foi barrado por ser de outra familia nao: aquele a conversa resolve
     // indo pra etapa certa, e dizer "a gente nao faz brigadeiro" seria mentira.

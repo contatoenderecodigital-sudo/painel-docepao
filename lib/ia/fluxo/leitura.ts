@@ -313,24 +313,55 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
  *
  * Devolve a leitura limpa e a lista do que foi barrado, pra ficar no rastro.
  */
+/**
+ * O ITEM E DE OUTRA ETAPA, OU NAO EXISTE?
+ *
+ * Sao coisas diferentes e o tratamento tem que ser diferente. O que existe no
+ * cardapio e so foi citado fora da hora fica GUARDADO para quando a conversa
+ * chegar la. O que nao existe continua sendo recusado, porque ai a recusa e
+ * honesta e o cliente precisa ser avisado.
+ */
+export function etapaDesteProduto(produto: string): EtapaId | null {
+  const semAc = (t: string) =>
+    String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+  const nome = semAc(produto);
+  for (const etapa of ["salgado", "docinho", "bolo"] as EtapaId[]) {
+    const cabe = vocabularioDaEtapa(etapa)
+      .map(semAc)
+      .some((v) => nome === v || nome.startsWith(v + " "));
+    if (cabe) return etapa;
+  }
+  return null;
+}
+
 export function leituraQueCabeNaEtapa(
   etapa: EtapaId,
   leitura: Leitura,
-): { limpa: Leitura; barrados: string[] } {
+): { limpa: Leitura; barrados: string[]; paraDepois: NonNullable<Leitura["itens"]> } {
   const vocab = vocabularioDaEtapa(etapa);
-  if (!vocab.length || !leitura.itens?.length) return { limpa: leitura, barrados: [] };
+  if (!vocab.length || !leitura.itens?.length) return { limpa: leitura, barrados: [], paraDepois: [] };
 
   const semAc = (t: string) =>
     String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
   const permitido = new Set(vocab.map(semAc));
 
   const barrados: string[] = [];
+  // O QUE FOI CITADO FORA DA HORA NAO E JOGADO FORA.
+  //
+  // Ate 25/08/2026 o item barrado sumia: o codigo guardava so o NOME numa lista
+  // para decidir o rumo da conversa, e o item em si era descartado. Quem
+  // escrevia "50 brigadeiro, forminha rosa, e um bolo de 2 kg de 4 leites" na
+  // etapa do docinho tinha o BOLO descartado, e se nao repetisse, nao existia.
+  // E o mesmo defeito do quiche por outra porta.
+  const paraDepois: NonNullable<Leitura["itens"]> = [];
   const itens = leitura.itens.filter((i) => {
     // O nome pode vir com o sabor colado ("esfirra de carne"): vale o comeco.
     const nome = semAc(i.produto);
     const cabe = [...permitido].some((v) => nome === v || nome.startsWith(v + " "));
     if (!cabe) {
       barrados.push(i.produto);
+      // Existe no cardapio e so nao e a hora? Guarda para quando for.
+      if (etapaDesteProduto(i.produto)) paraDepois.push(i);
       return false;
     }
 
@@ -364,5 +395,6 @@ export function leituraQueCabeNaEtapa(
   return {
     limpa: { ...leitura, itens, ...(mandaPraOutraEtapa ? { falouDeOutraEtapa: mandaPraOutraEtapa as EtapaId } : {}) },
     barrados,
+    paraDepois,
   };
 }

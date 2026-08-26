@@ -88,7 +88,26 @@ export function estadoDosDados(d: Record<string, string | null | undefined>): Pa
     insistiu: Number(d.fluxo_insistiu) || 0,
     assunto: d.fluxo_assunto && d.fluxo_assunto !== "nenhum" ? (d.fluxo_assunto as EtapaId) : null,
     retomarEm: d.fluxo_retomar && d.fluxo_retomar !== "nenhum" ? (d.fluxo_retomar as EtapaId) : null,
+    // O QUE ELE PEDIU FORA DA HORA PRECISA SOBREVIVER A MENSAGEM.
+    //
+    // No WhatsApp cada mensagem e uma chamada nova, com o estado lido do banco.
+    // Se o guardado nao passasse por aqui, o bolo citado durante o docinho
+    // sumiria do mesmo jeito: a etapa do bolo so chega na mensagem seguinte.
+    guardados: lerGuardados(d.fluxo_guardados),
   };
+}
+
+/** O que ficou guardado, gravado como JSON. Lista vazia quando nao ha nada. */
+function lerGuardados(bruto?: string | null): { produto: string; qtd: number; obs?: string | null }[] {
+  if (!bruto || bruto === "nenhum") return [];
+  try {
+    const lista = JSON.parse(String(bruto));
+    return Array.isArray(lista) ? lista.slice(0, 20) : [];
+  } catch {
+    // JSON quebrado nao pode derrubar a conversa: perde-se o guardado, nao o atendimento.
+    console.warn("[fluxo] fluxo_guardados ilegivel, ignorando");
+    return [];
+  }
 }
 
 /**
@@ -215,5 +234,18 @@ export function dadosQueMudaram(antes: Estado, depois: Estado): Record<string, s
   }
   if ((depois.assunto ?? null) !== (antes.assunto ?? null)) mudou.fluxo_assunto = depois.assunto ?? "nenhum";
   if ((depois.retomarEm ?? null) !== (antes.retomarEm ?? null)) mudou.fluxo_retomar = depois.retomarEm ?? "nenhum";
+  // O GUARDADO MUDOU? Grava a lista inteira, e "nenhum" quando esvazia.
+  //
+  // Comparar por JSON e o suficiente: a lista e curta e muda pouco. O que nao
+  // pode e deixar de gravar quando ela ESVAZIA, senao o item ja aplicado volta
+  // a entrar na proxima mensagem e o pedido ganha linha repetida.
+  {
+    const antesJson = JSON.stringify(antes.guardados ?? []);
+    const depoisJson = JSON.stringify(depois.guardados ?? []);
+    if (antesJson !== depoisJson) {
+      mudou.fluxo_guardados = (depois.guardados ?? []).length ? depoisJson : "nenhum";
+    }
+  }
+
   return mudou;
 }

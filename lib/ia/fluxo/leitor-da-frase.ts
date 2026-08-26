@@ -273,3 +273,48 @@ export function juntarComAFrase(doModelo: Leitura, fala: string): Leitura {
 
   return junto;
 }
+
+/* --------------------------------------------------------------- recheio */
+
+/** Os recheios que a casa faz. Sai do cardapio, nao de lista escrita a mao. */
+function recheiosDoCatalogo(): string[] {
+  const c = catalogo as unknown as Record<string, unknown>;
+  const de = (v: unknown): string[] =>
+    Array.isArray(v)
+      ? v.flatMap((x) => ((x as { recheios?: string[] })?.recheios ?? []).map(String))
+      : [];
+  const salgados = c.salgados as { frito?: { itens?: unknown }; assado?: { itens?: unknown } } | undefined;
+  return [...new Set([...de(salgados?.frito?.itens), ...de(salgados?.assado?.itens)])];
+}
+
+/**
+ * O RECHEIO QUE O MODELO NAO DEVOLVEU.
+ *
+ * O cliente escreve "100 quiche de frango" e o modelo devolve o produto
+ * "quiche" com a observacao vazia: a comanda chega na cozinha sem o recheio, e
+ * a padaria produz o sabor padrao. Medido em 25/08/2026, em tres dos cinco
+ * jeitos de falar.
+ *
+ * Procura o recheio LOGO DEPOIS do nome do produto, na frase do cliente. Perto
+ * de proposito: numa frase com quiche de frango e esfirra de carne, cada um
+ * fica com o seu.
+ */
+export function recheioNaFrase(produto: string, fala: string): string | null {
+  const t = semAcMin(fala);
+  const p = semAcMin(produto);
+  if (!t || !p) return null;
+
+  const onde = t.indexOf(p);
+  if (onde < 0) return null;
+  // A janela e curta: o recheio vem colado no nome, nao tres itens depois.
+  const depois = t.slice(onde + p.length, onde + p.length + 26);
+
+  for (const recheio of recheiosDoCatalogo()) {
+    const r = semAcMin(recheio);
+    if (!r) continue;
+    // Espaco literal em vez de classe com barra invertida: aqui a barra some no
+    // caminho ate o arquivo e a regra passa a procurar a letra "s".
+    if (new RegExp("^ *(de|com)? *" + r + "($|[^a-z])").test(depois)) return recheio;
+  }
+  return null;
+}
