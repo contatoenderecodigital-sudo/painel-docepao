@@ -240,10 +240,49 @@ export function lerAFrase(fala: string): Leitura {
   if (hora) dados.hora = hora;
   const nome = nomeNaFrase(bruto);
   if (nome) dados.nome = nome;
+  // A FORMA DE PAGAMENTO E A ULTIMA QUE O CLIENTE FALOU.
+  //
+  // Isto era um `break` no primeiro que casasse, e o primeiro da lista e o pix.
+  // Entao "pago no pix, na verdade no cartao" virava PIX, e "no cartao mesmo,
+  // esquece o pix" tambem virava pix.
+  //
+  // O defeito ja foi pra producao uma vez, em 19/08/2026: o cliente nunca falou
+  // pix, a padaria anotou pix, ele corrigiu pra cartao, ouviu "anotei que o
+  // pagamento sera no cartao" e o pedido fechou com pix.
+  //
+  // O cerebro antigo tinha guarda pra isso e o fluxo nao tinha. Achado em
+  // 26/08/2026, no levantamento feito antes de apagar o antigo.
+  //
+  // Agora ganha quem aparece por ULTIMO na frase, que e a correcao dele.
+  //
+  // MAS FORMA NEGADA NAO CONTA. "no cartao mesmo, esquece o pix" termina em pix
+  // e mesmo assim o cliente quer cartao: quem vem depois de "esquece", "nao e"
+  // ou "sem" esta sendo DESCARTADO, nao escolhido.
+  //
+  // Sem esta parte, o "ultimo ganha" acerta a correcao normal e erra a
+  // correcao por negacao, que e igual de comum no WhatsApp.
+  const negadoAntes = (onde: number) =>
+    /(esquece|esquec\w*|nao e|nao vai ser|nao sera|nada de|sem|deixa o|tira o|cancela o)\s+[a-z ]{0,10}$/.test(
+      t.slice(Math.max(0, onde - 26), onde),
+    );
+
+  let ondeEstaOPagamento = -1;
   for (const [re, forma] of PAGAMENTOS) {
-    if (re.test(t)) {
+    // `cerca` monta a regex sem estado global, entao procurar a ultima ocorrencia
+    // e varrer o que sobra depois de cada casamento.
+    let de = 0;
+    let ultima = -1;
+    for (;;) {
+      const pedaco = t.slice(de);
+      const m = re.exec(pedaco);
+      if (!m) break;
+      const onde = de + (m.index ?? 0);
+      if (!negadoAntes(onde)) ultima = onde;
+      de = onde + Math.max(1, m[0].length);
+    }
+    if (ultima > ondeEstaOPagamento) {
+      ondeEstaOPagamento = ultima;
       dados.pagamento = forma;
-      break;
     }
   }
   if (Object.keys(dados).length) l.dados = dados;

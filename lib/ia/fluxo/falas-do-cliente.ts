@@ -147,12 +147,69 @@ export function saudacaoDaHora(agora = new Date()): string {
  * Devolve null pro que nao da pra entender. Null faz a padaria perguntar de
  * novo, que e melhor que anotar uma data inventada.
  */
+/**
+ * O NOME DO DIA DA SEMANA VIRA A PROXIMA DATA COM ESSE NOME.
+ *
+ * Resolve sempre no futuro. "Quarta" dita numa quarta e a quarta que vem: a
+ * padaria nao produz encomenda pro mesmo dia sem o cliente pedir.
+ *
+ * Devolve null quando a frase nao cita dia nenhum, e null aqui e certo: quem
+ * decide o que fazer com isso e `dataDeRetirada`.
+ */
+function diaDaSemanaViraData(texto: string, agora: Date): string | null {
+  const NOMES: Record<string, number> = {
+    domingo: 0, segunda: 1, terca: 2, quarta: 3, quinta: 4, sexta: 5, sabado: 6,
+  };
+  const limpo = String(texto || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/-?feira/g, " ")
+    .trim();
+  // Fronteira escrita com classe de caracter, e nao com o limite de palavra:
+  // o shell come a barra invertida e a regra para de casar sem dar erro.
+  const alvo = Object.keys(NOMES).find((d) =>
+    new RegExp("(^|[^a-z0-9])" + d + "([^a-z0-9]|$)").test(limpo),
+  );
+  if (!alvo) return null;
+
+  const hoje = new Date(agora.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  let passos = (NOMES[alvo] - hoje.getDay() + 7) % 7;
+  if (passos === 0) passos = 7;
+  hoje.setDate(hoje.getDate() + passos);
+
+  const dd = String(hoje.getDate()).padStart(2, "0");
+  const mm = String(hoje.getMonth() + 1).padStart(2, "0");
+  return dd + "/" + mm + "/" + hoje.getFullYear();
+}
+
 export function dataDeRetirada(bruto: string | null | undefined, agora = new Date()): string | null {
   const t = String(bruto ?? "").trim();
   if (!t) return null;
 
+  // "SEXTA" E "SABADO QUE VEM" E COMO SE MARCA ENCOMENDA NUMA PADARIA.
+  //
+  // Exigir 12/09 de quem fala assim transforma a atendente em formulario, que e
+  // exatamente o que a persona proibe.
+  //
+  // Isto existia no cerebro antigo e o fluxo nao tinha. Achado em 26/08/2026,
+  // no levantamento feito antes de apagar o antigo: quem escrevia "quero pra
+  // quarta-feira" recebia null, e a padaria perguntava a data de novo, de
+  // alguem que ja tinha respondido.
+  //
+  // Sempre pra frente: quem diz sexta numa sexta quer a sexta que vem, e marcar
+  // pra hoje sem ele pedir e erro que a cozinha paga.
+  //
+  // MAS O NUMERO GANHA DO NOME, SEMPRE.
+  //
+  // "quarta-feira, dia 27/08" tem os dois, e e assim que gente escreve. Eu
+  // tinha posto o nome na frente e o 27/08 era ignorado: a padaria anotava a
+  // proxima quarta em vez do dia que o cliente escreveu. Quebrou o
+  // `qa-pedido-completo` na hora, antes de chegar em qualquer cliente.
+  //
+  // O nome so vale quando numero nao ha.
   const m = t.match(/(\d{1,2})[/\-.](\d{1,2})(?:[/\-.](\d{2,4}))?/);
-  if (!m) return null;
+  if (!m) return diaDaSemanaViraData(t, agora);
 
   const dia = Number(m[1]);
   const mes = Number(m[2]);
