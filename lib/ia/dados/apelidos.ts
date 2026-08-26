@@ -57,7 +57,18 @@ export function nomePeloApelido(escrito: string): string | null {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase();
+      if (!a) continue;
       if (t === a) return nome;
+      // O APELIDO COSTUMA VIR COM O RECHEIO COLADO.
+      //
+      // Comparar a string inteira pegava "chique" e deixava passar "chique de
+      // frango", que é como o cliente escreve de verdade. Aí o nome errado
+      // chegava no motor de preço: medido em 25/08/2026, um pedido de R$ 381,30
+      // fechou por R$ 12.256,30 só nesse cenário.
+      //
+      // Vale quando o apelido ABRE a frase. No meio não: "torta de chique" não
+      // é quiche, e casar no meio inventa produto.
+      if (t.startsWith(a + " ")) return nome;
     }
   }
   return null;

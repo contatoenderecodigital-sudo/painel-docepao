@@ -421,6 +421,25 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       const produto = nomePeloApelido(nomeCru) ?? nomeCru;
       const categoria = categoriaDaEtapa(etapa, produto);
 
+      // O QUE SOBRA DO NOME E O RECHEIO, E ELE NAO PODE SUMIR.
+      //
+      // "chique de frango" vira o produto "quiche", e o "de frango" ficava pelo
+      // caminho: a comanda chegava na cozinha sem o recheio. Medido em
+      // 25/08/2026, em quatro dos cinco jeitos de falar.
+      let obsItem = i.obs ?? null;
+      {
+        const cru = nomeCru.toLowerCase().trim();
+        const curto = produto.toLowerCase().trim();
+        if (cru !== curto && cru.startsWith(curto)) {
+          const resto = nomeCru
+            .slice(produto.length)
+            .replace(/^\s*(de|da|do|com)\s+/i, "")
+            .trim();
+          const jaTem = String(obsItem ?? "").toLowerCase().includes(resto.toLowerCase());
+          if (resto && !jaTem) obsItem = [obsItem, resto].filter(Boolean).join(" | ");
+        }
+      }
+
       // O PESO DO BOLO E QUANTIDADE, NAO OBSERVACAO.
       //
       // "um bolo de 2 kg de 4 leites": o modelo manda qtd 1 e escreve "2 kg" na
@@ -439,7 +458,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
         produto,
         categoria,
         qtd,
-        obs: i.obs ?? null,
+        obs: obsItem,
       };
 
       // A busca pelo item que ja existe usa o nome NORMALIZADO, senao "chique"
