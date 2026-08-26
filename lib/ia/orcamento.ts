@@ -7,6 +7,7 @@
 // ============================================================================
 
 import catalogo from "./dados/catalogo.json";
+import { produtosDaCasa } from "./dados/produtos";
 import rendimentoJson from "./dados/rendimento.json";
 
 // O termo so conta quando nao esta negado: "sem topo", "nao quer papel de
@@ -374,27 +375,50 @@ export function formatarOrcamento(c: Cotacao, titulo = "Orçamento", paraOClient
 //  MOTOR PADRÃO (Doce Pão) — do catalogo.json. Usado quando o negócio não tem
 //  cardápio próprio no banco (fallback).
 // ---------------------------------------------------------------------------
+// A CATEGORIA QUE O ORÇAMENTO FALA.
+//
+// O sistema tem DOIS vocabulários de categoria, e isso é um defeito de verdade:
+// o orçamento diz "salgado", "doce", "bolo_recheado"; o pedido e a comanda dizem
+// "salgado_frito", "salgado_assado", "docinho", "bolo_festa". A lista única fala
+// o vocabulário do pedido, porque é ele que decide a bancada.
+//
+// Aqui a tradução fica em UM lugar visível, em vez de espalhada por dezessete
+// leitores. Unificar os dois vocabulários de vez muda a comanda de cozinha, e
+// isso é uma decisão separada, tomada de olho aberto. Está anotada no
+// O-QUE-FALTA. Enquanto não for tomada, o orçamento continua respondendo
+// exatamente o que sempre respondeu, e `testes/o-catalogo-nao-mudou-preco.cjs`
+// é a prova disso.
+const CATEGORIA_NO_ORCAMENTO: Record<string, string> = {
+  salgado_frito: "salgado",
+  salgado_assado: "salgado",
+  docinho: "doce",
+  bolo_festa: "bolo_recheado",
+};
+
 function produtosDoCatalogo(): Produto[] {
   const p: Produto[] = [];
   // Genéricos primeiro: o "por pessoas" sugere salgado sem discriminar o tipo.
   p.push({ nome: "salgado frito", preco: catalogo.salgados.frito.preco, categoria: "salgado" });
   p.push({ nome: "salgado assado", preco: catalogo.salgados.assado.preco, categoria: "salgado" });
-  // Cada tipo pelo nome, pra precificar pedido discriminado (ex: "100 coxinha").
-  // Frito e assado têm preço de linha (o sabor não muda o valor).
-  for (const it of catalogo.salgados.frito.itens)
-    p.push({ nome: it.nome, preco: catalogo.salgados.frito.preco, categoria: "salgado" });
-  for (const it of catalogo.salgados.assado.itens)
-    p.push({ nome: it.nome, preco: catalogo.salgados.assado.preco, categoria: "salgado" });
-  for (const d of catalogo.doces.itens) p.push({ nome: d.nome, preco: d.preco, categoria: "doce" });
-  // Bolos recheados são vendidos POR QUILO (unidade kg): qtd = peso em kg.
+
+  // TUDO O QUE A CASA VENDE, da lista única. Nome, preço, unidade e categoria
+  // saem de lá: aqui não se interpreta mais o catálogo, só se traduz a palavra
+  // da categoria e se acrescenta o que só o orçamento usa.
+  for (const c of produtosDaCasa()) {
+    p.push({
+      nome: c.nome,
+      preco: c.preco,
+      categoria: CATEGORIA_NO_ORCAMENTO[c.categoria] ?? c.categoria,
+      unidade: c.unidade,
+    });
+  }
+
+  // A FAIXA DE PESO COMO NOME PRÓPRIO. Não é produto, é o jeito de o cliente
+  // pedir sem escolher sabor ("um bolo recheado de 2 kg"). Por isso não está na
+  // lista única: lá só entra o que a casa vende com nome e preço.
   for (const f of catalogo.bolos_recheados.faixas) {
     p.push({ nome: "bolo recheado " + f.faixa.toLowerCase(), preco: f.preco, categoria: "bolo_recheado", unidade: "kg" });
-    for (const s of f.sabores) p.push({ nome: "bolo " + s, preco: f.preco, categoria: "bolo_recheado", unidade: "kg" });
   }
-  for (const b of catalogo.bolos_caseiros.itens)
-    p.push({ nome: "bolo caseiro " + b.nome, preco: b.preco, categoria: "bolo_caseiro" });
-  p.push({ nome: "pizza inteira", preco: catalogo.pizza.inteira.preco, categoria: "pizza" });
-  p.push({ nome: "pizza meia", preco: catalogo.pizza.meia.preco, categoria: "pizza" });
   // CADA SABOR DE PIZZA COM NOME PROPRIO, igual ao bolo recheado.
   //
   // Teste ao vivo de 21/08/2026: "2 calabresa e 1 de frango com catupiry"
@@ -410,11 +434,6 @@ function produtosDoCatalogo(): Produto[] {
   ]) {
     p.push({ nome: "pizza inteira " + String(s).toLowerCase(), preco: catalogo.pizza.inteira.preco, categoria: "pizza" });
     p.push({ nome: "pizza meia " + String(s).toLowerCase(), preco: catalogo.pizza.meia.preco, categoria: "pizza" });
-  }
-  // Produtos novos (tortas, empadão, bolo salgado, cupcake, franciscano, pão francês),
-  // cada um com sua unidade (kg pros por quilo, un pros por unidade).
-  for (const o of catalogo.outros_produtos) {
-    p.push({ nome: o.nome, preco: o.preco, categoria: o.categoria, unidade: o.unidade as "un" | "kg" });
   }
   return p;
 }
