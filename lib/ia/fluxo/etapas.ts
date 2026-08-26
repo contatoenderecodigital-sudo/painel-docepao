@@ -351,14 +351,22 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // topo for sim. Responder "nao" tambem cumpre: o que nao pode e ficar sem
     // resposta.
     cumprida: (p) => {
-      // DETALHE OPCIONAL NAO SEGURA PEDIDO COMPLETO.
+      // PERGUNTAR UMA VEZ, SIM. REPETIR, NUNCA.
       //
-      // Consertei o prato e a conversa travou no topo, que e o degrau seguinte
-      // e tem o mesmo bloqueio. Corrigir degrau por degrau nao termina: a regra
-      // vale para a classe. Quem ja disse item, data, hora, nome e pagamento
-      // nao fica preso por topo nem por papel de arroz que ele nunca foi
-      // perguntado. Os dois continuam sendo perguntados no caminho normal.
-      if (jaTemOsDados(p) && (p.pecas?.topo == null || p.pecas?.papelDeArroz == null)) return true;
+      // Aqui houve um atalho que dizia: quem ja informou data, hora, nome e
+      // pagamento nao fica preso por topo nem por papel de arroz. Ele nasceu
+      // certo, pra destravar o pedido que nunca fechava, mas fazia demais:
+      // quem mandava tudo de uma vez NUNCA era perguntado, e o papel de arroz,
+      // que custa R$ 12 e a padaria vende, simplesmente nao era oferecido.
+      //
+      // Regra do dono, 26/08/2026: "ele precisa pedir se a pessoa nao falar que
+      // quer. Se ela ja afirmou que quer sem ou com papel de arroz ou sem ou
+      // com topo, nao pode refazer a mesma pergunta."
+      //
+      // Entao o que segura a etapa e a PERGUNTA NAO FEITA, e nao o dado que
+      // falta. Quem ja respondeu, escrevendo ou no botao, passa direto: o
+      // leitor da frase entende "sem topo e sem papel de arroz" e ja marca os
+      // dois, entao responder por texto vale igual a tocar no botao.
       if (p.pecas?.topo == null || p.pecas?.papelDeArroz == null) return false;
       // Sem topo e sem papel nao ha peca personalizada: acabou aqui.
       if (p.pecas.topo === false && p.pecas.papelDeArroz === false) return true;

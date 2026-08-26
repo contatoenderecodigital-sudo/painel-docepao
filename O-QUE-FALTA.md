@@ -21,6 +21,35 @@ painel**.
 | leitor da frase (`fluxo/leitor-da-frase.ts`) | 7/7 nas frases reais |
 | item guardado quando citado fora da hora | verificado no banco |
 | detector de barra comida (`testes/regex-com-barra-comida.cjs`) | 8/8 na isca |
+| **o portão fecha e passa inteiro** | **63 de 63 verdes** |
+
+**O PORTÃO VOLTOU A SER PORTÃO** (26/08/2026). Ele não terminava: o
+`pausa-nao-vaza` abre SSH pro VPS e não tinha prazo, e prendeu duas rodadas
+inteiras por mais de meia hora cada, com os trinta testes seguintes nunca
+rodando. Agora cada teste tem dois minutos, travado aparece como `TRAVOU`
+(separado de `FALHOU`, porque quase sempre é rede e não defeito), e os quatro
+que falam com o VPS saíram para a lista de instrumento:
+
+```
+node testes/pausa-nao-vaza.cjs
+node testes/qa-conversa.cjs
+node testes/qa-concorrencia.cjs
+node testes/guardar-conversas.cjs
+```
+
+**Seis defeitos de dinheiro, medidos e consertados na mesma sessão:**
+
+| o cliente pede | a padaria cobra | o sistema cobrava |
+| --- | --- | --- |
+| bolo de café | R$ 35,90 | R$ 1,25, cotava o **docinho** |
+| bolo prestígio com ganache | R$ 33,90 a un | R$ 46,90 o **quilo** (o de festa) |
+| bolo banana caramelizada | R$ 30,90 | R$ 34,90, cotava a **laranja** |
+| cupcake pequeno recheado | R$ 3,00 | R$ 2,00 |
+| cupcake grande recheado | R$ 7,00 | R$ 5,00 |
+| bolo misto com **biz** | R$ 49,90/kg | R$ 46,90/kg |
+
+O do biz é o mais fácil de repetir: o filtro de sabores exigia **mais de três
+letras** e "biz" tem três. Era o único sabor do cardápio afetado.
 
 **Bateria dos cinco jeitos: `pass^5` = 4 de 5.** Rodar com
 `node testes/medidor.cjs 5 "cinco jeitos"`.

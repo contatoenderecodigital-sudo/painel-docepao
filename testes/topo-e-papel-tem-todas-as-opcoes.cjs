@@ -79,13 +79,19 @@ fs.writeFileSync(
     "      dados:{nome:null,data:null,hora:null,pagamento:null} }),",
     "    metadeOutroLado: etapa.cumprida({ ...com({ pecas:{topo:true,papelDeArroz:null} }),",
     "      dados:{nome:null,data:null,hora:null,pagamento:null} }),",
-    "    // DETALHE OPCIONAL NAO SEGURA PEDIDO COMPLETO.",
+    "    // PERGUNTAR UMA VEZ, SIM. REPETIR, NUNCA.",
     "    //",
-    "    // Quem ja disse item, data, hora, nome e pagamento nao fica preso por",
-    "    // topo nem por papel de arroz que ele nunca foi perguntado. Foi o",
-    "    // conserto do pedido que nao fechava, e vale pra classe toda dos",
-    "    // detalhes opcionais, nao so pro topo.",
+    "    // Regra do dono, 26/08/2026. Aqui a base ja tem nome, data, hora e",
+    "    // pagamento: e o cliente que mandou TUDO numa mensagem so. Mesmo",
+    "    // assim a etapa NAO pode se dar por cumprida, porque ele nunca foi",
+    "    // perguntado do papel de arroz, que custa R$ 12 e a padaria vende.",
+    "    //",
+    "    // Existia um atalho aqui que dizia o contrario, e ele nasceu certo:",
+    "    // era o conserto do pedido que nunca fechava. So que fazia demais, e",
+    "    // a oferta deixava de acontecer.",
     "    completoSemAsPecas: etapa.cumprida(com({ pecas:null })),",
+    "    // E o outro lado da mesma regra: quem JA respondeu nao ouve de novo.",
+    "    completoComAsPecasRespondidas: etapa.cumprida(com({ pecas:{topo:false,papelDeArroz:false} })),",
     "    topoSemNome: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:true}, tema:'Minnie' })),",
     "    papelSemTema: etapa.cumprida(com({ pecas:{topo:false,papelDeArroz:true} })),",
     "  },",
@@ -173,7 +179,8 @@ if (/topo/i.test(r.temaDoPapel.texto)) {
 
 // ---------------------------------------- as quatro combinacoes existem
 const esperado = { osDois: true, soTopo: true, soPapel: true, nenhum: true,
-  metade: false, metadeOutroLado: false, completoSemAsPecas: true,
+  metade: false, metadeOutroLado: false,
+  completoSemAsPecas: false, completoComAsPecasRespondidas: true,
   topoSemNome: false, papelSemTema: false };
 for (const [caso, deve] of Object.entries(esperado)) {
   if (r.cumpre[caso] !== deve) {
