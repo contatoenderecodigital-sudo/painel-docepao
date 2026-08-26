@@ -97,13 +97,83 @@ certo?" e **não anota nada**. Se a conversa cair ali, não sobra registro. É o
   Não existe no fluxograma da Kemilly, mas o código pergunta.
 - **papel de arroz antes do topo**, como no fluxograma? Hoje pergunta topo antes.
 
+### 5. O que a dona falou nos áudios e o sistema não sabe
+
+Levantado em 26/08/2026 lendo as 55 transcrições em
+`Desktop/EnderecoDigital/clientes/padariadocepao/audios/`. Tudo abaixo é fala
+dela, com o arquivo de origem.
+
+**Preço beneficente, por unidade.** *"quando a pessoa pedir um desconto, ou
+falar que é beneficente, ou até pedir uma ajuda, a gente já cobra unidade. O
+cachorro-quente, R$ 1,20 e o pão de X, R$ 1,40"*. E quem decide é a casa: *"deixa
+eu ver a possibilidade de um desconto, eu já te retorno"*. Hoje esses valores
+estão no catálogo só como anotação: a IA não sabe que existem nem que é caso de
+equipe. Se alguém escrever "é pra igreja, tem desconto?", ela não trata.
+
+**A bancada certa por produto.** *"a gente separaria só pão francês, que seria
+para a padaria, cuca e pão de xis, pão de cachorro quente"*, e *"só o padeiro que
+é outra sala"*. Isso muda para onde o pedido é impresso. Exceção dita por ela:
+*"quando é o mini xis, é o salgadeiro que faz, lá na parte da confeitaria"*.
+
+**Grupo de pães no catálogo.** A peça de cardápio que o cliente recebe JÁ é
+separada (`cucas-paes.jpg`, uma das oito em `public/cardapios/`). O catálogo
+interno não: cuca, pão francês, pão de X, pão doce e cachorro-quente estão em
+`outros_produtos`, misturados com calzone, torta e papel de arroz. **A peça que
+o cliente vê e o dado que a IA usa deviam bater.**
+
+**Comanda separada por família.** *"Se a pessoa pedir um cupcake, vai ser outra
+comandinha. Se ela pedir um bolo salgado, vai ser outra comanda."*
+
+**A lista de sabor é ABERTA.** Sobre o cupcake: *"coloca só esses dois sabores,
+quatro leites e brigadeiro, a princípio. Aí, se o cliente pedir outro sabor, a
+gente vai colocando"*. Hoje o sistema recusa o que não está no catálogo. A
+resposta da casa não é "não temos", é "a gente vai colocando".
+
+**Cachorro-quente tem três tamanhos, não dois.** *"o pequenininho, que é o de
+mini bisnaguinha... a gente faz o médio e faz o grande"*. O catálogo tem
+`cachorro-quente mini` e `cachorro-quente` com nota "médio e grande". O preço é o
+mesmo para médio e grande, então funciona, mas o cliente pode pedir pelo nome.
+
+### 6. O catálogo não tem um formato só
+
+É a raiz das exceções no código, e enquanto for assim a IA vai precisar de
+remendo por melhor que o código seja.
+
+- **dois nomes de campo para a mesma ideia**: `recheio` (singular, já vem pronto)
+  e `recheios` (plural, pergunta qual). Um "s" muda o comportamento, e isso não
+  está escrito em lugar nenhum
+- **preço em dois níveis**: salgado não tem preço no item, tem no grupo (frito
+  R$ 1,00, assado R$ 1,25). Todo o resto tem no item
+- **campo ausente com dois significados**: `sabores` faltando quer dizer "não tem
+  sabor" na maioria, e "ninguém cadastrou" em outros
+- **quatro campos usados uma vez só**, todos na pizza redonda: `sabores_ate`,
+  `peso_minimo`, `peso_tipico_kg`, `valor_tipico`
+
+Formato único proposto: `nome · preço · unidade · categoria · bancada ·
+sabores[] · sabor_fixo`. O código passa a ter UMA regra: se `sabores` tem itens e
+`sabor_fixo` é não, pergunta.
+
+### 7. Rastro de origem faltando em 11 produtos
+
+Doze dos 23 de `outros_produtos` têm `_nota` dizendo de qual áudio o preço veio.
+Onze não têm nada: torta fria, empadão, torta doce, torta especial, bolo salgado,
+cupcake pequeno recheado, cupcake grande recheado, franciscano, pão francês,
+cachorro-quente mini, pão de X.
+
+**Eu cheguei a concluir que era dado inventado. Estava errado**: conferi nos
+áudios e os preços batem com a fala da dona. O que falta é a nota escrita, igual
+os outros doze têm. É rastro faltando, não dado faltando.
+
+Vale a varredura completa das 55 transcrições contra o catálogo, porque os
+áudios têm mais informação do que o catálogo absorveu.
+
 ---
 
 ## DEPOIS — o atendimento no painel ("WhatsApp 2")
 
 Combinado com o dono: só entra depois que o cérebro estiver fechado.
 
-### 5. Recibo de entrega e leitura nunca gravou
+### 8. Recibo de entrega e leitura nunca gravou
 
 As colunas `entregue_em` e `lida_em` existem e estão **vazias**. Na única
 conversa real: 25 mensagens da IA, 21 com id do WhatsApp, 0 com recibo.
@@ -116,23 +186,23 @@ para saber sem instrumentar**, porque o erro hoje é engolido por um `catch`
 vazio. Primeiro passo, barato: registrar todo evento de status com o id e se o
 UPDATE pegou. Uma conversa real depois disso responde.
 
-### 6. Marcar lida e "digitando" dá 400
+### 9. Marcar lida e "digitando" dá 400
 
 `#131009 Parameter value is not valid` no log. Pode ser efeito dos testes (o
 script inventa id falso e a Meta recusa) ou defeito de verdade. **Só uma
 conversa real separa os dois.**
 
-### 7. Nenhuma tela mostra recibo
+### 10. Nenhuma tela mostra recibo
 
 Mesmo que os dados passem a gravar, ninguém vê. O tique cinza, o tique azul e a
 mensagem citada aparecendo acima da resposta são a metade visível do trabalho.
 
-### 8. Erro engolido em silêncio
+### 11. Erro engolido em silêncio
 
 O `.catch(() => {})` do recibo é o motivo de isso passar meses sem aparecer.
 Vale varrer o resto do código atrás do mesmo padrão.
 
-### 9. O que a Meta dá e não usamos
+### 12. O que a Meta dá e não usamos
 
 Detalhado em `WHATSAPP-O-QUE-A-META-DA.md`. Decisão de negócio, não pendência:
 lista de até 10 opções (hoje só botão, limite 3), botão de link, catálogo e
