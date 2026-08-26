@@ -408,9 +408,9 @@
   "unidade": "un"
  },
  "cupcake pequeno recheado": {
-  "item": "cupcake pequeno",
+  "item": "cupcake pequeno recheado",
   "categoria": "cupcake",
-  "unit": 2,
+  "unit": 3,
   "unidade": "un"
  },
  "cupcake grande": {
@@ -420,9 +420,9 @@
   "unidade": "un"
  },
  "cupcake grande recheado": {
-  "item": "cupcake grande",
+  "item": "cupcake grande recheado",
   "categoria": "cupcake",
-  "unit": 5,
+  "unit": 7,
   "unidade": "un"
  },
  "franciscano": {

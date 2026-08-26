@@ -133,10 +133,27 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
       // "bolo de brigadeiro" precisa virar "bolo brigadeiro" antes de qualquer
       // busca. Sem isso o "de" atrapalha o casamento e sobra só "brigadeiro",
       // que existe como docinho de R$ 1,25: o bolo de 2 kg virava R$ 2,50.
-      const chave = norm(item)
+      // O PRODUTO QUE EXISTE COM ESSE NOME VEM PRIMEIRO.
+      //
+      // Cortar " recheado" do fim serve pro bolo: o cliente diz "bolo laka
+      // recheado" e o cardapio tem "bolo laka". Mas o corte era cego, e havia
+      // produto cujo nome TERMINA em "recheado":
+      //
+      //   "cupcake pequeno recheado" custa R$ 3,00 e virava "cupcake pequeno",
+      //   de R$ 2,00. O grande, de R$ 7,00, virava o de R$ 5,00.
+      //
+      // Cobrava a menos, calado, e ninguem via porque o produto certo existia:
+      // so nunca era alcancado. A prova esta na foto dos precos, que congelou o
+      // defeito, e no plural: "cupcake pequeno recheados" cotava certo, porque
+      // o "s" no fim salvava o nome do corte.
+      //
+      // Agora o corte so acontece quando o nome inteiro nao e produto nenhum.
+      const semArrumar = norm(item)
         .replace(/^bolo (de |do |da )/, "bolo ")
-        .replace(/^torta (de |do |da )/, "torta ")
-        .replace(/ recheado$| de festa$| de anivers[áa]rio$/, "");
+        .replace(/^torta (de |do |da )/, "torta ");
+      const chave = PRECOS[semArrumar]
+        ? semArrumar
+        : semArrumar.replace(/ recheado$| de festa$| de anivers[áa]rio$/, "");
       // Bolo disfarçado de docinho: tenta o mesmo sabor na família dos bolos.
       if (obs && MARCA_DE_BOLO.test(obs) && !chave.startsWith("bolo")) {
         const comoBolo =
