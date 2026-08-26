@@ -30,6 +30,44 @@ Casos que sobram de verdade: **brigadeiro** (docinho, bolo de festa, pizza doce)
 **café** (docinho e bolo caseiro) e **prestígio** (bolo de festa e pizza doce).
 Os outros 6 são recheio de salgado e o produto já desempata.
 
+### 1b. Os doze casos que viram pergunta
+
+Fechado com o dono em 26/08/2026. Três motivos diferentes, e o segundo foi
+correção dele: **preço igual não quer dizer produto igual**, porque a cozinha
+produz coisas diferentes.
+
+**Muda o preço (5):** cuca / cuca recheada · empadão / com palmito · torta fria /
+com palmito · cachorro-quente / mini · mini bolha / mini bolha doce
+
+**Muda o que a cozinha faz, mesmo preço (4):** leite ninho / com avelã ·
+cupcake pequeno / recheado · cupcake grande / recheado · bolo brigadeiro / com
+maracujá
+
+**Existe em seções diferentes (3):** brigadeiro (docinho, bolo de festa, pizza
+doce) · café (docinho, bolo caseiro) · prestígio (bolo de festa, pizza doce)
+
+### 1c. Tirar as três exceções indevidas da guarda
+
+Existe uma guarda que pergunta "o cliente realmente pediu isso, ou a IA
+inventou?". Ela tem uma lista de exceções, e três delas **não são sinônimo, são
+outro produto**:
+
+```
+"cuca recheada"          liberado quando o cliente escreve  "cuca"       +R$ 4,00
+"empadao com palmito"    liberado quando o cliente escreve  "empadao"    +R$ 5,00
+"torta fria com palmito" liberado quando o cliente escreve  "torta fria" +R$ 3,00
+```
+
+A guarda foi ensinada a deixar passar a troca por um produto mais caro, sem
+ninguém perguntar. A lista nasceu certa (o cliente escreve "de forma" e o
+cardápio diz "pizza inteira"), mas esses três entraram por engano.
+
+E há uma contradição em cima disso: **o motor de preço ignora a lista** e cobra
+a cuca simples. A guarda libera a troca pela recheada e o preço cobra a simples.
+As duas metades discordam, e nada media isso.
+
+Sem tirar da guarda, corrigir só de um lado não resolve.
+
 ### 2. Os dois jeitos de falar que ainda falham
 
 `pass^5` do medidor deu **3 de 5**. Os instáveis:
