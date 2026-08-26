@@ -32,11 +32,8 @@ import catalogo from "../dados/catalogo.json";
 import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitura } from "./leitura";
-import {
-  juntarComAFrase,
-  separarProdutoERecheio,
-  itensDeOutraEtapaNaFrase,
-} from "./leitor-da-frase";
+import { juntarComAFrase, itensDeOutraEtapaNaFrase } from "./leitor-da-frase";
+import { identificarProduto } from "./produto";
 import { nomePeloApelido } from "../dados/apelidos";
 import { calcularBase } from "./base";
 import { motorPadrao, brl } from "../orcamento";
@@ -462,13 +459,23 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       //
       // Agora a separacao e feita contra o CARDAPIO, que e quem sabe onde o
       // nome do produto termina.
-      const separado = separarProdutoERecheio(String(i.produto));
-      const produto = separado.produto;
+      // UM NOME SO POR PRODUTO, decidido num lugar so (fluxo/produto.ts).
+      //
+      // Antes cada caminho escrevia do seu jeito: o modelo mandava "bolo 4
+      // leites", o guardado mandava "4 leites", e os dois eram o mesmo bolo. A
+      // comparacao falhava, o item entrava duas vezes e o cupom saiu com
+      // "misto: bolo 4 leites e 4 leites". Medido na bateria dos cinco jeitos.
+      //
+      // A etapa entra como dica pra desempatar quem existe em dois lugares:
+      // "brigadeiro" na etapa do bolo e bolo, na do docinho e docinho.
+      const dica = categoriaDaEtapa(etapa, String(i.produto));
+      const quem = identificarProduto(String(i.produto), dica);
+      const produto = quem.produto;
       const categoria = categoriaDaEtapa(etapa, produto);
 
       let obsItem = i.obs ?? null;
-      if (separado.recheio && !String(obsItem ?? "").toLowerCase().includes(separado.recheio)) {
-        obsItem = [obsItem, separado.recheio].filter(Boolean).join(" | ");
+      if (quem.recheio && !String(obsItem ?? "").toLowerCase().includes(quem.recheio)) {
+        obsItem = [obsItem, quem.recheio].filter(Boolean).join(" | ");
       }
 
       // O PESO DO BOLO E QUANTIDADE, NAO OBSERVACAO.
@@ -579,7 +586,10 @@ export async function responder(
     )
       .filter((p) => !(limpa.itens ?? []).some((i) => i.produto.toLowerCase() === p.produto.toLowerCase()))
       // Ja esta no pedido, mesmo escrito de outro jeito? Entao nao guarda.
-      .filter((p) => !jaTemEsseProduto(estado.itens, p.produto));
+      .filter((p) => !jaTemEsseProduto(estado.itens, p.produto))
+      // Guarda ja com o nome canonico. Estacionar "4 leites" e aplicar como
+      // "bolo 4 leites" era a origem do mesmo bolo com dois nomes.
+      .map((p) => ({ ...p, produto: identificarProduto(p.produto).produto }));
     if (doTextoParaDepois.length) {
       paraDepois.push(...doTextoParaDepois);
       rastro.push("achei na frase, o modelo nao leu: " + doTextoParaDepois.map((d) => d.produto).join(", "));
