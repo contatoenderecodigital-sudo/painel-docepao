@@ -1,242 +1,241 @@
 # O que falta fazer
 
-Aberto em 26/08/2026. **Regra deste arquivo: nada sai daqui sem estar medido.**
-Não basta commitar e deployar; só sai quando o estado do banco provar.
+Atualizado em 26/08/2026, ao fim da sessão. **Regra deste arquivo: nada sai
+daqui sem estar medido.** Commitar e deployar não conta; só o estado do banco
+prova.
 
 Ordem combinada com o dono: **primeiro o cérebro e o atendimento da IA, depois o
-painel.**
+painel**.
 
 ---
 
-## AGORA — o cérebro da IA
+## ONDE PARAMOS
 
-### 1. Ambiguidade de sabor  ⟵ o dono está montando o desenho
+**No ar e medido** (container e HEAD conferidos iguais):
 
-A varredura está em `SABORES-E-AMBIGUIDADES.md`: 117 nomes, 9 ambíguos, 108
-únicos, e 31 que são pedaço de outro nome.
-
-Regras já combinadas, em ordem de precedência:
-
-1. cliente **citou** uma mensagem → o assunto dela manda (hoje é só dica de
-   prompt, precisa virar regra de código)
-2. a **etapa** da conversa manda (já existe em parte)
-3. **nome único** no cardápio → conclui sozinha, são 108 dos 117
-4. **quantidade acima de 6** não é bolo. O número vem do cardápio: o maior bolo
-   da casa tem 6 kg (redondo até 5,5, quadrado até 6). "50 brigadeiro" é docinho
-5. só depois de tudo isso, **pergunta mostrando preço e unidade**:
-   "brigadeiro docinho, R$ 1,25 cada, ou bolo de brigadeiro por quilo?"
-
-Casos que sobram de verdade: **brigadeiro** (docinho, bolo de festa, pizza doce),
-**café** (docinho e bolo caseiro) e **prestígio** (bolo de festa e pizza doce).
-Os outros 6 são recheio de salgado e o produto já desempata.
-
-### 1b. Os doze casos que viram pergunta
-
-Fechado com o dono em 26/08/2026. Três motivos diferentes, e o segundo foi
-correção dele: **preço igual não quer dizer produto igual**, porque a cozinha
-produz coisas diferentes.
-
-**Muda o preço (5):** cuca / cuca recheada · empadão / com palmito · torta fria /
-com palmito · cachorro-quente / mini · mini bolha / mini bolha doce
-
-**Muda o que a cozinha faz, mesmo preço (4):** leite ninho / com avelã ·
-cupcake pequeno / recheado · cupcake grande / recheado · bolo brigadeiro / com
-maracujá
-
-**Existe em seções diferentes (3):** brigadeiro (docinho, bolo de festa, pizza
-doce) · café (docinho, bolo caseiro) · prestígio (bolo de festa, pizza doce)
-
-### 1c. Tirar as três exceções indevidas da guarda
-
-Existe uma guarda que pergunta "o cliente realmente pediu isso, ou a IA
-inventou?". Ela tem uma lista de exceções, e três delas **não são sinônimo, são
-outro produto**:
-
-```
-"cuca recheada"          liberado quando o cliente escreve  "cuca"       +R$ 4,00
-"empadao com palmito"    liberado quando o cliente escreve  "empadao"    +R$ 5,00
-"torta fria com palmito" liberado quando o cliente escreve  "torta fria" +R$ 3,00
-```
-
-A guarda foi ensinada a deixar passar a troca por um produto mais caro, sem
-ninguém perguntar. A lista nasceu certa (o cliente escreve "de forma" e o
-cardápio diz "pizza inteira"), mas esses três entraram por engano.
-
-E há uma contradição em cima disso: **o motor de preço ignora a lista** e cobra
-a cuca simples. A guarda libera a troca pela recheada e o preço cobra a simples.
-As duas metades discordam, e nada media isso.
-
-Sem tirar da guarda, corrigir só de um lado não resolve.
-
-### 2. Os dois jeitos de falar que ainda falham
-
-`pass^5` do medidor deu **3 de 5**. Os instáveis:
-
-| jeito | resultado |
+| feito | prova |
 | --- | --- |
-| tudo numa mensagem só | 3/5 |
-| três respostas na mesma frase | 1/5 |
+| nome canônico do produto (`fluxo/produto.ts`) | pass^5 subiu de 3/5 para 4/5 |
+| papel de arroz perguntado antes do topo | conferido em produção |
+| 3 exceções tiradas da guarda de apelidos | 7 casos testados |
+| leitor da frase (`fluxo/leitor-da-frase.ts`) | 7/7 nas frases reais |
+| item guardado quando citado fora da hora | verificado no banco |
+| detector de barra comida (`testes/regex-com-barra-comida.cjs`) | 8/8 na isca |
 
-Nos dois o pedido monta quase certo e **não fecha**. Nenhum fechou com valor
-errado.
+**Bateria dos cinco jeitos: `pass^5` = 4 de 5.** Rodar com
+`node testes/medidor.cjs 5 "cinco jeitos"`.
 
-**Pista concreta, não palpite:** nas execuções que passam o bolo entra como
-`bolo 4 leites` com obs `2 kg`. Nas que falham entra como `4 leites`, sem
-prefixo e sem observação. São dois caminhos escrevendo nomes diferentes para o
-mesmo bolo: o do modelo e o do "guardado".
+```
+tudo numa mensagem só          5/5
+uma coisa por mensagem         5/5
+com erro de digitação          5/5
+mudando de ideia no meio       5/5
+três respostas na mesma frase  0/5   <- o único vermelho
+```
 
-### 3. A IA confirma em vez de anotar
+---
 
-Quando o cliente diz tudo numa mensagem, às vezes ela responde "você quer X,
-certo?" e **não anota nada**. Se a conversa cair ali, não sobra registro. É o
-`qa-concorrencia` vermelho, e é da mesma família do quiche que sumia.
+## 1. O CENÁRIO 3, único vermelho da bateria
 
-### 4. Duas decisões do dono, ainda sem resposta
+Frase: `"50 brigadeiro, forminha rosa, e um bolo de 2 kg de 4 leites"`.
+Falha nas cinco execuções, de dois jeitos alternados:
 
-- manter ou tirar a pergunta do **prato** (MDF aberto ou embalagem com tampa).
-  Não existe no fluxograma da Kemilly, mas o código pergunta.
-- **papel de arroz antes do topo**, como no fluxograma? Hoje pergunta topo antes.
+```
+3 de 5:  100 coxinha | 100 quiche | 50 brigadeiro (rosa)     <- faltou o bolo
+2 de 5:  100 coxinha | 100 quiche | 2 bolo 4 leites (2 kg)   <- faltou o brigadeiro
+```
 
-### 5. O que a dona falou nos áudios e o sistema não sabe
+**Um ou o outro, nunca os dois.** A mensagem tem um docinho e um bolo, e só um
+sobrevive. É disputa entre o caminho normal e o do "guardado": os dois escrevem
+em `limpa.itens` e um substitui a lista em vez de somar. Olhar em
+`lib/ia/fluxo/fluxo.ts`, no bloco que aplica `estado.guardados`.
 
-Levantado em 26/08/2026 lendo as 55 transcrições em
-`Desktop/EnderecoDigital/clientes/padariadocepao/audios/`. Tudo abaixo é fala
-dela, com o arquivo de origem.
+Piorou de 1/5 para 0/5 com o nome canônico, e faz sentido: agora o bolo é sempre
+reconhecido, então a disputa acontece sempre.
 
-**Preço beneficente, por unidade.** *"quando a pessoa pedir um desconto, ou
-falar que é beneficente, ou até pedir uma ajuda, a gente já cobra unidade. O
-cachorro-quente, R$ 1,20 e o pão de X, R$ 1,40"*. E quem decide é a casa: *"deixa
-eu ver a possibilidade de um desconto, eu já te retorno"*. Hoje esses valores
-estão no catálogo só como anotação: a IA não sabe que existem nem que é caso de
-equipe. Se alguém escrever "é pra igreja, tem desconto?", ela não trata.
+## 2. Padronizar o catálogo  ⟵ COMEÇADO, NÃO TERMINADO
 
-**A bancada certa por produto.** *"a gente separaria só pão francês, que seria
-para a padaria, cuca e pão de xis, pão de cachorro quente"*, e *"só o padeiro que
-é outra sala"*. Isso muda para onde o pedido é impresso. Exceção dita por ela:
-*"quando é o mini xis, é o salgadeiro que faz, lá na parte da confeitaria"*.
+Pedido explícito do dono: padronizar tudo (comanda, cérebro, código, IA, a tela
+onde a dona edita). É a raiz das exceções no código.
 
-**Grupo de pães no catálogo.** A peça de cardápio que o cliente recebe JÁ é
-separada (`cucas-paes.jpg`, uma das oito em `public/cardapios/`). O catálogo
-interno não: cuca, pão francês, pão de X, pão doce e cachorro-quente estão em
-`outros_produtos`, misturados com calzone, torta e papel de arroz. **A peça que
-o cliente vê e o dado que a IA usa deviam bater.**
+**Já feito:** foto de segurança da cotação de **83 produtos** em
+`.tmp-pad/ANTES.json` (pasta temporária, refazer se sumir). A regra da mudança é
+que **nenhum preço pode mudar**, e isso se prova comparando a cotação de cada
+produto antes e depois.
 
-**Comanda separada por família.** *"Se a pessoa pedir um cupcake, vai ser outra
-comandinha. Se ela pedir um bolo salgado, vai ser outra comanda."*
+**Bug que a foto achou:** `café` não tem cotação nenhuma. Existe como docinho
+(R$ 1,25) e como bolo caseiro (R$ 35,90), e o motor não escolhe: a linha sai sem
+preço.
 
-**A lista de sabor é ABERTA.** Sobre o cupcake: *"coloca só esses dois sabores,
-quatro leites e brigadeiro, a princípio. Aí, se o cliente pedir outro sabor, a
-gente vai colocando"*. Hoje o sistema recusa o que não está no catálogo. A
-resposta da casa não é "não temos", é "a gente vai colocando".
+**O que está errado hoje no `lib/ia/dados/catalogo.json`:**
 
-**Cachorro-quente tem três tamanhos, não dois.** *"o pequenininho, que é o de
-mini bisnaguinha... a gente faz o médio e faz o grande"*. O catálogo tem
-`cachorro-quente mini` e `cachorro-quente` com nota "médio e grande". O preço é o
-mesmo para médio e grande, então funciona, mas o cliente pode pedir pelo nome.
-
-### 6. O catálogo não tem um formato só
-
-É a raiz das exceções no código, e enquanto for assim a IA vai precisar de
-remendo por melhor que o código seja.
-
-- **dois nomes de campo para a mesma ideia**: `recheio` (singular, já vem pronto)
-  e `recheios` (plural, pergunta qual). Um "s" muda o comportamento, e isso não
-  está escrito em lugar nenhum
+- **dois nomes de campo para a mesma ideia**: `recheio` (singular, já vem pronto,
+  não pergunta) e `recheios` (plural, pergunta qual). Um "s" muda o
+  comportamento e isso não está escrito em lugar nenhum
 - **preço em dois níveis**: salgado não tem preço no item, tem no grupo (frito
   R$ 1,00, assado R$ 1,25). Todo o resto tem no item
 - **campo ausente com dois significados**: `sabores` faltando quer dizer "não tem
-  sabor" na maioria, e "ninguém cadastrou" em outros
-- **quatro campos usados uma vez só**, todos na pizza redonda: `sabores_ate`,
+  sabor" na maioria e "ninguém cadastrou" em outros
+- **quatro campos usados uma vez só**, na pizza redonda: `sabores_ate`,
   `peso_minimo`, `peso_tipico_kg`, `valor_tipico`
 
-Formato único proposto: `nome · preço · unidade · categoria · bancada ·
-sabores[] · sabor_fixo`. O código passa a ter UMA regra: se `sabores` tem itens e
-`sabor_fixo` é não, pergunta.
+**Formato proposto:** `nome · preco · unidade · categoria · grupo · bancada ·
+sabores[] · sabor_fixo`. O código passa a ter UMA regra: se `sabores` tem itens
+e `sabor_fixo` é falso, pergunta.
 
-### 7. Rastro de origem faltando em 11 produtos
+**Atenção antes de mexer:** quem transforma o catálogo em lista de produtos é
+`produtosDoCatalogo()`, usado em `lib/ia/orcamento.ts:431`. Mudar a estrutura do
+JSON exige mudar esse builder junto, senão o preço quebra.
 
-Doze dos 23 de `outros_produtos` têm `_nota` dizendo de qual áudio o preço veio.
-Onze não têm nada: torta fria, empadão, torta doce, torta especial, bolo salgado,
-cupcake pequeno recheado, cupcake grande recheado, franciscano, pão francês,
-cachorro-quente mini, pão de X.
+## 3. As regras que a dona falou e a IA não sabe
 
-**Eu cheguei a concluir que era dado inventado. Estava errado**: conferi nos
-áudios e os preços batem com a fala da dona. O que falta é a nota escrita, igual
-os outros doze têm. É rastro faltando, não dado faltando.
+Citação de origem em `O-QUE-A-DONA-FALOU.md`. Decisões do dono em 26/08:
 
-Vale a varredura completa das 55 transcrições contra o catálogo, porque os
-áudios têm mais informação do que o catálogo absorveu.
+- **Prazo do topo** (FAZER): 2 dias e no máximo até sexta, porque a casa não faz,
+  encomenda. Hoje o prazo é um número só para tudo.
+- **Desconto e beneficente** (FAZER): a IA nunca dá o preço por unidade, responde
+  *"deixa eu ver a possibilidade de um desconto, eu já te retorno"* e chama a
+  equipe. Os valores (cachorro-quente R$ 1,20, pão de X R$ 1,40) hoje são
+  anotação morta no catálogo.
+- **Entrega é sempre caso de humano** (FAZER). Os horários já estão no sistema, a
+  regra de chamar gente não.
+- **Comanda separada por segmento** (FAZER): a regra mais repetida dos 55 áudios.
+  Docinho de festa numa, salgadinho de festa noutra, cupcake noutra, bolo salgado
+  noutra, empadão, torta doce e torta recheada cada uma na sua. E **cada comanda
+  tem que avisar que existem as outras**. Motivo real dado por ela: um item foi
+  esquecido no mural porque veio tudo junto.
+- **Lista de sabor é ABERTA** (FAZER): hoje o sistema recusa o que não está no
+  catálogo, e a resposta da casa é *"se o cliente pedir outro sabor, a gente vai
+  colocando"*. É venda perdida por regra nossa.
+- **Pizza: perguntar de forma ou redonda** quando ele não disser. São produtos
+  bem diferentes: de forma 60x40 cm, R$ 120 inteira e R$ 60 meia, até 4 sabores;
+  redonda 30 cm, R$ 41,90 o quilo, até 2 sabores, sai R$ 35 a R$ 45.
+- **Parcelamento** (decisão do dono): só responder se o cliente perguntar, não
+  oferecer. Até 3x e só no cartão. O pagamento é presencial, não passa pela IA.
+
+## 4. Desambiguação: os casos que viram pergunta
+
+Levantamento completo em `SABORES-E-AMBIGUIDADES.md`. Regras combinadas, em
+ordem de precedência:
+
+1. cliente **citou** uma mensagem → o assunto dela manda (hoje é só dica de
+   prompt, precisa virar regra de código)
+2. a **etapa** da conversa manda
+3. **nome único** no cardápio → conclui sozinha (108 dos 117 nomes)
+4. **quantidade acima de 6 não é bolo** (o maior bolo da casa tem 6 kg, sai do
+   cardápio). "50 brigadeiro" é docinho
+5. só então **pergunta mostrando preço e unidade**
+
+**Ambíguos de verdade, três:** `brigadeiro` (docinho, bolo de festa, pizza doce),
+`café` (docinho, bolo caseiro), `prestígio` (bolo de festa, pizza doce).
+
+**Não precisa perguntar, o sabor resolve:** empadão, torta fria, cuca e mini
+bolha têm sabores exclusivos entre a versão simples e a mais cara. "empadão de
+palmito" só pode ser o de R$ 39,90.
+
+**Precisa perguntar qual dos dois:** cupcake pequeno / recheado (dividem os dois
+sabores), cupcake grande / recheado, cachorro-quente / mini. E o caso do produto
+citado **sem sabor nenhum** ("quero 2 kg de cuca").
+
+## 5. A IA confirma em vez de anotar
+
+Quando o cliente diz tudo numa mensagem, às vezes ela responde "você quer X,
+certo?" e **não anota nada**. Se a conversa cair ali, não sobra registro. É o
+`qa-concorrencia` vermelho, e é a última da família do quiche que sumia.
+
+## 6. Regerar as oito peças de cardápio
+
+Nascem do catálogo por `scripts/gerar-cardapio.mjs` (HTML em `.cardapios/`,
+imagem em `public/cardapios/*.jpg`). Arrumar o catálogo e regerar conserta as
+duas pontas de uma vez.
+
+Dois agrupamentos que o dono mandou separar:
+
+- **`cupcakes-franciscano`**: cupcake é doce, franciscano é salgado de R$ 12,00,
+  e ela trata os dois como comandas diferentes
+- **`cucas-paes`**: cuca é confeitaria, pão é padaria, salas diferentes
 
 ---
 
 ## DEPOIS — o atendimento no painel ("WhatsApp 2")
 
-Combinado com o dono: só entra depois que o cérebro estiver fechado.
+Só entra depois que o cérebro estiver fechado. O dono pediu para ser lembrado.
 
-### 8. Recibo de entrega e leitura nunca gravou
+### 7. Recibo de entrega e leitura nunca gravou
 
-As colunas `entregue_em` e `lida_em` existem e estão **vazias**. Na única
-conversa real: 25 mensagens da IA, 21 com id do WhatsApp, 0 com recibo.
+`entregue_em` e `lida_em` existem e estão **vazias**. Na única conversa real: 25
+mensagens da IA, 21 com id do WhatsApp, 0 com recibo.
 
 Já descartado com evidência: o app está inscrito na conta, o campo `messages`
 está assinado, o formato do id bate, e a deduplicação não engole o evento.
 
-Sobra saber se o evento chega e o UPDATE não casa, ou se não chega. **Não dá
-para saber sem instrumentar**, porque o erro hoje é engolido por um `catch`
+Falta saber se o evento chega e o UPDATE não casa, ou se não chega. **Não dá para
+saber sem instrumentar**, porque o erro é engolido por um `.catch(() => {})`
 vazio. Primeiro passo, barato: registrar todo evento de status com o id e se o
-UPDATE pegou. Uma conversa real depois disso responde.
+UPDATE pegou.
 
-### 9. Marcar lida e "digitando" dá 400
+### 8. Marcar lida e "digitando" dá 400
 
-`#131009 Parameter value is not valid` no log. Pode ser efeito dos testes (o
-script inventa id falso e a Meta recusa) ou defeito de verdade. **Só uma
-conversa real separa os dois.**
+`#131009 Parameter value is not valid`. Pode ser efeito dos testes (o script
+inventa id falso e a Meta recusa) ou defeito real. Só uma conversa real separa.
 
-### 10. Nenhuma tela mostra recibo
+### 9. Nenhuma tela mostra recibo
 
-Mesmo que os dados passem a gravar, ninguém vê. O tique cinza, o tique azul e a
-mensagem citada aparecendo acima da resposta são a metade visível do trabalho.
+Mesmo gravando, ninguém vê. Tique cinza, tique azul e a mensagem citada
+aparecendo acima da resposta são a metade visível.
 
-### 11. Erro engolido em silêncio
+### 10. Erro engolido em silêncio
 
-O `.catch(() => {})` do recibo é o motivo de isso passar meses sem aparecer.
-Vale varrer o resto do código atrás do mesmo padrão.
+O `.catch(() => {})` é o motivo de isso passar meses sem aparecer. Vale varrer o
+código atrás do mesmo padrão.
 
-### 12. O que a Meta dá e não usamos
+### 11. O que a Meta dá e não usamos
 
-Detalhado em `WHATSAPP-O-QUE-A-META-DA.md`. Decisão de negócio, não pendência:
-lista de até 10 opções (hoje só botão, limite 3), botão de link, catálogo e
-carrinho, WhatsApp Flows, perfil do negócio pela API, métricas de conversa.
+Detalhado em `WHATSAPP-O-QUE-A-META-DA.md`: lista de até 10 opções (hoje só
+botão, limite 3), botão de link, catálogo e carrinho, Flows, perfil do negócio
+pela API, métricas de conversa.
+
+---
+
+## PERGUNTAS PARA A DONA
+
+Sete, com citação de origem, em `O-QUE-A-DONA-FALOU.md` seção 3. As duas mais
+importantes:
+
+1. **O que muda no cupcake recheado?** Ela citou duas vezes só o preço e o
+   tamanho em centímetros, nunca o que é o recheio. A IA vai precisar explicar.
+2. **O bolo com foto: a IA encaminha pro grupo da confeitaria?** É pergunta dela
+   e continua aberta.
 
 ---
 
 ## SEM MEDIÇÃO NENHUMA
 
-Aqui eu não sei responder pelo estado, e é honesto dizer que não sei.
+Aqui não dá para responder pelo estado, e é honesto dizer que não sei.
 
 - o painel da dona fora do que o `qa-painel` cobre
 - a ponte da impressora
-- vários clientes conversando ao mesmo tempo (o `qa-concorrencia` está vermelho)
+- vários clientes conversando ao mesmo tempo (`qa-concorrencia` vermelho)
 
-O caminho é o mesmo que funcionou: mesmo caso dito de vários jeitos, gabarito no
-banco, `pass^k`.
+O caminho é o que funcionou: mesmo caso dito de vários jeitos, gabarito no banco,
+`pass^k`.
 
 ---
 
 ## OUTRO PROJETO — hub, painel do parceiro
 
-Ficou pronto e não voltamos: kanban, ligação dentro do card, gravação no volume,
+Pronto e não voltamos: kanban, ligação dentro do card, gravação no volume,
 comissão, atribuição pelo link (testada no navegador).
 
 - **`WHATSAPP_NUMERO_PUBLICO` não configurado**: o botão de WhatsApp não aparece
-  na landing do parceiro e o painel dele mostra o aviso laranja
+  na landing do parceiro
 - não existe tela de trocar senha no painel do parceiro
 - prospecção mandando as empresas garimpadas direto para a fila do parceiro
 - relatório de melhor horário para ligar
-- placar do vendedor (ligações por dia, taxa de atendimento, de opt-in, de fechamento)
-- itens do relatório de QA: abrir negócio pelo kanban, visão de lista só leitura,
-  linhas de Leads que parecem clicáveis
-- `/api/admin/prospeccao/previa` não existe (404), é o gerador de prévia de site
+- placar do vendedor
+- QA: abrir negócio pelo kanban, visão de lista só leitura, linhas de Leads que
+  parecem clicáveis
+- `/api/admin/prospeccao/previa` não existe (404)
 - telas duplicadas: as 5 em `/operacao/hub/*` repetem `/owner/*`
 
 ---
@@ -245,6 +244,25 @@ comissão, atribuição pelo link (testada no navegador).
 
 - **dois cérebros no repositório**: `cerebro.ts` (antigo, com ferramentas) e
   `lib/ia/fluxo` (novo, que é o que roda). Mexer no antigo não muda nada em
-  produção, e isso já me custou duas correções entregues como prontas
+  produção, e isso já custou duas correções entregues como prontas
 - merge de `coolify-postgres` para `servidor`, e aposentar o pm2 do aaPanel
 - revogar o token da API do Coolify quando terminar
+
+---
+
+## COMO EU DEVO TRABALHAR NISTO
+
+Aprendido nesta sessão, e cada linha custou caro:
+
+1. **Uma coisa por vez, medindo entre uma e outra.** Fazer três e medir no fim
+   foi como passei a tarde consertando o arquivo errado.
+2. **Antes da bateria, mandar UMA conversa e ler o item no banco.** Pegou três
+   defeitos que o build, o deploy confirmado e a função no bundle não pegavam.
+3. **Bateria idêntica à anterior é suspeita, não resultado.** Significa que a
+   correção não está no caminho que executa.
+4. **Detector que nunca provou pegar nada não vale.** A primeira versão do
+   detector de regex não pegava nem a isca plantada.
+5. **Toda guarda nova: qual é o jeito mais barato de o modelo satisfazer isso?**
+   Se a resposta for "apagando o item", a guarda está errada.
+6. **Nunca escrever `\b`, `\s`, `\d` em regex por heredoc.** A barra é comida no
+   caminho até o arquivo. Usar espaço literal, `[0-9]`, `(^|[^a-z])`.

@@ -1,0 +1,413 @@
+{
+ "aipim": {
+  "item": "bolo caseiro aipim",
+  "unit": 30.9,
+  "unidade": "un"
+ },
+ "almofadinha": {
+  "item": "almofadinha",
+  "unit": 1,
+  "unidade": "un"
+ },
+ "banana caramelizada": {
+  "item": "bolo caseiro banana caramelizada",
+  "unit": 30.9,
+  "unidade": "un"
+ },
+ "beijinho": {
+  "item": "beijinho",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "bicho de p�": {
+  "item": "bicho de pé",
+  "unit": 1.75,
+  "unidade": "un"
+ },
+ "bolinha de queijo": {
+  "item": "bolinha de queijo",
+  "unit": 1,
+  "unidade": "un"
+ },
+ "bolo 0% lactose": {
+  "item": "bolo 0% lactose",
+  "unit": 55.9,
+  "unidade": "kg"
+ },
+ "bolo 4 leites": {
+  "item": "bolo 4 leites",
+  "unit": 46.9,
+  "unidade": "kg"
+ },
+ "bolo biz": {
+  "item": "bolo biz",
+  "unit": 49.9,
+  "unidade": "kg"
+ },
+ "bolo bombom": {
+  "item": "bolo bombom",
+  "unit": 49.9,
+  "unidade": "kg"
+ },
+ "bolo brigadeiro": {
+  "item": "bolo brigadeiro",
+  "unit": 46.9,
+  "unidade": "kg"
+ },
+ "bolo brigadeiro com maracuj�": {
+  "item": "bolo brigadeiro",
+  "unit": 46.9,
+  "unidade": "kg"
+ },
+ "bolo dois amores": {
+  "item": "bolo dois amores",
+  "unit": 46.9,
+  "unidade": "kg"
+ },
+ "bolo frutas (p�ssego e abacaxi)": {
+  "item": "bolo frutas (pêssego e abacaxi)",
+  "unit": 46.9,
+  "unidade": "kg"
+ },
+ "bolo laka": {
+  "item": "bolo laka",
+  "unit": 46.9,
+  "unidade": "kg"
+ },
+ "bolo marta rocha": {
+  "item": "bolo marta rocha",
+  "unit": 49.9,
+  "unidade": "kg"
+ },
+ "bolo mineira": {
+  "item": "bolo mineira",
+  "unit": 46.9,
+  "unidade": "kg"
+ },
+ "bolo morango": {
+  "item": "bolo morango",
+  "unit": 49.9,
+  "unidade": "kg"
+ },
+ "bolo porto alegre": {
+  "item": "bolo porto alegre",
+  "unit": 46.9,
+  "unidade": "kg"
+ },
+ "bolo prest�gio": {
+  "item": "bolo prestígio",
+  "unit": 46.9,
+  "unidade": "kg"
+ },
+ "bolo salgado": {
+  "item": "bolo salgado",
+  "unit": 29.9,
+  "unidade": "kg"
+ },
+ "bolo strogonoff de nozes": {
+  "item": "bolo strogonoff de nozes",
+  "unit": 55.9,
+  "unidade": "kg"
+ },
+ "brigadeiro": {
+  "item": "brigadeiro",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "cachorro-quente": {
+  "item": "cachorro-quente",
+  "unit": 19.9,
+  "unidade": "kg"
+ },
+ "cachorro-quente mini": {
+  "item": "cachorro-quente mini",
+  "unit": 20.9,
+  "unidade": "kg"
+ },
+ "caf�": null,
+ "cajuzinho": {
+  "item": "cajuzinho",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "calzone": {
+  "item": "calzone",
+  "unit": 41.9,
+  "unidade": "kg"
+ },
+ "camafeu de nozes": {
+  "item": "camafeu de nozes",
+  "unit": 1.75,
+  "unidade": "un"
+ },
+ "cenoura": {
+  "item": "bolo caseiro cenoura",
+  "unit": 34.9,
+  "unidade": "un"
+ },
+ "chocolate preto com leite ninho": {
+  "item": "bolo caseiro chocolate preto com leite ninho",
+  "unit": 30.9,
+  "unidade": "un"
+ },
+ "chod�": {
+  "item": "chodó",
+  "unit": 1,
+  "unidade": "un"
+ },
+ "churros": {
+  "item": "bolo caseiro churros",
+  "unit": 34.9,
+  "unidade": "un"
+ },
+ "coxinha": {
+  "item": "coxinha",
+  "unit": 1,
+  "unidade": "un"
+ },
+ "croissant": {
+  "item": "croissant",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "croquete": {
+  "item": "croquete",
+  "unit": 1,
+  "unidade": "un"
+ },
+ "cuca": {
+  "item": "cuca",
+  "unit": 22.9,
+  "unidade": "kg"
+ },
+ "cuca recheada": {
+  "item": "cuca recheada",
+  "unit": 26.9,
+  "unidade": "kg"
+ },
+ "cupcake grande": {
+  "item": "cupcake grande",
+  "unit": 5,
+  "unidade": "un"
+ },
+ "cupcake grande recheado": {
+  "item": "cupcake grande",
+  "unit": 5,
+  "unidade": "un"
+ },
+ "cupcake pequeno": {
+  "item": "cupcake pequeno",
+  "unit": 2,
+  "unidade": "un"
+ },
+ "cupcake pequeno recheado": {
+  "item": "cupcake pequeno",
+  "unit": 2,
+  "unidade": "un"
+ },
+ "docinho de churros": {
+  "item": "docinho de churros",
+  "unit": 1.75,
+  "unidade": "un"
+ },
+ "empadao": {
+  "item": "empadao",
+  "unit": 34.9,
+  "unidade": "kg"
+ },
+ "empadao com palmito": {
+  "item": "empadao com palmito",
+  "unit": 39.9,
+  "unidade": "kg"
+ },
+ "empadinha": {
+  "item": "empadinha",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "enroladinho de salsicha assado": {
+  "item": "enroladinho de salsicha assado",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "esfirra": {
+  "item": "esfirra",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "floresta negra": {
+  "item": "bolo caseiro floresta negra",
+  "unit": 30.9,
+  "unidade": "un"
+ },
+ "formigueiro": {
+  "item": "bolo caseiro formigueiro",
+  "unit": 30.9,
+  "unidade": "un"
+ },
+ "franciscano": {
+  "item": "franciscano",
+  "unit": 12,
+  "unidade": "un"
+ },
+ "fub� com goiabada": {
+  "item": "bolo caseiro fubá com goiabada",
+  "unit": 30.9,
+  "unidade": "un"
+ },
+ "ingl�s": {
+  "item": "bolo caseiro inglês",
+  "unit": 33.9,
+  "unidade": "un"
+ },
+ "laranja caramelizada": {
+  "item": "bolo caseiro laranja caramelizada",
+  "unit": 34.9,
+  "unidade": "un"
+ },
+ "leite ninho": {
+  "item": "leite ninho",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "leite ninho com avel�": {
+  "item": "leite ninho",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "lim�o": {
+  "item": "bolo caseiro limão",
+  "unit": 35.9,
+  "unidade": "un"
+ },
+ "mini bolha": {
+  "item": "mini bolha",
+  "unit": 1,
+  "unidade": "un"
+ },
+ "mini bolha doce": {
+  "item": "mini bolha doce",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "mini pizza": {
+  "item": "mini pizza",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "mini p�o de queijo": {
+  "item": "cachorro-quente mini",
+  "unit": 20.9,
+  "unidade": "kg"
+ },
+ "mini sandu�che de pat� de frango": {
+  "item": "pizza inteira strogonoff de frango",
+  "unit": 120,
+  "unidade": "un"
+ },
+ "mini x": {
+  "item": "mini x",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "nega maluca": {
+  "item": "bolo caseiro nega maluca",
+  "unit": 33.9,
+  "unidade": "un"
+ },
+ "olho de sogra": {
+  "item": "olho de sogra",
+  "unit": 1.75,
+  "unidade": "un"
+ },
+ "ouri�o": {
+  "item": "ouriço",
+  "unit": 1.75,
+  "unidade": "un"
+ },
+ "pao de x": {
+  "item": "pao de x",
+  "unit": 19.9,
+  "unidade": "kg"
+ },
+ "pao doce": {
+  "item": "pao doce",
+  "unit": 22.9,
+  "unidade": "kg"
+ },
+ "pao frances": {
+  "item": "pao frances",
+  "unit": 11.99,
+  "unidade": "kg"
+ },
+ "papel de arroz": {
+  "item": "papel de arroz",
+  "unit": 12,
+  "unidade": "un"
+ },
+ "pastel assado": {
+  "item": "pastel assado",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "pizza redonda": {
+  "item": "pizza redonda",
+  "unit": 41.9,
+  "unidade": "kg"
+ },
+ "prest�gio com ganache": {
+  "item": "bolo caseiro prestígio com ganache",
+  "unit": 33.9,
+  "unidade": "un"
+ },
+ "p�o de batata": {
+  "item": "pão de batata",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "quiche": {
+  "item": "quiche",
+  "unit": 1.25,
+  "unidade": "un"
+ },
+ "red velvet": {
+  "item": "bolo caseiro red velvet",
+  "unit": 33.9,
+  "unidade": "un"
+ },
+ "ris�lis": {
+  "item": "risólis",
+  "unit": 1,
+  "unidade": "un"
+ },
+ "salsicha frita": {
+  "item": "salsicha frita",
+  "unit": 1,
+  "unidade": "un"
+ },
+ "torta doce": {
+  "item": "torta doce",
+  "unit": 33.9,
+  "unidade": "kg"
+ },
+ "torta especial": {
+  "item": "torta especial",
+  "unit": 49.9,
+  "unidade": "kg"
+ },
+ "torta fria": {
+  "item": "torta fria",
+  "unit": 36.9,
+  "unidade": "kg"
+ },
+ "torta fria com palmito": {
+  "item": "torta fria com palmito",
+  "unit": 39.9,
+  "unidade": "kg"
+ },
+ "trufa": {
+  "item": "trufa",
+  "unit": 2.25,
+  "unidade": "un"
+ }
+}
