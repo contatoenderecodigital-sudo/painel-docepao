@@ -20,10 +20,26 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const PASTAS = ["lib", "app", "components", "testes"];
-const EXTENSOES = /\.(ts|tsx|cjs|mjs|js)$/;
+// O .json entra junto: a foto dos precos e um .json, e foi exatamente nele que
+// o acento morreu sem ninguem ver.
+const EXTENSOES = /\.(ts|tsx|cjs|mjs|js|json)$/;
 // Byte de backspace, escape e outros controles que nao tem o que fazer em
 // codigo. Quebra de linha, tabulacao e retorno de carro ficam de fora.
 const CONTROLE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/;
+
+// O ACENTO DESTRUIDO E O MESMO DEFEITO, EM OUTRA ROUPA.
+//
+// Quando o texto passa pelo shell numa pagina de codigo que nao entende
+// UTF-8, o acento nao vira erro: vira U+FFFD, o losango com interrogacao.
+// O arquivo continua valido, o JSON continua parseando, e a chave passa a
+// ser um nome que nao existe.
+//
+// Foi assim que a foto dos precos nasceu com dezesseis produtos com valor
+// nulo, e eu cheguei a anotar que o cafe nao tinha cotacao no motor. Nao
+// era o motor: era o nome que eu tinha destruido ao gravar o arquivo.
+// Escrito por codigo, e nao como caractere literal, senao este proprio arquivo
+// seria acusado por ele mesmo.
+const ACENTO_DESTRUIDO = String.fromCharCode(0xfffd);
 
 let erros = 0;
 const achados = [];
@@ -38,6 +54,10 @@ function varrer(dir) {
     }
     if (!EXTENSOES.test(e.name)) continue;
     const texto = fs.readFileSync(p, "utf8");
+    if (texto.includes(ACENTO_DESTRUIDO)) {
+      erros++;
+      achados.push(p + "  ACENTO DESTRUIDO (U+FFFD): o shell comeu o acento ao gravar este arquivo");
+    }
     texto.split("\n").forEach((linha, i) => {
       if (CONTROLE.test(linha)) {
         erros++;
