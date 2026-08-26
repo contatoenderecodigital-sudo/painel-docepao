@@ -430,9 +430,13 @@ function produtosDoCatalogo(): Produto[] {
     });
   }
 
-  // A FAIXA DE PESO COMO NOME PRÓPRIO. Não é produto, é o jeito de o cliente
-  // pedir sem escolher sabor ("um bolo recheado de 2 kg"). Por isso não está na
-  // lista única: lá só entra o que a casa vende com nome e preço.
+  // AS FAIXAS DE PREÇO, que no catálogo se chamam A, B e C. Não são produto e
+  // nenhum cliente diz "bolo recheado b": é o degrau de preço do bolo de festa
+  // (R$ 46,90 / R$ 49,90 / R$ 55,90 o quilo), e o motor precisa conseguir cotar
+  // pelo degrau quando o pedido vem da equipe em vez de vir do sabor.
+  //
+  // Por isso não estão na lista única: lá só entra o que a casa vende com nome
+  // e preço, e o degrau não tem nome de venda.
   for (const f of catalogo.bolos_recheados.faixas) {
     p.push({ nome: "bolo recheado " + f.faixa.toLowerCase(), preco: f.preco, categoria: "bolo_recheado", unidade: "kg" });
   }

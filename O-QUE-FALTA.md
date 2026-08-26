@@ -95,8 +95,24 @@ vêm os defeitos que a bateria acha. A lista dos dezessete sai com
 
 1. **o genérico que vira produto específico sozinho.** Medido: pedir `bolo` cota
    `bolo caseiro chocolate preto com leite ninho` (R$ 30,90), e `docinho` cota
-   `docinho de churros` (R$ 1,75). Genérico é o nome que o cliente usa **antes**
-   de escolher; quem abre em produto é a montagem, com a resposta dele na mão
+   `docinho de churros` (R$ 1,75). Nem o mais caro: o de **nome mais longo**.
+   O cliente recebe preço fechado de algo que nunca escolheu.
+
+   **Eu tentei consertar isso no motor em 26/08 e desfiz, porque estava
+   errado.** Fazer o motor recusar o genérico transforma o preço errado numa
+   linha que SOME do pedido, e sumir é a regra que não pode ser quebrada.
+
+   O conserto certo é no fluxo, não no motor: o motor não sabe perguntar. O
+   genérico tem que virar **a pergunta "qual?"** antes de chegar na cotação.
+
+   Dois fatos medidos que o conserto precisa respeitar:
+   - `testes/generico-nao-some.cjs` já cobra que o genérico seja ABERTO em tipos
+     com a conta fechada, e ele verifica isso no `cerebro.ts`, que é o cérebro
+     **morto**
+   - `lib/ia/fluxo/cotar.ts` (`paraOMotor`), que é o caminho **vivo**, NÃO abre
+     genérico nenhum: passa o nome direto pro motor
+
+   Ou seja: a proteção existe só no lado que não roda mais.
 2. **os dois vocabulários de categoria.** O orçamento diz `salgado`, `doce`,
    `bolo_recheado`; o pedido e a comanda dizem `salgado_frito`, `salgado_assado`,
    `docinho`, `bolo_festa`. Hoje a tradução está numa tabela visível de quatro
