@@ -116,17 +116,13 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
   const topo = p.pecas?.topo ?? null;
   const papel = p.pecas?.papelDeArroz ?? null;
 
-  if (topo === null) {
-    return {
-      texto: "O bolo vai com topo?",
-      botoes: [
-        { id: "topo_sim", titulo: "Sim" },
-        { id: "topo_nao", titulo: "Não" },
-      ],
-      cardapio: null,
-      podeReescrever: true,
-    };
-  }
+  // PAPEL DE ARROZ ANTES DO TOPO.
+  //
+  // Ordem do fluxograma que a Kemilly desenhou, confirmada pelo dono em
+  // 26/08/2026. Antes o topo vinha primeiro. As duas continuam sendo perguntas
+  // separadas, que foi a decisao do dono em 23/08: a lista de quatro opcoes
+  // esconde as escolhas atras de um toque, e a clientela da padaria enxerga
+  // melhor o botao na tela.
 
   if (papel === null) {
     // O VALOR SAI DO MOTOR, NAO DA MINHA MEMORIA.
@@ -146,6 +142,18 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
       ],
       cardapio: null,
       podeReescrever: preco <= 0,
+    };
+  }
+
+  if (topo === null) {
+    return {
+      texto: "O bolo vai com topo?",
+      botoes: [
+        { id: "topo_sim", titulo: "Sim" },
+        { id: "topo_nao", titulo: "Não" },
+      ],
+      cardapio: null,
+      podeReescrever: true,
     };
   }
 

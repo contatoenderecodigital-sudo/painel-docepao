@@ -334,13 +334,17 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
   },
   {
     id: "pecas_do_bolo",
-    rotulo: "topo e papel de arroz",
-    pergunta: "O bolo vai com topo?",
+    rotulo: "papel de arroz e topo",
+    // A fala de verdade sai de falaDasPecas, que pergunta o PAPEL primeiro
+    // (fluxograma da Kemilly, confirmado pelo dono em 26/08/2026). Isto aqui e
+    // so o rotulo da etapa; deixar "O bolo vai com topo?" escrito aqui fazia a
+    // etapa se anunciar por uma pergunta que nao e mais a primeira.
+    pergunta: "E papel de arroz, com a foto impressa no bolo?",
     espera: {
       tipo: "botao",
       opcoes: [
-        { id: "topo_sim", titulo: "Sim" },
-        { id: "topo_nao", titulo: "Não" },
+        { id: "papel_sim", titulo: "Sim" },
+        { id: "papel_nao", titulo: "Não" },
       ],
     },
     // A etapa so acaba com os DOIS respondidos, e com nome e idade quando o
