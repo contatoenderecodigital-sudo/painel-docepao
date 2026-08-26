@@ -167,13 +167,39 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
         // Todos os que casam, do nome mais completo pro mais curto: 'cuca
         // recheada' tem que ganhar de 'cuca', senao a padaria cobra R$ 4 a
         // menos por unidade sem ninguem perceber.
-        const candidatos = universo.filter((p) => {
+        // O NOME DO PRODUTO GANHA DO RECHEIO. SEMPRE.
+        //
+        // Antes daqui os candidatos eram ordenados pelo NOME MAIS COMPRIDO, e
+        // isso deixava um produto totalmente diferente ganhar de um casamento
+        // de verdade. "quiche de frango" casava com "quiche" (nome do produto)
+        // e tambem com "pizza inteira strogonoff de frango", so porque essa
+        // termina em "frango". A pizza tem o nome mais comprido e ganhava: o
+        // quiche saiu cotado a R$ 120,00 a unidade e um pedido de R$ 381 fechou
+        // por R$ 12.256,30. Medido em 25/08/2026, com o pedido fechado.
+        //
+        // Agora a ordem e por QUALIDADE do casamento, e o comprimento so
+        // desempata dentro do mesmo nivel, que e o que faz "cuca recheada"
+        // continuar ganhando de "cuca".
+        //
+        //   1. o nome bate inteiro
+        //   2. um nome contem o outro (quiche dentro de "quiche de frango")
+        //   3. so a ultima palavra bate (o recheio) — o mais fraco de todos
+        // Nome exato NAO ganha nivel proprio de proposito: "cuca" e cobrada
+        // como "cuca recheada" por decisao da casa, e um nivel so pro exato
+        // mudaria esse preco em silencio. Dentro do mesmo nivel o comprimento
+        // desempata, que e o que mantem essa escolha de pe.
+        const nivelDoCasamento = (p: Produto): number => {
           const pn = norm(p.nome);
-          if (pn.includes(chave) || chave.includes(pn)) return true;
+          if (pn.includes(chave) || chave.includes(pn)) return 2;
           const ultima = pn.split(" ").pop() || "";
-          return ultima.length > 3 && chave.includes(ultima);
-        });
-        ref = candidatos.sort((a, b) => norm(b.nome).length - norm(a.nome).length)[0];
+          if (ultima.length > 3 && chave.includes(ultima)) return 3;
+          return 99;
+        };
+        const candidatos = universo
+          .map((p) => ({ p, nivel: nivelDoCasamento(p) }))
+          .filter((c) => c.nivel < 99)
+          .sort((a, b) => a.nivel - b.nivel || norm(b.p.nome).length - norm(a.p.nome).length);
+        ref = candidatos[0]?.p;
       }
       // Ainda nao achou: tenta por aproximacao (plural e erro de digitacao ou de
       // transcricao de audio). So aceita quando ha UM candidato claro; empate

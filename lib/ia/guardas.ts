@@ -12,7 +12,7 @@
 // ============================================================================
 
 import catalogo from "./dados/catalogo.json";
-import { APELIDOS } from "@/lib/ia/dados/apelidos";
+import { APELIDOS } from "./dados/apelidos";
 // TODOS OS PRECOS UNITARIOS QUE A PADARIA PRATICA, em centavos.
 // Fonte unica: o catalogo. O que nao esta aqui, ela nao pode dizer que cobra.
 function precosDaCasa(): Set<number> {
