@@ -121,6 +121,17 @@ export type PedidoEmMontagem = {
    */
   pecas: { topo: boolean | null; papelDeArroz: boolean | null } | null;
   /**
+   * QUANTAS VEZES A PADARIA JA REPETIU A PERGUNTA DA VEZ.
+   *
+   * Vive no `Estado` do fluxo e chega aqui porque `Estado` e um `PedidoEmMontagem`
+   * com mais campos. Opcional de proposito: quem monta um pedido na mao (o
+   * painel, um teste) nao precisa saber disto.
+   *
+   * Serve para UM caso so, e o caso e o detalhe opcional. Ver
+   * `PERGUNTA-E-BOTAO.md`, na raiz do projeto.
+   */
+  insistiu?: number;
+  /**
    * DE QUEM E O ANIVERSARIO, E QUANTOS ANOS FAZ.
    *
    * Pedido do dono, e ele tem razao: "importantissimo". O topo e fabricado com
@@ -204,8 +215,25 @@ export type PedidoEmMontagem = {
  * Serve para nao segurar o pedido por um detalhe quando ele ja disse tudo o que
  * a padaria precisa para produzir e entregar.
  */
-const jaTemOsDados = (p: PedidoEmMontagem) =>
-  Boolean(p.dados?.data && p.dados?.hora && p.dados?.nome && p.dados?.pagamento);
+/**
+ * A PADARIA JA PERGUNTOU ISSO E ELE NAO RESPONDEU.
+ *
+ * Vale SO para detalhe opcional (o papel de arroz, o topo, o prato). A regra
+ * inteira esta em `PERGUNTA-E-BOTAO.md`, e ela tem tres partes:
+ *
+ *   1. se ele nao falou, PERGUNTA. Detalhe que a padaria vende nao pode deixar
+ *      de ser oferecido so porque o resto do pedido ja esta pronto;
+ *   2. se ele ja respondeu, NAO PERGUNTA DE NOVO. Vale a resposta escrita
+ *      tanto quanto o botao;
+ *   3. se ele ignorou duas vezes, SEGUE. Insistir uma terceira vez faz o fluxo
+ *      chamar a equipe por causa de um detalhe, e quem ignorou duas vezes ja
+ *      respondeu: ele nao quer.
+ *
+ * Sem a parte 3, tirar o atalho que pulava a pergunta traria de volta o defeito
+ * de 25/08/2026, em que o cliente respondia "isso mesmo, pode confirmar" e
+ * ouvia a mesma pergunta do prato ate a conversa morrer.
+ */
+const jaPerguntouEEleNaoRespondeu = (p: PedidoEmMontagem) => (p.insistiu ?? 0) >= 1;
 
 const semForminha = (p: PedidoEmMontagem) => !p.forminha;
 
@@ -309,7 +337,7 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // "bolo" sozinho nao e sabor: e o que a proposta anota quando o cliente
     // ainda nao escolheu. E o prato vem junto porque a dona pergunta junto, e
     // porque muda o que a cozinha monta na hora de embalar.
-    // O PRATO NAO SEGURA UM PEDIDO QUE JA ESTA COMPLETO.
+    // O PRATO: PERGUNTA UMA VEZ, MAS NAO PRENDE.
     //
     // Bateria dos cinco jeitos, 25/08/2026: o cliente mandou o pedido inteiro
     // numa mensagem so, com data, hora, nome e pagamento, e recebeu de volta
@@ -317,14 +345,17 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // "isso mesmo, pode confirmar" e ouviu a MESMA pergunta. O pedido nunca
     // fechou, nos cinco jeitos de falar.
     //
-    // Regra do dono, 25/08/2026: quem manda tudo de uma vez nao e pra ser
-    // interrogado, e pra ir direto pra confirmacao. O prato continua sendo
-    // perguntado no caminho normal, quando ainda falta coisa; ele so deixa de
-    // ser o que impede o pedido de fechar.
+    // O conserto de entao foi deixar passar quem ja informou tudo: quem ja
+    // informou tudo passa direto. Isso resolveu o travamento e criou outro
+    // problema, o mesmo que o papel de arroz tinha: quem manda tudo de uma vez
+    // NUNCA e perguntado, e a cozinha fica sem saber como embalar.
+    //
+    // Agora vale a regra de `PERGUNTA-E-BOTAO.md`: pergunta uma vez, aceita a
+    // resposta escrita igual ao botao, e segue quando ele ignora duas vezes.
     cumprida: (p) =>
       p.itens.some(
         (i) => String(i.categoria || "").startsWith("bolo") && String(i.produto).trim().toLowerCase() !== "bolo",
-      ) && (p.prato !== null || jaTemOsDados(p)),
+      ) && (p.prato !== null || jaPerguntouEEleNaoRespondeu(p)),
     // O SABOR DO BOLO VALE FORA DA FESTA TAMBEM.
     //
     // Ate 23/08/2026 esta etapa era pulada em todo pedido que nao fosse festa,
@@ -367,7 +398,11 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       // falta. Quem ja respondeu, escrevendo ou no botao, passa direto: o
       // leitor da frase entende "sem topo e sem papel de arroz" e ja marca os
       // dois, entao responder por texto vale igual a tocar no botao.
-      if (p.pecas?.topo == null || p.pecas?.papelDeArroz == null) return false;
+      //
+      // E quem ignorou duas vezes ja respondeu: nao quer. Segue.
+      if (p.pecas?.topo == null || p.pecas?.papelDeArroz == null) {
+        return jaPerguntouEEleNaoRespondeu(p);
+      }
       // Sem topo e sem papel nao ha peca personalizada: acabou aqui.
       if (p.pecas.topo === false && p.pecas.papelDeArroz === false) return true;
       // Com qualquer uma das duas, a fabrica precisa do TEMA (que pode ter
