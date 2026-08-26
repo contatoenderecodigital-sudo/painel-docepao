@@ -324,7 +324,16 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
 export function etapaDesteProduto(produto: string): EtapaId | null {
   const semAc = (t: string) =>
     String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
-  const nome = semAc(produto);
+  // O PREFIXO "bolo" PRECISA SAIR ANTES DE COMPARAR.
+  //
+  // O vocabulario da etapa do bolo lista os sabores como o cardapio escreve,
+  // sem prefixo ("4 leites"). O nome canonico do sistema carrega ele ("bolo 4
+  // leites"), porque e o prefixo que separa o bolo do docinho de mesmo nome.
+  //
+  // Quando o canonico passou a valer, em 26/08/2026, esta comparacao parou de
+  // casar e o bolo guardado nunca era aplicado: ficava estacionado pra sempre.
+  // Peguei medindo UMA conversa contra o banco antes de rodar a bateria.
+  const nome = semAc(produto).replace(/^bolo +/, "");
   for (const etapa of ["salgado", "docinho", "bolo"] as EtapaId[]) {
     const cabe = vocabularioDaEtapa(etapa)
       .map(semAc)
