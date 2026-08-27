@@ -40,7 +40,7 @@ import { calcularBase, avisoDePoucoPorSabor } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
-import { coresDaForminha, saborQueFalta } from "./sabor";
+import { coresDaForminha, saborQueFalta, recheioQueNaoExiste } from "./sabor";
 import { restricoesQueACasaNaoFaz, obsSemRestricao, avisoDaRestricao } from "./restricao";
 import { paraOMotor } from "./cotar";
 import { respostaDeInformacao } from "./informacao";
@@ -114,6 +114,14 @@ export type Estado = PedidoEmMontagem & {
    * igual ao aviso de restricao.
    */
   poucoPorSabor?: string;
+  /**
+   * O RECHEIO QUE O PRODUTO NAO TEM, pra padaria dizer qual e o dele.
+   *
+   * "coxinha de camarao" saia na comanda como "coxinha ~ camarao" e a
+   * cozinha nao faz. Vive um turno so, igual ao aviso de restricao: sai na
+   * frente da pergunta da etapa e some.
+   */
+  recheiosTrocados?: string[];
 };
 
 /** Quem chama o modelo. Injetado pra dar pra testar sem gastar. */
@@ -527,6 +535,8 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
     const itens = [...novo.itens];
     // O que a casa nao faz e foi tirado das observacoes deste turno.
     const restricoesTiradas: string[] = [];
+    // O recheio que o produto nao tem, pra virar frase e nao comanda.
+    const recheiosTrocados: string[] = [];
     for (const i of l.itens) {
       // O NOME, O APELIDO E O RECHEIO, RESOLVIDOS DE UMA VEZ.
       //
@@ -558,7 +568,46 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       const categoria = categoriaDaEtapa(etapa, produto);
 
       let obsItem = i.obs ?? null;
-      if (quem.recheio && !String(obsItem ?? "").toLowerCase().includes(quem.recheio)) {
+
+      // O RECHEIO QUE ESTE PRODUTO NÃO TEM NÃO VAI PRA COZINHA.
+      //
+      // Sete produtos da casa têm recheio FIXO: a coxinha é de frango, a
+      // bolinha é de queijo, o croquete é de carne com catupiry. Neles o
+      // catálogo manda a IA NÃO perguntar recheio, e por isso ninguém conferia
+      // o que o cliente escrevia junto:
+      //
+      //     "100 coxinha de camarão"  ->  comanda: 100 coxinha ~ camarao
+      //
+      // Medido em 27/08/2026. Produto certo, preço certo, e a COMANDA
+      // PROMETENDO o que a cozinha não faz. Quem tem lista de sabor (esfirra,
+      // quiche, empadão) já estava protegido: o sabor de fora não casa com a
+      // lista e a padaria pergunta. Só os de recheio fixo passavam calado.
+      //
+      // É o mesmo desenho da restrição de dieta: tira da observação e DIZ, em
+      // vez de tirar calado. Tirar calado seria melhor que prometer e pior que
+      // avisar, e quem pede coxinha de camarão merece ouvir antes de retirar.
+      // O SABOR CHEGA POR DUAS PORTAS, E A PRIMEIRA VERSÃO DAQUI SÓ OLHAVA UMA.
+      //
+      // Eu cobri o nome ("coxinha DE CAMARÃO") e deixei a porta principal
+      // aberta. Medido contra a IA de verdade: ela devolve o produto limpo e o
+      // sabor na OBSERVAÇÃO.
+      //
+      //     {"produto":"coxinha","qtd":100,"obs":"camarão"}   ->   comanda:
+      //     coxinha ~ camarão
+      //
+      // O teste que eu tinha escrito passava sem o conserto, porque ele mandava
+      // o sabor pelo nome, que é o caminho que o modelo NÃO usa.
+      const outroRecheio =
+        recheioQueNaoExiste(produto, quem.recheio) ??
+        recheioQueNaoExiste(produto, obsItem);
+      if (outroRecheio) {
+        recheiosTrocados.push(produto + " de " + outroRecheio);
+        // A observação inteira era o sabor que a casa não faz: sai. Se tiver
+        // mais coisa junto, o que não é sabor fica, porque pode ser pedido de
+        // verdade que a cozinha precisa ler.
+        if (quem.recheio && String(obsItem ?? "").trim() === quem.recheio) obsItem = null;
+        else if (!quem.recheio) obsItem = null;
+      } else if (quem.recheio && !String(obsItem ?? "").toLowerCase().includes(quem.recheio)) {
         obsItem = [obsItem, quem.recheio].filter(Boolean).join(" | ");
       }
 
@@ -619,6 +668,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
     // Sem repetir: se ele pediu "sem lactose" em três docinhos, a padaria diz
     // uma vez. Repetir a mesma frase três vezes soa como robô travado.
     if (restricoesTiradas.length) novo.restricoesTiradas = [...new Set(restricoesTiradas)];
+    if (recheiosTrocados.length) novo.recheiosTrocados = [...new Set(recheiosTrocados)];
   }
 
   // A COR DA FORMINHA E CARIMBADA DEPOIS DOS ITENS, NAO ANTES.
@@ -1269,6 +1319,25 @@ export async function responder(
   // equipe e NAO trava nada. O catalogo diz `recusar: false` com todas as
   // letras, e a dona explicou por que: "se a cliente falar 15, 15, 15, abre uma
   // excecao, nao tem problema nenhum". A padaria informa e segue.
+  // O RECHEIO QUE O PRODUTO NÃO TEM, dito na frente da pergunta.
+  //
+  // Não chama a equipe e não recusa nada: o item continua no pedido, com o
+  // recheio da casa. É o que uma atendente responderia a "coxinha de camarão",
+  // e o cliente que quiser insistir fala de novo, que aí a equipe entra pelo
+  // caminho de sempre.
+  if (estado.recheiosTrocados?.length) {
+    // SEM ARTIGO NA FRENTE DO PRODUTO, pelo mesmo motivo do limite de sabores:
+    // "a croquete" e "o coxinha" são erros que a clientela vê na hora, e o
+    // gênero do produto não está no catálogo. Dizer o que a casa FAZ resolve a
+    // gramática e a conversa de uma vez, e é resposta em vez de recusa.
+    fala = {
+      ...fala,
+      texto: "A gente faz " + estado.recheiosTrocados.join(", ") + "." +
+        (fala.texto ? "\n\n" + fala.texto : ""),
+    };
+    estado = { ...estado, recheiosTrocados: undefined };
+  }
+
   if (estado.poucoPorSabor) {
     fala = { ...fala, texto: estado.poucoPorSabor + (fala.texto ? "\n\n" + fala.texto : "") };
     rastro.push("sugeri o minimo por sabor (nao trava, so sugere)");

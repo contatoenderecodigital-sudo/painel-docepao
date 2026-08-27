@@ -65,6 +65,13 @@ const NAO_PRECISA_GRAVAR = {
   // menos 20 de cada" em toda mensagem seguinte, sobre uma divisao que o
   // cliente ja viu e ja aceitou ao seguir a conversa.
   poucoPorSabor: "vive um turno so: e a sugestao do minimo por sabor, dita uma vez",
+  // Terceiro do mesmo desenho, e pelo mesmo motivo.
+  //
+  // `aplicar` tira da observacao o recheio que aquele produto nao tem (o
+  // "camarao" da coxinha), `responder` vira "A gente faz coxinha de frango" e
+  // limpa na mesma passada. Gravar faria a padaria repetir qual e o recheio da
+  // coxinha em toda mensagem seguinte.
+  recheiosTrocados: "vive um turno so: vira a frase do recheio da casa e e limpo junto",
 };
 
 const sonda = path.join(__dirname, "_sonda-memoria.mjs");

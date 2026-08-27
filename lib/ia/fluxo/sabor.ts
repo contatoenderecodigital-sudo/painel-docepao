@@ -244,3 +244,55 @@ export function coresDaForminha(texto: string): string[] {
 export function coresDoCardapio(): string[] {
   return ((catalogo.forminhas_docinho?.cores ?? []) as string[]).map(String);
 }
+
+/**
+ * ELE PEDIU UM RECHEIO QUE ESTE PRODUTO NAO TEM.
+ *
+ * Sete produtos da casa tem recheio FIXO: a coxinha e de frango, a bolinha e de
+ * queijo, o croquete e de carne com catupiry. Nesses o catalogo diz que a IA
+ * NAO pergunta, e por isso ninguem conferia o que o cliente escrevia junto:
+ *
+ *     "100 coxinha de camarao"  ->  comanda: 100 coxinha ~ camarao
+ *
+ * Medido em 27/08/2026. O produto estava certo, o preco estava certo, e a
+ * COMANDA PROMETIA o que a cozinha nao faz. Quem tem lista de sabor (esfirra,
+ * quiche, empadao) ja estava protegido: o sabor de fora nao casa com a lista e
+ * a padaria pergunta. So os de recheio fixo passavam calado.
+ *
+ * Devolve o recheio de verdade quando o cliente pediu outro, ou null.
+ *
+ * NAO E RECUSA. A padaria diz o que a coxinha e, como uma atendente diria, e o
+ * pedido segue com a coxinha. Quem quiser insistir no camarao fala de novo e a
+ * equipe resolve, que e o caminho de sempre.
+ */
+export function recheioQueNaoExiste(produto: string, recheio?: string | null): string | null {
+  const pedido = semAcMin(recheio ?? "").trim();
+  if (!pedido) return null;
+
+  // O QUE E PEDIDO E O QUE E RECHEIO.
+  //
+  // Este texto vem de dois lugares: do nome ("coxinha DE CAMARAO") e da
+  // observacao que a IA escreve, e a observacao tambem carrega pedido de
+  // verdade que a cozinha PRECISA ler:
+  //
+  //     "sem cebola"   "bem passado"   "pouco sal"   "com bastante recheio"
+  //
+  // Tratar isso como recheio inventado apagaria pedido legitimo da comanda, que
+  // e pior que o defeito que esta guarda conserta. Entao: comeco com palavra de
+  // ajuste nao e recheio, e frase comprida tambem nao. Recheio e substantivo
+  // curto ("camarao", "peixe", "carne com catupiry").
+  if (/^(sem|com|bem|mal|mais|menos|pouco|pouca|muito|muita|nada|so|apenas|extra|capricha)\b/.test(pedido)) return null;
+  if (pedido.split(/\s+/).length > 3) return null;
+
+  const p = produtoNoComeco(produto) ?? produtoPorNome(produto);
+  if (!p?.saborFixo || !p.sabores.length) return null;
+
+  // O que ele escreveu bate com o recheio da casa? Vale por pedaco, porque
+  // "presunto e queijo" pode vir como "queijo" ou "presunto".
+  const daCasa = p.sabores.map(semAcMin);
+  const bate = daCasa.some(
+    (s) => s === pedido || s.includes(pedido) || pedido.includes(s) ||
+      s.split(/[ e]+/).filter((x) => x.length > 2).some((parte) => pedido.includes(parte)),
+  );
+  return bate ? null : p.sabores.join(" e ");
+}
