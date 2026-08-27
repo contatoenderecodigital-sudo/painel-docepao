@@ -84,6 +84,7 @@ export type Etapa = {
 };
 
 import { saboresQueFaltam } from "./sabor";
+import { ehNomeDeFamilia } from "./generico";
 
 /** O que a conversa ja acumulou. E o unico estado que existe. */
 export type PedidoEmMontagem = {
@@ -281,14 +282,18 @@ const temCategoria = (p: PedidoEmMontagem, pref: string) =>
  *
  * A lista e a mesma que a montagem conhece em `lib/banco/montagem.ts`.
  */
-const GENERICOS = new Set(["salgado", "salgado frito", "salgado assado", "docinho", "doce", "bolo", "bolo recheado"]);
+// A LISTA MORA NO `generico.ts`, E SO LA.
+//
+// Aqui havia uma copia, e ela ja discordava da original: "pizza" era nome de
+// familia la e nao era aqui. Cada arquivo decidindo uma coisa sobre a mesma
+// palavra e o defeito que mais se repetiu neste projeto.
 
 /** Sobrou algum item nesta familia que ainda e generico? */
 const temGenerico = (p: PedidoEmMontagem, pref: string) =>
   p.itens.some(
     (i) =>
       String(i.categoria || "").startsWith(pref) &&
-      GENERICOS.has(String(i.produto || "").trim().toLowerCase()),
+      ehNomeDeFamilia(i.produto),
   );
 
 const recusou = (p: PedidoEmMontagem, o: string) =>

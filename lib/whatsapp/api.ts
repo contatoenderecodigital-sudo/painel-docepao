@@ -3,6 +3,9 @@
 //  O webhook recebe; estas funções respondem e buscam mídia.
 // ============================================================================
 
+import { produtosDaCasa, produtoPorNome } from "@/lib/ia/dados/produtos";
+import { brl } from "@/lib/ia/orcamento";
+
 // Credenciais GLOBAIS (env) = fallback. Quando o negocio conecta o WhatsApp
 // pelo botao (Embedded Signup), o webhook passa as creds DELE aqui e a gente
 // responde pelo numero do cliente. Sem conexao, usa o env (numero de teste).
@@ -291,11 +294,35 @@ export type CardapioId = (typeof CARDAPIOS)[number];
 // saíssem do rodapé em letra miúda da imagem e virassem mensagem: no celular
 // ninguém lê rodapé de cardápio, e são justamente as regras que mais geram
 // dúvida na hora de fechar bolo de festa.
+// O NÚMERO SAI DA TABELA, NUNCA ESCRITO AQUI.
+//
+// Estes dois recados tinham "R$ 49,90", "R$ 55,90" e "R$ 12" digitados na mão.
+// É a mesma regra que o fluxo já respeita desde o começo ("quem escreve o número
+// é o código, nunca a IA"), quebrada num lugar que ninguém olhava: uma mensagem
+// que o CLIENTE recebe.
+//
+// No dia em que a dona mudasse o preço do bolo, a padaria continuaria mandando o
+// preço velho por escrito, e quem cobra depois é o cliente, com razão.
+//
+// Achado em 27/08/2026 pelo `nao-copiar-o-catalogo-pro-codigo.cjs`, que nasceu
+// da regra do dono: "nada pode ser só uma lista tua, só o cardápio e valores".
+const precosDoBoloDeFesta = () =>
+  [...new Set(produtosDaCasa().filter((p) => p.categoria === "bolo_festa").map((p) => p.preco))]
+    .sort((a, b) => a - b);
+
 export const RECADOS_CARDAPIO: Partial<Record<CardapioId, string[]>> = {
-  "bolos-festa": [
-    "Pode misturar sabores: vale sempre o valor do mais caro. Ex.: Laka com morango R$ 49,90, morango com nozes R$ 55,90.",
-    "Decoração à parte: papel de arroz R$ 12. O topo de bolo a equipe orça, porque o valor muda com o tema.",
-  ],
+  "bolos-festa": (() => {
+    const precos = precosDoBoloDeFesta();
+    const menor = brl(precos[0] ?? 0);
+    const maior = brl(precos[precos.length - 1] ?? 0);
+    const papel = produtoPorNome("papel de arroz");
+    return [
+      "Pode misturar sabores: vale sempre o valor do mais caro, de " +
+        menor + " a " + maior + " o quilo.",
+      "Decoração à parte: papel de arroz " + brl(papel?.preco ?? 0) +
+        ". O topo de bolo a equipe orça, porque o valor muda com o tema.",
+    ];
+  })(),
 };
 
 function baseDoApp(): string {

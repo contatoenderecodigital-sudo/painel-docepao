@@ -17,6 +17,8 @@ import { query, queryUm } from "./db";
 // Caminho relativo de proposito: os testes compilam este arquivo sozinho, e o
 // atalho "@/" so existe dentro do build do Next.
 import catalogo from "../ia/dados/catalogo.json";
+import { coresDaForminha } from "../ia/fluxo/sabor";
+import { ehNomeDeFamilia } from "../ia/fluxo/generico";
 
 export type CategoriaItem =
   | "bolo_festa"
@@ -121,9 +123,23 @@ const marca = (o?: string | null) => (o ?? "").trim().toLowerCase();
 // Observacao que a IA escreve so pra nao deixar o campo vazio.
 const ENFEITE = /^(sem\s+(sabor|recheio)|a\s+definir|nao\s+informad|n[ãa]o\s+especificad|indefinid|a\s+combinar)/i;
 
-// As cores de forminha do cardapio, pra saber se um docinho ja tem a dele.
-const COR_FORMINHA =
-  /(amarel\w*|azul(?:\s+(?:bebê|bebe|royal))?|branc\w*|dourad\w*|laranja\w*|lil[áa]s|marrom|pink|prata|pret\w*|ros[ae]\w*|roxo\w*|verde(?:\s+(?:bandeira|tiffany))?|vermelh\w*)(?:\s+neon|\s+claro)?/i;
+// A COR DA FORMINHA SAI DO CARDAPIO, E DE UM LUGAR SO.
+//
+// Aqui havia uma regex com as 21 cores copiadas a mao. Duas coisas erradas nela,
+// e a segunda e a que importa:
+//
+//   1. o dia em que a dona cadastrasse uma cor nova na tela, esta copia nao
+//      saberia, e o docinho pareceria estar sem cor;
+//   2. `coresDaForminha` ja fazia exatamente este trabalho, lendo o catalogo,
+//      resolvendo "azul bebe" antes de "azul" e devolvendo na ordem em que o
+//      cliente falou. Duas implementacoes do mesmo assunto sempre divergem, e
+//      este projeto ja levou esse prejuizo com o vocabulario da etapa.
+//
+// Regra do dono, 27/08/2026: "nada pode ser so uma lista tua, so o cardapio e
+// valores, o que e fixo mesmo".
+//
+// De quebra, a leitura passou a ignorar acento: quem digita "azul bebe" no
+// celular agora e entendido, e antes nao era.
 
 // O bolo da festa é UM só: o cliente vai refinando a observação (o pão de ló, o
 // tema, o nome, a foto) e cada refinamento é a mesma linha. Tratar a observação
@@ -133,8 +149,8 @@ const UMA_LINHA_SO: CategoriaItem[] = ["bolo_festa", "bolo_caseiro", "papel_de_a
 
 // Nomes que o cliente usa quando ainda não escolheu o tipo. Quando ele detalha
 // depois ("desses 300, metade frango"), o detalhe sai de dentro do genérico.
-const GENERICOS = ["salgado", "salgado assado", "salgado frito", "docinho", "doce", "bolo recheado", "bolo"];
-const ehGenerico = (produto: string) => GENERICOS.includes(produto.trim().toLowerCase());
+// A LISTA MORA NO `generico.ts`, E SO LA. Aqui havia a terceira copia dela.
+const ehGenerico = (produto: string) => ehNomeDeFamilia(produto);
 
 // Bolo com dois sabores: o nome do item precisa dizer os dois, senao a cozinha
 // produz so o primeiro. A observacao ja traz o segundo sabor.
@@ -355,8 +371,8 @@ export async function anotarItem(
   // Agora mora em dados.fluxo_forminha, e os itens so espelham pra cozinha ler
   // no cupom sem ter que olhar o cabecalho.
   if (item.categoria === "docinho") {
-    const ditas = String(item.obs ?? "").match(new RegExp(COR_FORMINHA.source, "gi"));
-    if (ditas?.length) {
+    const ditas = coresDaForminha(String(item.obs ?? ""));
+    if (ditas.length) {
       // "azul e amarelo" continua "azul e amarelo", nao vira so "azul".
       const cores = [...new Set(ditas.map((x) => x.trim().toLowerCase()))].join(" e ");
       m.dados.fluxo_forminha = cores;

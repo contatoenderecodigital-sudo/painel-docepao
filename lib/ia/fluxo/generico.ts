@@ -62,9 +62,29 @@ const limpo = (t: unknown) =>
  * preço próprio de tabela (R$ 1,00 e R$ 1,25, o sabor não muda o valor) e a
  * montagem sabe abrir os dois num sortido. Eles são produto, não família.
  */
+// ESTA E A UNICA LISTA DE NOMES DE FAMILIA DO SISTEMA.
+//
+// Ate 27/08/2026 havia TRES, e elas divergiam:
+//
+//   generico.ts    pizza, salgado, doce, docinho, bolo, bolo recheado
+//   etapas.ts      salgado, salgado frito, salgado assado, docinho, doce, bolo,
+//                  bolo recheado
+//   montagem.ts    igual a de etapas, escrita noutra ordem
+//
+// "pizza" era nome de familia num arquivo e nao era nos outros dois, e "salgado
+// frito" era nos outros dois e nao aqui. Cada arquivo decidia uma coisa
+// diferente sobre a mesma palavra, que e o defeito que mais se repetiu neste
+// projeto: uma camada minha discordando da outra.
+//
+// Regra do dono, 27/08/2026: "nada pode ser so uma lista tua". Nome de familia
+// nao e opiniao de arquivo: e uma coisa so, escrita num lugar so.
 const FAMILIAS: Record<string, string[]> = {
   pizza: ["pizza"],
   salgado: ["salgado_frito", "salgado_assado"],
+  // O cliente diz "salgado frito" sem escolher qual, e isso continua sendo
+  // familia: o que falta e o produto, e nao o modo de preparo.
+  "salgado frito": ["salgado_frito"],
+  "salgado assado": ["salgado_assado"],
   doce: ["docinho"],
   docinho: ["docinho"],
   bolo: ["bolo_festa", "bolo_caseiro"],

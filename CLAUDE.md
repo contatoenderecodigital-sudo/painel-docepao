@@ -66,6 +66,46 @@ Um sabor sem o prefixo vira o docinho de mesmo nome. Já transformou um bolo de
 
 ---
 
+## LISTA MINHA, NUNCA. CATÁLOGO E PREÇO, SEMPRE.
+
+Regra do dono, 27/08/2026, depois de me cobrar três vezes no mesmo dia:
+
+> *"não dá pra ser só uma lista tua, nada pode ser só uma lista tua assim, só o
+> cardápio e valores, o que é fixo mesmo"*
+
+**Antes de escrever uma lista de palavras no código, pergunte de onde ela devia
+sair.** Só três origens são legítimas:
+
+| origem | exemplo |
+| --- | --- |
+| o **catálogo** | produtos, sabores, cores de forminha, preços, limites |
+| o **mundo** | dias da semana, meses, formato de data |
+| o **próprio código** | nomes de campo, ids de etapa, ids de botão |
+
+Tudo o mais é a IA que resolve, porque ela tem o contexto e a lista não tem.
+
+**Foi medido, e a diferença é grande.** Eu vinha consertando erro de digitação
+com régua de distância de letra:
+
+```
+567 erros gerados contra o cardápio, 384 chegavam ao produto   (68%)
+"mini bloha de carne" e "pao de batta": a régua NUNCA alcança (duas palavras)
+```
+
+Uma linha na instrução da IA resolveu os dois, e vale pra padaria nova que
+entrar amanhã, porque o cardápio dela vai junto.
+
+**E quando a lista parece inevitável, o que falta é dar um lugar pra IA dizer o
+que ela já entendeu.** Eu tinha escrito treze palavras (`sem`, `bem`, `pouco`,
+`capricha`...) pra separar recado de recheio numa observação. A lista sumiu
+quando o `sabor` ganhou campo próprio no formato: ela separa sozinha, e o código
+confere só o sabor, contra o catálogo.
+
+**A régua de letras continua**, e virou o que deveria ter sido: rede embaixo,
+pro dia em que o modelo escorregar. Nunca o mecanismo principal.
+
+---
+
 ## AS REGRAS QUE NÃO SE QUEBRAM
 
 **Nada some do pedido.** Se falta o cliente informar algo, é só pedir pra ele.
