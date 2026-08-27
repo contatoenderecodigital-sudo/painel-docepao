@@ -40,7 +40,7 @@ import { calcularBase } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
-import { coresDaForminha } from "./sabor";
+import { coresDaForminha, saborQueFalta } from "./sabor";
 import { restricoesQueACasaNaoFaz, obsSemRestricao, avisoDaRestricao } from "./restricao";
 import { paraOMotor } from "./cotar";
 import { respostaDeInformacao } from "./informacao";
@@ -588,6 +588,42 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
         .join(" | ");
       return { ...i, obs: [obs, marca].filter(Boolean).join(" | ") };
     });
+  }
+
+  // A RESPOSTA DO SABOR VAI PRO ITEM QUE ESTA ESPERANDO SABOR.
+  //
+  // "de calabresa" nao nomeia produto nenhum: e resposta a pergunta que a
+  // padaria acabou de fazer. Sem isto ela caia no vazio, a padaria perguntava o
+  // sabor de novo, e o pedido nunca fechava. Medido em 26/08/2026, numa
+  // conversa de pizza que precisou de seis voltas pra fechar.
+  //
+  // SO GRUDA SE O SABOR FOR DAQUELE PRODUTO. "calabresa" e sabor de pizza e de
+  // esfirra; se houvesse os dois esperando, escolher por conta propria seria
+  // inventar. Por isso: um item esperando, e o sabor tem que estar na lista
+  // DELE.
+  //
+  // E so quando o item ainda nao tem sabor: quem ja escolheu nao e
+  // sobrescrito por uma palavra solta numa mensagem posterior.
+  const esperando = novo.itens.filter((i) => saborQueFalta(i.produto, i.obs));
+  if (esperando.length === 1) {
+    const item = esperando[0];
+    const opcoes = saborQueFalta(item.produto, item.obs)?.opcoes ?? [];
+    const t = String(falaDoCliente || "")
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase();
+    // O nome mais longo primeiro: "frango com catupiry" antes de "frango".
+    const achado = [...opcoes]
+      .sort((a, b) => b.length - a.length)
+      .find((o) => {
+        const alvo = o.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+        return alvo.length > 2 && t.includes(alvo);
+      });
+    if (achado) {
+      novo.itens = novo.itens.map((i) =>
+        i === item ? { ...i, obs: [i.obs, achado].filter(Boolean).join(" | ") } : i,
+      );
+    }
   }
 
   return novo;
