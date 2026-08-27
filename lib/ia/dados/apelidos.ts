@@ -45,6 +45,25 @@ export const APELIDOS: Record<string, string[]> = {
   ],
   "pizza meia": ["meia pizza", "metade da pizza", "meia de forma", "meia"],
   "pizza redonda": ["redonda", "pizza redonda", "de 30", "30 cm"],
+  // O PASTEL DOCE É OUTRO PRODUTO, E TEM QUE VIR ANTES DO SALGADO.
+  //
+  // A nota do próprio catálogo já avisava: *"o cliente chama de 'pastel bolha
+  // doce' ou 'pastel doce'; o nome fica 'mini bolha doce' de propósito, pra
+  // casar com a família da 'mini bolha' e não roubar o pedido salgado"*.
+  //
+  // Só que esses dois nomes nunca tinham entrado aqui. Medido em 26/08/2026:
+  //
+  //     "pastel doce de banana"  ->  mini bolha (o SALGADO), R$ 1,00
+  //
+  // O apelido "pastel" pegava a frase inteira antes de qualquer coisa. Além dos
+  // R$ 0,25 por unidade, a cozinha recebia pedido de pastel SALGADO para quem
+  // pediu doce, e num cento isso é a bandeja errada inteira.
+  //
+  // Isto é sinônimo de verdade, que é o critério deste arquivo: mesmo produto,
+  // mesmo preço, escrito do jeito que o cliente fala. Áudio da dona,
+  // 16/08/2026: *"se o cliente pedir, você consegue fazer, por exemplo, pastel
+  // doce de banana. É uma coisa que a gente faz, só que a gente cobra 1,25"*.
+  "mini bolha doce": ["pastel bolha doce", "pastel doce", "bolha doce", "pastelzinho doce"],
   "mini bolha": ["pastel frito", "pastel", "bolha"],
 
   // Esfiha e esfirra sao a mesma coisa e estao a tres letras de distancia, que
