@@ -1118,7 +1118,19 @@ export async function responder(
   // resolve numa frase e a Dora nao resolve em dez.
   const mesmaPergunta = Boolean(estado.ultimaFala) && fala.texto === estado.ultimaFala;
   const insistiu = mesmaPergunta ? (estado.insistiu ?? 0) + 1 : 0;
-  estado = { ...estado, ultimaFala: fala.texto || null, insistiu };
+  // DE QUE ETAPA SAIU A PERGUNTA QUE ESTA INDO AGORA.
+  //
+  // E o sinal de "ele JA foi perguntado disto", usado pelos detalhes opcionais
+  // (o prato do bolo, o topo, o papel de arroz) pra nao insistir.
+  //
+  // Antes esse sinal saia do `insistiu`, e ficava um turno atrasado: a etapa so
+  // seguia depois de a mesma pergunta sair DUAS vezes. Na bateria dos cinco
+  // jeitos isso derrubou o cenario 1, que era verde: quem manda o pedido
+  // inteiro numa mensagem ouvia "o bolo vai no prato aberto ou com tampa?",
+  // respondia "isso mesmo, pode confirmar", e ouvia a MESMA pergunta.
+  //
+  // Agora a etapa segue ja na primeira ignorada.
+  estado = { ...estado, ultimaFala: fala.texto || null, insistiu, ultimaEtapaPerguntada: proxima.id };
 
   if (insistiu === 1 && fala.opcoes?.length && !fala.texto.includes(fala.opcoes[0])) {
     fala = { ...fala, texto: fala.texto + "\n\nAs opções são: " + fala.opcoes.join(", ") + "." };

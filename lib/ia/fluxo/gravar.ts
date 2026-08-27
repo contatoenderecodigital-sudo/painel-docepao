@@ -86,6 +86,13 @@ export function estadoDosDados(d: Record<string, string | null | undefined>): Pa
     ofereceu: d.fluxo_ofereceu === "sim",
     ultimaFala: d.fluxo_ultima_fala || null,
     insistiu: Number(d.fluxo_insistiu) || 0,
+    // DE QUE ETAPA VEIO A ULTIMA PERGUNTA.
+    //
+    // Precisa sobreviver a mensagem, senao a regra dos detalhes opcionais nunca
+    // dispara: no WhatsApp cada mensagem e uma chamada nova, e "eu ja perguntei
+    // isso" so existe se estiver gravado.
+    ultimaEtapaPerguntada:
+      d.fluxo_perguntei && d.fluxo_perguntei !== "nenhum" ? (d.fluxo_perguntei as EtapaId) : null,
     assunto: d.fluxo_assunto && d.fluxo_assunto !== "nenhum" ? (d.fluxo_assunto as EtapaId) : null,
     retomarEm: d.fluxo_retomar && d.fluxo_retomar !== "nenhum" ? (d.fluxo_retomar as EtapaId) : null,
     // O QUE ELE PEDIU FORA DA HORA PRECISA SOBREVIVER A MENSAGEM.
@@ -231,6 +238,9 @@ export function dadosQueMudaram(antes: Estado, depois: Estado): Record<string, s
   }
   if ((depois.insistiu ?? 0) !== (antes.insistiu ?? 0)) {
     mudou.fluxo_insistiu = String(depois.insistiu ?? 0);
+  }
+  if ((depois.ultimaEtapaPerguntada ?? null) !== (antes.ultimaEtapaPerguntada ?? null)) {
+    mudou.fluxo_perguntei = depois.ultimaEtapaPerguntada ?? "nenhum";
   }
   if ((depois.assunto ?? null) !== (antes.assunto ?? null)) mudou.fluxo_assunto = depois.assunto ?? "nenhum";
   if ((depois.retomarEm ?? null) !== (antes.retomarEm ?? null)) mudou.fluxo_retomar = depois.retomarEm ?? "nenhum";

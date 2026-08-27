@@ -100,7 +100,7 @@ export type Leitura = {
    */
   situacao?: "reclamacao" | "cancelar" | "status";
   perguntou?: {
-    sobre: "preco" | "horario" | "endereco" | "pagamento" | "entrega" | "prazo" | "outro";
+    sobre: "preco" | "horario" | "endereco" | "pagamento" | "entrega" | "prazo" | "desconto" | "outro";
     familia?: string;
   };
   /** Como o bolo vai embalado: prato de MDF aberto ou embalagem com tampa. */
@@ -201,7 +201,11 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "- dia, hora, nome de quem retira e forma de pagamento vão em dados." + String.fromCharCode(10) +
     "- Hoje é " + hojeEmSaoPaulo() + ", e retirada é sempre no futuro." + String.fromCharCode(10) +
     "- Perguntou em vez de pedir? perguntou.sobre = preco (com familia), " +
-    "horario, endereco, pagamento, entrega, prazo ou outro." + String.fromCharCode(10) +
+    "horario, endereco, pagamento, entrega, prazo, desconto ou outro." + String.fromCharCode(10) +
+    // Desconto, preco beneficente e "da uma ajuda?" sao a mesma pergunta, e a
+    // resposta e sempre da equipe. A IA nao pode soltar o preco por unidade que
+    // a dona usa nesses casos: negociacao virando tabela custa margem.
+    "- Pediu desconto, falou que e beneficente ou pediu ajuda = desconto." + String.fromCharCode(10) +
     "- Reclamou do que comprou = situacao \"reclamacao\". Quer cancelar = " +
     "\"cancelar\". Pergunta de pedido já feito = \"status\"." + String.fromCharCode(10) +
     "- Pergunta e reclamação NÃO viram item.";

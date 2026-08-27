@@ -54,12 +54,12 @@ fs.writeFileSync(
     "    respondeuOsDois: cumpre('pecas_do_bolo', { pecas:{topo:false,papelDeArroz:false} }),",
     "    respondeuSoPapel:cumpre('pecas_do_bolo', { pecas:{topo:null,papelDeArroz:true} }),",
     "    respondeuSoTopo: cumpre('pecas_do_bolo', { pecas:{topo:true,papelDeArroz:null} }),",
-    "    ignorouDuasVezes:cumpre('pecas_do_bolo', { insistiu:1 }),",
+    "    ignorouDuasVezes:cumpre('pecas_do_bolo', { ultimaEtapaPerguntada:'pecas_do_bolo' }),",
     "  },",
     "  prato: {",
     "    naoFalou:        cumpre('bolo', {}),",
     "    respondeu:       cumpre('bolo', { prato:'aberto' }),",
-    "    ignorouDuasVezes:cumpre('bolo', { insistiu:1 }),",
+    "    ignorouDuasVezes:cumpre('bolo', { ultimaEtapaPerguntada:'bolo' }),",
     "  },",
     "  // O obrigatorio nao segue por cansaco: sem pagamento o pedido nao fecha,",
     "  // e e certo que nao feche.",
@@ -112,9 +112,9 @@ cobra("respondeu o prato: a etapa fecha", r.prato.respondeu, true);
 
 // ------------------------------------------------------------------ 3. SEGUE
 console.log("");
-console.log("== 3. se ele ignorou duas vezes, SEGUE ==");
-cobra("as pecas seguem depois de duas tentativas", r.pecas.ignorouDuasVezes, true);
-cobra("o prato segue depois de duas tentativas", r.prato.ignorouDuasVezes, true);
+console.log("== 3. ja perguntou e ele falou outra coisa: SEGUE, sem insistir ==");
+cobra("as pecas seguem depois de uma pergunta ignorada", r.pecas.ignorouDuasVezes, true);
+cobra("o prato segue depois de uma pergunta ignorada", r.prato.ignorouDuasVezes, true);
 
 // -------------------------------------------- o obrigatorio nao segue nunca
 console.log("");

@@ -132,6 +132,20 @@ export type PedidoEmMontagem = {
    */
   insistiu?: number;
   /**
+   * DE QUE ETAPA VEIO A ÚLTIMA PERGUNTA QUE A PADARIA FEZ.
+   *
+   * Serve pra saber que o cliente JÁ FOI PERGUNTADO e respondeu outra coisa.
+   *
+   * Antes isso saía do `insistiu`, e ficava um turno atrasado: a etapa só
+   * seguia depois de a mesma pergunta sair DUAS vezes. Quem mandava o pedido
+   * inteiro numa mensagem ouvia "o bolo vai no prato aberto ou com tampa?",
+   * respondia "isso mesmo, pode confirmar", e ouvia a MESMA pergunta de novo.
+   *
+   * Com isto a etapa segue já na primeira ignorada: perguntou, ele falou outra
+   * coisa, a padaria não insiste. Medido na bateria dos cinco jeitos.
+   */
+  ultimaEtapaPerguntada?: EtapaId | null;
+  /**
    * DE QUEM E O ANIVERSARIO, E QUANTOS ANOS FAZ.
    *
    * Pedido do dono, e ele tem razao: "importantissimo". O topo e fabricado com
@@ -233,7 +247,8 @@ export type PedidoEmMontagem = {
  * de 25/08/2026, em que o cliente respondia "isso mesmo, pode confirmar" e
  * ouvia a mesma pergunta do prato ate a conversa morrer.
  */
-const jaPerguntouEEleNaoRespondeu = (p: PedidoEmMontagem) => (p.insistiu ?? 0) >= 1;
+const jaPerguntouEEleNaoRespondeu = (p: PedidoEmMontagem, etapa: EtapaId) =>
+  p.ultimaEtapaPerguntada === etapa;
 
 const semForminha = (p: PedidoEmMontagem) => !p.forminha;
 
@@ -390,7 +405,7 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     cumprida: (p) =>
       p.itens.some(
         (i) => String(i.categoria || "").startsWith("bolo") && String(i.produto).trim().toLowerCase() !== "bolo",
-      ) && (p.prato !== null || jaPerguntouEEleNaoRespondeu(p)),
+      ) && (p.prato !== null || jaPerguntouEEleNaoRespondeu(p, "bolo")),
     // O SABOR DO BOLO VALE FORA DA FESTA TAMBEM.
     //
     // Ate 23/08/2026 esta etapa era pulada em todo pedido que nao fosse festa,
@@ -436,7 +451,7 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       //
       // E quem ignorou duas vezes ja respondeu: nao quer. Segue.
       if (p.pecas?.topo == null || p.pecas?.papelDeArroz == null) {
-        return jaPerguntouEEleNaoRespondeu(p);
+        return jaPerguntouEEleNaoRespondeu(p, "pecas_do_bolo");
       }
       // Sem topo e sem papel nao ha peca personalizada: acabou aqui.
       if (p.pecas.topo === false && p.pecas.papelDeArroz === false) return true;

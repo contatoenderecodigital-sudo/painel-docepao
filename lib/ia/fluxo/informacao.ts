@@ -37,6 +37,25 @@ export type SobreOQue =
   | "entrega"
   | "prazo"
   /**
+   * DESCONTO, PREÇO BENEFICENTE, "DÁ UMA AJUDA?".
+   *
+   * Áudio da dona, 29/07/2026: *"quando a pessoa pedir um desconto, ou então
+   * falar que é beneficente, ou até pedir uma ajuda, a gente já cobra unidade.
+   * O cachorro-quente R$ 1,20 e o pão de X R$ 1,40."*
+   *
+   * Esses dois valores existem no catálogo como anotação e a IA **não pode
+   * dizer nenhum dos dois**. Quem decide desconto é quem paga a conta, e a
+   * própria dona deu a frase logo em seguida:
+   *
+   *   *"aí ela pode sempre falar assim: ah, então deixa eu ver a possibilidade
+   *   de um desconto, eu já te retorno."*
+   *
+   * Soltar o valor por unidade transforma uma negociação em tabela. Quem ouviu
+   * R$ 1,20 uma vez vai cobrar esse preço na próxima, e a padaria perde a
+   * margem sem ter decidido nada.
+   */
+  | "desconto"
+  /**
    * ALGUMA COISA QUE A PADARIA NAO GUARDA AQUI.
    *
    * Teste da Kemilly, 23/08/2026: ela pediu o CNPJ e recebeu o ENDERECO. O
@@ -148,6 +167,25 @@ export function respostaDeInformacao(p: Pergunta): { texto: string; precisaHuman
         texto:
           "Sobre entrega quem te responde melhor é a equipe, porque depende do dia e do endereço. " +
           "Já vou chamar alguém pra falar com você.",
+        precisaHumano: true,
+      };
+
+    case "desconto":
+      // DESCONTO É DE QUEM PAGA A CONTA, E A DONA DEU A FRASE.
+      //
+      // Áudio de 29/07/2026: "quando a pessoa pedir um desconto, ou então falar
+      // que é beneficente, ou até pedir uma ajuda, a gente já cobra unidade. O
+      // cachorro-quente R$ 1,20 e o pão de X R$ 1,40."
+      //
+      // Os dois valores estão no catálogo como anotação, e a IA NÃO pode dizer
+      // nenhum deles: soltar o preço por unidade transforma negociação em
+      // tabela, e quem ouviu R$ 1,20 uma vez vai cobrar isso na próxima.
+      //
+      // A frase é a dela, logo em seguida no mesmo áudio: "deixa eu ver a
+      // possibilidade de um desconto, eu já te retorno".
+      return {
+        texto:
+          "Deixa eu ver a possibilidade de um desconto com a equipe e já te retorno por aqui.",
         precisaHumano: true,
       };
 
