@@ -1046,7 +1046,32 @@ export async function responder(
     const daVez = lista.findIndex((x) => x.id === proxima.id);
     const doAssunto = lista.findIndex((x) => x.id === estado.assunto);
     const podeIr = proxima.id === "abertura" || doAssunto <= daVez;
-    if (alvo && !alvo.cumprida(estado) && podeIr) {
+
+    // ASSUNTO JA PERGUNTADO NAO VOLTA PRA MESA.
+    //
+    // O assunto voltava a cada mensagem enquanto a etapa nao se cumprisse, e
+    // uma etapa de familia SO se cumpre com item daquela familia. Se o cliente
+    // nao pede daquela familia, ela nunca se cumpre e a conversa fica presa.
+    //
+    // Medido em 26/08/2026, com uma conversa de pizza contra o banco. O modelo
+    // classificou a pizza como SALGADO (ela e salgada, e pizza nao e etapa), o
+    // assunto grudou em salgado, e:
+    //
+    //   cliente >> as redondas
+    //   padaria >> Quais salgados voce quer?   (com o cardapio de salgados)
+    //   cliente >> uma de calabresa e uma de frango com catupiry
+    //   padaria >> Voce quer quais salgados?   (o mesmo cardapio de novo)
+    //   cliente >> nome Marcos Alves, pix
+    //   padaria >> Vou chamar uma pessoa da equipe.
+    //
+    // Isso pega qualquer produto que nao tem etapa propria: pizza, empadao,
+    // torta, cuca, pao. A pergunta certa nunca chegava a sair.
+    //
+    // Agora vale a mesma regra dos detalhes opcionais: perguntou, ele falou
+    // outra coisa, a padaria segue. Ver `PERGUNTA-E-BOTAO.md`.
+    const jaPerguntei = (estado.etapasJaPerguntadas ?? []).includes(estado.assunto);
+
+    if (alvo && !alvo.cumprida(estado) && podeIr && !jaPerguntei) {
       proxima = alvo;
       rastro.push("o assunto e " + alvo.id + " (foi ele quem trouxe)");
     } else {
