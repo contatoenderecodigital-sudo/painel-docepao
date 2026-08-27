@@ -103,20 +103,34 @@ if (cat("coxinha") !== "salgado_frito") falhas.push("coxinha entrou como " + cat
 if (cat("brigadeiro") !== "docinho") falhas.push("brigadeiro entrou como " + cat("brigadeiro") + " em vez de docinho");
 if (cat("bolo morango") !== "bolo_festa") falhas.push("o bolo de morango entrou como " + cat("bolo morango"));
 
-// ------------------------------ o que a padaria nao faz, ela diz
-// A Doce Pao nao tem bolo de ninho. Sem avisar, o fluxo repetia "E o bolo, qual
-// sabor?" pra sempre e o cliente achava que ela nao tinha entendido.
+// ------------------------- o sabor que ela nao achou, ela COMENTA (e nao nega)
+// A Doce Pao nao tem bolo de ninho com esse nome. Sem comentar, o fluxo repetia
+// "E o bolo, qual sabor?" pra sempre e o cliente achava que ela nao entendeu.
+//
+// O QUE ELA DIZ MUDOU EM 27/08/2026, E O TESTE MUDOU JUNTO.
+//
+// Ela dizia "A gente nao faz ninho", e isso era negacao. Medido na etapa do
+// bolo: "bolo de chocolate" recebia "A gente nao faz chocolate", sendo que a
+// casa faz brigadeiro, laka, bombom, biz, prestigio e dois amores, todos bolos
+// de chocolate. A dona ja tinha dito que a lista e aberta: "se o cliente pedir
+// outro sabor, a gente vai colocando".
+//
+// Entao o teste cobra o que importa e nao a palavra: ela tem que CITAR o sabor
+// que nao achou, pra o cliente saber que foi lido, e NAO pode dizer que a casa
+// nao faz.
 {
   const p = passo("bolo de ninho");
   if (!p) falhas.push("o passo do bolo de ninho sumiu do teste");
-  else if (!/n(ã|a)o faz/i.test(p.texto)) {
-    falhas.push("pediu um sabor que nao existe e ela nao avisou: " + p.texto);
+  else if (!/ninho/i.test(p.texto)) {
+    falhas.push("pediu um sabor que ela nao achou e ela nao comentou: " + p.texto);
+  } else if (/n(ã|a)o faz|n(ã|a)o tem|n(ã|a)o temos/i.test(p.texto)) {
+    falhas.push("negou o sabor em vez de mostrar o que a casa tem: " + p.texto);
   }
 }
-// E o aviso nao pode sobrar pra mensagem seguinte.
+// E o comentario nao pode sobrar pra mensagem seguinte.
 {
   const p = passo("entao o de morango");
-  if (p && /n(ã|a)o faz/i.test(p.texto)) falhas.push("o aviso de 'nao faz' vazou pra mensagem seguinte");
+  if (p && /n(ã|a)o achei/i.test(p.texto)) falhas.push("o aviso do sabor vazou pra mensagem seguinte");
 }
 
 // ------------------------------------- o que nao existe nao entra

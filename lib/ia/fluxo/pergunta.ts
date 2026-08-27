@@ -543,8 +543,31 @@ export function falaDaEtapa(
    */
   naoTemos: string[] = [],
 ): Fala {
+  // "A GENTE NÃO FAZ X" É NEGAÇÃO, E QUASE SEMPRE MENTIRA.
+  //
+  // Medido em 27/08/2026, na etapa do bolo:
+  //
+  //   cliente >> bolo de chocolate, 2 kg
+  //   padaria >> A gente não faz chocolate. E o bolo, qual sabor?
+  //
+  // A casa faz brigadeiro, laka, bombom, biz, prestígio e dois amores, que são
+  // todos bolos de chocolate, e ainda tem "chocolate preto com leite ninho" nos
+  // caseiros. Ela negou o sabor mais pedido do Brasil por ele não estar escrito
+  // com essa palavra na lista.
+  //
+  // A dona já tinha respondido isso: *"se o cliente pedir outro sabor, a gente
+  // vai colocando"*. A lista da casa é ABERTA, e negar por ela é perder venda
+  // por regra nossa, não por regra da padaria.
+  //
+  // Então o que era negação vira convite. A pergunta da etapa já vai logo
+  // depois, com o cardápio junto, e o cliente escolhe vendo o que existe em vez
+  // de ouvir que não existe.
+  //
+  // NÃO É O MESMO QUE PROMETER. A padaria não diz "a gente faz": ela diz que
+  // não achou com aquele nome e mostra o que tem. Quem decide o que a cozinha
+  // produz é a cozinha, e essa regra já valeu pra restrição de dieta e pro topo.
   const aviso = naoTemos.length
-    ? "A gente não faz " + naoTemos.join(" nem ") + ". "
+    ? "Não achei " + naoTemos.join(" nem ") + " no cardápio com esse nome. "
     : "";
   switch (etapa.id) {
     case "quantas_pessoas":
