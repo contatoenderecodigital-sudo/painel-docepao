@@ -597,18 +597,31 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       //
       // O teste que eu tinha escrito passava sem o conserto, porque ele mandava
       // o sabor pelo nome, que é o caminho que o modelo NÃO usa.
-      const outroRecheio =
-        recheioQueNaoExiste(produto, quem.recheio) ??
-        recheioQueNaoExiste(produto, obsItem);
+      // O SABOR TEM CAMPO PRÓPRIO, E POR ISSO NÃO PRECISA DE LISTA MINHA.
+      //
+      // A primeira versão olhava a observação inteira e eu tinha escrito uma
+      // lista de palavras pra não confundir recado com recheio ("sem", "bem",
+      // "pouco", "capricha"). O dono cortou, com a mesma régua de sempre: nada
+      // pode ser lista minha, só o cardápio e os preços são fixos.
+      //
+      // Ele está certo, e a solução é dar à IA um lugar pra dizer o que ela já
+      // entendeu. Medido contra ela, ela separa sozinha:
+      //
+      //   "coxinha de camarao"              sabor=camarão  obs=""
+      //   "coxinha sem cebola"              sabor=""       obs="sem cebola"
+      //   "esfirra de carne com pouco sal"  sabor=carne    obs="com pouco sal"
+      //   "capricha no recheio"             sabor=""       obs="capricha..."
+      //
+      // O código confere SÓ o sabor, contra o catálogo, que é lista legítima. O
+      // recado passa intocado, e nenhuma palavra minha decide o que é o quê.
+      const saborPedido = quem.recheio ?? (i.sabor ? String(i.sabor) : null);
+      const outroRecheio = recheioQueNaoExiste(produto, saborPedido);
       if (outroRecheio) {
         recheiosTrocados.push(produto + " de " + outroRecheio);
-        // A observação inteira era o sabor que a casa não faz: sai. Se tiver
-        // mais coisa junto, o que não é sabor fica, porque pode ser pedido de
-        // verdade que a cozinha precisa ler.
-        if (quem.recheio && String(obsItem ?? "").trim() === quem.recheio) obsItem = null;
-        else if (!quem.recheio) obsItem = null;
-      } else if (quem.recheio && !String(obsItem ?? "").toLowerCase().includes(quem.recheio)) {
-        obsItem = [obsItem, quem.recheio].filter(Boolean).join(" | ");
+      } else if (saborPedido && !String(obsItem ?? "").toLowerCase().includes(saborPedido.toLowerCase())) {
+        // O sabor da casa vai junto do recado na observação, que é o que a
+        // comanda lê. Os dois inteiros: "frango bem passada" chega assim.
+        obsItem = [obsItem, saborPedido].filter(Boolean).join(" | ");
       }
 
       // A PROMESSA QUE A CASA NÃO CUMPRE SAI DA OBSERVAÇÃO.

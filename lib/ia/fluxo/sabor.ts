@@ -269,20 +269,17 @@ export function recheioQueNaoExiste(produto: string, recheio?: string | null): s
   const pedido = semAcMin(recheio ?? "").trim();
   if (!pedido) return null;
 
-  // O QUE E PEDIDO E O QUE E RECHEIO.
+  // AQUI SO CHEGA SABOR, E ISSO NAO E LISTA MINHA.
   //
-  // Este texto vem de dois lugares: do nome ("coxinha DE CAMARAO") e da
-  // observacao que a IA escreve, e a observacao tambem carrega pedido de
-  // verdade que a cozinha PRECISA ler:
+  // A primeira versao recebia a observacao inteira, e eu tinha escrito uma
+  // lista de palavras pra separar recado de recheio ("sem", "bem", "pouco",
+  // "capricha"). O dono cortou, com a regua de sempre: nada pode ser lista
+  // minha, so o cardapio e os precos sao fixos.
   //
-  //     "sem cebola"   "bem passado"   "pouco sal"   "com bastante recheio"
-  //
-  // Tratar isso como recheio inventado apagaria pedido legitimo da comanda, que
-  // e pior que o defeito que esta guarda conserta. Entao: comeco com palavra de
-  // ajuste nao e recheio, e frase comprida tambem nao. Recheio e substantivo
-  // curto ("camarao", "peixe", "carne com catupiry").
-  if (/^(sem|com|bem|mal|mais|menos|pouco|pouca|muito|muita|nada|so|apenas|extra|capricha)\b/.test(pedido)) return null;
-  if (pedido.split(/\s+/).length > 3) return null;
+  // A lista sumiu porque o problema sumiu: quem separa recado de sabor e a IA,
+  // que tem o contexto, e ela devolve os dois em campos diferentes. O que chega
+  // nesta funcao ja e sabor declarado, e o que ela confere e o CATALOGO, que e
+  // lista legitima porque e a tabela da casa.
 
   const p = produtoNoComeco(produto) ?? produtoPorNome(produto);
   if (!p?.saborFixo || !p.sabores.length) return null;

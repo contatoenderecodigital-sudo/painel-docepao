@@ -39,7 +39,19 @@ import { APELIDOS } from "../dados/apelidos";
 /** O que a IA pode devolver. Nada alem disto entra no pedido. */
 export type Leitura = {
   /** Itens que ele pediu, do vocabulario DESTA etapa. */
-  itens?: { produto: string; qtd: number; obs?: string | null }[];
+  itens?: {
+    produto: string;
+    qtd: number;
+    /**
+     * O RECHEIO OU SABOR, separado do recado pra cozinha.
+     *
+     * Ate 27/08/2026 os dois vinham num campo so, e conferir o sabor contra o
+     * cardapio significava arriscar apagar "sem cebola" da comanda. Com o campo
+     * proprio, o codigo confere so o sabor e o recado passa intocado.
+     */
+    sabor?: string | null;
+    obs?: string | null;
+  }[];
   /** Quantas pessoas vao na festa. */
   pessoas?: number;
   /**

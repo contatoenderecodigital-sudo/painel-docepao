@@ -31,7 +31,7 @@ const MODELO = process.env.OPENAI_MODEL_FLUXO || "gpt-4.1-mini";
 const FORMATO = `Responda SÓ com um JSON, sem texto em volta, neste formato:
 
 {
-  "itens": [{ "produto": "nome do cardápio", "qtd": 0, "obs": "sabor, cor, tema" }],
+  "itens": [{ "produto": "nome do cardápio", "qtd": 0, "sabor": "só o recheio, uma palavra ou duas", "obs": "recado pra cozinha: o que NÃO é sabor" }],
   "pessoas": 0,
   "aceitouBase": false,
   "naoQuer": ["salgado"],
@@ -98,7 +98,25 @@ export function pensarComOpenAI(
         // Numero negativo continua fora: isso nao e resposta de ninguem.
         limpo.itens = lido.itens
           .filter((i) => i && String(i.produto ?? "").trim() && Number(i.qtd) >= 0)
-          .map((i) => ({ produto: String(i.produto).trim(), qtd: Number(i.qtd) || 0, obs: i.obs ?? null }));
+          .map((i) => ({
+            produto: String(i.produto).trim(),
+            qtd: Number(i.qtd) || 0,
+            // O SABOR VEM SEPARADO DO RECADO, e os dois seguem inteiros.
+            //
+            // Ate 27/08/2026 tudo vinha misturado num campo so ("sabor, cor,
+            // tema"), e por isso o codigo nao tinha como conferir o sabor
+            // contra o cardapio sem arriscar comer recado de verdade:
+            //
+            //   "coxinha de camarao"              a casa nao faz camarao
+            //   "coxinha sem cebola"              a cozinha PRECISA ler isto
+            //
+            // Separar nao e regra nova nem lista de palavras: e dar um lugar
+            // pra IA dizer o que ela ja entendeu. Medido contra ela, ela separa
+            // sozinha. O codigo confere SO o sabor, contra o catalogo, e o
+            // recado passa intocado.
+            sabor: i.sabor ? String(i.sabor).trim() : null,
+            obs: i.obs ?? null,
+          }));
         if (!limpo.itens.length) delete limpo.itens;
       }
       // "VOU FAZER UMA FESTA" MORRIA AQUI.
