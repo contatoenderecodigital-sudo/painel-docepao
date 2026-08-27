@@ -203,6 +203,30 @@ const CENARIOS = [
     esperado: { itens: ["brigadeiro"], proibidos: ["lactose", "vegano"], linhas: 1 },
   },
   {
+    // O BOLO DE FESTA SEM LACTOSE: A PADARIA TALVEZ FACA, E POR ISSO E DA EQUIPE.
+    //
+    // Caso levantado pelo dono em 26/08/2026: "se for por exemplo bolo de
+    // brigadeiro + o sem lactose, la eles devem fazer no bolo ne, so fica mais
+    // caro".
+    //
+    // Ele esta certo, e o cardapio confirma: "0% lactose" e sabor de bolo de
+    // festa da faixa C, R$ 55,90 o quilo contra R$ 46,90 do brigadeiro.
+    //
+    // O que este cenario cobra e o meio termo, que e o dificil:
+    //
+    //   o BOLO fica no pedido, porque e venda de verdade;
+    //   a palavra "lactose" NAO fica na observacao, porque a comanda nao pode
+    //   mandar a cozinha produzir uma coisa enquanto o resumo promete outra;
+    //   e o pedido NAO fecha sozinho, porque quem responde e a equipe.
+    nome: "bolo sem lactose vai pra equipe e nao vira promessa",
+    fala: [
+      "boa tarde, queria um bolo de 2 kg de brigadeiro pra sexta as 16h",
+      "ele pode ser sem lactose? minha filha tem intolerancia",
+      "nome Aline Ribeiro, pix",
+    ],
+    esperado: { itens: ["brigadeiro"], proibidos: ["lactose"], linhas: 1, fechou: false },
+  },
+  {
     nome: "festa com quatro familias fecha",
     fala: [
       "quero fazer uma festa dia 06/09, 100 coxinhas e 50 esfirras de calabresa",
