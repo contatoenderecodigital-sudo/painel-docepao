@@ -135,6 +135,23 @@ function falaDosDados(p: PedidoEmMontagem): { texto: string; botoes: Fala["botoe
  * troca: o leitor da frase entende as três respostas escritas de uma vez, o que
  * está medido em `testes/pergunta-uma-vez-e-nao-repete.cjs`.
  */
+/**
+ * A PEÇA DE CARDÁPIO DESTE PRODUTO, quando a lista de sabor é longa demais
+ * para caber numa frase.
+ *
+ * As peças são as que existem em `public/cardapios/`. Só as famílias com lista
+ * longa precisam disso: quem tem dois ou três sabores cabe no texto, e ler a
+ * resposta escrita é mais rápido para o cliente do que abrir uma imagem.
+ */
+function pecaDoCardapio(produto: string): string | null {
+  const t = String(produto || "").toLowerCase();
+  if (t.startsWith("pizza") || t.startsWith("calzone")) return "pizza";
+  if (t.startsWith("cupcake") || t.startsWith("franciscano")) return "cupcakes-franciscano";
+  if (t.startsWith("torta") || t.startsWith("empadao") || t.startsWith("empadão")) return "tortas-empadao";
+  if (t.startsWith("cuca")) return "cucas-paes";
+  return null;
+}
+
 function pediuTudoDeUmaVez(p: PedidoEmMontagem): boolean {
   return Boolean(p.dados?.data && p.dados?.hora && p.dados?.nome && p.dados?.pagamento);
 }
@@ -600,6 +617,42 @@ export function falaDaEtapa(
             opcoes: opcoesDaFamilia(familia.produto),
           };
         }
+      }
+
+      // E O SABOR TAMBÉM, pelo mesmo motivo.
+      //
+      // O sabor em aberto já bloqueava o fechamento, e SÓ as etapas do salgado e
+      // do docinho perguntavam. Quem pede pizza, empadão, torta ou calzone
+      // chegava aqui com o sabor faltando, via o resumo, escrevia "pode
+      // confirmar" e via o mesmo resumo de novo, para sempre.
+      //
+      // Medido em 26/08/2026 com uma conversa de pizza: o pedido saía certo em
+      // produto e preço (2 kg de pizza redonda, R$ 83,80) e nunca era
+      // registrado, porque faltava o sabor e ninguém perguntava.
+      const semSabor = saboresQueFaltam(p.itens)[0];
+      if (semSabor) {
+        // LISTA LONGA VIRA CARDÁPIO, NÃO PAREDE DE TEXTO.
+        //
+        // A pizza tem 31 sabores. Despejar os 31 numa mensagem de WhatsApp é
+        // pior que não responder: ninguém lê, e a peça de cardápio existe
+        // exatamente para isso. É o que a padaria já faz nas etapas de família.
+        const peca = pecaDoCardapio(semSabor.produto);
+        if (semSabor.opcoes.length > 6 && peca) {
+          return {
+            texto: "O " + semSabor.produto + " vai de quê? Te mandei o cardápio pra escolher.",
+            botoes: [],
+            cardapio: peca,
+            podeReescrever: true,
+            opcoes: semSabor.opcoes,
+          };
+        }
+        return {
+          texto: "O " + semSabor.produto + " vai de quê? Tem " + semSabor.opcoes.join(", ") + ".",
+          botoes: [],
+          cardapio: null,
+          podeReescrever: true,
+          opcoes: semSabor.opcoes,
+        };
       }
 
       return {
