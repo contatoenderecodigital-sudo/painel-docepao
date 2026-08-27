@@ -344,11 +344,26 @@ export function juntarComAFrase(doModelo: Leitura, fala: string): Leitura {
   const daFrase = lerAFrase(fala);
   const junto: Leitura = { ...doModelo };
 
+  // O LEITOR COMPLETA O MODELO. NÃO O DESMENTE.
+  //
+  // Aqui a frase vinha POR CIMA, e o motivo era bom: o modelo lê "sem topo e sem
+  // papel de arroz" e devolve só o topo, e a frase via os dois.
+  //
+  // Mas por cima quer dizer que uma regex minha pode APAGAR uma leitura certa
+  // do modelo, e isso aconteceu em 26/08/2026, na hora de escrever a resposta
+  // da pergunta juntada: minha regra procurava a palavra "dois" e lia
+  // "nenhum dos dois" como SIM pros dois. Se o modelo tivesse lido certo, e ele
+  // lê essa frase certo, a minha regra apagaria a resposta dele e o cliente
+  // levaria um papel de arroz de R$ 12 que recusou com todas as letras.
+  //
+  // Completar preserva o motivo original inteiro (o que o modelo não disse, a
+  // frase acrescenta) e tira o risco: o que ele DISSE fica de pé. Quando os dois
+  // discordam, quem ganha é quem leu a frase inteira com contexto, que é o
+  // modelo; a regex só enxerga a palavra.
   if (daFrase.pecas || doModelo.pecas) {
     junto.pecas = {
-      ...(doModelo.pecas ?? {}),
-      // A frase por cima: ela é quem viu as duas respostas na mesma linha.
       ...(daFrase.pecas ?? {}),
+      ...(doModelo.pecas ?? {}),
     };
   }
   if (daFrase.prato) junto.prato = daFrase.prato;
