@@ -483,7 +483,29 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
         { id: "oferta_nao", titulo: "Só isso" },
       ],
     },
-    cumprida: (p) => p.ofereceu,
+    // OFERTA SE FAZ UMA VEZ. NAO SE COBRA RESPOSTA.
+    //
+    // Isto era so `p.ofereceu`, e `ofereceu` so vira true no TOQUE do botao.
+    // Quem respondia escrevendo ouvia a mesma oferta de novo, e de novo, e na
+    // terceira a padaria desistia e chamava um humano:
+    //
+    //   cliente >> queria 2 pizzas pra sexta as 19h
+    //   padaria >> Quer levar docinho ou bolo junto?
+    //   cliente >> nome Marcos Alves, pix
+    //   padaria >> Quer levar docinho ou bolo junto?
+    //   cliente >> pode confirmar
+    //   padaria >> Acho que nao estou conseguindo entender. Vou chamar a equipe.
+    //
+    // O pedido inteiro se perdia numa OFERTA, que e a coisa mais opcional que
+    // existe na conversa. Medido em 26/08/2026, com uma conversa contra o banco.
+    //
+    // A bateria dos cinco jeitos nao pegava porque naqueles cenarios o cliente
+    // acrescentava docinho e bolo depois, e ai a oferta virava pulavel por
+    // outro motivo. Escapava por acidente.
+    //
+    // Agora vale a mesma regra dos detalhes opcionais: perguntou, ele falou
+    // outra coisa, a padaria segue. Ver `PERGUNTA-E-BOTAO.md`.
+    cumprida: (p) => p.ofereceu || jaPerguntouEEleNaoRespondeu(p, "oferta"),
     // Nao se oferece o que ele ja pediu, e nao se oferece na festa: la a
     // proposta ja traz salgado, docinho e bolo juntos.
     pulavel: (p) =>
