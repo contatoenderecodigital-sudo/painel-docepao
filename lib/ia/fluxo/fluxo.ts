@@ -32,7 +32,7 @@ import catalogo from "../dados/catalogo.json";
 import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitura } from "./leitura";
-import { juntarComAFrase, itensDeOutraEtapaNaFrase } from "./leitor-da-frase";
+import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase } from "./leitor-da-frase";
 import { identificarProduto } from "./produto";
 import { nomePeloApelido } from "../dados/apelidos";
 import { produtoNoComeco } from "../dados/produtos";
@@ -711,6 +711,29 @@ export async function responder(
     naoTemos = barrados.filter((b) => !/e docinho, nao bolo/.test(b));
 
     // ELE FALOU DE OUTRA ETAPA: VAI PRA LA E VOLTA DEPOIS.
+    //
+    // SABOR SOZINHO NAO E ASSUNTO NOVO, E RESPOSTA.
+    //
+    // "de calabresa" nao nomeia produto nenhum. Mas calabresa TAMBEM e sabor de
+    // esfirra, entao o modelo lia isso como "ele falou de salgado" e a conversa
+    // pulava pra etapa do salgado, mandava o cardapio de salgados, e a resposta
+    // se perdia. Medido em 26/08/2026, com uma conversa de pizza:
+    //
+    //   padaria >> A pizza redonda e de qual sabor?
+    //   cliente >> de calabresa
+    //   padaria >> Quais salgados voce deseja?   (com o cardapio de salgados)
+    //
+    // Isso pega qualquer sabor que existe em duas familias, que sao quase
+    // todos: calabresa, frango, carne, bacon, chocolate, morango.
+    //
+    // A regra e simples e verdadeira: pra mudar de assunto ele tem que NOMEAR
+    // um produto. Sabor solto responde a pergunta que esta na mesa.
+    const nomeouProduto = produtosNaFrase(String(mensagem.texto ?? "")).length > 0;
+    if (!nomeouProduto && limpa.falouDeOutraEtapa) {
+      rastro.push("sabor solto, nao assunto novo: fico onde estou");
+      limpa.falouDeOutraEtapa = undefined;
+    }
+
     if (limpa.falouDeOutraEtapa && limpa.falouDeOutraEtapa !== etapaAgora.id) {
       // So marca a volta se a etapa de agora ainda nao estava resolvida: quem
       // termina o docinho e vai pro bolo nao precisa "voltar" pro docinho.
