@@ -65,6 +65,29 @@ Hoje a IA já decide pela etapa da conversa (na hora do bolo é o bolo, na hora 
 docinho é o docinho), mas se a dona confirmar que um dos dois não existe mais, a
 ambiguidade some.
 
+**4c. Dá pra fazer qualquer bolo sem lactose, ou só o `0% lactose`?**
+
+O cardápio tem `0% lactose` como **sabor** de bolo de festa, faixa C, R$ 55,90 o
+quilo. O brigadeiro é faixa A, R$ 46,90.
+
+A pergunta é: se o cliente pedir **bolo de brigadeiro sem lactose**, a cozinha
+faz e cobra faixa C? Ou `0% lactose` é um sabor fechado, que só existe daquele
+jeito?
+
+Isso vale dinheiro nos dois sentidos. Se dá pra fazer e a IA disser que não, a
+padaria perde uma venda de R$ 55,90 o quilo. Se não dá e ela disser que sim, a
+cozinha recebe um pedido que não consegue produzir.
+
+**Enquanto ela não responde, a IA não decide:** ela tira a promessa da
+observação (senão a comanda manda produzir uma coisa e o resumo promete outra) e
+chama a equipe, que é o mesmo que a casa já faz com desconto e com entrega.
+
+**4d. E o resto das restrições, a casa faz alguma?**
+
+Glúten, vegano, diet e integral **não aparecem em lugar nenhum** do catálogo.
+Preciso confirmar que é porque a padaria não faz mesmo, e não porque ninguém
+cadastrou.
+
 **5. Cachorro-quente: o cliente pode pedir "médio" ou "grande" pelo nome?**
 
 O preço é o mesmo (R$ 19,90/kg), mas muda o produto na bancada.

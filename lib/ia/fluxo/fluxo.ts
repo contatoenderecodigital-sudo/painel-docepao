@@ -1085,7 +1085,22 @@ export async function responder(
     const aviso = avisoDaRestricao(estado.restricoesTiradas);
     if (aviso) {
       fala = { ...fala, texto: aviso + (fala.texto ? "\n\n" + fala.texto : "") };
-      rastro.push("a casa nao faz: " + estado.restricoesTiradas.join(", ") + "; tirei da observacao e avisei");
+      // QUEM RESPONDE DE RESTRICAO E A EQUIPE. Decisao do dono, 26/08/2026.
+      //
+      // Nao e caso de recusar: o "0% lactose" existe no cardapio como sabor de
+      // bolo de festa da faixa C, R$ 55,90 o quilo contra R$ 46,90 do
+      // brigadeiro. Palavra dele: "se for por exemplo bolo de brigadeiro + o
+      // sem lactose, la eles devem fazer no bolo ne, so fica mais caro".
+      //
+      // Entao responder "a gente nao tem" seria errado E perderia venda. E
+      // responder "a gente faz" seria pior, porque quem decide o que a cozinha
+      // produz e a cozinha. A IA passa adiante, que e o mesmo que a dona ja faz
+      // com desconto e com entrega.
+      precisaHumano = true;
+      rastro.push(
+        "restricao de dieta (" + estado.restricoesTiradas.join(", ") +
+        "); tirei da observacao e chamei a equipe",
+      );
     }
     // Vive um turno so: o aviso ja foi dado, e repetir na proxima mensagem
     // seria a padaria insistindo numa coisa que o cliente ja ouviu.

@@ -20,10 +20,27 @@
 //  que já custou caro neste projeto: guarda que bloqueia registro faz o modelo
 //  apagar o item inteiro, e aí o pedido perde os trinta brigadeiros também.
 //
-//  E O CLIENTE PRECISA SABER. Tirar calado é melhor que prometer, mas é pior
-//  que avisar: quem pediu sem lactose tem motivo, e merece ouvir que a casa não
-//  faz antes de receber. Por isso a função devolve o que tirou, e quem chama
-//  transforma isso numa frase.
+//  E QUEM RESPONDE É A EQUIPE, NÃO A IA.
+//
+//  Decisão do dono, 26/08/2026, e ele está certo por dois motivos.
+//
+//  O primeiro é que **a padaria às vezes FAZ**. O `0% lactose` é sabor de bolo
+//  de festa da faixa C: R$ 55,90 o quilo contra R$ 46,90 do brigadeiro, que é
+//  faixa A. Nas palavras dele: *"se for por exemplo bolo de brigadeiro + o sem
+//  lactose, lá eles devem fazer no bolo né, só fica mais caro"*.
+//
+//  Ou seja, responder "a gente não tem" é errado E perde venda de R$ 55,90 o
+//  quilo. Quem sabe se dá para fazer, e por quanto, é a cozinha.
+//
+//  O segundo é que restrição de dieta é assunto de gente. É o mesmo padrão que
+//  a dona já usa para desconto e para entrega: *"deixa eu ver a possibilidade e
+//  eu já te retorno"*. A IA não promete e não recusa: ela passa adiante.
+//
+//  ENTÃO ISTO AQUI FAZ DUAS COISAS, e as duas importam:
+//
+//    1. TIRA a promessa da observação, para a comanda não mandar a cozinha
+//       produzir uma coisa enquanto o resumo promete outra ao cliente;
+//    2. CHAMA A EQUIPE, para alguém que sabe responder.
 //
 //  ISTO MORAVA NO CÉREBRO ANTIGO (`guardas.ts`), que foi apagado em 26/08/2026.
 //  No levantamento feito antes de apagar (`O-QUE-O-VELHO-PROTEGIA.md`) esta era
@@ -119,10 +136,15 @@ export function obsSemRestricao(obs: unknown, produto?: unknown): string | null 
 }
 
 /**
- * O QUE DIZER PRO CLIENTE, quando alguma coisa foi tirada.
+ * O QUE DIZER PRO CLIENTE, quando a restrição foi tirada da observação.
  *
- * Uma frase só, direta, sem pedir desculpa por algo que não é erro da padaria e
- * sem prometer que ela vai passar a fazer.
+ * NÃO PROMETE E NÃO RECUSA. É o mesmo padrão que a dona já usa para desconto e
+ * para entrega, e ela deu a frase nos áudios: *"deixa eu ver a possibilidade e
+ * eu já te retorno"*.
+ *
+ * Recusar seria errado, porque o `0% lactose` existe no cardápio como sabor de
+ * bolo da faixa C. Prometer seria pior, porque quem decide o que a cozinha faz
+ * é a cozinha. Então ela passa adiante e avisa que passou.
  *
  * Devolve null quando não há o que dizer, que é o caso comum.
  */
@@ -132,11 +154,8 @@ export function avisoDaRestricao(tiradas: string[]): string | null {
     tiradas.length === 1
       ? tiradas[0]
       : tiradas.slice(0, -1).join(", ") + " e " + tiradas[tiradas.length - 1];
-  // "nao trabalha com sem lactose" fica torto. A restricao vira OPCAO, que e
-  // como gente fala: "a gente nao tem opcao sem lactose".
-  const opcao = tiradas.length === 1 ? "opção" : "opções";
   return (
-    "Só te adianto que a gente não tem " + opcao + " " + lista +
-    ", então anotei o pedido sem isso."
+    "Sobre o " + lista + ": deixa eu confirmar com a equipe se dá pra fazer e " +
+    "quanto fica, que eu já te retorno por aqui."
   );
 }

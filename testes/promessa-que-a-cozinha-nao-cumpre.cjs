@@ -46,6 +46,15 @@ fs.writeFileSync(
     "const casos = [",
     "  // O QUE A CASA NAO FAZ: sai da observacao, e o item FICA.",
     "  ['brigadeiro',      'sem lactose, forminha rosa', ['sem lactose'], 'forminha rosa'],",
+    "  // O BOLO DE FESTA e o caso que o dono levantou em 26/08/2026: a padaria",
+    "  // PODE fazer, e ai muda de faixa (0% lactose e faixa C, R$ 55,90 o quilo,",
+    "  // contra R$ 46,90 do brigadeiro, que e faixa A).",
+    "  //",
+    "  // Mesmo assim a promessa SAI da observacao e quem responde e a equipe: a",
+    "  // comanda nao pode mandar a cozinha produzir uma coisa enquanto o resumo",
+    "  // promete outra ao cliente, e quem decide o que a cozinha faz e ela.",
+    "  ['bolo brigadeiro', 'sem lactose',                ['sem lactose'], null],",
+    "  ['bolo brigadeiro', 'sem lactose | pao de lo branco', ['sem lactose'], 'pao de lo branco'],",
     "  ['brigadeiro',      'sem lactose',                ['sem lactose'], null],",
     "  ['coxinha',         'sem gluten',                 ['sem gluten'],  null],",
     "  ['torta doce',      'diet',                       ['diet'],        null],",
@@ -109,9 +118,21 @@ for (const r of saida) {
 // este arquivo inteiro combate.
 console.log("");
 console.log("a frase pro cliente: " + JSON.stringify(frase));
-if (!frase || !/n[aã]o tem/i.test(frase)) falhas.push("a frase nao diz que a casa nao tem");
+// A FRASE NAO PROMETE E NAO RECUSA.
+//
+// Recusar seria errado: o "0% lactose" existe no cardapio como sabor de bolo de
+// festa da faixa C, R$ 55,90 o quilo contra R$ 46,90 do brigadeiro. Dizer "a
+// gente nao tem" perderia essa venda.
+//
+// Prometer seria pior, porque quem decide o que a cozinha produz e a cozinha.
+//
+// Entao ela passa adiante, que e o mesmo que a dona ja faz com desconto e com
+// entrega: "deixa eu ver a possibilidade e eu ja te retorno".
+if (!frase) falhas.push("nao ha frase nenhuma pro cliente");
+if (!/equipe|retorno/i.test(String(frase))) falhas.push("a frase nao diz que a equipe vai responder: " + frase);
+if (/n[aã]o (temos|tem|trabalhamos|fazemos)/i.test(String(frase))) falhas.push("a frase RECUSA, e a padaria pode fazer no bolo: " + frase);
 if (/desculp|perd[aã]o|sinto muito/i.test(String(frase))) falhas.push("a frase pede desculpa por algo que nao e erro da padaria");
-if (/vamos (passar a )?fazer|em breve|por enquanto/i.test(String(frase))) falhas.push("a frase promete que a casa vai passar a fazer");
+if (/vamos (passar a )?fazer|em breve|por enquanto/i.test(String(frase))) falhas.push("a frase promete o que so a cozinha decide");
 
 console.log("");
 if (falhas.length) {
