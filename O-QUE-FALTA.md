@@ -79,12 +79,16 @@ E quatro que a padaria perdia sem ser direto em dinheiro:
 
 ### A bateria dos cinco jeitos
 
-**`pass^5` = 4 de 5**, medido em 26/08/2026 depois da demolição e dos consertos.
-Os cenários 1, 2, 4 e 5 saíram de **0/5 para 5/5** no mesmo dia.
+**`pass^5` = 5 de 5**, medido em 26/08/2026 no commit `1931c05`, que é o que
+está no ar. Vinte e cinco execuções, vinte e cinco acertos.
 
-O cenário 3 ("três respostas na mesma frase") era o único vermelho e **fecha
-certo na medição individual** depois do commit `1931c05`. Falta a confirmação
-nas cinco execuções.
+O cenário 3 ("três respostas na mesma frase") era o único vermelho desde antes
+desta sessão, e fechou.
+
+O caminho do dia: começou em 4/5 com dois cérebros no repositório, foi a **0/5
+em tudo** quando a demolição expôs os buracos que o cérebro velho escondia, e
+terminou em 5/5. O mergulho não foi acidente: apagar o velho tirou as proteções
+que mascaravam defeitos do fluxo, e cada um apareceu, foi medido e consertado.
 
 ```
 node testes/uma-conversa-contra-o-banco.cjs    <- SEMPRE antes
@@ -95,10 +99,13 @@ node testes/medidor.cjs 5 "cinco jeitos"
 
 ## O QUE FAZER AGORA, em ordem
 
-### 1. Confirmar o cenário 3 na bateria  ⟵ RETOMAR AQUI
+### 1. Migrar o `sabor.ts` para a lista única  ⟵ RETOMAR AQUI
 
-É o último vermelho conhecido, e ele **já fecha certo na medição individual**
-depois do commit `1931c05`. Falta a confirmação nas cinco execuções.
+A bateria está em **5 de 5** e não há vermelho conhecido. O próximo passo é o
+item de padronização de maior valor, e as quatro divergências já estão medidas
+logo abaixo.
+
+**Medir sempre nesta ordem, antes e depois:**
 
 ```
 node testes/uma-conversa-contra-o-banco.cjs
