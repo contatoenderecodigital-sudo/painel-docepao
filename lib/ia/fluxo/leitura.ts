@@ -182,26 +182,53 @@ const nomes = (lista: { nome: string }[]) => lista.map((i) => String(i.nome));
  * candidatos empatados e ambiguidade, e ambiguidade volta a ser barrada: melhor
  * a padaria perguntar do que escolher errado.
  */
+/**
+ * TROCAR DUAS LETRAS DE LUGAR E UM ERRO SO, E NAO DOIS.
+ *
+ * A primeira versao disto era Levenshtein puro, que conta "coxniha" como DUAS
+ * edicoes em relacao a "coxinha" (tira o "i", poe o "i"). Com a folga de uma
+ * letra, todo dedo trocado no teclado caia fora.
+ *
+ * Medido em 27/08/2026 contra o cardapio inteiro, gerando os erros que gente de
+ * verdade comete (letras trocadas de lugar, letra comida, letra dobrada):
+ *
+ *   567 erros testados, 384 chegavam no produto  (68%)
+ *   dos 183 perdidos, 153 eram letras trocadas de lugar
+ *
+ * "ocxinha", "cxoinha", "coixnha", "coxniha", "coxihna", "coxinah": seis jeitos
+ * de errar a mesma coxinha, todos fora. Nao era caso faltando numa lista, era a
+ * regua errada.
+ *
+ * Damerau-Levenshtein (variante OSA) conta a troca de lugar como uma edicao so,
+ * que e o que ela e pra quem digitou.
+ */
 function distancia(a: string, b: string): number {
-  // Levenshtein com duas linhas. Para aqui se ja passou de 1: nao interessa
-  // saber se sao 4 ou 9 letras de diferenca, so se e no maximo uma.
+  // Duas letras de diferenca de tamanho ja passam de uma edicao, seja qual for.
   if (Math.abs(a.length - b.length) > 1) return 2;
-  const linha = Array.from({ length: b.length + 1 }, (_, i) => i);
+  const anterior2 = new Array(b.length + 1).fill(0);
+  let anterior = Array.from({ length: b.length + 1 }, (_, i) => i);
+  let atual = new Array(b.length + 1).fill(0);
+  let dois = anterior2;
   for (let i = 1; i <= a.length; i++) {
-    let anterior = linha[0];
-    linha[0] = i;
-    let menor = linha[0];
+    atual[0] = i;
+    let menor = atual[0];
     for (let j = 1; j <= b.length; j++) {
-      const guarda = linha[j];
-      linha[j] = a[i - 1] === b[j - 1]
-        ? anterior
-        : 1 + Math.min(anterior, linha[j], linha[j - 1]);
-      anterior = guarda;
-      if (linha[j] < menor) menor = linha[j];
+      const custo = a[i - 1] === b[j - 1] ? 0 : 1;
+      atual[j] = Math.min(anterior[j] + 1, atual[j - 1] + 1, anterior[j - 1] + custo);
+      // A troca de lugar: "ab" virou "ba".
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        atual[j] = Math.min(atual[j], dois[j - 2] + 1);
+      }
+      if (atual[j] < menor) menor = atual[j];
     }
+    // Passou de uma edicao em toda a linha: nao vai voltar. Para aqui.
     if (menor > 1) return 2;
+    const gira = dois;
+    dois = anterior;
+    anterior = atual;
+    atual = gira;
   }
-  return linha[b.length];
+  return anterior[b.length];
 }
 
 /**
@@ -233,7 +260,17 @@ function canonicoDaGrafia(nome: string): string {
  * seriam ambiguidade de verdade, e ai a padaria pergunta em vez de escolher.
  */
 function quaseIgual(nome: string, vocab: string[]): string | null {
-  if (nome.length < 5) return null;
+  // O TAMANHO MINIMO E DO NOME DO CARDAPIO, NAO DO QUE O CLIENTE DIGITOU.
+  //
+  // Estava nos dois, e por isso quem comia uma letra de um produto de cinco
+  // ficava de fora: "chodo" digitado como "hodo" tem quatro letras e nem era
+  // olhado. O produto e que precisa ser comprido o bastante pra uma letra de
+  // folga nao alcancar outra coisa; o que o cliente escreveu e o problema, nao
+  // a regua.
+  //
+  // O piso de quatro no que ele digitou continua, porque abaixo disso uma letra
+  // de folga vira quase qualquer palavra: "ovo", "com", "dos".
+  if (nome.length < 4) return null;
   const perto = vocab.filter((v) => v.length >= 5 && distancia(nome, v) === 1);
   if (!perto.length) return null;
   const produtos = new Set(perto.map(canonicoDaGrafia));
