@@ -32,25 +32,30 @@
 // ============================================================================
 
 import catalogo from "../dados/catalogo.json";
+import { produtosDaCasa } from "../dados/produtos";
 
 type ItemDoCardapio = { nome?: string; recheios?: string[]; sabores?: string[] };
 
-/** Todo produto do cardapio que tem lista de sabor ou recheio pra escolher. */
+/**
+ * Todo produto do cardapio que tem lista de sabor ou recheio pra escolher.
+ *
+ * SAI DA LISTA UNICA, e nao mais de quatro leituras do catalogo cru.
+ *
+ * A lista unica ja resolveu, num lugar so, a regra que aqui era implicita: o
+ * `recheio` no singular quer dizer "ja vem pronto, nao pergunta" e virou
+ * `saborFixo`; o `recheios` no plural quer dizer "pergunte qual" e virou
+ * `sabores[]`. Um "s" mudava o comportamento e isso nao estava escrito em
+ * lugar nenhum.
+ *
+ * E de quebra a PIZZA entrou. Ela e chave de primeiro nivel no catalogo, entao
+ * as quatro leituras aqui nunca a alcancavam: `pizza inteira` e `pizza meia`
+ * tem 31 sabores cada e NENHUM era perguntado. A cozinha recebia pizza sem
+ * sabor. Medido em 26/08/2026, comparando este arquivo com a lista unica.
+ */
 function comEscolha(): { nome: string; opcoes: string[] }[] {
-  const listas: ItemDoCardapio[][] = [
-    (catalogo.salgados?.frito?.itens ?? []) as ItemDoCardapio[],
-    (catalogo.salgados?.assado?.itens ?? []) as ItemDoCardapio[],
-    (catalogo.doces?.itens ?? []) as ItemDoCardapio[],
-    (catalogo.outros_produtos ?? []) as ItemDoCardapio[],
-  ];
-  const saida: { nome: string; opcoes: string[] }[] = [];
-  for (const lista of listas) {
-    for (const i of lista) {
-      const opcoes = i.recheios ?? i.sabores ?? [];
-      if (i.nome && opcoes.length) saida.push({ nome: String(i.nome), opcoes: opcoes.map(String) });
-    }
-  }
-  return saida;
+  return produtosDaCasa()
+    .filter((p) => !p.saborFixo && p.sabores.length > 0)
+    .map((p) => ({ nome: p.nome, opcoes: p.sabores }));
 }
 
 const semAcMin = (t: string) =>

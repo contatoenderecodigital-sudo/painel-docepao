@@ -131,6 +131,9 @@ function grupoDeOutros(o: ItemBruto): string {
 
 let cache: ProdutoDaCasa[] | null = null;
 
+/** Os sabores da pizza, preenchidos ao montar a lista e usados pela redonda e pelo calzone. */
+let saboresDaPizza: string[] = [];
+
 /** Todo produto da casa, no mesmo formato. Calculado uma vez. */
 export function produtosDaCasa(): ProdutoDaCasa[] {
   if (cache) return cache;
@@ -234,6 +237,9 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
     };
   }).pizza;
   const saboresPizza = [...(pz.sabores_salgados ?? []), ...(pz.sabores_doces ?? [])];
+  // A redonda e o calzone usam esta mesma lista. O catalogo diz isso em prosa,
+  // na nota de cada um, e prosa nao e dado que camada nenhuma consegue ler.
+  saboresDaPizza = saboresPizza;
 
   for (const [nome, preco] of [
     ["pizza inteira", pz.inteira.preco],
@@ -254,6 +260,20 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
   // ------------------------------------------------------ outros produtos
   for (const o of (catalogo as unknown as { outros_produtos: ItemBruto[] }).outros_produtos) {
     if (!o.nome) continue;
+
+    // A REDONDA E O CALZONE USAM OS SABORES DA PIZZA, e não têm lista própria.
+    //
+    // O catálogo diz isso em prosa, na nota de cada um: a redonda "aceita SÓ
+    // DOIS sabores (a de forma aceita 4)" e o calzone é "sabores da pizza".
+    // Prosa não é dado, e nenhuma camada conseguia ler.
+    //
+    // O efeito, medido em 26/08/2026: os dois entravam como sabor FIXO e a
+    // padaria nunca perguntava o sabor. A cozinha recebia pizza redonda e
+    // calzone sem saber de quê.
+    const n = limpo(o.nome);
+    const usaOsDaPizza = n === "pizza redonda" || n.startsWith("calzone");
+    const sabores = o.sabores?.length ? o.sabores : usaOsDaPizza ? saboresDaPizza : [];
+
     põe({
       nome: o.nome,
       preco: Number(o.preco),
@@ -261,8 +281,8 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
       categoria: String(o.categoria ?? "outro"),
       grupo: grupoDeOutros(o),
       bancada: "confeitaria",
-      sabores: o.sabores ?? [],
-      saborFixo: !o.sabores?.length,
+      sabores,
+      saborFixo: !sabores.length,
     });
   }
 
