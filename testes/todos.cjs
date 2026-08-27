@@ -71,6 +71,16 @@ const FORA = [
   // Rode na mao, com o banco de teste limpo, quando quiser conferir producao:
   //   node testes/qa-pedido-completo.cjs
   "qa-pedido-completo.cjs",
+
+  // A ferramenta mais barata daqui, e por isso mesmo nao e portao: ela fala com
+  // producao e cria pedido de verdade na faixa de teste.
+  //
+  // Roda ANTES de gastar 25 minutos numa bateria. Em 26/08/2026 duas baterias
+  // inteiras devolveram 0/5 sem dizer por que, e uma conversa unica lida no
+  // banco deu a resposta em dois minutos.
+  //
+  //   node testes/uma-conversa-contra-o-banco.cjs
+  "uma-conversa-contra-o-banco.cjs",
 ];
 
 const aqui = __dirname;

@@ -98,8 +98,22 @@ nome.
 
 **Build não prova efeito.** Deploy confirmado e função no bundle não valem nada.
 
-**Medir uma conversa contra o banco antes da bateria.** Bateria que devolve o
+**Medir UMA conversa contra o banco antes da bateria.** Bateria que devolve o
 mesmo resultado duas vezes é suspeita, não resultado.
+
+Isto não é conselho, é a regra mais cara de ignorar. Em 26/08/2026 rodei **duas
+baterias de 25 minutos** antes de mandar uma conversa só. A conversa única deu a
+resposta em dois minutos, e era um defeito estrutural que as duas baterias
+tinham mostrado como "0/5" sem dizer por quê.
+
+O script está em `testes/` como modelo: manda as falas, lê `pedido_itens` e
+`pedido_montagem` do telefone de teste, imprime os dois. Cinco minutos por volta
+em vez de vinte e cinco.
+
+**Arquivo de saída não é prova sem a data.** Li o `conversas-da-medicao.txt` e
+apresentei uma conversa perfeita como prova de que o sistema estava certo. O
+arquivo era de horas antes: as rodadas que eu tinha matado nunca chegaram a
+escrevê-lo. Conferir `ls -la` antes de usar como evidência.
 
 **Ver de verdade:** abrir a tela, rodar, olhar o log e o banco antes de afirmar.
 
