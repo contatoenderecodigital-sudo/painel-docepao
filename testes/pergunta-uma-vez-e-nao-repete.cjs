@@ -76,6 +76,25 @@ fs.writeFileSync(
     "    soOTopoSim:  lerAFrase('quero o topo sim')?.pecas ?? null,",
     "    nadaDisso:   lerAFrase('um bolo de 2 kg de brigadeiro pra sabado as 15h')?.pecas ?? null,",
     "  },",
+    "  // A RESPOSTA DA PERGUNTA JUNTADA.",
+    "  //",
+    "  // Quem manda o pedido inteiro numa mensagem recebe os tres detalhes do",
+    "  // bolo numa pergunta so (decisao do dono, 26/08/2026), e responde do jeito",
+    "  // que gente responde pergunta juntada. Sem ler isso, a pergunta juntada",
+    "  // nao adiantaria: sairia de uma vez e a resposta cairia no vazio.",
+    "  juntas: {",
+    "    tresDeUmaVez: lerAFrase('prato aberto, sem papel de arroz e sem topo'),",
+    "    osDois:       lerAFrase('aberto mesmo, quero os dois'),",
+    "    nenhumDosDois:lerAFrase('com tampa, sem nada disso'),",
+    "    semPapelCurto:lerAFrase('sem topo e sem papel, prato aberto'),",
+    "    // AS ARMADILHAS. \"nenhum dos dois\" contem a palavra dois, e",
+    "    // \"quero dois bolos\" e resposta de QUANTIDADE: nenhuma das duas pode",
+    "    // virar topo e papel de arroz, e a segunda acrescentaria dois adicionais",
+    "    // que ninguem pediu, um deles com preco de tabela.",
+    "    nenhumSozinho:lerAFrase('nenhum dos dois')?.pecas ?? null,",
+    "    doisBolos:    lerAFrase('quero dois bolos')?.pecas ?? null,",
+    "    doisQuilos:   lerAFrase('dois quilos')?.pecas ?? null,",
+    "  },",
     "}));",
   ].join("\n"),
   "utf8",
@@ -135,6 +154,34 @@ eq("'com papel de arroz e com topo' responde os dois", r.escrito.comOsDois, { to
 eq("'sem papel de arroz' responde SO o papel", r.escrito.soOPapelNao, { papelDeArroz: false });
 eq("'quero o topo sim' responde SO o topo", r.escrito.soOTopoSim, { topo: true });
 eq("frase que nao fala das pecas nao responde nada", r.escrito.nadaDisso, null);
+
+// ---------------------------------------------------------------------------
+// A RESPOSTA DA PERGUNTA JUNTADA.
+//
+// Quem manda o pedido inteiro numa mensagem recebe os tres detalhes do bolo
+// numa pergunta so, em vez de tres perguntas com botao. Decisao do dono em
+// 26/08/2026: "somente nesse caso faz a opcao junta as tres numa pergunta so".
+//
+// Isso so funciona se ela LER a resposta juntada. Sem isso a pergunta sairia de
+// uma vez e a resposta cairia no vazio, e a padaria voltaria a perguntar uma
+// por uma, que e o interrogatorio que a juntada existe pra evitar.
+// ---------------------------------------------------------------------------
+console.log("");
+console.log("== a resposta da pergunta JUNTADA ==");
+eq("'prato aberto, sem papel de arroz e sem topo'", r.juntas.tresDeUmaVez,
+  { pecas: { topo: false, papelDeArroz: false }, prato: "aberto" });
+eq("'aberto mesmo, quero os dois'", r.juntas.osDois,
+  { pecas: { topo: true, papelDeArroz: true }, prato: "aberto" });
+eq("'com tampa, sem nada disso'", r.juntas.nenhumDosDois,
+  { pecas: { topo: false, papelDeArroz: false }, prato: "tampa" });
+eq("'sem topo e sem papel' (papel sem o 'de arroz')", r.juntas.semPapelCurto,
+  { pecas: { topo: false, papelDeArroz: false }, prato: "aberto" });
+
+console.log("");
+console.log("== e as armadilhas do 'dois' ==");
+eq("'nenhum dos dois' e NAO pros dois", r.juntas.nenhumSozinho, { topo: false, papelDeArroz: false });
+eq("'quero dois bolos' nao vira topo nem papel", r.juntas.doisBolos, null);
+eq("'dois quilos' nao vira topo nem papel", r.juntas.doisQuilos, null);
 
 console.log("");
 if (falhas.length) {

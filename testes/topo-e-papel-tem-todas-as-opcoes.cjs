@@ -48,7 +48,18 @@ fs.writeFileSync(
     "  prato:null, ofereceu:false, ultimaFala:null, insistiu:0, retomarEm:null, assunto:null,",
     "};",
     "const com = (p) => ({ ...base, ...p });",
-    "const fala = (p) => falaDaEtapa(etapa, com(p));",
+    "// AS PERGUNTAS SEPARADAS SAO DA CONVERSA PICADA.",
+    "//",
+    "// Quem manda o pedido inteiro numa mensagem recebe os TRES detalhes do bolo",
+    "// numa pergunta so (decisao do dono, 26/08/2026), sem botao. Quem responde",
+    "// uma coisa por vez continua recebendo uma pergunta de cada vez, com botao,",
+    "// que e o que a clientela da padaria enxerga melhor na tela.",
+    "//",
+    "// Entao aqui os dados de retirada ficam VAZIOS: e assim que a conversa esta",
+    "// quando as pecas sao perguntadas uma a uma. Com a base cheia, este teste",
+    "// passaria a medir a pergunta juntada sem querer.",
+    "const semDados = { nome:null, data:null, hora:null, pagamento:null };",
+    "const fala = (p) => falaDaEtapa(etapa, { ...com(p), dados: semDados });",
     "",
     "console.log(JSON.stringify({",
     "  // a primeira pergunta, sem nada respondido",
@@ -95,6 +106,12 @@ fs.writeFileSync(
     "    topoSemNome: etapa.cumprida(com({ pecas:{topo:true,papelDeArroz:true}, tema:'Minnie' })),",
     "    papelSemTema: etapa.cumprida(com({ pecas:{topo:false,papelDeArroz:true} })),",
     "  },",
+    "  // A PERGUNTA JUNTADA, pra quem mandou o pedido inteiro numa mensagem.",
+    "  // Aqui a base VALE, com nome, data, hora e pagamento preenchidos.",
+    "  juntada: falaDaEtapa(etapa, com({})),",
+    "  juntadaComPrato: falaDaEtapa(etapa, com({ prato:'aberto' })),",
+    "  // Faltando UM so, a pergunta juntada nao vale a pena: volta a normal.",
+    "  juntadaSoUm: falaDaEtapa(etapa, com({ prato:'aberto', pecas:{topo:null,papelDeArroz:true} })),",
     "  // o pedido fecha sem o nome do aniversariante?",
     "  fechaSemNome: oQueFaltaPraFechar(com({ pecas:{topo:true,papelDeArroz:true} })),",
     "  fechaComTudo: oQueFaltaPraFechar(com({ pecas:{topo:true,papelDeArroz:true}, tema:'Minnie', escrito:'Arthur, 5 anos' })),",
@@ -150,6 +167,47 @@ if (!/12/.test(r.primeira.texto)) {
 }
 if (r.primeira.podeReescrever !== false) {
   falhas.push("a fala do papel de arroz tem valor e ainda assim pode ser reescrita pela IA");
+}
+
+// ---------------------------------------------------------------------------
+// QUEM MANDOU TUDO NUMA MENSAGEM SO OUVE UMA PERGUNTA SO.
+//
+// Decisao do dono, 26/08/2026: "somente nesse caso faz a opcao junta as tres
+// numa pergunta so".
+//
+// O motivo e de conversa, e ele esta certo: quem escreve o pedido inteiro num
+// bloco esta mostrando que nao quer pingue-pongue. Quem responde picado ja esta
+// no ritmo de troca curta, onde o botao ajuda.
+//
+// Sem isto ele levava QUATRO mensagens pra fechar, respondendo prato, papel e
+// topo um de cada vez, depois de ja ter mandado item, data, hora, nome e
+// pagamento. Medido na bateria dos cinco jeitos.
+// ---------------------------------------------------------------------------
+console.log("");
+console.log("Pergunta juntada:  " + (r.juntada.texto || "").slice(0, 96));
+for (const parte of ["prato", "papel de arroz", "topo"]) {
+  if (!new RegExp(parte, "i").test(String(r.juntada.texto ?? ""))) {
+    falhas.push("a pergunta juntada nao fala de " + parte + ": " + r.juntada.texto);
+  }
+}
+// O valor do papel sai do motor aqui tambem: e o mesmo numero do cardapio, e
+// escrever "R$ 12" a mao seria mais um lugar pra divergir no dia em que mudar.
+if (!/12/.test(String(r.juntada.texto ?? ""))) {
+  falhas.push("a pergunta juntada nao diz o valor do papel de arroz: " + r.juntada.texto);
+}
+if (r.juntada.podeReescrever !== false) {
+  falhas.push("a pergunta juntada tem valor e ainda assim pode ser reescrita pela IA");
+}
+// Com o prato ja respondido sobram DOIS, e dois ainda vale juntar.
+if (!/papel de arroz/i.test(String(r.juntadaComPrato.texto ?? "")) || !/topo/i.test(String(r.juntadaComPrato.texto ?? ""))) {
+  falhas.push("com o prato respondido, os outros dois deviam vir juntos: " + r.juntadaComPrato.texto);
+}
+if (/prato/i.test(String(r.juntadaComPrato.texto ?? ""))) {
+  falhas.push("a juntada esta perguntando de novo o prato que ele ja respondeu");
+}
+// Faltando UM so, juntar nao ajuda: a pergunta normal, com botao, e melhor.
+if (ids(r.juntadaSoUm) !== "topo_sim,topo_nao") {
+  falhas.push("faltando so o topo, tinha que voltar a pergunta normal com botao: " + ids(r.juntadaSoUm));
 }
 
 // -------------------------------- o tema e a foto de referencia

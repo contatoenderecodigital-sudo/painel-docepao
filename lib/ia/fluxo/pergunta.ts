@@ -112,7 +112,64 @@ function falaDosDados(p: PedidoEmMontagem): { texto: string; botoes: Fala["botoe
  * Foi o medo do dono que desenhou isso: "numa pergunta so e mais real, mas meu
  * medo e ela errar". Perguntar junto e cobrar no codigo resolve os dois lados.
  */
+/**
+ * QUEM MANDOU TUDO NUMA MENSAGEM SÓ OUVE UMA PERGUNTA SÓ.
+ *
+ * Os três detalhes do bolo (prato, papel de arroz e topo) são perguntas
+ * separadas de propósito, com botão em cada, porque a clientela da padaria
+ * enxerga melhor o botão na tela. Decisão do dono em 23/08/2026.
+ *
+ * Mas isso custa três turnos, e para quem escreveu o pedido inteiro numa
+ * mensagem os três viram interrogatório. Medido em 26/08/2026: o cliente que
+ * mandou item, data, hora, nome e pagamento de uma vez levava quatro mensagens
+ * para fechar, respondendo uma pergunta de cada vez.
+ *
+ * Decisão do dono, no mesmo dia: *"somente nesse caso faz a opção junta as três
+ * numa pergunta só"*. E ele está certo pelo motivo certo: quem escreve em bloco
+ * está mostrando que não quer pingue-pongue, e quem responde picado já está no
+ * ritmo de troca curta, onde o botão ajuda.
+ *
+ * O sinal é o mesmo `jaTemOsDados` que existia antes, usado ao contrário: ele
+ * pulava as perguntas, e agora junta. Perde o botão nesse caminho, e vale a
+ * troca: o leitor da frase entende as três respostas escritas de uma vez, o que
+ * está medido em `testes/pergunta-uma-vez-e-nao-repete.cjs`.
+ */
+function pediuTudoDeUmaVez(p: PedidoEmMontagem): boolean {
+  return Boolean(p.dados?.data && p.dados?.hora && p.dados?.nome && p.dados?.pagamento);
+}
+
+/** Os três detalhes do bolo numa pergunta só, para quem já mandou o resto. */
+function falaDosTresDetalhes(p: PedidoEmMontagem): Fala | null {
+  if (!pediuTudoDeUmaVez(p)) return null;
+
+  const falta: string[] = [];
+  if (p.prato === null) falta.push("o bolo vai no prato de MDF aberto ou na embalagem com tampa");
+  if ((p.pecas?.papelDeArroz ?? null) === null) {
+    // O valor sai do motor, nunca escrito à mão: é o mesmo número do cardápio.
+    const cot = motorPadrao.cotarPorItens([{ item: "papel de arroz", qtd: 1 }]);
+    const preco = Number(cot.linhas?.[0]?.subtotal ?? 0);
+    falta.push("quer papel de arroz com a foto impressa" + (preco > 0 ? " (" + brl(preco) + ")" : ""));
+  }
+  if ((p.pecas?.topo ?? null) === null) falta.push("e quer topo de bolo");
+
+  // Um só faltando não precisa de pergunta juntada: a pergunta normal, com
+  // botão, é melhor.
+  if (falta.length < 2) return null;
+
+  return {
+    texto: "Só faltam os detalhes do bolo: " + falta.join(", ") + "?",
+    botoes: [],
+    cardapio: null,
+    // Tem valor de tabela dentro, então a IA não reescreve.
+    podeReescrever: false,
+  };
+}
+
 function falaDasPecas(p: PedidoEmMontagem): Fala {
+  // A pergunta juntada vem primeiro, e só existe pra quem mandou tudo de uma vez.
+  const juntas = falaDosTresDetalhes(p);
+  if (juntas) return juntas;
+
   const topo = p.pecas?.topo ?? null;
   const papel = p.pecas?.papelDeArroz ?? null;
 
@@ -309,6 +366,12 @@ function falaDoBolo(p: PedidoEmMontagem, aviso: string): Fala {
       podeReescrever: false,
     };
   }
+
+  // Quem mandou tudo numa mensagem ouve os três detalhes juntos, e o prato é um
+  // deles. Sem isto, ele levaria a pergunta do prato aqui e a das peças logo
+  // depois, que é o interrogatório que a pergunta juntada existe pra evitar.
+  const juntas = falaDosTresDetalhes(p);
+  if (juntas) return juntas;
 
   return {
     texto: "O bolo vai no prato de MDF aberto ou na embalagem com tampa?",

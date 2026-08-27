@@ -206,12 +206,52 @@ export function lerAFrase(fala: string): Leitura {
   if (!t.trim()) return l;
 
   // --- topo e papel de arroz, cada um com a sua negação
+  //
+  // "papel" sozinho conta. Quem responde uma pergunta que acabou de dizer
+  // "papel de arroz" escreve só "sem papel", e antes isso não era lido: a
+  // resposta caía no vazio e a padaria perguntava de novo.
   const topo = afirmouOuNegou(t, /topo/);
-  const papel = afirmouOuNegou(t, /papel de arroz/);
+  const papel = afirmouOuNegou(t, /papel( de arroz)?/);
   if (topo != null || papel != null) {
     l.pecas = {};
     if (topo != null) l.pecas.topo = topo;
     if (papel != null) l.pecas.papelDeArroz = papel;
+  }
+
+  // A RESPOSTA QUE VALE PELOS DOIS DE UMA VEZ.
+  //
+  // Quem mandou o pedido inteiro numa mensagem recebe os três detalhes do bolo
+  // numa pergunta só (decisão do dono, 26/08/2026), e responde do jeito que
+  // gente responde pergunta juntada: "quero os dois", "sem nada disso",
+  // "nenhum dos dois".
+  //
+  // Sem isto a pergunta juntada não adiantaria nada: ela sairia de uma vez e a
+  // resposta cairia no vazio, e a padaria voltaria a perguntar uma por uma.
+  //
+  // Só vale quando NENHUM dos dois foi dito pelo nome: quem escreveu "com papel
+  // de arroz e sem topo" já respondeu, e "os dois" ali seria outra coisa.
+  if (topo == null && papel == null) {
+    // A RECUSA VEM PRIMEIRO, e "dois" sozinho não vale.
+    //
+    // Duas armadilhas medidas em 26/08/2026, na hora de escrever isto:
+    //
+    //   "nenhum dos dois"   contém "dois" e virava SIM pros dois;
+    //   "quero dois bolos"  virava topo e papel de arroz num pedido que só
+    //                       falava de quantidade de bolo.
+    //
+    // A segunda é a cara: uma resposta de quantidade acrescentando dois
+    // adicionais que ninguém pediu, um deles com preço de tabela.
+    //
+    // Então a negação é testada antes, e o "sim" exige "OS dois" ou "ambos".
+    const nenhum =
+      /(^|[^a-z])nenhum( dos dois)?([^a-z]|$)/.test(t) ||
+      /(^|[^a-z])(nada disso|nada dos dois)([^a-z]|$)/.test(t) ||
+      /(^|[^a-z])(sem|nao quero) (os dois|ambos)([^a-z]|$)/.test(t);
+    const osDois =
+      !nenhum &&
+      (/(^|[^a-z])(os dois|as duas|ambos|ambas)([^a-z]|$)/.test(t) ||
+        /(^|[^a-z])(quero|pode ser|bota|poe|coloca) os dois([^a-z]|$)/.test(t));
+    if (osDois || nenhum) l.pecas = { topo: osDois, papelDeArroz: osDois };
   }
 
   // --- prato do bolo
