@@ -61,9 +61,28 @@ const cerca = (miolo: string) => new RegExp("(^|[^a-z])(" + miolo + ")($|[^a-z])
 function afirmouOuNegou(t: string, termo: RegExp): boolean | null {
   const m = termo.exec(t);
   if (m == null) return null;
+
+  // O SIM E O NAO TAMBEM VEM DEPOIS DA PALAVRA.
+  //
+  // "papel nao" e "topo sim" e como gente responde uma pergunta que juntou
+  // varias, e isso nao era lido: o leitor olhava so o que vinha ANTES.
+  //
+  // Medido em 26/08/2026, e o erro era do tipo que cobra do cliente:
+  //
+  //     "quero topo sim, papel nao, prato aberto"  ->  papel = SIM
+  //
+  // O "quero" de trinta caracteres atras valia pro papel, e o "nao" colado nele
+  // era ignorado. Sao R$ 12 cobrados de quem recusou com todas as letras.
+  //
+  // O depois GANHA do antes, porque esta mais perto e e mais explicito.
+  const fim = m.index + m[0].length;
+  const depois = t.slice(fim, fim + 14);
+  if (/^ *(nao|nem|nenhum)([^a-z]|$)/.test(depois)) return false;
+  if (/^ *(sim|pode|quero)([^a-z]|$)/.test(depois)) return true;
+
   const antes = t.slice(Math.max(0, m.index - 22), m.index);
   if (/(^|[^a-z])(sem|nao|nem)([^a-z][^.,;]*)?$/.test(antes)) return false;
-  if (/(^|[^a-z])(com|quero|vai com|pode por|poe|bota|sim)([^a-z][^.,;]*)?$/.test(antes)) return true;
+  if (/(^|[^a-z])(com|quero|vai com|pode por|poe|bota|sim|so o|so a|apenas o|apenas a)([^a-z][^.,;]*)?$/.test(antes)) return true;
   return null;
 }
 
@@ -210,8 +229,30 @@ export function lerAFrase(fala: string): Leitura {
   // "papel" sozinho conta. Quem responde uma pergunta que acabou de dizer
   // "papel de arroz" escreve só "sem papel", e antes isso não era lido: a
   // resposta caía no vazio e a padaria perguntava de novo.
-  const topo = afirmouOuNegou(t, /topo/);
-  const papel = afirmouOuNegou(t, /papel( de arroz)?/);
+  let topo = afirmouOuNegou(t, /topo/);
+  let papel = afirmouOuNegou(t, /papel( de arroz)?/);
+
+  // "SO O PAPEL DE ARROZ" RESPONDE OS DOIS: sim pra um, NAO pro outro.
+  //
+  // Quem escreve "so" esta excluindo o resto, e isso e resposta completa. Antes
+  // "aberto, so o papel de arroz" devolvia null nos dois, e a padaria perguntava
+  // de novo uma coisa que ele ja tinha respondido com todas as letras.
+  //
+  // So vale quando o OUTRO nao foi citado: "so o papel, e o topo tambem" nao e
+  // exclusao, e ai cada um responde por si.
+  const soO = /(^|[^a-z])(so|somente|apenas) (o |a )?/;
+  if (soO.test(t)) {
+    const citouTopo = /topo/.test(t);
+    const citouPapel = /papel/.test(t);
+    if (citouPapel && !citouTopo) {
+      papel = papel ?? true;
+      topo = false;
+    } else if (citouTopo && !citouPapel) {
+      topo = topo ?? true;
+      papel = false;
+    }
+  }
+
   if (topo != null || papel != null) {
     l.pecas = {};
     if (topo != null) l.pecas.topo = topo;

@@ -94,6 +94,17 @@ fs.writeFileSync(
     "    nenhumSozinho:lerAFrase('nenhum dos dois')?.pecas ?? null,",
     "    doisBolos:    lerAFrase('quero dois bolos')?.pecas ?? null,",
     "    doisQuilos:   lerAFrase('dois quilos')?.pecas ?? null,",
+    "    // O SIM E O NAO VEM DEPOIS DA PALAVRA TAMBEM.",
+    "    //",
+    "    // \"papel nao\" e como gente responde pergunta juntada, e o leitor olhava",
+    "    // so o que vinha ANTES. O 'quero' de trinta caracteres atras valia pro",
+    "    // papel e o 'nao' colado nele era ignorado: R$ 12 cobrados de quem",
+    "    // recusou com todas as letras.",
+    "    naoDepois:    lerAFrase('quero topo sim, papel nao, prato aberto')?.pecas ?? null,",
+    "    simDepois:    lerAFrase('topo nao, papel sim, aberto')?.pecas ?? null,",
+    "    // \"SO O X\" RESPONDE OS DOIS: sim pra um, NAO pro outro.",
+    "    soOPapel:     lerAFrase('aberto, so o papel de arroz')?.pecas ?? null,",
+    "    soOTopo:      lerAFrase('com tampa, so o topo')?.pecas ?? null,",
     "  },",
     "}));",
   ].join("\n"),
@@ -182,6 +193,19 @@ console.log("== e as armadilhas do 'dois' ==");
 eq("'nenhum dos dois' e NAO pros dois", r.juntas.nenhumSozinho, { topo: false, papelDeArroz: false });
 eq("'quero dois bolos' nao vira topo nem papel", r.juntas.doisBolos, null);
 eq("'dois quilos' nao vira topo nem papel", r.juntas.doisQuilos, null);
+
+console.log("");
+console.log("== o sim e o nao vem DEPOIS da palavra tambem ==");
+// "papel nao" e como gente responde pergunta juntada. O leitor olhava so o que
+// vinha ANTES, entao o "quero" de trinta caracteres atras valia pro papel e o
+// "nao" colado nele era ignorado: R$ 12 cobrados de quem recusou.
+eq("'quero topo sim, papel nao' respeita o nao", r.juntas.naoDepois, { topo: true, papelDeArroz: false });
+eq("'topo nao, papel sim' respeita os dois", r.juntas.simDepois, { topo: false, papelDeArroz: true });
+
+console.log("");
+console.log("== 'so o X' responde os dois: sim pra um, NAO pro outro ==");
+eq("'so o papel de arroz' recusa o topo", r.juntas.soOPapel, { topo: false, papelDeArroz: true });
+eq("'so o topo' recusa o papel", r.juntas.soOTopo, { topo: true, papelDeArroz: false });
 
 console.log("");
 if (falhas.length) {
