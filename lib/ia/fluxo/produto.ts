@@ -138,6 +138,34 @@ export function identificarProduto(nomeBruto: string, categoria?: string): Ident
   }
   for (const p of produtosDoCatalogo()) {
     cand.push({ canonico: p, casa: semAcMin(p), deBolo: false, apelido: false });
+
+    // O NOME QUE CARREGA A FAMÍLIA TAMBÉM ATENDE PELO NOME CURTO.
+    //
+    // Onze dos doze docinhos se chamam pelo sabor puro ("brigadeiro", "café").
+    // UM se chama "docinho de churros". Essa diferença de uma palavra tinha
+    // preço: a palavra "churros" sozinha não alcançava o docinho, e o único
+    // candidato que sobrava era `bolo caseiro churros`.
+    //
+    //     "churros" na etapa do docinho  ->  bolo caseiro churros, R$ 34,90
+    //     o certo                        ->  docinho de churros,   R$  1,75
+    //
+    // Vinte vezes o preço, num item que a festa pede em dezenas. Medido em
+    // 27/08/2026 contra `identificarProduto`, com a dica de etapa que o fluxo
+    // passa de verdade.
+    //
+    // Não sofria disso o "café", porque o docinho dele se chama só "café": os
+    // dois candidatos existem, a escolha fica ambígua e a ETAPA desempata. Era
+    // exatamente esse desempate que o nome comprido impedia de acontecer.
+    //
+    // Registrar o nome curto devolve o desempate. O canônico não muda, então a
+    // tabela de preço e a comanda continuam recebendo "docinho de churros".
+    //
+    // Hoje a regra pega um produto só. Ela existe geral porque o dia em que a
+    // dona cadastrar "docinho de maracujá" na tela, ninguém vai lembrar disto.
+    const curto = semAcMin(p).replace(/^(docinho|salgado|doce|bolo|torta|mini) (de|da|do) +/, "");
+    if (curto && curto !== semAcMin(p)) {
+      cand.push({ canonico: p, casa: curto, deBolo: false, apelido: false });
+    }
   }
   for (const [canonico, lista] of Object.entries(APELIDOS)) {
     for (const a of lista) cand.push({ canonico, casa: semAcMin(a), deBolo: false, apelido: true });

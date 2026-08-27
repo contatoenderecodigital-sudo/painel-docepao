@@ -62,6 +62,21 @@ export type ProdutoDaCasa = {
    * produto de sabor fixo é fazer o cliente escolher o que não tem escolha.
    */
   saborFixo: boolean;
+  /**
+   * QUANTOS SABORES CABEM NUM DESTE PRODUTO.
+   *
+   * A pizza de forma aceita 4, a meia aceita 2, a redonda aceita 2. Áudio da
+   * dona, 19/08/2026: *"só dois sabores por pizza redonda"*.
+   *
+   * Isso estava no catálogo em `sabores_ate` desde sempre e **nenhuma linha de
+   * código lia**. Medido em 26/08/2026: uma redonda de 30 cm fechava com CINCO
+   * sabores e a de forma com SEIS. A cozinha recebia um pedido que não consegue
+   * produzir, e alguém teria que ligar pro cliente.
+   *
+   * `undefined` quer dizer "um só", que é o caso de quase tudo: a esfirra é de
+   * um recheio, o empadão é de um sabor.
+   */
+  saboresAte?: number;
 };
 
 /**
@@ -241,9 +256,13 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
   // na nota de cada um, e prosa nao e dado que camada nenhuma consegue ler.
   saboresDaPizza = saboresPizza;
 
-  for (const [nome, preco] of [
-    ["pizza inteira", pz.inteira.preco],
-    ["pizza meia", pz.meia.preco],
+  const pzc = pz as unknown as {
+    inteira: { preco: number; sabores_ate?: number };
+    meia: { preco: number; sabores_ate?: number };
+  };
+  for (const [nome, preco, ate] of [
+    ["pizza inteira", pzc.inteira.preco, pzc.inteira.sabores_ate],
+    ["pizza meia", pzc.meia.preco, pzc.meia.sabores_ate],
   ] as const) {
     põe({
       nome,
@@ -254,6 +273,7 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
       bancada: "confeitaria",
       sabores: saboresPizza,
       saborFixo: false,
+      saboresAte: Number(ate) > 0 ? Number(ate) : undefined,
     });
   }
 
@@ -283,6 +303,9 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
       bancada: "confeitaria",
       sabores,
       saborFixo: !sabores.length,
+      saboresAte: Number((o as { sabores_ate?: number }).sabores_ate) > 0
+        ? Number((o as { sabores_ate?: number }).sabores_ate)
+        : undefined,
     });
   }
 
