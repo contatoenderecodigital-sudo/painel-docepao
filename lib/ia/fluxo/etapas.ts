@@ -405,7 +405,12 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     cumprida: (p) =>
       p.itens.some(
         (i) => String(i.categoria || "").startsWith("bolo") && String(i.produto).trim().toLowerCase() !== "bolo",
-      ) && (p.prato !== null || jaPerguntouEEleNaoRespondeu(p, "bolo")),
+      ) &&
+      // A pergunta juntada cobre o prato E as pecas, e sai de uma etapa so.
+      // Quem ignorou ela ignorou as duas.
+      (p.prato !== null ||
+        jaPerguntouEEleNaoRespondeu(p, "bolo") ||
+        jaPerguntouEEleNaoRespondeu(p, "pecas_do_bolo")),
     // O SABOR DO BOLO VALE FORA DA FESTA TAMBEM.
     //
     // Ate 23/08/2026 esta etapa era pulada em todo pedido que nao fosse festa,
@@ -451,7 +456,10 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       //
       // E quem ignorou duas vezes ja respondeu: nao quer. Segue.
       if (p.pecas?.topo == null || p.pecas?.papelDeArroz == null) {
-        return jaPerguntouEEleNaoRespondeu(p, "pecas_do_bolo");
+        return (
+          jaPerguntouEEleNaoRespondeu(p, "pecas_do_bolo") ||
+          jaPerguntouEEleNaoRespondeu(p, "bolo")
+        );
       }
       // Sem topo e sem papel nao ha peca personalizada: acabou aqui.
       if (p.pecas.topo === false && p.pecas.papelDeArroz === false) return true;
