@@ -34,6 +34,7 @@
 
 import catalogo from "../dados/catalogo.json";
 import type { EtapaId, PedidoEmMontagem } from "./etapas";
+import { APELIDOS } from "../dados/apelidos";
 
 /** O que a IA pode devolver. Nada alem disto entra no pedido. */
 export type Leitura = {
@@ -132,6 +133,38 @@ export type Leitura = {
 const nomes = (lista: { nome: string }[]) => lista.map((i) => String(i.nome));
 
 /**
+ * O VOCABULARIO TAMBEM ACEITA O JEITO QUE O CLIENTE ESCREVE.
+ *
+ * A casa mantem uma lista de sinonimos em `apelidos.ts` justamente porque o
+ * cliente nao escreve o nome do cardapio: escreve "risoles" e nao "risólis",
+ * "esfiha" e nao "esfirra". O portao da etapa nao conhecia essa lista, entao
+ * jogava fora um nome que o resto do sistema sabe traduzir.
+ *
+ * Medido em 27/08/2026, numa festa de 30 pessoas:
+ *
+ *   cliente >> coxinha e risoles de carne, metade de cada
+ *   rastro  >> barrado nesta etapa: risoles de carne
+ *
+ * Os 300 salgados foram todos pra coxinha e o risoles SUMIU do pedido. Item que
+ * some e a coisa mais grave que este sistema faz: se o cliente nao repetir, a
+ * padaria produz metade do que ele pediu e ninguem descobre antes da retirada.
+ *
+ * Duas listas pro mesmo assunto sempre divergem, e este arquivo ja avisava
+ * disso no cabecalho do `apelidos.ts`: "se as duas camadas usassem listas
+ * diferentes, uma aceitaria o que a outra recusa, e isso ja aconteceu".
+ */
+function comOsApelidos(canonicos: string[]): string[] {
+  const semAc = (t: string) =>
+    String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+  const tem = new Set(canonicos.map(semAc));
+  const extras: string[] = [];
+  for (const [canonico, lista] of Object.entries(APELIDOS)) {
+    if (tem.has(semAc(canonico))) extras.push(...lista);
+  }
+  return [...canonicos, ...extras];
+}
+
+/**
  * O VOCABULARIO DA ETAPA.
  *
  * E a lista fechada do que a IA pode devolver ali. Fora dela nao existe: se o
@@ -141,12 +174,12 @@ const nomes = (lista: { nome: string }[]) => lista.map((i) => String(i.nome));
 export function vocabularioDaEtapa(etapa: EtapaId): string[] {
   switch (etapa) {
     case "salgado":
-      return [
+      return comOsApelidos([
         ...nomes((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]),
         ...nomes((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[]),
-      ];
+      ]);
     case "docinho":
-      return nomes((catalogo.doces?.itens ?? []) as { nome: string }[]);
+      return comOsApelidos(nomes((catalogo.doces?.itens ?? []) as { nome: string }[]));
     case "bolo":
       return ((catalogo.bolos_recheados?.faixas ?? []) as { sabores?: string[] }[])
         .flatMap((f) => f.sabores ?? [])

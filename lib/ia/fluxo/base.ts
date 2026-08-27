@@ -85,3 +85,56 @@ export function calcularBase(p: PedidoEmMontagem): Base | null {
 // A proposta diz QUANTO. QUAL e escolha do cliente, e e pra isso que existem as
 // etapas do salgado e do docinho. Quem reparte o total entre o que ele escolheu
 // agora e repartirABase, no fluxo, e so depois de ele escolher.
+
+// ============================================================================
+//  O MINIMO POR SABOR: SUGERE, NUNCA RECUSA.
+//
+//  A dona ditou isto com as duas metades juntas, e as duas importam:
+//
+//    "Num cento de salgados, o ideal e sempre 20, no minimo 20 unidades. Claro
+//     que se a cliente quiser 10 de cada, a gente abre uma excecao, e obvio.
+//     Mas assim, sempre sugerir."
+//
+//    "Se a cliente falar 15, 15, 15, abre uma excecao, nao tem problema nenhum."
+//
+//  O catalogo guarda as duas: `sugerir: 20` e `recusar: false`. O no inteiro
+//  estava la desde 19/08/2026 e NENHUMA LINHA DE CODIGO LIA. A padaria repartia
+//  cem docinhos entre oito sabores, doze de cada, e nao dizia nada.
+//
+//  E O AVISO SO VALE QUANDO QUEM DIVIDIU FOMOS NOS.
+//
+//  Se o cliente escreveu "15 de cada", ele ja decidiu, e a dona mandou aceitar
+//  sem discutir. Sugerir ali seria a padaria corrigindo uma conta que o proprio
+//  cliente fez. O aviso e pro caso em que ele escolheu SABORES e o codigo
+//  repartiu o total da proposta entre eles: ai ele nunca viu o numero por sabor.
+// ============================================================================
+
+/** O que a casa sugere por sabor, e quantos sabores cabem num cento. */
+export function minimoPorSabor(): { sugerir: number; saboresNoCento: number } {
+  const m = (catalogo as unknown as {
+    _minimo_por_sabor?: { sugerir?: number; sabores_por_cento_sugeridos?: number };
+  })._minimo_por_sabor;
+  return {
+    sugerir: Number(m?.sugerir) > 0 ? Number(m?.sugerir) : 0,
+    saboresNoCento: Number(m?.sabores_por_cento_sugeridos) > 0 ? Number(m?.sabores_por_cento_sugeridos) : 0,
+  };
+}
+
+/**
+ * A FRASE DA SUGESTAO, ou null quando nao ha o que sugerir.
+ *
+ * Sai NA FRENTE da pergunta da etapa, como o aviso de restricao, e vive um
+ * turno so. Nao e pergunta e nao trava nada: o pedido segue exatamente como
+ * esta se o cliente nao disser nada.
+ */
+export function avisoDePoucoPorSabor(qtds: number[]): string | null {
+  const { sugerir } = minimoPorSabor();
+  if (!sugerir || !qtds.length) return null;
+  const abaixo = qtds.filter((q) => q > 0 && q < sugerir);
+  if (!abaixo.length) return null;
+  const menor = Math.min(...abaixo);
+  return (
+    "Dividindo assim ficam " + menor + " de alguns sabores. A casa costuma sugerir " +
+    "pelo menos " + sugerir + " de cada, mas dá pra fazer do jeito que você preferir."
+  );
+}

@@ -54,6 +54,17 @@ const NAO_PRECISA_GRAVAR = {
   // sem lactose" em toda resposta seguinte, sobre uma coisa que o cliente ja
   // ouviu. Insistir no que ja foi dito e o defeito que este projeto mais teve.
   restricoesTiradas: "vive um turno so: vira frase pro cliente e e limpo na mesma passada",
+  // Pelo mesmo motivo, e com o mesmo desenho.
+  //
+  // `repartirABase` divide o total da proposta entre os sabores que o cliente
+  // escolheu. Quando a divisao deixa menos que os 20 por sabor que a casa
+  // sugere, ele guarda a frase aqui, `responder` poe na frente da pergunta da
+  // etapa e limpa na mesma passada.
+  //
+  // Gravar seria o defeito: a padaria repetiria "a casa costuma sugerir pelo
+  // menos 20 de cada" em toda mensagem seguinte, sobre uma divisao que o
+  // cliente ja viu e ja aceitou ao seguir a conversa.
+  poucoPorSabor: "vive um turno so: e a sugestao do minimo por sabor, dita uma vez",
 };
 
 const sonda = path.join(__dirname, "_sonda-memoria.mjs");

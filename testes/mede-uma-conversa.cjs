@@ -38,6 +38,13 @@ if (!arq) {
   process.exit(2);
 }
 const FALAS = JSON.parse(fs.readFileSync(arq, "utf8"));
+
+// LEITURA QUE FALHA NAO PODE MATAR A MEDICAO.
+//
+// A conversa leva minutos e ja aconteceu: o nome de uma coluna estava errado, a
+// consulta explodiu DEPOIS das sete falas, e a medicao inteira se perdeu por um
+// erro de digitacao na parte mais barata do trabalho.
+const olhar = (sql) => psql(sql).catch((e) => "(a consulta falhou: " + String(e).split("\n")[0].slice(0, 120) + ")");
 // Faixa de teste propria, pra nao brigar com a conversa do outro script nem com
 // a bateria, que usam telefones vizinhos.
 const FONE = process.env.FONE || "5511977770077";
@@ -63,22 +70,26 @@ const FONE = process.env.FONE || "5511977770077";
   console.log("");
   console.log("=== O QUE A PADARIA RESPONDEU ===");
   console.log(
-    await psql(
+    await olhar(
       "select m.papel || ' >> ' || replace(coalesce(m.conteudo,''), chr(10), ' ') from docepao.mensagens m " +
         "join docepao.clientes c on c.id=m.cliente_id where c.telefone='" + FONE + "' order by m.criado_em",
     ),
   );
 
   console.log("=== O PEDIDO NO BANCO (pedido_itens) ===");
-  const itens = await psql(
-    "select coalesce(i.qtd,0) || ' ~ ' || coalesce(i.produto,'') || ' ~ ' || coalesce(i.obs,'') || ' ~ R$ ' || coalesce(i.preco,0) " +
+  // A coluna do preco e `subtotal_centavos`, e nao `preco`: escrever o nome
+  // errado aqui derrubou a medicao DEPOIS da conversa inteira ter rodado, o que
+  // custa os minutos todos e nao devolve resposta nenhuma.
+  const itens = await olhar(
+    "select coalesce(i.qtd,0) || ' ~ ' || coalesce(i.produto,'') || ' ~ ' || coalesce(i.categoria,'?') " +
+      "|| ' ~ ' || coalesce(i.obs,'') || ' ~ R$ ' || round(coalesce(i.subtotal_centavos,0)/100.0, 2) " +
       "from docepao.pedido_itens i join docepao.pedidos p on p.id=i.pedido_id " +
-      "join docepao.clientes c on c.id=p.cliente_id where c.telefone='" + FONE + "'",
+      "join docepao.clientes c on c.id=p.cliente_id where c.telefone='" + FONE + "' order by i.id",
   );
   console.log(itens.trim() || "(NADA, o pedido nao foi registrado)");
 
   console.log("=== A MONTAGEM (o que ficou em aberto) ===");
-  const mont = await psql(
+  const mont = await olhar(
     "select coalesce(x.qtd,0) || ' ~ ' || coalesce(x.produto,'') || ' ~ ' || coalesce(x.obs,'') " +
       "from docepao.pedido_montagem pm join docepao.clientes c on c.id=pm.cliente_id, " +
       "jsonb_to_recordset(pm.itens) as x(produto text, qtd numeric, obs text) " +

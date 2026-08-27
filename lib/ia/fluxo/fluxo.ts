@@ -36,7 +36,7 @@ import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase } from "./le
 import { identificarProduto } from "./produto";
 import { nomePeloApelido } from "../dados/apelidos";
 import { produtoNoComeco } from "../dados/produtos";
-import { calcularBase } from "./base";
+import { calcularBase, avisoDePoucoPorSabor } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
@@ -105,6 +105,15 @@ export type Estado = PedidoEmMontagem & {
    * normal, mas é pior que avisar: quem pede sem lactose tem motivo.
    */
   restricoesTiradas?: string[];
+  /**
+   * A SUGESTAO DO MINIMO POR SABOR, quando FOMOS NOS que dividimos.
+   *
+   * "Num cento de salgados, o ideal e sempre 20 (...). Mas assim, sempre
+   * sugerir", com o `recusar: false` do catalogo logo ao lado. Nao trava nada e
+   * nao vira pergunta: sai na frente da pergunta da etapa e vive um turno so,
+   * igual ao aviso de restricao.
+   */
+  poucoPorSabor?: string;
 };
 
 /** Quem chama o modelo. Injetado pra dar pra testar sem gastar. */
@@ -302,6 +311,8 @@ function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado 
   ];
 
   let itens = [...e.itens];
+  // As quantidades que ESTE trecho decidiu, pra saber se ficou pouco por sabor.
+  const porSabor: number[] = [];
   for (const [familia, total] of alvos) {
     if (!total) continue;
     const daFamilia = itens
@@ -327,9 +338,23 @@ function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado 
       itens[idx] = { ...itens[idx], qtd: cada + (ordem === 0 ? resto : 0) };
     });
     rastro.push("reparti " + sobra + " de " + familia + " entre " + semQtd.length + " escolha(s)");
+
+    // O MINIMO POR SABOR SO FAZ SENTIDO EM PECA, NUNCA EM QUILO.
+    //
+    // O bolo entra nesta mesma divisao e vem em QUILOS: 2,5 kg cairia direto na
+    // regra dos 20 e a padaria sugeriria "pelo menos 20 de cada" pra um bolo.
+    // Por isso a conta olha so salgado e docinho, que sao os dois que a dona
+    // citou e os dois que se vendem por cento.
+    if (familia === "salgado" || familia === "docinho") {
+      porSabor.push(...semQtd.map(({ idx }) => Number(itens[idx].qtd) || 0));
+    }
   }
 
-  return itens === e.itens ? e : { ...e, itens };
+  if (itens === e.itens) return e;
+  // O aviso vive um turno: quem divide e este trecho, e a fala sai na proxima
+  // resposta. Guardar no estado seria a padaria repetindo a sugestao pra sempre.
+  const aviso = avisoDePoucoPorSabor(porSabor);
+  return { ...e, itens, ...(aviso ? { poucoPorSabor: aviso } : {}) };
 }
 
 /** Tira uma marca da observacao dos itens ("Topo: tema Minnie, Arthur, 5 anos"). */
@@ -453,6 +478,34 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       if (recusou(palavra)) {
         novo.itens = novo.itens.filter((i) => !String(i.categoria || "").startsWith(prefixo));
       }
+    }
+
+    // AJUSTAR A BASE E RESPONDER A BASE.
+    //
+    // A padaria oferece a base com estas palavras: "da R$ 628,20 no total, e da
+    // pra ajustar o que voce quiser". Quem responde "nao quero docinho, so
+    // salgado e bolo" AJUSTOU, que e exatamente o que foi oferecido. So que o
+    // `baseAceita` era ligado por duas coisas apenas, o botao e um `aceitouBase`
+    // do modelo, e nenhuma das duas acontece nesse caso.
+    //
+    // Medido em 27/08/2026 com uma festa de 30 pessoas, e o estrago foi total:
+    //
+    //   cliente >> nao quero docinho, so salgado e bolo
+    //   padaria >> Pra 30 pessoas, uma base boa e 300 salgados, 0 docinhos...
+    //   cliente >> coxinha e risoles de carne, metade de cada
+    //   padaria >> Pra 30 pessoas, uma base boa e 300 salgados, 0 docinhos...
+    //   cliente >> bolo de ninho com nutella, 3 kg
+    //   padaria >> Acho que nao estou conseguindo entender direito por aqui.
+    //
+    // A base foi recalculada certo (os docinhos zeraram), e mesmo assim a
+    // pergunta voltou duas vezes, ate a conversa cair no chamado pra equipe. O
+    // cliente ainda mandou data, nome e pagamento, e ouviu a mesma frase.
+    //
+    // So vale quando a base JA FOI OFERECIDA. Quem diz "nao quero bolo" antes
+    // de ver proposta nenhuma nao respondeu pergunta alguma, e ai a base tem
+    // que ser oferecida normalmente, ja sem o bolo.
+    if (!novo.baseAceita && novo.base && (novo.etapasJaPerguntadas ?? []).includes("base_da_festa")) {
+      novo.baseAceita = true;
     }
   }
 
@@ -1210,6 +1263,18 @@ export async function responder(
     estado = { ...estado, restricoesTiradas: undefined };
   }
 
+  // A SUGESTAO DO MINIMO POR SABOR, pelo mesmo caminho e pelo mesmo motivo.
+  //
+  // Diferenca importante em relacao ao aviso de restricao: este NAO chama a
+  // equipe e NAO trava nada. O catalogo diz `recusar: false` com todas as
+  // letras, e a dona explicou por que: "se a cliente falar 15, 15, 15, abre uma
+  // excecao, nao tem problema nenhum". A padaria informa e segue.
+  if (estado.poucoPorSabor) {
+    fala = { ...fala, texto: estado.poucoPorSabor + (fala.texto ? "\n\n" + fala.texto : "") };
+    rastro.push("sugeri o minimo por sabor (nao trava, so sugere)");
+    estado = { ...estado, poucoPorSabor: undefined };
+  }
+
   // ------------------------------------ A MESMA PERGUNTA NAO SAI DUAS VEZES
   //
   // Se ela vai repetir o que acabou de perguntar, alguma coisa nao funcionou: a
@@ -1221,6 +1286,33 @@ export async function responder(
   // resolve numa frase e a Dora nao resolve em dez.
   const mesmaPergunta = Boolean(estado.ultimaFala) && fala.texto === estado.ultimaFala;
   const insistiu = mesmaPergunta ? (estado.insistiu ?? 0) + 1 : 0;
+  // REPETIR A PERGUNTA NAO E O MESMO QUE NAO TER ENTENDIDO.
+  //
+  // A conta acima olha so pra pergunta que esta saindo. O comentario dizia "a
+  // resposta do cliente nao virou dado", mas isso era suposicao, e ela e falsa
+  // sempre que o cliente responde OUTRA coisa que a padaria entendeu bem.
+  //
+  // Medido em 27/08/2026, numa festa de aniversario com topo:
+  //
+  //   padaria >> A que horas voce vai passar para buscar?
+  //   cliente >> quero topo sim
+  //   padaria >> A que horas voce vai passar para buscar?
+  //   cliente >> tema jardim encantado, nome Alice, 5 anos
+  //   padaria >> Acho que nao estou conseguindo entender direito por aqui.
+  //
+  // A padaria entendeu tudo: o topo entrou, e o tema, o nome e a idade foram
+  // parar na comanda como "Topo: tema jardim encantado, Alice, 5 anos". Ela
+  // dizia que nao entendia enquanto anotava. Do lado do cliente isso e pior que
+  // silencio, porque ele acabou de ser atendido e ouviu que ninguem entendeu.
+  //
+  // A hora continuava faltando, e por isso a pergunta volta. Voltar esta certo.
+  // Desistir e que nao.
+  const soContabilidade = new Set(["ultimaFala", "insistiu", "etapasJaPerguntadas"]);
+  const semContabilidade = (e: Estado) =>
+    JSON.stringify(Object.fromEntries(
+      Object.entries(e).filter(([k]) => !soContabilidade.has(k)).sort(([a], [b]) => a.localeCompare(b)),
+    ));
+  const entendeuAlgo = semContabilidade(estadoAtual) !== semContabilidade(estado);
   // DE QUE ETAPA SAIU A PERGUNTA QUE ESTA INDO AGORA.
   //
   // E o sinal de "ele JA foi perguntado disto", usado pelos detalhes opcionais
@@ -1246,7 +1338,13 @@ export async function responder(
   if (insistiu === 1 && fala.opcoes?.length && !fala.texto.includes(fala.opcoes[0])) {
     fala = { ...fala, texto: fala.texto + "\n\nAs opções são: " + fala.opcoes.join(", ") + "." };
     rastro.push("repeti a pergunta; mostrei as opcoes");
-  } else if (insistiu >= 2) {
+  } else if ((insistiu >= 2 && !entendeuAlgo) || insistiu >= 4) {
+    // O TETO DE QUATRO E TRAVA DE SEGURANCA, NAO REGRA.
+    //
+    // Enquanto o cliente for entendido, a padaria continua perguntando o que
+    // falta, que e o certo. Mas se a mesma pergunta sair quatro vezes, alguma
+    // coisa esta presa e a equipe resolve numa frase o que a Dora nao resolve
+    // em dez. Sem este teto, "entendeu algo" viraria um jeito de nunca desistir.
     fala = {
       ...fala,
       texto:
@@ -1257,7 +1355,10 @@ export async function responder(
       podeReescrever: false,
     };
     precisaHumano = true;
-    rastro.push("insisti " + insistiu + " vezes na mesma pergunta; chamei a equipe");
+    rastro.push(
+      "insisti " + insistiu + " vezes na mesma pergunta" +
+      (entendeuAlgo ? " (entendi o cliente, mas travou)" : "") + "; chamei a equipe",
+    );
   }
 
   if (foraDoHorario) {
