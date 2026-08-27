@@ -32,7 +32,7 @@
 // ============================================================================
 
 import catalogo from "../dados/catalogo.json";
-import { produtosDaCasa } from "../dados/produtos";
+import { produtosDaCasa, produtoNoComeco, produtoPorNome } from "../dados/produtos";
 
 type ItemDoCardapio = { nome?: string; recheios?: string[]; sabores?: string[] };
 
@@ -106,6 +106,91 @@ export function saborQueFalta(produto: string, obs?: string | null): { nome: str
     return semONome.includes(alvo);
   });
   return escolhido ? null : item;
+}
+
+/**
+ * ELE PEDIU MAIS SABORES DO QUE CABEM?
+ *
+ * A pizza de forma aceita 4, a meia aceita 2, a redonda aceita 2. Audio da
+ * dona, 19/08/2026: "so dois sabores por pizza redonda".
+ *
+ * Isso estava no catalogo em `sabores_ate` desde sempre e NENHUMA LINHA DE
+ * CODIGO LIA. Medido em 26/08/2026: uma redonda de 30 cm fechava com CINCO
+ * sabores e a de forma com SEIS. A cozinha recebia um pedido que nao consegue
+ * produzir, e alguem teria que ligar pro cliente.
+ *
+ * Devolve o limite E os sabores que ele falou, ou null quando cabe.
+ *
+ * Os sabores voltam junto porque a pergunta precisa deles. "Escolhe menos
+ * sabores" nao e pergunta, e uma reclamacao: o cliente teria que rolar a
+ * conversa pra lembrar o que disse. Com a lista na mao, a padaria devolve os
+ * seis que ele falou pra ele marcar quatro.
+ */
+export function passouDoLimiteDeSabores(
+  produto: string,
+  obs?: string | null,
+): { limite: number; escolhidos: string[] } | null {
+  const p = produtoNoComeco(produto) ?? produtoPorNome(produto);
+  const limite = p?.saboresAte;
+  if (!limite || !p) return null;
+
+  // CONTA CONSUMINDO O TEXTO, DO NOME MAIS LONGO PRO MAIS CURTO.
+  //
+  // Nao conta virgula: "frango com catupiry" tem uma virgula a menos e dois
+  // "com", e contar separador erraria nos dois sentidos.
+  //
+  // E nao descarta o sabor curto so por ele caber dentro de um longo. Foi o que
+  // eu tinha feito primeiro, e a trava nao pegava NADA:
+  //
+  //     "bacon, bacon com milho, bacon com brocolis"   ->  contava 2, e sao 3
+  //
+  // O "bacon" era jogado fora por estar contido nos outros dois, e a pizza meia
+  // fechava com tres sabores dentro de um limite de dois. O cliente pediu os
+  // tres, e os tres estao escritos ali.
+  //
+  // Consumir resolve os dois casos com uma regra so: o pedaco de texto que ja
+  // virou um sabor sai da linha e nao pode virar outro. Assim "frango com
+  // catupiry" nao vira tambem "frango", e "bacon" dito de novo, separado, conta
+  // de novo.
+  const linha = semAcMin(produto) + " " + semAcMin(obs ?? "");
+  let resto = linha;
+  const achados: { sabor: string; onde: number }[] = [];
+  for (const s of [...p.sabores].sort((a, b) => semAcMin(b).length - semAcMin(a).length)) {
+    const alvo = semAcMin(s);
+    if (alvo.length <= 2) continue;
+    let i = resto.indexOf(alvo);
+    if (i < 0) continue;
+    // O mesmo sabor dito duas vezes e um sabor so: quem manda e a lista de
+    // sabores distintos, nao quantas vezes ele repetiu.
+    achados.push({ sabor: s, onde: linha.indexOf(alvo) });
+    while (i >= 0) {
+      resto = resto.slice(0, i) + " ".repeat(alvo.length) + resto.slice(i + alvo.length);
+      i = resto.indexOf(alvo);
+    }
+  }
+  // Na ordem em que ele falou, que e a ordem em que ele pensou. A pergunta
+  // devolve essa lista pra ele marcar, entao a ordem importa.
+  const escolhidos = achados.sort((a, b) => a.onde - b.onde).map((a) => a.sabor);
+  return escolhidos.length > limite ? { limite, escolhidos } : null;
+}
+
+/**
+ * O QUE PASSOU DO LIMITE NO PEDIDO INTEIRO.
+ *
+ * Espelha o `saboresQueFaltam`: o fechamento cobra por aqui e a pergunta se faz
+ * pela mesma lista, entao a trava e a fala nunca discordam sobre o que falta.
+ */
+export function saboresAlemDoLimite(
+  itens: { produto: string; obs?: string | null }[],
+): { produto: string; limite: number; escolhidos: string[] }[] {
+  const passou: { produto: string; limite: number; escolhidos: string[] }[] = [];
+  for (const i of itens) {
+    const x = passouDoLimiteDeSabores(i.produto, i.obs);
+    if (x && !passou.some((y) => y.produto === i.produto)) {
+      passou.push({ produto: i.produto, limite: x.limite, escolhidos: x.escolhidos });
+    }
+  }
+  return passou;
 }
 
 /** O que falta escolher no pedido inteiro, em portugues, pra cobrar do cliente. */

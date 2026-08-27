@@ -81,6 +81,12 @@ const FORA = [
   //
   //   node testes/uma-conversa-contra-o-banco.cjs
   "uma-conversa-contra-o-banco.cjs",
+
+  // A mesma coisa, com as falas vindas de fora num .json. Medir um caminho
+  // novo passa a custar tres linhas de arquivo em vez de um arquivo de codigo.
+  //
+  //   node testes/mede-uma-conversa.cjs caminho/das/falas.json
+  "mede-uma-conversa.cjs",
 ];
 
 const aqui = __dirname;

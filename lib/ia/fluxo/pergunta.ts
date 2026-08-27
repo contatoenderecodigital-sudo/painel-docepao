@@ -21,7 +21,7 @@ import catalogo from "../dados/catalogo.json";
 import { brl, motorPadrao } from "../orcamento";
 import type { Etapa, PedidoEmMontagem } from "./etapas";
 import { saudacaoDaHora, prazoDoTopoAperta } from "./falas-do-cliente";
-import { saboresQueFaltam, coresDoCardapio } from "./sabor";
+import { saboresQueFaltam, saboresAlemDoLimite, coresDoCardapio } from "./sabor";
 import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia } from "./generico";
 import { paraOMotor } from "./cotar";
 
@@ -617,6 +617,36 @@ export function falaDaEtapa(
             opcoes: opcoesDaFamilia(familia.produto),
           };
         }
+      }
+
+      // SABOR A MAIS TAMBÉM PERGUNTA, pelo mesmo motivo do de menos.
+      //
+      // A pizza de forma vai até 4 sabores, a meia e a redonda até 2. O
+      // catálogo diz isso em `sabores_ate` desde sempre, e ninguém lia: uma
+      // redonda fechava com CINCO sabores e ia pra uma cozinha que não faz.
+      //
+      // A trava sozinha seria pior que o defeito. Por isso a padaria devolve os
+      // sabores que ELE mesmo falou, pra ele marcar os que cabem, em vez de
+      // dizer "escolhe menos" e deixar o cliente rolar a conversa pra lembrar o
+      // que tinha pedido.
+      const demais = saboresAlemDoLimite(p.itens)[0];
+      if (demais) {
+        return {
+          // SEM ARTIGO NA FRENTE DO PRODUTO.
+          //
+          // "No pizza redonda" e "a cuca" com "o" na frente sao erros que a
+          // clientela ve na hora. O genero do produto nao esta no catalogo e
+          // adivinhar pela ultima letra erra em "torta fria" e "franciscano".
+          // Comecar a frase pelo nome resolve sem inventar gramatica.
+          texto:
+            demais.produto.charAt(0).toUpperCase() + demais.produto.slice(1) +
+            " vai até " + demais.limite + " sabores, e vieram " + demais.escolhidos.length +
+            ". Quais " + demais.limite + " você quer?",
+          botoes: [],
+          cardapio: null,
+          podeReescrever: true,
+          opcoes: demais.escolhidos,
+        };
       }
 
       // E O SABOR TAMBÉM, pelo mesmo motivo.

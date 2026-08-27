@@ -30,7 +30,7 @@ import { registrarPedido, grudarFotosNoPedido } from "@/lib/banco/conversas";
 import { motorPadrao } from "../orcamento";
 import type { Estado } from "./fluxo";
 import { prazoDoTopoAperta } from "./falas-do-cliente";
-import { saboresQueFaltam } from "./sabor";
+import { saboresQueFaltam, saboresAlemDoLimite } from "./sabor";
 import { ehNomeDeFamilia } from "./generico";
 import { paraOMotor } from "./cotar";
 
@@ -90,6 +90,23 @@ export function oQueFaltaPraFechar(e: Estado): string[] {
   // Quem diz o que pede escolha e o catalogo, item por item.
   for (const f of saboresQueFaltam(e.itens)) {
     falta.push("o sabor do " + f.produto);
+  }
+
+  // SABOR A MAIS TAMBEM E BURACO, E O CATALOGO SEMPRE SOUBE O LIMITE.
+  //
+  // A pizza de forma aceita 4 sabores, a meia 2, a redonda 2. Audio da dona,
+  // 19/08/2026: "so dois sabores por pizza redonda". Isso esta no catalogo em
+  // `sabores_ate` desde sempre e NENHUMA LINHA DE CODIGO LIA.
+  //
+  // Medido em 26/08/2026: uma redonda de 30 cm fechava com CINCO sabores e a de
+  // forma com SEIS. A cozinha recebia um pedido que ela nao consegue produzir, e
+  // alguem teria que ligar pro cliente pra desfazer o que a conversa prometeu.
+  //
+  // A pergunta que acompanha esta trava mora no `pergunta.ts`, no mesmo ponto em
+  // que o sabor faltando e o nome de familia perguntam. As duas leem a mesma
+  // lista, entao a padaria nunca recusa fechar sem dizer o que fazer.
+  for (const f of saboresAlemDoLimite(e.itens)) {
+    falta.push("quais " + f.limite + " sabores no " + f.produto);
   }
 
   // NOME DE FAMÍLIA NÃO FECHA PEDIDO.
