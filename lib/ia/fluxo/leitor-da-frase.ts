@@ -409,11 +409,11 @@ function recheiosDoCatalogo(): string[] {
 export function itensDeOutraEtapaNaFrase(
   fala: string,
   daEtapaDeAgora: (produto: string) => boolean,
-): { produto: string; qtd: number }[] {
+): { produto: string; qtd: number; obs?: string }[] {
   const t = semAcMin(fala);
   if (!t.trim()) return [];
 
-  const achados: { produto: string; qtd: number }[] = [];
+  const achados: { produto: string; qtd: number; obs?: string }[] = [];
   for (const nome of produtosNaFrase(fala)) {
     if (daEtapaDeAgora(nome)) continue;
 
@@ -433,7 +433,30 @@ export function itensDeOutraEtapaNaFrase(
     const ultimo = nums.length ? nums[nums.length - 1][1] : null;
     const qtd = ultimo ? Number(ultimo.replace(",", ".")) : 0;
 
-    achados.push({ produto: nome, qtd: qtd > 0 && qtd <= 5000 ? qtd : 0 });
+    // O RECHEIO VEM COLADO NO NOME, E TEM QUE VIR JUNTO.
+    //
+    // "100 quiche de frango" achava o quiche e deixava o frango pra tras. Isso
+    // nao doia enquanto o item ficava GUARDADO, porque quem entrava de verdade
+    // era a leitura do modelo, que trazia o recheio. Quando o item passou a
+    // entrar direto, em 26/08/2026, ele passou por cima da leitura do modelo e
+    // o quiche ficou sem sabor: a padaria perguntou "o quiche vai de que?" pra
+    // quem tinha escrito "quiche de frango" na primeira mensagem.
+    //
+    // Aqui o recheio sai da MESMA lista do cardapio que o resto do sistema usa,
+    // e so vale colado no nome: "quiche de frango, e esfirra de carne" da
+    // frango pro quiche e carne pra esfirra, e nao os dois pros dois.
+    const depois = t.slice(onde + nome.length).replace(/^ *(de|da|do|com) +/, "");
+    const ateOProximo = depois.split(/[,;]| e (?=[a-z])/)[0] ?? "";
+    const recheio = recheiosDoCatalogo().find((r) => {
+      const rr = semAcMin(r);
+      return rr && (ateOProximo === rr || ateOProximo.startsWith(rr + " ") || ateOProximo.startsWith(rr));
+    });
+
+    achados.push({
+      produto: nome,
+      qtd: qtd > 0 && qtd <= 5000 ? qtd : 0,
+      ...(recheio ? { obs: recheio } : {}),
+    });
   }
   return achados;
 }
