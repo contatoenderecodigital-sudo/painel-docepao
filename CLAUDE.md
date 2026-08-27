@@ -115,6 +115,26 @@ apresentei uma conversa perfeita como prova de que o sistema estava certo. O
 arquivo era de horas antes: as rodadas que eu tinha matado nunca chegaram a
 escrevê-lo. Conferir `ls -la` antes de usar como evidência.
 
+**Bateria verde prova os caminhos dela, e nada além.** O `pass^5` = 5 de 5
+significa que aqueles cinco jeitos de pedir funcionam. Em 26/08/2026, com a
+bateria cheia, UMA conversa de pizza de três mensagens achou cinco defeitos:
+
+- a oferta que só o botão cumpria, e que entregava pra um humano quem
+  respondesse escrevendo
+- o nome de família fechando pedido com o produto errado (R$ 240 numa pizza que
+  ninguém pediu)
+- o `assunto` grudado numa etapa que nunca se cumpre
+- o sabor bloqueando o fechamento sem ninguém perguntar
+- o sabor solto sendo lido como mudança de assunto
+
+Os cinco cenários da bateria pedem coxinha, quiche, brigadeiro e bolo. **Nenhum
+pede pizza.** Quando terminar de consertar o que a bateria cobre, medir um
+pedido de uma família que ela não toca.
+
+**Bloquear sem perguntar é pior que o defeito.** Fiz isso três vezes num dia. A
+padaria recusa fechar, não diz o que falta, e o cliente fica olhando o mesmo
+resumo até a conversa morrer. Toda trava nova nasce com a pergunta junto.
+
 **Ver de verdade:** abrir a tela, rodar, olhar o log e o banco antes de afirmar.
 
 **Ler o rastro antes de culpar a IA.** Na maioria das vezes o defeito era uma
