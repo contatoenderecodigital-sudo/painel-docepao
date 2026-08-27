@@ -46,7 +46,7 @@ node testes/guardar-conversas.cjs
 node testes/qa-pedido-completo.cjs     (abre navegador, cria pedido de verdade)
 ```
 
-### Os nove defeitos de dinheiro consertados hoje
+### Os quinze defeitos de dinheiro consertados em 26/08/2026
 
 Todos medidos, nenhum deduzido.
 
@@ -61,17 +61,33 @@ Todos medidos, nenhum deduzido.
 | `docinho` sem escolher qual | precisa perguntar | churros a R$ 1,75 |
 | `salgado` sem escolher qual | precisa perguntar | assado a R$ 1,25 |
 | papel de arroz, quem manda tudo de uma vez | R$ 12,00 | nunca era oferecido |
+| pastel doce de banana | R$ 1,25 | R$ 1,00, e ia pra bancada do **salgado** |
+| `"papel não"` na resposta juntada | não cobra | **cobrava** os R$ 12 |
 
-E dois que a padaria perdia sem ser em dinheiro: o dia da semana não virava data
-(a padaria perguntava a data de novo para quem já tinha respondido) e a forma de
-pagamento pegava a primeira da lista em vez da última que o cliente falou.
+E quatro que a padaria perdia sem ser direto em dinheiro:
+
+- **o dia da semana não virava data**: quem escrevia "pra quarta-feira" era
+  perguntado da data de novo, depois de já ter respondido
+- **a forma de pagamento pegava a primeira da lista**, não a última que o cliente
+  falou. Já tinha ido para produção em 19/08 com o pedido fechando em pix para
+  quem corrigiu para cartão
+- **restrição de dieta virava promessa na comanda**: "30 brigadeiro (sem
+  lactose)" fazia a cozinha produzir brigadeiro comum e o cliente ler "sem
+  lactose" na confirmação. Isso deixa de ser prejuízo e vira saúde
+- **o item citado na frase perdia um turno**, e nos pedidos de duas mensagens
+  isso quer dizer que o pedido **nunca era registrado**
 
 ### A bateria dos cinco jeitos
 
-**Última medição: `pass^5` = 4 de 5.** Ela é de ANTES da demolição e de todos os
-consertos de hoje, então o número está velho. Precisa rodar de novo:
+**`pass^5` = 4 de 5**, medido em 26/08/2026 depois da demolição e dos consertos.
+Os cenários 1, 2, 4 e 5 saíram de **0/5 para 5/5** no mesmo dia.
+
+O cenário 3 ("três respostas na mesma frase") era o único vermelho e **fecha
+certo na medição individual** depois do commit `1931c05`. Falta a confirmação
+nas cinco execuções.
 
 ```
+node testes/uma-conversa-contra-o-banco.cjs    <- SEMPRE antes
 node testes/medidor.cjs 5 "cinco jeitos"
 ```
 
@@ -79,17 +95,27 @@ node testes/medidor.cjs 5 "cinco jeitos"
 
 ## O QUE FAZER AGORA, em ordem
 
-### 1. Medir a bateria de novo  ⟵ RETOMAR AQUI
+### 1. Confirmar o cenário 3 na bateria  ⟵ RETOMAR AQUI
 
-Nove defeitos de dinheiro foram consertados e 13.950 linhas saíram. O número de
-antes não vale mais para nada, nem o vermelho nem os verdes.
+É o último vermelho conhecido, e ele **já fecha certo na medição individual**
+depois do commit `1931c05`. Falta a confirmação nas cinco execuções.
+
+```
+node testes/uma-conversa-contra-o-banco.cjs
+node testes/medidor.cjs 5 "cinco jeitos"
+```
+
+**A ORDEM IMPORTA, e ignorá-la custou caro em 26/08.** Rodei duas baterias de 25
+minutos antes de mandar uma conversa só. As duas devolveram 0/5 em tudo, sem
+dizer por quê; a conversa única deu a resposta em dois minutos, **três vezes
+seguidas**.
+
+O que só a conversa única mostra: a **montagem** ficava certa, com os quatro
+itens e as observações, e o `pedido_itens` ficava **vazio**. Nenhuma nota de
+bateria mostra essa diferença.
 
 **Não medir com deploy no meio:** cada mensagem pega uma versão diferente e o
 resultado sai misturado.
-
-O único vermelho conhecido era o cenário 3, `"50 brigadeiro, forminha rosa, e um
-bolo de 2 kg de 4 leites"`, três respostas na mesma frase. Vale conferir se ele
-sobreviveu aos consertos.
 
 ### 2. Terminar a padronização do catálogo
 
@@ -122,12 +148,23 @@ e depois.
 
 Citação de origem em `O-QUE-A-DONA-FALOU.md`. Decisões do dono em 26/08:
 
-- **Prazo do topo**: 2 dias e no máximo até sexta, porque a casa não faz,
-  encomenda. Hoje o prazo é um número só para tudo.
-- **Desconto e beneficente**: a IA nunca dá o preço por unidade, responde *"deixa
-  eu ver a possibilidade de um desconto, eu já te retorno"* e chama a equipe. Os
-  valores (cachorro-quente R$ 1,20, pão de X R$ 1,40) hoje são anotação morta no
-  catálogo.
+**FEITO em 26/08:**
+
+- **Prazo do topo.** Já estava, em `falas-do-cliente.ts` (`prazoDoTopoAperta`),
+  usado por `fechar.ts` e `pergunta.ts`.
+- **Desconto e beneficente.** Virou assunto próprio em `informacao.ts`. A IA
+  responde *"deixa eu ver a possibilidade de um desconto e já te retorno"* e
+  **chama a equipe**, sem dizer os valores. Está medido que a resposta não tem
+  número nenhum: soltar o preço por unidade transforma negociação em tabela.
+- **Parcelamento.** Já estava certo e não precisou de nada: ela só fala em 3x
+  quando perguntam da forma de pagamento, e a etapa do pagamento oferece Pix,
+  Cartão e Dinheiro sem citar parcela. É a regra do dono, *"só oferece parcelado
+  se o cara pedir"*.
+- **Entrega sempre chamar gente.** Em `informacao.ts`, coberto por
+  `testes/as-regras-da-casa-no-fluxo.cjs`.
+
+**Falta:**
+
 - **Comanda separada por segmento**: a regra mais repetida dos 55 áudios.
   Docinho de festa numa, salgadinho de festa noutra, cupcake noutra, bolo salgado
   noutra, empadão, torta doce e torta recheada cada uma na sua. E **cada comanda
@@ -168,19 +205,22 @@ Citação de origem em `O-QUE-A-DONA-FALOU.md`. Decisões do dono em 26/08:
   Áudio da dona, 19/08/2026: *"se a pessoa não falar em pizza de forma, tipo, eu
   quero encomendar duas pizzas, ah, então seriam as de forma ou seriam as
   redondas? Também tem isso que ela vai ter que questionar."*
-- **Parcelamento**: só responder se o cliente perguntar, não oferecer. Até 3x e
-  só no cartão. O pagamento é presencial, não passa pela IA.
 
-**Entrega sempre chamar gente: FEITO.** Está em `lib/ia/fluxo/informacao.ts` e
-coberto por `testes/as-regras-da-casa-no-fluxo.cjs`.
+### 4. Restrição que a casa não faz — FEITO em 26/08
 
-### 4. Restrição que a casa não faz
+`"30 brigadeiro sem lactose"` entrava no pedido e a cozinha recebia algo que não
+consegue produzir, com o cliente lendo "sem lactose" na confirmação. Isso deixa
+de ser prejuízo e vira saúde.
 
-`"30 brigadeiro sem lactose"` entra no pedido e a cozinha recebe algo que não
-consegue produzir. O cérebro velho tinha guarda; o fluxo não tem, e a guarda foi
-apagada junto.
+Está em `lib/ia/fluxo/restricao.ts`, e faz duas coisas: **tira a promessa** da
+observação e **chama a equipe**.
 
-Medido em 26/08/2026, e é o **único buraco do levantamento que continua aberto.**
+Não recusa, e o motivo é dinheiro: a casa TEM bolo `0% lactose`, sabor de festa
+da faixa C, R$ 55,90 o quilo. Decisão do dono: *"se for por exemplo bolo de
+brigadeiro + o sem lactose, lá eles devem fazer no bolo né, só fica mais caro"*.
+
+O que fica em aberto é **pergunta para a dona**, não código:
+`PERGUNTAR-PRA-DONA.md` itens 4c e 4d.
 
 ### 5. Desambiguação: os casos que viram pergunta
 
