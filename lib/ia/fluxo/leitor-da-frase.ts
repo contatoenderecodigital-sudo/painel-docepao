@@ -163,7 +163,24 @@ export function produtosNaFrase(fala: string): string[] {
     // segurança. "pastel assado" tem que estar escrito.
     if (alvo.includes(" ")) continue;
     const folga = alvo.length >= 7 ? 2 : 1;
-    if (palavras.some((p) => dist(p, alvo) <= folga)) achados.push(nome);
+    // A PRIMEIRA LETRA TEM QUE BATER.
+    //
+    // Sem isso, duas letras de folga num nome de sete inventavam produto:
+    //
+    //   "100 quiche de FRANGO"  ->  produtos na frase: quiche, MORANGO
+    //
+    // "frango" e "morango" estão a exatamente duas letras, e "morango" tem
+    // sete. Medido em 27/08/2026.
+    //
+    // O morango fantasma não virava item (o `indexOf` mais abaixo o descarta),
+    // mas fazia `nomeouProduto` valer no fluxo, e isso derruba a regra de que
+    // SABOR SOLTO NÃO É ASSUNTO NOVO: quem responde "de frango" à pergunta do
+    // sabor passava a "ter nomeado um produto" e a conversa saía da etapa.
+    //
+    // Erro de digitação quase nunca começa noutra letra: "brigadero",
+    // "coxinia" e "beijino" mantêm a inicial. Trocar a primeira letra é outro
+    // produto, não o mesmo escrito torto.
+    if (palavras.some((p) => p[0] === alvo[0] && dist(p, alvo) <= folga)) achados.push(nome);
   }
 
   return [...new Set(achados)];

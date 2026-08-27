@@ -153,6 +153,93 @@ const nomes = (lista: { nome: string }[]) => lista.map((i) => String(i.nome));
  * disso no cabecalho do `apelidos.ts`: "se as duas camadas usassem listas
  * diferentes, uma aceitaria o que a outra recusa, e isso ja aconteceu".
  */
+/**
+ * UMA LETRA TROCADA NAO PODE FAZER A PADARIA NEGAR O QUE ELA VENDE.
+ *
+ * Medido em 27/08/2026, na bateria dos cinco jeitos, cenario "com erro de
+ * digitacao", cinco execucoes de cinco:
+ *
+ *   cliente >> 50 brigadero, forminha rosa
+ *   padaria >> A gente nao faz brigadero.
+ *   no banco >> 100 coxinha, 100 quiche, 2 kg de bolo   (o brigadeiro sumiu)
+ *
+ * Perdeu o docinho E a cor da forminha, que nao tinha mais em que linha morar.
+ * E a padaria mentiu: ela faz brigadeiro, e faz mais brigadeiro do que qualquer
+ * outra coisa.
+ *
+ * Isto passava ate hoje de manha, e passava POR SORTE: o modelo costumava
+ * corrigir o erro antes de devolver o nome. Sistema que depende do modelo
+ * acertar a digitacao nao tem defesa nenhuma, so nao tinha falhado ainda.
+ *
+ * POR QUE DISTANCIA 1, E NAO UMA COMPARACAO FROUXA
+ *
+ * O `apelidos.ts` avisa, com razao, que afrouxar por distancia de letra casa
+ * produto errado: "esfirra" e "esfiha" estao a tres letras, e tres letras de
+ * folga transformariam "coxinha" em outra coisa.
+ *
+ * Aqui a folga e de UMA letra, o nome precisa ter cinco ou mais, e o quase
+ * acerto so vale quando UM UNICO produto do cardapio esta a essa distancia. Dois
+ * candidatos empatados e ambiguidade, e ambiguidade volta a ser barrada: melhor
+ * a padaria perguntar do que escolher errado.
+ */
+function distancia(a: string, b: string): number {
+  // Levenshtein com duas linhas. Para aqui se ja passou de 1: nao interessa
+  // saber se sao 4 ou 9 letras de diferenca, so se e no maximo uma.
+  if (Math.abs(a.length - b.length) > 1) return 2;
+  const linha = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let anterior = linha[0];
+    linha[0] = i;
+    let menor = linha[0];
+    for (let j = 1; j <= b.length; j++) {
+      const guarda = linha[j];
+      linha[j] = a[i - 1] === b[j - 1]
+        ? anterior
+        : 1 + Math.min(anterior, linha[j], linha[j - 1]);
+      anterior = guarda;
+      if (linha[j] < menor) menor = linha[j];
+    }
+    if (menor > 1) return 2;
+  }
+  return linha[b.length];
+}
+
+/**
+ * O NOME DO CARDAPIO POR TRAS DESTA GRAFIA.
+ *
+ * "risoles", "risole", "rissoles" e "rissole" sao a mesma coisa: o `risólis` do
+ * cardapio. Sem isto, a trava de unicidade la embaixo confundiria SINONIMO com
+ * AMBIGUIDADE e recusaria o quase acerto justamente nos produtos que o cliente
+ * mais escreve errado.
+ *
+ * Medido em 27/08/2026: dos 35 nomes do vocabulario do salgado, 21 pares estao
+ * a duas letras um do outro, e TODOS os 21 sao apelidos do mesmo produto.
+ */
+function canonicoDaGrafia(nome: string): string {
+  const semAc = (t: string) =>
+    String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+  const alvo = semAc(nome);
+  for (const [canonico, lista] of Object.entries(APELIDOS)) {
+    if (lista.some((a) => semAc(a) === alvo)) return semAc(canonico);
+  }
+  return alvo;
+}
+
+/**
+ * O UNICO PRODUTO DO CARDAPIO A UMA LETRA DESTE NOME, ou null.
+ *
+ * A unicidade e medida pelo PRODUTO, e nao pela grafia: cinco grafias do mesmo
+ * risolis contam como um candidato so. Dois produtos DIFERENTES a uma letra
+ * seriam ambiguidade de verdade, e ai a padaria pergunta em vez de escolher.
+ */
+function quaseIgual(nome: string, vocab: string[]): string | null {
+  if (nome.length < 5) return null;
+  const perto = vocab.filter((v) => v.length >= 5 && distancia(nome, v) === 1);
+  if (!perto.length) return null;
+  const produtos = new Set(perto.map(canonicoDaGrafia));
+  return produtos.size === 1 ? [...produtos][0] : null;
+}
+
 function comOsApelidos(canonicos: string[]): string[] {
   const semAc = (t: string) =>
     String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
@@ -400,15 +487,40 @@ export function leituraQueCabeNaEtapa(
   // etapa do docinho tinha o BOLO descartado, e se nao repetisse, nao existia.
   // E o mesmo defeito do quiche por outra porta.
   const paraDepois: NonNullable<Leitura["itens"]> = [];
-  const itens = leitura.itens.filter((i) => {
+  // O nome do cardapio COM acento, achado pelo nome sem acento. O quase acerto
+  // reescreve o produto pro nome da casa, e nao pra versao sem acento dele.
+  const comAcento = new Map(vocab.map((v) => [semAc(v), v]));
+
+  const itens = leitura.itens.flatMap((bruto) => {
+    let i = bruto;
     // O nome pode vir com o sabor colado ("esfirra de carne"): vale o comeco.
     const nome = semAc(i.produto);
-    const cabe = [...permitido].some((v) => nome === v || nome.startsWith(v + " "));
+    let cabe = [...permitido].some((v) => nome === v || nome.startsWith(v + " "));
+
+    // UMA LETRA TROCADA NAO NEGA O PRODUTO. Ver `quaseIgual` la em cima: uma
+    // letra de folga, cinco letras no minimo, e um unico candidato.
+    if (!cabe) {
+      const lista = [...permitido];
+      const inteiro = quaseIgual(nome, lista);
+      if (inteiro) {
+        i = { ...i, produto: comAcento.get(inteiro) ?? inteiro };
+        cabe = true;
+      } else {
+        // "coxinia de frango": o erro esta no produto e o resto e o sabor.
+        const primeiro = nome.split(" ")[0];
+        const soOPrimeiro = primeiro !== nome ? quaseIgual(primeiro, lista) : null;
+        if (soOPrimeiro) {
+          i = { ...i, produto: (comAcento.get(soOPrimeiro) ?? soOPrimeiro) + nome.slice(primeiro.length) };
+          cabe = true;
+        }
+      }
+    }
+
     if (!cabe) {
       barrados.push(i.produto);
       // Existe no cardapio e so nao e a hora? Guarda para quando for.
       if (etapaDesteProduto(i.produto)) paraDepois.push(i);
-      return false;
+      return [];
     }
 
     // A QUANTIDADE DESEMPATA O NOME QUE SERVE PROS DOIS.
@@ -424,10 +536,10 @@ export function leituraQueCabeNaEtapa(
     // por unidade (25, 50, 100). Ninguem encomenda um bolo de 100 quilos.
     if (etapa === "bolo" && Number(i.qtd) > 20) {
       barrados.push(i.produto + " (" + i.qtd + ": e docinho, nao bolo)");
-      return false;
+      return [];
     }
 
-    return true;
+    return [i];
   });
 
   // O que foi barrado por ser de outra familia manda a conversa pra la, em vez
