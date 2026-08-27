@@ -22,6 +22,7 @@ import { brl, motorPadrao } from "../orcamento";
 import type { Etapa, PedidoEmMontagem } from "./etapas";
 import { saudacaoDaHora, prazoDoTopoAperta } from "./falas-do-cliente";
 import { saboresQueFaltam, coresDoCardapio } from "./sabor";
+import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia } from "./generico";
 import { paraOMotor } from "./cotar";
 
 export type Fala = {
@@ -576,7 +577,31 @@ export function falaDaEtapa(
       return { texto: d.texto, botoes: d.botoes, cardapio: null, podeReescrever: true };
     }
 
-    case "confirmacao":
+    case "confirmacao": {
+      // O RESUMO NÃO APARECE ENQUANTO FALTA ESCOLHER.
+      //
+      // Quem chega aqui com um nome de família no pedido ("2 pizzas") não tem
+      // resumo pra ver: não dá pra somar o que ele não escolheu. Antes o resumo
+      // saía com o produto que o motor tinha alcançado sozinho, e o pedido
+      // fechava por R$ 240,00 numa pizza que ninguém pediu.
+      //
+      // Sem esta pergunta, bloquear no fechamento vira TRAVA: a padaria recusa
+      // fechar e não diz o que falta, e o cliente fica olhando o mesmo resumo.
+      // O bloqueio sem a pergunta é pior que o defeito.
+      const familia = p.itens.find((i) => ehNomeDeFamilia(i.produto));
+      if (familia) {
+        const pergunta = perguntaDaFamilia(familia.produto);
+        if (pergunta) {
+          return {
+            texto: pergunta,
+            botoes: [],
+            cardapio: null,
+            podeReescrever: true,
+            opcoes: opcoesDaFamilia(familia.produto),
+          };
+        }
+      }
+
       return {
         texto: falaDaConfirmacao(p, totalCentavos),
         botoes: [
@@ -587,6 +612,7 @@ export function falaDaEtapa(
         // O resumo e a conta: nao se reescreve nem uma virgula.
         podeReescrever: false,
       };
+    }
 
     case "registrado":
       return {

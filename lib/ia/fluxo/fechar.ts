@@ -31,6 +31,7 @@ import { motorPadrao } from "../orcamento";
 import type { Estado } from "./fluxo";
 import { prazoDoTopoAperta } from "./falas-do-cliente";
 import { saboresQueFaltam } from "./sabor";
+import { ehNomeDeFamilia } from "./generico";
 import { paraOMotor } from "./cotar";
 
 /**
@@ -89,6 +90,21 @@ export function oQueFaltaPraFechar(e: Estado): string[] {
   // Quem diz o que pede escolha e o catalogo, item por item.
   for (const f of saboresQueFaltam(e.itens)) {
     falta.push("o sabor do " + f.produto);
+  }
+
+  // NOME DE FAMÍLIA NÃO FECHA PEDIDO.
+  //
+  // "2 pizzas" fechou por R$ 240,00 como "pizza inteira filé ao molho madeira
+  // com fritas": o cliente não escolheu o tipo nem o sabor e levou a pizza de
+  // NOME MAIS LONGO do cardápio, que foi a que o casamento por pedaço alcançou
+  // primeiro. Medido em 26/08/2026, com uma conversa contra o banco.
+  //
+  // As etapas já seguravam isso, mas só as etapas de família (salgado, docinho,
+  // bolo). A pizza não tem etapa, então nada segurava e ela fechava.
+  //
+  // Aqui é o portão de saída, e ele vale para a casa inteira.
+  for (const i of e.itens) {
+    if (ehNomeDeFamilia(i.produto)) falta.push("qual " + String(i.produto).toLowerCase() + " você quer");
   }
 
   // Bolo sem sabor nao se produz: a cozinha fica sem saber o que assar.
