@@ -87,6 +87,14 @@ const FORA = [
   //
   //   node testes/mede-uma-conversa.cjs caminho/das/falas.json
   "mede-uma-conversa.cjs",
+
+  // Gasta chamada de IA e roda dentro do container, que e onde a chave mora.
+  // Mede a OUTRA ponta do erro de digitacao: a regua de letras do codigo tem
+  // teste offline, mas "a IA entende quem escreve errado" so se prova pedindo
+  // pra ela.
+  //
+  //   node testes/a-ia-entende-quem-escreve-errado.cjs
+  "a-ia-entende-quem-escreve-errado.cjs",
 ];
 
 const aqui = __dirname;

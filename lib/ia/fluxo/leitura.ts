@@ -328,7 +328,26 @@ function hojeEmSaoPaulo(): string {
 
 export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
   const vocab = vocabularioDaEtapa(etapa);
-  const lista = vocab.length ? "\n\nO cardápio desta etapa: " + vocab.join(", ") + "." : "";
+  // QUEM ENTENDE ERRO DE DIGITAÇÃO É QUEM TEM CONTEXTO, E ISSO É A IA.
+  //
+  // O cardápio já ia na instrução, mas nada mandava ela RESPONDER com o nome
+  // dele. Então "brigadero" voltava como "brigadero", e o portão do código, que
+  // só sabe comparar letra, jogava fora.
+  //
+  // Isso pôs meu código pra fazer o trabalho errado: julgar ortografia. A régua
+  // de letras não escala e o dono disse por quê, escrevendo torto de propósito:
+  // "tipo eu digitando errado vc entende pq tem contexto". Um humano lê
+  // "enmtendwer" e entende; nenhuma distância de letra chega lá.
+  //
+  // Uma linha aqui vale por qualquer lista de erros, e vale pra padaria nova
+  // que entrar amanhã: o cardápio dela vai junto e a regra é a mesma.
+  //
+  // A régua de letras continua existindo, e virou o que ela deveria ter sido
+  // desde o começo: rede embaixo, pro dia em que o modelo escorregar.
+  const lista = vocab.length
+    ? "\n\nCardápio da etapa. Escreva o produto como está aqui, mesmo que ele erre: " +
+      vocab.join(", ") + "."
+    : "";
 
   const comum =
     "Você é a atendente de uma padaria e está anotando um pedido. " +
