@@ -78,11 +78,27 @@ export function saborQueFalta(produto: string, obs?: string | null): { nome: str
   const item = candidatos[0];
   if (!item) return null;
 
-  // Alguma das opcoes ja aparece escrita na linha? Entao esta escolhido.
+  // O SABOR TEM QUE ESTAR FORA DO NOME DO PRODUTO.
+  //
+  // A busca olhava a linha inteira, e ai o nome do produto respondia por si:
+  //
+  //     "empadao com palmito"  tem sabores ["palmito", "frango com palmito"]
+  //
+  // A palavra "palmito" esta no NOME, entao o codigo achava que o sabor ja
+  // tinha sido escolhido e nunca perguntava. So que sao duas coisas
+  // diferentes na cozinha: palmito puro ou frango com palmito. O mesmo vale
+  // pra torta fria com palmito.
+  //
+  // Medido em 26/08/2026, comparando o que este arquivo decide com o que a
+  // lista unica sabe: 82 dos 86 produtos concordavam, e estes dois eram
+  // divergencia de verdade.
+  //
+  // Tirando o nome do produto, sobra o que o CLIENTE escreveu.
+  const semONome = linha.slice(semAcMin(item.nome).length).trim();
   const escolhido = item.opcoes.some((o) => {
     // "frango com legumes" casa por inteiro; "carne" casa como palavra.
     const alvo = semAcMin(o);
-    return linha.includes(alvo);
+    return semONome.includes(alvo);
   });
   return escolhido ? null : item;
 }
