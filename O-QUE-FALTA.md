@@ -138,7 +138,36 @@ Citação de origem em `O-QUE-A-DONA-FALOU.md`. Decisões do dono em 26/08:
   colocando"*. É venda perdida por regra nossa.
 - **Pizza: perguntar de forma ou redonda** quando ele não disser. São produtos
   bem diferentes: de forma 60x40 cm, R$ 120 inteira e R$ 60 meia, até 4 sabores;
-  redonda 30 cm, R$ 41,90 o quilo, até 2 sabores.
+  redonda 30 cm, R$ 41,90 o quilo, até 2 sabores, sai entre R$ 35 e R$ 45.
+
+  **Medido em 26/08/2026, e é caro:**
+
+  | o cliente escreve | o sistema cota |
+  | --- | --- |
+  | `pizza` | R$ 120,00 (a de forma) |
+  | `uma pizza` | R$ 120,00 |
+  | `pizza de calabresa` | R$ 120,00 |
+
+  Quem quer a redonda de R$ 40 recebe uma conta de R$ 120 sem nunca ter
+  escolhido, e a diferença aparece só na hora de pagar. É o mesmo defeito da
+  cuca virando cuca recheada, que custava R$ 4, multiplicado por vinte.
+
+  A causa imediata é `"uma pizza"` na lista de apelidos apontando para
+  `pizza inteira`, e o próprio cabeçalho do arquivo diz que ali só entra "mesmo
+  produto, mesmo preço, só escrito de outro jeito".
+
+  **Tentei tirar o apelido e ficou PIOR:** sem ele, `uma pizza` cai no casamento
+  por aproximação e cota **R$ 1,25**. Desfiz. R$ 120 errado é menos ruim que
+  R$ 1,25, e o conserto não é no apelido.
+
+  **O conserto certo é uma pergunta no fluxo**, do mesmo jeito que o genérico
+  (`salgado`, `docinho`, `bolo`) hoje segura a etapa até o cliente escolher. A
+  diferença é que pizza **não tem etapa própria**, então não existe hoje um
+  lugar que pergunte. É isso que precisa ser construído.
+
+  Áudio da dona, 19/08/2026: *"se a pessoa não falar em pizza de forma, tipo, eu
+  quero encomendar duas pizzas, ah, então seriam as de forma ou seriam as
+  redondas? Também tem isso que ela vai ter que questionar."*
 - **Parcelamento**: só responder se o cliente perguntar, não oferecer. Até 3x e
   só no cartão. O pagamento é presencial, não passa pela IA.
 
