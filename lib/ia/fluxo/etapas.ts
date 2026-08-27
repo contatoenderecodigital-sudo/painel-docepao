@@ -132,19 +132,20 @@ export type PedidoEmMontagem = {
    */
   insistiu?: number;
   /**
-   * DE QUE ETAPA VEIO A ÚLTIMA PERGUNTA QUE A PADARIA FEZ.
+   * AS ETAPAS QUE A PADARIA JÁ PERGUNTOU NESTA CONVERSA.
    *
    * Serve pra saber que o cliente JÁ FOI PERGUNTADO e respondeu outra coisa.
    *
-   * Antes isso saía do `insistiu`, e ficava um turno atrasado: a etapa só
-   * seguia depois de a mesma pergunta sair DUAS vezes. Quem mandava o pedido
-   * inteiro numa mensagem ouvia "o bolo vai no prato aberto ou com tampa?",
-   * respondia "isso mesmo, pode confirmar", e ouvia a MESMA pergunta de novo.
+   * É uma LISTA que acumula, e não o nome da última pergunta. Guardar só a
+   * última fazia a memória sumir assim que a conversa andava: no cenário 3 da
+   * bateria a padaria perguntou o prato, o cliente falou de outra coisa, a
+   * etapa seguiu, o resumo apareceu, ele escreveu "isso mesmo, pode confirmar"
+   * e ouviu a pergunta do bolo DE NOVO. A etapa tinha reaberto porque o sinal
+   * agora apontava para a confirmação.
    *
-   * Com isto a etapa segue já na primeira ignorada: perguntou, ele falou outra
-   * coisa, a padaria não insiste. Medido na bateria dos cinco jeitos.
+   * Perguntado uma vez, perguntado para sempre: a padaria não volta atrás.
    */
-  ultimaEtapaPerguntada?: EtapaId | null;
+  etapasJaPerguntadas?: EtapaId[];
   /**
    * DE QUEM E O ANIVERSARIO, E QUANTOS ANOS FAZ.
    *
@@ -248,7 +249,7 @@ export type PedidoEmMontagem = {
  * ouvia a mesma pergunta do prato ate a conversa morrer.
  */
 const jaPerguntouEEleNaoRespondeu = (p: PedidoEmMontagem, etapa: EtapaId) =>
-  p.ultimaEtapaPerguntada === etapa;
+  (p.etapasJaPerguntadas ?? []).includes(etapa);
 
 const semForminha = (p: PedidoEmMontagem) => !p.forminha;
 

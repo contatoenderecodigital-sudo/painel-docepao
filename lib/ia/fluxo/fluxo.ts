@@ -1149,7 +1149,15 @@ export async function responder(
   // respondia "isso mesmo, pode confirmar", e ouvia a MESMA pergunta.
   //
   // Agora a etapa segue ja na primeira ignorada.
-  estado = { ...estado, ultimaFala: fala.texto || null, insistiu, ultimaEtapaPerguntada: proxima.id };
+  // ACUMULA, NAO SUBSTITUI. Perguntado uma vez, perguntado pra sempre: guardar
+  // so a ultima fazia a etapa REABRIR assim que a conversa andava.
+  const jaPerguntadas = estado.etapasJaPerguntadas ?? [];
+  estado = {
+    ...estado,
+    ultimaFala: fala.texto || null,
+    insistiu,
+    etapasJaPerguntadas: jaPerguntadas.includes(proxima.id) ? jaPerguntadas : [...jaPerguntadas, proxima.id],
+  };
 
   if (insistiu === 1 && fala.opcoes?.length && !fala.texto.includes(fala.opcoes[0])) {
     fala = { ...fala, texto: fala.texto + "\n\nAs opções são: " + fala.opcoes.join(", ") + "." };
