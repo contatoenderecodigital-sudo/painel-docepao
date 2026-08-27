@@ -647,8 +647,27 @@ export async function responder(
       // "bolo 4 leites" era a origem do mesmo bolo com dois nomes.
       .map((p) => ({ ...p, produto: identificarProduto(p.produto).produto }));
     if (doTextoParaDepois.length) {
-      paraDepois.push(...doTextoParaDepois);
-      rastro.push("achei na frase, o modelo nao leu: " + doTextoParaDepois.map((d) => d.produto).join(", "));
+      // ENTRA AGORA, NAO DEPOIS.
+      //
+      // Isto era guardado, e guardar custava SEMPRE um turno: o item e achado
+      // JUSTAMENTE por ser de outra etapa, e o guardado so entra quando a
+      // conversa chega naquela etapa, que e a mensagem seguinte.
+      //
+      // Medido em 26/08/2026, uma conversa contra o banco: o cliente escreveu
+      // "um bolo de 2 kg de 4 leites" na primeira mensagem e ouviu de volta
+      // "E o bolo, qual sabor?". O bolo tinha sido achado, guardado, e a
+      // pergunta saiu mesmo assim. O pedido so fechava um turno depois, e nos
+      // cenarios de duas mensagens ele nunca fechava.
+      //
+      // Entrar direto e seguro porque estes itens NAO sao palpite: sairam do
+      // leitor deterministico contra o cardapio e ja vem com o nome canonico.
+      // A ambiguidade que justificava a etapa ("brigadeiro" e docinho ou bolo?)
+      // ja foi resolvida por `identificarProduto` la em cima.
+      //
+      // E e o que uma atendente faz: voce falou o bolo, ela anota o bolo, mesmo
+      // estando no meio dos salgados.
+      limpa.itens = [...(limpa.itens ?? []), ...doTextoParaDepois];
+      rastro.push("achei na frase e anotei: " + doTextoParaDepois.map((d) => d.produto).join(", "));
     }
 
     // ITEM CITADO FORA DA HORA FICA GUARDADO, NAO E JOGADO FORA.
