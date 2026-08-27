@@ -97,6 +97,45 @@ node testes/medidor.cjs 5 "cinco jeitos"
 
 ---
 
+## FECHADO EM 27/08/2026
+
+**A festa foi medida contra o banco e fecha certa.** Sete linhas, R$ 592,75,
+status confirmado. A base bateu (250 salgados e 125 docinhos para 25 pessoas) e
+a regra do bolo misto cobrou o mais caro dos dois sabores, R$ 55,90 e não
+R$ 46,90. Falas em `mede-uma-conversa.cjs`, que agora recebe o roteiro de um
+`.json` em vez de ter as falas chumbadas.
+
+**O limite de sabor da pizza passou a existir.** `sabores_ate` estava no
+catálogo desde sempre e ninguém lia: a redonda fechava com cinco sabores e a de
+forma com seis. A trava vai com a pergunta junto, devolvendo os sabores que o
+cliente falou para ele marcar os que cabem.
+
+**O churros parou de custar vinte vezes.** `docinho de churros` é o único dos
+doze docinhos com prefixo no nome, e a palavra sozinha não o alcançava:
+resolvia para `bolo caseiro churros`, R$ 34,90 no lugar de R$ 1,75. O conserto é
+de classe, então vale para qualquer nome comprido que a dona cadastrar.
+
+### A AUDITORIA DO CATÁLOGO, CAMPO POR CAMPO
+
+Dos 35 campos do catálogo, **30 têm o nome citado em algum lugar do código e 5
+não têm nenhum**. A ressalva importa: nome citado não prova uso correto, que é
+exatamente como o `sabores_ate` passou despercebido por semanas.
+
+Os cinco mortos:
+
+| campo | o que guarda | vale mexer? |
+| --- | --- | --- |
+| `valor_tipico` | pizza redonda sai **entre R$ 35 e R$ 45** | **sim** |
+| `sabores_por_cento_sugeridos` | 5 sabores no cento | a conferir |
+| `sempre_pedir_humano` | entrega é da equipe | o comportamento existe, mas chumbado no código |
+| `tem_aplicativo` | não tem aplicativo de entrega | informativo |
+| `peso_minimo` | `null` | não guarda nada |
+
+O `valor_tipico` é buraco de verdade: a redonda é vendida **por peso**, então o
+cliente não tem como saber quanto vai pagar, e o catálogo sabe a faixa.
+
+---
+
 ## O QUE FAZER AGORA, em ordem
 
 ### 1. Migrar o `sabor.ts` para a lista única  ⟵ RETOMAR AQUI
