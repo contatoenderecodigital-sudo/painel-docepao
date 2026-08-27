@@ -128,7 +128,33 @@ O achado que define o trabalho: eram **dezessete** arquivos importando
 - a categoria do produto no fluxo (`lib/ia/fluxo/fluxo.ts`)
 - `categoriaDoPedido` e `unidadeDoPedido`, que vieram do cérebro apagado
 
-**Faltam os outros leitores**, um por vez, com a foto rodando entre cada um:
+**Faltam catorze leitores.** O mais valioso é `lib/ia/fluxo/sabor.ts`, que decide
+**se pergunta ou não** o sabor — a regra do `recheio` singular contra `recheios`
+plural que a lista única já resolve com `saborFixo`.
+
+Já comparei os dois, em 26/08/2026, antes de migrar: **82 dos 86 produtos
+concordam.** As quatro divergências são todas na mesma direção (a lista única
+diz que tem que perguntar, o `sabor.ts` não pergunta) e **duas são defeito de
+verdade**:
+
+| produto | o que a lista única sabe | o que acontece hoje |
+| --- | --- | --- |
+| `empadão com palmito` | 2 sabores: `palmito` ou `frango com palmito` | não pergunta |
+| `torta fria com palmito` | os mesmos 2 | não pergunta |
+| `pizza inteira` | **31 sabores** | não pergunta |
+| `pizza meia` | os mesmos 31 | não pergunta |
+
+O palmito não é perguntado porque a palavra já está no **nome do produto**, e o
+código acha que o sabor foi escolhido. São coisas diferentes na cozinha.
+
+A pizza não é perguntada porque ela **não está na lista** que o `sabor.ts`
+consulta (`comEscolha()` lê `outros_produtos`, e a pizza é chave de primeiro
+nível no catálogo). A cozinha recebe pizza sem sabor.
+
+Migrar o `sabor.ts` conserta os quatro de uma vez, e conecta com a pergunta da
+pizza do item 3.
+
+**Depois dele, os outros treze**, um por vez, com a foto rodando entre cada um:
 
 ```
 node testes/o-catalogo-nao-mudou-preco.cjs
