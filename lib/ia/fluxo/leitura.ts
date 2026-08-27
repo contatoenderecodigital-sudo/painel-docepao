@@ -344,9 +344,26 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
   //
   // A régua de letras continua existindo, e virou o que ela deveria ter sido
   // desde o começo: rede embaixo, pro dia em que o modelo escorregar.
+  // E A OUTRA METADE DA REGRA, QUE FALTOU NA PRIMEIRA VERSÃO E CUSTOU CARO.
+  //
+  // Mandar usar o nome do cardápio, só isso, fez a IA ENCAIXAR qualquer coisa
+  // no cardápio. Medido contra ela de verdade em 27/08/2026:
+  //
+  //   "50 xilofone"            ->  50 BRIGADEIROS (obs: xilofone)
+  //   "50 macarons"            ->  brigadeiro
+  //   "daquele docinho preto"  ->  brigadeiro
+  //   "bolo de chocolate"      ->  mineira
+  //
+  // Um xilofone virou cinquenta brigadeiros. Corrigir a escrita e trocar o
+  // produto são coisas diferentes, e a instrução só pedia a primeira.
+  //
+  // Com a segunda metade, o que não é do cardápio volta como o cliente
+  // escreveu, o portão barra, e a padaria diz "não achei isso no cardápio" e
+  // mostra o que tem. Que é o que uma atendente faria: ela entende "brigadero",
+  // e não entrega brigadeiro pra quem pediu macaron.
   const lista = vocab.length
-    ? "\n\nCardápio da etapa. Escreva o produto como está aqui, mesmo que ele erre: " +
-      vocab.join(", ") + "."
+    ? "\n\nCardápio da etapa. Use o nome daqui mesmo que ele erre; " +
+      "se não for nenhum, repita o que ele escreveu: " + vocab.join(", ") + "."
     : "";
 
   const comum =

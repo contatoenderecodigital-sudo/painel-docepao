@@ -59,6 +59,32 @@ const ssh = (comando, entrada) =>
     ).stdin?.end(entrada ?? ""),
   );
 
+// CORRIGIR A ESCRITA E TROCAR O PRODUTO SAO COISAS DIFERENTES.
+//
+// A primeira versao da instrucao pedia so a primeira, e a IA passou a ENCAIXAR
+// qualquer coisa no cardapio. Medido contra ela de verdade em 27/08/2026:
+//
+//   "50 xilofone"            ->  50 BRIGADEIROS (obs: xilofone)
+//   "50 macarons"            ->  brigadeiro
+//   "daquele docinho preto"  ->  brigadeiro
+//   "bolo de chocolate"      ->  mineira
+//
+// Um xilofone virou cinquenta brigadeiros. Eu tinha trocado um defeito por
+// outro, e so vi porque fui procurar.
+//
+// Entao o teste tem DOIS blocos, e os dois precisam estar verdes ao mesmo
+// tempo. Consertar um sozinho quebra o outro, e foi exatamente o que aconteceu.
+//
+// O que a casa NAO faz tem que voltar como o cliente escreveu, pro portao
+// barrar e a padaria dizer "nao achei isso no cardapio" mostrando o que tem. E
+// o que uma atendente faz: ela entende "brigadero", e nao entrega brigadeiro
+// pra quem pediu macaron.
+const CASOS_QUE_NAO_EXISTEM = [
+  ["docinho", "50 macarons"],
+  ["docinho", "50 xilofone"],
+  ["bolo", "bolo de chocolate"],
+];
+
 // As falas erradas e o que TEM que sair do outro lado.
 const CASOS = [
   ["docinho", "50 brigadero e 50 beijnho", ["brigadeiro", "beijinho"]],
@@ -70,6 +96,10 @@ const CASOS = [
   ["salgado", "60 mini bloha de carne", ["mini bolha"]],
   ["salgado", "40 pao de batta", ["pão de batata"]],
 ];
+
+// Os dois blocos vao na mesma ida a IA: uma chamada por caso, e o mesmo
+// prompt nos dois, que e o ponto.
+const TODOS = [...CASOS, ...CASOS_QUE_NAO_EXISTEM];
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ia-errado-"));
 const casosArq = path.join(tmp, "casos.json");
@@ -86,7 +116,7 @@ fs.writeFileSync(
     "const p = { ehFesta:true, pessoas:20, base:null, baseAceita:true, itens:[], naoQuer:[],",
     "  dados:{nome:null,data:null,hora:null,pagamento:null}, pecas:null, forminha:null, prato:null };",
     "const FORMATO = 'Responda SO com um JSON, sem texto em volta: {\"itens\":[{\"produto\":\"nome do cardapio\",\"qtd\":0,\"obs\":\"sabor, cor\"}]}';",
-    "const CASOS = " + JSON.stringify(CASOS.map(([e, f]) => [e, f])) + ";",
+    "const CASOS = " + JSON.stringify(TODOS.map(([e, f]) => [e, f])) + ";",
     "const corpo = CASOS.map(([etapa, fala]) => ({ etapa, fala, body: {",
     "  model: 'gpt-4.1-mini', temperature: 0, response_format: { type: 'json_object' },",
     "  messages: [",
@@ -199,9 +229,26 @@ fs.writeFileSync(
   }
 
   console.log("");
+  console.log("--- o que a casa NAO faz nao pode virar produto ---");
+  for (let i = 0; i < CASOS_QUE_NAO_EXISTEM.length; i++) {
+    const [, fala] = CASOS_QUE_NAO_EXISTEM[i];
+    const c = conferido[CASOS.length + i] || { itens: [], passou: [] };
+    // Aqui e o contrario do bloco de cima: NADA pode passar no portao. O que
+    // passar virou produto do cardapio sem o cliente ter pedido.
+    const virouProduto = c.passou;
+    console.log((virouProduto.length ? "ERRO  " : "ok    ") + "'" + fala + "'");
+    console.log("        veio: " + JSON.stringify(c.itens) +
+      (virouProduto.length ? "   VIROU PRODUTO: " + JSON.stringify(virouProduto) : "   (o portao barra e a padaria pergunta)"));
+    if (virouProduto.length) {
+      falhas.push(fala + " -> a IA encaixou no cardapio: " + virouProduto.join(", "));
+    }
+  }
+
+  console.log("");
   if (falhas.length) {
     console.log("REPROVOU (" + falhas.length + " de " + CASOS.length + ")");
     process.exit(1);
   }
-  console.log("PASSOU: os " + CASOS.length + " escritos errado chegaram no produto");
+  console.log("PASSOU: os " + CASOS.length + " escritos errado chegaram no produto, e os " +
+    CASOS_QUE_NAO_EXISTEM.length + " que a casa nao faz nao viraram produto");
 })();
