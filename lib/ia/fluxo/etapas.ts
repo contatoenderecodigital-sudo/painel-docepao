@@ -146,8 +146,16 @@ export type PedidoEmMontagem = {
    * agora apontava para a confirmação.
    *
    * Perguntado uma vez, perguntado para sempre: a padaria não volta atrás.
+   *
+   * GUARDA A ETAPA E TAMBEM A PERGUNTA: `"bolo"` e `"bolo:prato"`.
+   *
+   * Uma etapa pode ter mais de uma pergunta. A do bolo pergunta o sabor e
+   * depois o prato, e marcando só a etapa a marca da PRIMEIRA fazia a etapa se
+   * dar por cumprida antes de a segunda sair. Por isso é `string[]` e não
+   * `EtapaId[]`: quem pergunta pela etapa continua igual, e quem precisa saber
+   * qual pergunta já saiu usa a chave.
    */
-  etapasJaPerguntadas?: EtapaId[];
+  etapasJaPerguntadas?: string[];
   /**
    * DE QUEM E O ANIVERSARIO, E QUANTOS ANOS FAZ.
    *
@@ -234,16 +242,25 @@ export type PedidoEmMontagem = {
  *      de ser oferecido so porque o resto do pedido ja esta pronto;
  *   2. se ele ja respondeu, NAO PERGUNTA DE NOVO. Vale a resposta escrita
  *      tanto quanto o botao;
- *   3. se ele ignorou duas vezes, SEGUE. Insistir uma terceira vez faz o fluxo
- *      chamar a equipe por causa de um detalhe, e quem ignorou duas vezes ja
- *      respondeu: ele nao quer.
+ *   3. se ele ignorou UMA vez, SEGUE. Repetir faz o fluxo chamar a equipe por
+ *      causa de um detalhe, e quem ignorou ja respondeu: ele nao quer.
+ *
+ * A parte 3 dizia "duas vezes" aqui e o `fluxo.ts` escolheu uma, em 25/08/2026,
+ * com o motivo escrito la ("Agora a etapa segue ja na primeira ignorada"). Este
+ * comentario ficou descrevendo a versao anterior ate 28/08/2026.
  *
  * Sem a parte 3, tirar o atalho que pulava a pergunta traria de volta o defeito
  * de 25/08/2026, em que o cliente respondia "isso mesmo, pode confirmar" e
  * ouvia a mesma pergunta do prato ate a conversa morrer.
+ *
+ * O QUE ELA RECEBE E UMA PERGUNTA, NAO SO UMA ETAPA.
+ *
+ * `"bolo"` quer dizer "alguma pergunta da etapa do bolo ja saiu"; `"bolo:prato"`
+ * quer dizer "a pergunta DO PRATO ja saiu". A diferenca custou o prato, o topo
+ * e o papel de arroz de todo bolo de festa, ate ser medida em 28/08/2026.
  */
-const jaPerguntouEEleNaoRespondeu = (p: PedidoEmMontagem, etapa: EtapaId) =>
-  (p.etapasJaPerguntadas ?? []).includes(etapa);
+const jaPerguntouEEleNaoRespondeu = (p: PedidoEmMontagem, oQue: string) =>
+  (p.etapasJaPerguntadas ?? []).includes(oQue);
 
 /**
  * A COR DA FORMINHA JA FOI PERGUNTADA?
@@ -443,9 +460,16 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       temCategoria(p, "bolo") && !temGenerico(p, "bolo") &&
       // A pergunta juntada cobre o prato E as pecas, e sai de uma etapa so.
       // Quem ignorou ela ignorou as duas.
+      // A MARCA QUE PROVA O PRATO E A DO PRATO.
+      //
+      // Aqui estava `jaPerguntouEEleNaoRespondeu(p, "bolo")`, e a etapa do bolo
+      // faz DUAS perguntas: o sabor e depois o prato. A marca deixada pela
+      // pergunta do SABOR dava a etapa por cumprida antes de o prato sair, e a
+      // pergunta do prato nunca acontecia. Medido em 28/08/2026, em conversa de
+      // verdade contra a producao.
       (p.prato !== null ||
-        jaPerguntouEEleNaoRespondeu(p, "bolo") ||
-        jaPerguntouEEleNaoRespondeu(p, "pecas_do_bolo")),
+        jaPerguntouEEleNaoRespondeu(p, "bolo:prato") ||
+        jaPerguntouEEleNaoRespondeu(p, "bolo:tres")),
     // O SABOR DO BOLO VALE FORA DA FESTA TAMBEM.
     //
     // Ate 23/08/2026 esta etapa era pulada em todo pedido que nao fosse festa,
@@ -491,9 +515,23 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       //
       // E quem ignorou duas vezes ja respondeu: nao quer. Segue.
       if (p.pecas?.topo == null || p.pecas?.papelDeArroz == null) {
+        // A PERGUNTA DO BOLO NAO E A PERGUNTA DAS PECAS.
+        //
+        // Aqui estava `jaPerguntouEEleNaoRespondeu(p, "bolo")`, e num pedido
+        // com bolo a etapa do bolo SEMPRE e perguntada. Entao esta etapa
+        // nascia cumprida e o cliente nunca era perguntado do topo nem do papel
+        // de arroz -- o topo, que a equipe orca e que tem prazo de dois dias
+        // com a fornecedora, e o papel, que custa R$ 12 e a padaria vende.
+        //
+        // A padaria chegava a AVISAR que existe papel de arroz, no cardapio de
+        // bolos, e nunca perguntava se ele queria.
+        //
+        // A `bolo:tres` fica porque ela e a pergunta juntada, que cobre o
+        // prato, o papel e o topo de uma vez so: quem responde ela ja respondeu
+        // esta etapa.
         return (
           jaPerguntouEEleNaoRespondeu(p, "pecas_do_bolo") ||
-          jaPerguntouEEleNaoRespondeu(p, "bolo")
+          jaPerguntouEEleNaoRespondeu(p, "bolo:tres")
         );
       }
       // Sem topo e sem papel nao ha peca personalizada: acabou aqui.

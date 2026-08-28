@@ -65,6 +65,23 @@ export type Fala = {
    * perguntado tres vezes iguais.
    */
   opcoes?: string[];
+  /**
+   * QUAL PERGUNTA DESTA ETAPA E ESTA.
+   *
+   * Uma etapa pode ter MAIS DE UMA pergunta: a do bolo pergunta o sabor e
+   * depois o prato. A conversa marcava "ja perguntei" pela ETAPA, e a marca da
+   * primeira pergunta matava a segunda: o prato nunca era perguntado, e a
+   * etapa das pecas, que confiava na mesma marca, morria junto. Bolo de festa
+   * fechava sem prato, sem topo e sem papel de arroz, tres coisas que a
+   * padaria vende e que a cozinha precisa saber.
+   *
+   * Medido em duas conversas de verdade em 28/08/2026.
+   *
+   * Com a chave, a conversa marca `bolo` E `bolo:prato`: quem pergunta pela
+   * etapa continua funcionando, e quem precisa saber QUAL pergunta ja saiu tem
+   * como perguntar.
+   */
+  chave?: string;
 };
 
 /**
@@ -223,6 +240,9 @@ function falaDosTresDetalhes(p: PedidoEmMontagem): Fala | null {
     cardapio: null,
     // Tem valor de tabela dentro, então a IA não reescreve.
     podeReescrever: false,
+    // Esta cobre as TRES de uma vez: quem responde aqui não é perguntado de
+    // novo, nem do prato nem das peças.
+    chave: "tres",
   };
 }
 
@@ -463,6 +483,7 @@ function falaDoBolo(p: PedidoEmMontagem, aviso: string): Fala {
       botoes: [],
       cardapio: "bolos-festa",
       podeReescrever: false,
+      chave: "sabor",
     };
   }
 
@@ -480,6 +501,7 @@ function falaDoBolo(p: PedidoEmMontagem, aviso: string): Fala {
     ],
     cardapio: null,
     podeReescrever: true,
+    chave: "prato",
   };
 }
 

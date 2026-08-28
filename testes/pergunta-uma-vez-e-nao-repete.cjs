@@ -59,7 +59,19 @@ fs.writeFileSync(
     "  prato: {",
     "    naoFalou:        cumpre('bolo', {}),",
     "    respondeu:       cumpre('bolo', { prato:'aberto' }),",
-    "    ignorouDuasVezes:cumpre('bolo', { etapasJaPerguntadas:['bolo'] }),",
+    "    // A MARCA QUE PROVA A PERGUNTA DO PRATO E 'bolo:prato'.",
+    "    //",
+    "    // Aqui estava so ['bolo'], e essa marca e ambigua: a etapa do bolo faz",
+    "    // DUAS perguntas, o sabor e depois o prato. O teste passava com a marca",
+    "    // do sabor, entao ele cobria a MARCA e nao o comportamento -- e o",
+    "    // defeito medido em 28/08/2026 (bolo de festa fechando sem prato, sem",
+    "    // topo e sem papel de arroz) passava por baixo dele, verde.",
+    "    //",
+    "    // O fluxo grava as duas quando a pergunta do prato sai.",
+    "    ignorouDuasVezes:cumpre('bolo', { etapasJaPerguntadas:['bolo','bolo:prato'] }),",
+    "    // E o caso que ele deixava passar: perguntado SO o sabor, a etapa",
+    "    // continua aberta, porque o prato ainda nao foi perguntado.",
+    "    soOSabor:        cumpre('bolo', { etapasJaPerguntadas:['bolo','bolo:sabor'] }),",
     "  },",
     "  // O obrigatorio nao segue por cansaco: sem pagamento o pedido nao fecha,",
     "  // e e certo que nao feche.",
@@ -145,6 +157,9 @@ console.log("");
 console.log("== 3. ja perguntou e ele falou outra coisa: SEGUE, sem insistir ==");
 cobra("as pecas seguem depois de uma pergunta ignorada", r.pecas.ignorouDuasVezes, true);
 cobra("o prato segue depois de uma pergunta ignorada", r.prato.ignorouDuasVezes, true);
+// E o contrario, que e o defeito de 28/08/2026: perguntar o SABOR nao pode
+// valer como perguntar o prato. Sao duas perguntas da mesma etapa.
+cobra("perguntar so o sabor NAO fecha a etapa do bolo", r.prato.soOSabor, false);
 
 // -------------------------------------------- o obrigatorio nao segue nunca
 console.log("");

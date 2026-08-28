@@ -1706,12 +1706,26 @@ export async function responder(
   // Agora a etapa segue ja na primeira ignorada.
   // ACUMULA, NAO SUBSTITUI. Perguntado uma vez, perguntado pra sempre: guardar
   // so a ultima fazia a etapa REABRIR assim que a conversa andava.
+  // MARCA A ETAPA E TAMBEM A PERGUNTA.
+  //
+  // Uma etapa pode ter mais de uma pergunta: a do bolo pergunta o sabor e
+  // depois o prato. Marcando so a etapa, a marca da PRIMEIRA pergunta fazia a
+  // etapa se dar por cumprida antes da segunda sair. Medido em 28/08/2026, em
+  // duas conversas de verdade: o bolo de festa fechava sem prato, sem topo e
+  // sem papel de arroz.
+  //
+  // Guarda as duas marcas de proposito. Quem pergunta pela etapa (o
+  // `base_da_festa`, o desvio de assunto) continua funcionando igual, e quem
+  // precisa saber QUAL pergunta ja saiu usa `etapa:chave`.
   const jaPerguntadas = estado.etapasJaPerguntadas ?? [];
+  const marcas = [proxima.id, ...(fala.chave ? [proxima.id + ":" + fala.chave] : [])].filter(
+    (m) => !jaPerguntadas.includes(m),
+  );
   estado = {
     ...estado,
     ultimaFala: fala.texto || null,
     insistiu,
-    etapasJaPerguntadas: jaPerguntadas.includes(proxima.id) ? jaPerguntadas : [...jaPerguntadas, proxima.id],
+    etapasJaPerguntadas: marcas.length ? [...jaPerguntadas, ...marcas] : jaPerguntadas,
   };
 
   if (insistiu === 1 && fala.opcoes?.length && !fala.texto.includes(fala.opcoes[0])) {
