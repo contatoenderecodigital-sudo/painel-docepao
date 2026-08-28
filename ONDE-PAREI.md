@@ -511,3 +511,39 @@ conversa acharam três coisas diferentes:
 não é "consertei?", é **"onde mais isso está escrito assim?"**. Foi o que achou
 as treze cópias da unidade e as cinco da hora, e teria achado essa etapa vizinha
 na hora.
+
+
+---
+
+## O CICLO DO BOLO, FECHADO (28/08/2026)
+
+Quinta medição, e agora está certo:
+
+```
+padaria >> E papel de arroz, com a foto impressa no bolo? Fica R$ 12,00.
+cliente >> dia 12/09 as 10h, nome Ana Paula, pix          (ignorou)
+padaria >> Só faltam os detalhes do bolo: quer papel de arroz (R$ 12,00),
+           e quer topo de bolo?
+cliente >> pode confirmar                                  (ignorou de novo)
+padaria >> Pronto, seu pedido foi pra fila da equipe da padaria.
+
+status=confirmado  data=12/09/2026  hora=10:00  total=R$ 218.80  pendencia=nao
+```
+
+Os dois foram **oferecidos**, e o cliente escolheu ignorar. Aí o pedido fecha,
+que é a regra de 25/08 pra conversa não morrer num detalhe. Antes de hoje o topo
+e o papel nunca eram perguntados.
+
+### O ciclo inteiro, sem enfeitar
+
+| medição | o que ela achou |
+| --- | --- |
+| 1ª | o bolo fechava sem prato, topo e papel |
+| 2ª | consertei o bolo; o pedido fechava sem aviso nenhum pra equipe |
+| 3ª | consertei um lado só; a etapa vizinha tinha o mesmo defeito |
+| 4ª | **meu conserto quebrou o fechamento**: o pedido parou de ser registrado |
+| 5ª | oferece os dois, e fecha |
+
+**Cinco medições, três defeitos meus no meio.** O que me tirou do buraco não foi
+cuidado: foi medir de novo toda vez em vez de acreditar no conserto, e escrever
+um teste que pergunta ao código qual é a marca em vez de eu escrever à mão.
