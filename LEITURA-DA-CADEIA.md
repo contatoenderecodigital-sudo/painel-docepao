@@ -17,24 +17,35 @@ conferi as regras que ele tinha; não conferi o que chamava o quê.
 
 ---
 
-## A ordem
+## A ordem, e ATÉ QUE LINHA foi lido
 
-| # | arquivo | linhas | estado |
+A coluna do meio existe porque "eu li" não é verificável e eu já disse isso sem
+ser verdade. **Ao ler um trecho, anotar aqui na hora**, e nunca marcar "lido
+inteiro" sem que as faixas cubram o arquivo do começo ao fim.
+
+Isto sobrevive à compactação. A minha memória de ter lido, não.
+
+| # | arquivo | faixas lidas | estado |
 | --- | --- | --- | --- |
-| 1 | `app/api/whatsapp/route.ts` | 949 | **lido inteiro** — 6 defeitos |
-| 2 | `lib/ia/fluxo/atender.ts` | 316 | **lido inteiro** — 3 defeitos |
-| 3 | `lib/ia/fluxo/fluxo.ts` | ~1450 | parcial (~220 linhas) |
-| 4 | `lib/ia/fluxo/leitura.ts` | ~600 | parcial |
-| 5 | `lib/ia/fluxo/pensar-openai.ts` | ~200 | parcial |
-| 6 | `lib/ia/fluxo/produto.ts` | ~230 | parcial |
-| 7 | `lib/ia/fluxo/sabor.ts` | ~300 | parcial |
-| 8 | `lib/ia/fluxo/etapas.ts` | ? | não lido |
-| 9 | `lib/ia/fluxo/pergunta.ts` | ? | não lido |
-| 10 | `lib/ia/fluxo/fechar.ts` | ? | não lido |
-| 11 | `lib/ia/orcamento.ts` | ? | não lido |
-| 12 | `lib/banco/montagem.ts` | ? | parcial |
-| 13 | `lib/ia/fluxo/gravar.ts` | ? | não lido |
-| 14 | `lib/banco/fila.ts` + `lib/cupom-escpos.ts` | ? | não lido |
+| 1 | `app/api/whatsapp/route.ts` | 1-949, sem buraco | **INTEIRO** — 6 defeitos |
+| 2 | `lib/ia/fluxo/atender.ts` | 1-316, sem buraco | **INTEIRO** — 3 defeitos |
+| 3 | `lib/ia/fluxo/fluxo.ts` | 520-740 | falta o resto (~1450) |
+| 4 | `lib/ia/fluxo/leitura.ts` | os trechos que mexi | falta quase tudo |
+| 5 | `lib/ia/fluxo/pensar-openai.ts` | 28-120 | falta o resto |
+| 6 | `lib/ia/fluxo/produto.ts` | 1-200 | falta o fim |
+| 7 | `lib/ia/fluxo/sabor.ts` | 1-196 e os trechos novos | falta conferir o meio |
+| 8 | `lib/ia/fluxo/etapas.ts` | nada | não lido |
+| 9 | `lib/ia/fluxo/pergunta.ts` | 538-660 | falta quase tudo |
+| 10 | `lib/ia/fluxo/fechar.ts` | 60-152 | falta o resto |
+| 11 | `lib/ia/orcamento.ts` | 450-510 | falta quase tudo |
+| 12 | `lib/banco/montagem.ts` | 114-155, 368-392 | falta quase tudo |
+| 13 | `lib/ia/fluxo/gravar.ts` | nada | não lido |
+| 14 | `lib/banco/fila.ts` + `lib/cupom-escpos.ts` | fila 100-140, cupom 200-260 | falta quase tudo |
+
+**O arquivo 1 quase entrou aqui como "inteiro" com dois buracos**: as linhas
+631-635 e 768-789 tinham escapado, e só apareceram quando o dono perguntou pela
+terceira vez se eu tinha lido mesmo. Foram lidas antes de a linha acima ser
+escrita.
 
 ---
 
