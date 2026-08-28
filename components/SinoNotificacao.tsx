@@ -23,13 +23,14 @@ import { buscarDoPainel } from "@/lib/buscar-do-painel";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Bell, BellOff, ChevronRight, AlertTriangle } from "lucide-react";
+import { recadoDoSino } from "@/lib/recado-do-sino";
 import { brl } from "@/lib/tipos";
 
 const CHAVE = "docepao:som-notificacao";
 const INTERVALO_MS = 7000;
 
-type Item = { id: string; nome: string; total: number; onde: "fila" | "aguardando"; motivo: string | null };
-type Contagem = { fila: number; aguardando: number; ajuda: number; itens?: Item[] };
+// Os tipos moram junto da regra que os le, no `lib/recado-do-sino.ts`.
+import type { ItemDoSino as Item, Contagem } from "@/lib/recado-do-sino";
 
 // Quem busca e quem escuta. Fora do componente porque valem pra pagina
 // inteira: o sino do monitor e o do celular sao duas instancias do mesmo
@@ -132,12 +133,29 @@ export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) 
         if (nova.fila !== antes.fila || nova.aguardando !== antes.aguardando || nova.ajuda !== antes.ajuda) {
           router.refresh();
         }
+        const total = nova.fila + nova.aguardando + nova.ajuda;
         const cresceu = nova.fila > antes.fila || nova.aguardando > antes.aguardando || nova.ajuda > antes.ajuda;
         if (cresceu) {
           if (somRef.current) tocar();
-          if (typeof document !== "undefined") {
-            document.title = `(${nova.fila + nova.aguardando + nova.ajuda}) ${nome}`;
-          }
+          // O AVISO DO NAVEGADOR NUNCA TINHA ACONTECIDO.
+          //
+          // O `avisarNoNavegador` estava escrito aqui em cima, pedia permissao
+          // pra padaria junto com o som, aparecia na lista de dependencias
+          // deste efeito, e NAO ERA CHAMADO EM LUGAR NENHUM. Entao a padaria
+          // autorizou a notificacao e nunca recebeu uma. O comentario dele
+          // dizia que era pra funcionar com a aba minimizada, "que e o caso
+          // real da padaria": e justamente o caso que nao funcionava.
+          //
+          // Achado lendo o arquivo linha a linha, 28/08/2026.
+          avisarNoNavegador(recadoDoSino(nova, antes));
+        }
+        // O TITULO DA ABA TAMBEM PRECISA DESCER.
+        //
+        // Ele so era escrito quando a fila CRESCIA, entao depois que a equipe
+        // aprovava tudo a aba continuava marcando "(3) Painel" pra sempre, e o
+        // numero na aba deixava de querer dizer alguma coisa.
+        if (typeof document !== "undefined") {
+          document.title = total > 0 ? `(${total}) ${nome}` : nome;
         }
       } catch {
         // rede caiu: tenta de novo no próximo ciclo

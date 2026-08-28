@@ -37,11 +37,18 @@ function qtdFmt(qtd: number, unidade?: "un" | "kg") {
 export default function PedidoDetalhe({
   pedido,
   carregando = false,
+  // POR QUE NAO CARREGOU, E NAO SO QUE NAO CARREGOU.
+  //
+  // Sem isto o modal dizia "Nao consegui carregar este pedido. Tente de novo."
+  // pra tudo, inclusive pra sessao expirada. E ai a pessoa tenta de novo, e de
+  // novo, e nunca vai ver o pedido: o que ela precisa e recarregar e entrar.
+  erro = null,
   onClose,
   footer,
 }: {
   pedido: Pedido | null;
   carregando?: boolean;
+  erro?: string | null;
   onClose: () => void;
   footer?: React.ReactNode;
 }) {
@@ -84,6 +91,10 @@ export default function PedidoDetalhe({
       }
       router.refresh();
       onClose();
+    } catch {
+      // Sem isto a acao morria calada: o modal parava de girar e continuava
+      // aberto, sem certinho e sem erro, e ninguem sabia se foi pra cozinha.
+      setFalha("Sem conexão. NADA foi para a cozinha: tente de novo.");
     } finally {
       setAgindo(null);
     }
@@ -103,6 +114,8 @@ export default function PedidoDetalhe({
       }
       router.refresh();
       onClose();
+    } catch {
+      setFalha("Sem conexão. O pedido NÃO foi recusado: tente de novo.");
     } finally {
       setAgindo(null);
     }
@@ -110,10 +123,22 @@ export default function PedidoDetalhe({
   async function reimprimir() {
     if (!pedido) return;
     setAgindo("reimprimir");
+    setFalha(null);
     try {
       const r = await reimprimirPedido(pedido.id);
-      setReimpFeito(r?.ok !== false);
+      // FALHAR CALADO AQUI E O CUPOM QUE NAO SAI.
+      //
+      // Antes o `!ok` so deixava o certinho de fora, e mais nada aparecia: quem
+      // clicava via a tela voltar ao normal e ia procurar o papel na
+      // impressora, que nunca imprimiu. Numa cozinha isso vira pedido perdido.
+      if (r?.ok === false) {
+        setFalha("Não consegui mandar pra impressora. O cupom NÃO saiu: tente de novo.");
+        return;
+      }
+      setReimpFeito(true);
       setTimeout(() => setReimpFeito(false), 3000);
+    } catch {
+      setFalha("Sem conexão. O cupom NÃO saiu: tente de novo.");
     } finally {
       setAgindo(null);
     }
@@ -148,7 +173,7 @@ export default function PedidoDetalhe({
           </div>
         ) : !pedido ? (
           <div className="grid place-items-center py-20 text-cream/60 text-sm px-6 text-center">
-            Não consegui carregar este pedido. Tente de novo.
+            {erro ?? "Não consegui carregar este pedido. Tente de novo."}
           </div>
         ) : (
           <>

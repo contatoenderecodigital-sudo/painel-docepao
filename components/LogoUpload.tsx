@@ -7,6 +7,7 @@
 
 import { useRef, useState } from "react";
 import { Loader2, ImageUp, Trash2 } from "lucide-react";
+import { avisoDeSessao } from "@/lib/buscar-do-painel";
 
 const LADO_MAX = 256; // maior lado da logo depois de reduzir
 
@@ -54,11 +55,24 @@ export default function LogoUpload({ inicial }: { inicial: string | null }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ logo: dataUrl }),
       });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.erro || "falha");
+      // O STATUS VEM ANTES DO CORPO.
+      //
+      // `r.json()` lanca quando a resposta nao e JSON, e um 401 responde a
+      // pagina de login. A excecao caia no catch e a padaria via na tela o texto
+      // cru do erro de parse, em ingles, no lugar de "sua sessao expirou".
+      if (!r.ok) {
+        setErro(avisoDeSessao(r.status) ?? "Não consegui salvar a logo. Tente de novo.");
+        return;
+      }
+      const j = (await r.json()) as { ok?: boolean; erro?: string };
+      if (!j.ok) {
+        setErro(j.erro || "Não consegui salvar a logo. Tente de novo.");
+        return;
+      }
       setLogo(dataUrl);
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : "nao deu pra salvar");
+    } catch {
+      // Mensagem de excecao nao e recado pra quem esta na padaria.
+      setErro("Não consegui salvar a logo. Tente de novo.");
     } finally {
       setSalvando(false);
       if (input.current) input.current.value = "";
@@ -74,11 +88,21 @@ export default function LogoUpload({ inicial }: { inicial: string | null }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ logo: null }),
       });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.erro || "falha");
+      if (!r.ok) {
+        setErro(
+          avisoDeSessao(r.status) ??
+            "Não consegui remover a logo. Ela CONTINUA aparecendo: tente de novo.",
+        );
+        return;
+      }
+      const j = (await r.json()) as { ok?: boolean; erro?: string };
+      if (!j.ok) {
+        setErro(j.erro || "Não consegui remover a logo. Ela CONTINUA aparecendo: tente de novo.");
+        return;
+      }
       setLogo(null);
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : "nao deu pra remover");
+    } catch {
+      setErro("Não consegui remover a logo. Ela CONTINUA aparecendo: tente de novo.");
     } finally {
       setSalvando(false);
     }

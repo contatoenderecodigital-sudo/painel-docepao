@@ -18,6 +18,7 @@ import { MSG_PADRAO, montarTextoDaCobranca } from "@/lib/cobranca-texto";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import AjudaInfo from "@/components/AjudaInfo";
 import PedidoDetalhe from "@/components/PedidoDetalhe";
+import { avisoDeSessao } from "@/lib/buscar-do-painel";
 import {
   AlertTriangle,
   TrendingUp,
@@ -111,22 +112,43 @@ export default function Recuperar({
   // Vem do banco, nao de um chute otimista: e a dona quem liga.
   const [autoOn, setAutoOn] = useState(cobrancaAtiva);
   const [salvandoAuto, setSalvandoAuto] = useState(false);
+  // VOLTAR A CHAVE CALADO NAO EXPLICA NADA.
+  //
+  // Desfazer ja impedia a mentira. Mas esta chave decide se a padaria manda
+  // mensagem pro cliente SOZINHA: quem desliga precisa saber se desligou. Ver a
+  // chave voltar sem uma palavra parece toque errado, e com a sessao expirada a
+  // pessoa tentaria pra sempre enquanto a cobranca continua saindo.
+  const [erroAuto, setErroAuto] = useState<string | null>(null);
 
   async function alternarAuto() {
     const novo = !autoOn;
     setAutoOn(novo);
     setSalvandoAuto(true);
+    setErroAuto(null);
     try {
       const r = await fetch("/api/cobranca/ativa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ativa: novo }),
       });
-      if (!r.ok) throw new Error();
+      if (!r.ok) {
+        // Nao gravou: volta o interruptor pra onde estava, senao a tela mente
+        // de novo, que e exatamente o problema que estamos consertando.
+        setAutoOn(!novo);
+        setErroAuto(
+          avisoDeSessao(r.status) ??
+            (novo
+              ? "Não consegui ligar a cobrança automática. Ela CONTINUA DESLIGADA: tente de novo."
+              : "Não consegui desligar a cobrança automática. Ela CONTINUA ENVIANDO para os clientes: tente de novo."),
+        );
+      }
     } catch {
-      // Nao gravou: volta o interruptor pra onde estava, senao a tela mente
-      // de novo, que e exatamente o problema que estamos consertando.
       setAutoOn(!novo);
+      setErroAuto(
+        novo
+          ? "Sem conexão. A cobrança automática CONTINUA DESLIGADA: tente de novo."
+          : "Sem conexão. A cobrança automática CONTINUA ENVIANDO para os clientes: tente de novo.",
+      );
     } finally {
       setSalvandoAuto(false);
     }
@@ -148,7 +170,10 @@ export default function Recuperar({
       // Fechar o painel sem conferir era dizer que salvou: a dona reescrevia a
       // cobranca, via a tela fechar e continuava com o texto antigo no ar.
       if (!r.ok) {
-        setErroMsg("Não deu pra salvar o texto. Tente de novo.");
+        setErroMsg(
+          avisoDeSessao(r.status) ??
+            "Não consegui salvar o texto. O cliente CONTINUA recebendo o texto antigo: o que você escreveu continua aqui, tente de novo.",
+        );
         return;
       }
       setPersonalizando(false);
@@ -325,6 +350,8 @@ export default function Recuperar({
           </button>
         </div>
       </div>
+
+      {erroAuto && <div className="text-[12.5px] text-[#ff8a8a] -mt-2 mb-4">{erroAuto}</div>}
 
       {/* ---------------- Filtros + busca ---------------- */}
       {!nadaParado && (

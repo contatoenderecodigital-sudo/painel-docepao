@@ -5,15 +5,24 @@
 
 import { useState } from "react";
 import { Loader2, Bot } from "lucide-react";
+import { avisoDeSessao } from "@/lib/buscar-do-painel";
 
 export default function ToggleIA({ ativa: inicial }: { ativa: boolean }) {
   const [ia, setIa] = useState(inicial);
   const [salvando, setSalvando] = useState(false);
+  // VOLTAR A CHAVE SOZINHA NAO EXPLICA NADA.
+  //
+  // Conferir o `!r.ok` e desfazer ja impedia a mentira: a chave nunca mostra
+  // desligado com a Dora atendendo. Mas a dona clica em desligar, ve a chave
+  // voltar pra ligada sozinha, e nao sabe se errou o toque ou se falhou. Com a
+  // sessao expirada ela tentaria pra sempre, e a Dora continuaria respondendo.
+  const [erro, setErro] = useState<string | null>(null);
 
   async function toggle() {
     const nova = !ia;
     setIa(nova);
     setSalvando(true);
+    setErro(null);
     try {
       const r = await fetch("/api/whatsapp/ia", {
         method: "POST",
@@ -22,9 +31,24 @@ export default function ToggleIA({ ativa: inicial }: { ativa: boolean }) {
       });
       // Resposta de erro nao lanca excecao: sem conferir, a chave mostrava
       // "IA desligada" com a IA respondendo cliente do outro lado.
-      if (!r.ok) setIa(!nova);
+      if (!r.ok) {
+        setIa(!nova);
+        // A frase diz o que FICOU VALENDO, e nao so que falhou: e a diferenca
+        // entre saber que deu erro e saber se o cliente esta sendo atendido.
+        setErro(
+          avisoDeSessao(r.status) ??
+            (nova
+              ? "Não consegui ligar a Dora. Ela CONTINUA DESLIGADA: tente de novo."
+              : "Não consegui desligar a Dora. Ela CONTINUA ATENDENDO: tente de novo."),
+        );
+      }
     } catch {
       setIa(!nova);
+      setErro(
+        nova
+          ? "Sem conexão. A Dora CONTINUA DESLIGADA: tente de novo."
+          : "Sem conexão. A Dora CONTINUA ATENDENDO: tente de novo.",
+      );
     } finally {
       setSalvando(false);
     }
@@ -42,6 +66,7 @@ export default function ToggleIA({ ativa: inicial }: { ativa: boolean }) {
             ? "A IA responde os clientes sozinha no WhatsApp."
             : "Desligada. As mensagens chegam, mas ninguém responde automático."}
         </div>
+        {erro && <div className="text-[12.5px] text-[#ff8a8a] mt-1">{erro}</div>}
       </div>
       {salvando && <Loader2 size={16} className="animate-spin text-cream/50" />}
       <button

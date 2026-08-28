@@ -64,6 +64,13 @@ const COM_POLLING = [
   ["PedidosDoDia.tsx", "a producao do dia"],
   ["SinoNotificacao.tsx", "o sino do cabecalho"],
   ["StatusImpressora.tsx", "o status da impressora"],
+  // Faltava, e era a mais grave das cinco: a caixa de entrada do WhatsApp
+  // buscava do servidor a cada 6 segundos com `fetch` cru e um
+  // `if (!r.ok) return`. Com a sessao caida ela parava no tempo com cara de
+  // tela viva, e a equipe ficava olhando uma caixa que nao recebe mais nada
+  // enquanto o cliente manda mensagem do outro lado. Achado em 28/08/2026,
+  // varrendo os `fetch` que faltavam tratar 401.
+  ["Atendimentos.tsx", "a caixa de entrada do WhatsApp"],
 ];
 
 for (const [arquivo, oQueE] of COM_POLLING) {
@@ -87,7 +94,7 @@ for (const [arquivo, oQueE] of COM_POLLING) {
 // -----------------------------------------------------------------------------
 // 3. O aviso e um so, e as telas que avisam usam ele.
 // -----------------------------------------------------------------------------
-for (const arquivo of ["FilaAprovacao.tsx", "PedidosDoDia.tsx"]) {
+for (const arquivo of ["FilaAprovacao.tsx", "PedidosDoDia.tsx", "Atendimentos.tsx"]) {
   const fonte = semComentario("components", arquivo);
   if (!/AVISO_SESSAO_EXPIRADA/.test(fonte)) {
     falhas.push(arquivo + ": deixou de mostrar o aviso de sessao expirada pra quem esta olhando");

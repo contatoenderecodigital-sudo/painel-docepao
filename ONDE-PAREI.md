@@ -44,24 +44,30 @@ Todas são risco latente, não defeito vivo. Conferi uma por uma.
 | **login sem limite de tentativas** | o `bcrypt` já é lento, o que limita a força bruta, mas não há bloqueio. O hub tem limitador, o painel não tem nenhum. Precisa de um, e é peça nova |
 | **`assinar`/`verificar` duplicados** | `app/sso/route.ts` e `lib/auth.ts` têm a mesma assinatura de sessão escrita duas vezes. Hoje idênticas; se uma mudar, a outra para de validar o cookie e ninguém descobre por erro, só por gente deslogada sem motivo |
 
-### 2c. Sessão expirada nas AÇÕES: levantado, consertado só onde pesa
+### 2c. Sessão expirada nas AÇÕES: FECHADO em 28/08/2026
 
-Contei **21 chamadas de ação** (salvar, mandar, trocar) em 8 componentes, e
-**nenhuma** tratava o 401:
+Eram **21 chamadas de ação** em 8 componentes, e nenhuma tratava o 401. Estava
+escrito aqui que era decisão sua se valia passar nas restantes agora. Passei em
+todas, porque uma delas mudou o tamanho do problema:
 
-| componente | chamadas |
-| --- | --- |
-| `Atendimentos.tsx` | 8 |
-| `AvisoDoDia`, `Clientes`, `LogoUpload`, `PainelConexao`, `PedidoMontado`, `Recuperar` | 2 cada |
-| `ToggleIA.tsx` | 1 |
+**O `Atendimentos` não era só ação: ele também faz polling.** Buscava o servidor a
+cada 6 segundos com `fetch` cru e um `if (!r.ok) return`. Com a sessão caída, a
+caixa de entrada do WhatsApp congelava com cara de tela viva, e a equipe lê isso
+como "parou de chegar mensagem" enquanto o cliente manda e ninguém responde.
 
-**Consertados desde então:** `PedidoMontado`, `Clientes`, `Atendimentos` e as duas do `PainelConexao` (ligar/desligar a Dora e desconectar o número). O
-resto ficou, e o critério foi este: no polling a tela **mente continuamente**
-(mostra dado velho como se fosse novo); numa ação, ela diz "tente de novo", que
-é um conselho ruim mas a pessoa percebe que falhou.
+Isso não era ação dizendo "tente de novo": era a tela mentindo continuamente, o
+critério que eu mesmo tinha escrito como o que separa os dois casos. E era a
+tela mais usada de todas.
 
-O helper já existe (`avisoDeSessao`), então cada um é uma linha. **Decisão sua**
-se vale passar nos 20 restantes agora ou deixar pra quando alguém reclamar.
+**Tudo tratado.** O aviso da caixa de entrada fica FIXO no alto, e não em toast:
+toast some em 3 segundos e quem chega no balcão depois nunca soube.
+
+Duas regras que saíram disso, no item 70 do `LEITURA-DA-CADEIA.md`:
+
+- **o status vem antes do corpo** (`r.json()` lança quando a resposta não é JSON,
+  e um 401 responde a página de login)
+- **mensagem de exceção não é recado pra quem está na padaria** (o `LogoUpload`
+  jogava o erro de parse em inglês na tela)
 
 ### 3. Consertos SEM isca automatizada, que precisam de olho humano
 
@@ -106,14 +112,20 @@ exemplo no `LEITURA-DA-CADEIA.md`, item 55.
 `Recuperar`, `Resultados`, `PedidosDoDia`, `StatusImpressora`, e as partes do
 `Atendimentos` e do `PedidoMontado` que mandam mensagem e salvam pedido.
 
-**Ainda NÃO lidos linha a linha, e têm risco:**
+**Os quatro que faltavam foram lidos linha a linha em 28/08/2026**, e os quatro
+tinham defeito:
 
-| arquivo | linhas | por que importa |
-| --- | --- | --- |
-| `Clientes.tsx` | 406 | o CRM, com dado de cliente e histórico |
-| `PainelConexao.tsx` | 334 | a conexão do WhatsApp |
-| `PedidoDetalhe.tsx` | 313 | mostra o pedido fechado |
-| `SinoNotificacao.tsx` | 289 | li só o polling |
+| arquivo | o que apareceu |
+| --- | --- |
+| `Clientes.tsx` | a busca não achava o número que a própria tela mostra |
+| `SinoNotificacao.tsx` | pedia permissão pra avisar e **nunca avisou**; o número da aba só subia |
+| `PedidoDetalhe.tsx` | reimprimir falhava calado: o cupom não saía e a tela não dizia |
+| `PainelConexao.tsx` | sem data no banco, afirmava "conectado desde hoje" |
+
+Estão registrados nos itens 69, 70 e 71 do `LEITURA-DA-CADEIA.md`.
+
+**A leitura das telas está fechada.** Com isso, cérebro, banco, rotas e telas
+foram lidos por inteiro.
 
 Mais os pequenos de layout e ícone, onde o pior defeito possível é cosmético.
 
@@ -126,7 +138,8 @@ dona vê não é o que está no banco".
 
 `:
 sem a flag `m`, o `$` quer dizer fim da string, e o `.` do JavaScript não casa
-com ``. **O comentário segue inteiro e o detector lê comentário como código.**
+com `
+`. **O comentário segue inteiro e o detector lê comentário como código.**
 Estava assim até no `barra-comida-dentro-de-aspas`, o detector que pegou o
 "shell come a barra" cinco vezes nesta sessão. Mesma família: caractere
 invisível que desliga a regra sem dar erro.
@@ -182,8 +195,8 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 | | |
 | --- | --- |
 | arquivos lidos inteiros | **28** do cérebro + **11** da camada de banco |
-| defeitos consertados | **227** |
-| testes no portão | **67**, todos verdes |
+| defeitos consertados | **240** |
+| testes no portão | **82**, todos verdes, cada um com isca provada |
 | `tsc` | limpo |
 | cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |
 | arquivos lendo o `catalogo.json` cru | de **17** para **9**, e nenhum do fluxo |
@@ -321,7 +334,8 @@ responder um sim ou não, e o webhook fazia uma consulta a mais só pra preenche
 um parâmetro que a função jogava fora com um `void` — parâmetro que não faz nada
 é pior que código morto, porque quem lê a assinatura acredita nele.
 
-### O `` do Windows desligava CINCO detectores
+### O `
+` do Windows desligava CINCO detectores
 
 `linha.replace(/\/\/.*$/, "")` não tira nada quando a linha termina em `
 

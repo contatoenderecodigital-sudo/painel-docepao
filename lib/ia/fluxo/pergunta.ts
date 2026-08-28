@@ -222,18 +222,29 @@ function pediuTudoDeUmaVez(p: PedidoEmMontagem): boolean {
  * troca: o leitor da frase entende as três respostas escritas de uma vez, o que
  * está medido em `testes/pergunta-uma-vez-e-nao-repete.cjs`.
  */
-function falaDosDetalhesDoBolo(p: PedidoEmMontagem): Fala | null {
+function falaDosDetalhesDoBolo(
+  p: PedidoEmMontagem,
+  faltaPapel: boolean,
+  faltaTopo: boolean,
+): Fala | null {
   if (!pediuTudoDeUmaVez(p)) return null;
 
-  // O PRATO SAIU DAQUI JUNTO COM A PERGUNTA DELE (28/08/2026, decisao do dono).
-  // Sobraram os dois detalhes que a padaria realmente vende.
+  // O QUE FALTA E O MESMO CALCULO DA PERGUNTA SEPARADA (28/08/2026).
+  //
+  // Antes esta funcao olhava so `=== null`, e a separada olhava tambem as
+  // marcas. Duas contas do mesmo assunto divergiram na primeira conversa em que
+  // o cliente ignorou o papel de arroz: a marca `pecas_do_bolo:papel` ja estava
+  // gravada, a separada respeitava e ia pro topo, mas a JUNTADA voltava, via os
+  // dois campos vazios e perguntava o papel DE NOVO. Medido contra a producao.
+  //
+  // Agora quem sabe o que falta e uma so, e ela manda nas duas.
   const falta: string[] = [];
-  if ((p.pecas?.papelDeArroz ?? null) === null) {
+  if (faltaPapel) {
     // O valor sai do motor, nunca escrito à mão: é o mesmo número do cardápio.
     const preco = precoDoPapelDeArroz();
     falta.push("quer papel de arroz com a foto impressa" + (preco > 0 ? " (" + brl(preco) + ")" : ""));
   }
-  if ((p.pecas?.topo ?? null) === null) falta.push("e quer topo de bolo");
+  if (faltaTopo) falta.push("e quer topo de bolo");
 
   // Um só faltando não precisa de pergunta juntada: a pergunta normal, com
   // botão, é melhor.
@@ -275,10 +286,6 @@ function falaDosDetalhesDoBolo(p: PedidoEmMontagem): Fala | null {
  * medo e ela errar". Perguntar junto e cobrar no codigo resolve os dois lados.
  */
 function falaDasPecas(p: PedidoEmMontagem): Fala {
-  // A pergunta juntada vem primeiro, e só existe pra quem mandou tudo de uma vez.
-  const juntas = falaDosDetalhesDoBolo(p);
-  if (juntas) return juntas;
-
   // PERGUNTA IGNORADA NAO SE REPETE: ELA DA LUGAR A PROXIMA.
   //
   // A regra do dono e "se ele ignorou, segue". Seguir quer dizer ir pra
@@ -300,6 +307,12 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
   const papel = p.pecas?.papelDeArroz ?? null;
   const faltaPapel = papel === null && !jaPerguntou("papel");
   const faltaTopo = topo === null && !jaPerguntou("topo");
+
+  // A pergunta juntada só existe pra quem mandou tudo de uma vez, e ela lê o
+  // MESMO `falta` daqui: se uma das duas já foi perguntada, ela sai de cena e
+  // deixa a separada cobrar só o que sobrou.
+  const juntas = falaDosDetalhesDoBolo(p, faltaPapel, faltaTopo);
+  if (juntas) return juntas;
 
   // PAPEL DE ARROZ ANTES DO TOPO.
   //

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Megaphone, Trash2, Check } from "lucide-react";
 import { horaBR, dataCurtaBR } from "@/lib/aviso";
+import { avisoDeSessao } from "@/lib/buscar-do-painel";
 
 export default function AvisoDoDia({
   texto: textoInicial,
@@ -24,25 +25,50 @@ export default function AvisoDoDia({
   const [salvando, setSalvando] = useState(false);
   const [limpando, setLimpando] = useState(false);
   const [salvo, setSalvo] = useState(false);
+  // FALHAR CALADO E QUASE TAO RUIM QUANTO MENTIR.
+  //
+  // As duas acoes daqui ja conferiam a resposta, entao a tela nunca dizia que
+  // salvou sem salvar. Mas quando falhava ela nao dizia NADA: a dona escrevia
+  // "hoje nao tem entrega", clicava, e nao aparecia nem o certinho nem o erro.
+  // Sem saber que falhou, ela sai da tela achando que o aviso esta no ar.
+  //
+  // No `salvar` era pior: o `await r.json()` LANCA quando a resposta nao e
+  // JSON, e o try so tinha `finally`. Um 401, que responde com a pagina de
+  // login, virava excecao solta e a tela ficava exatamente igual.
+  const [erro, setErro] = useState<string | null>(null);
 
   async function salvar() {
     if (!texto.trim()) return;
     setSalvando(true);
     setSalvo(false);
+    setErro(null);
     try {
       const r = await fetch("/api/aviso", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ texto: texto.trim() }),
       });
-      const d = await r.json();
-      if (d.ok) {
-        setAtualizadoEm(d.atualizadoEm ?? new Date().toISOString());
-        setAtivoHoje(true);
-        setSalvo(true);
-        router.refresh();
-        setTimeout(() => setSalvo(false), 2500);
+      // O status vem antes do corpo: `r.json()` de uma resposta que nao e JSON
+      // lanca, e ai o motivo da falha se perde.
+      if (!r.ok) {
+        setErro(
+          avisoDeSessao(r.status) ??
+            "Não consegui salvar o aviso. Ele NÃO está valendo: o que você escreveu continua aqui, tente de novo.",
+        );
+        return;
       }
+      const d = (await r.json()) as { ok?: boolean; atualizadoEm?: string };
+      if (!d.ok) {
+        setErro("Não consegui salvar o aviso. Ele NÃO está valendo: tente de novo.");
+        return;
+      }
+      setAtualizadoEm(d.atualizadoEm ?? new Date().toISOString());
+      setAtivoHoje(true);
+      setSalvo(true);
+      router.refresh();
+      setTimeout(() => setSalvo(false), 2500);
+    } catch {
+      setErro("Sem conexão. O aviso NÃO está valendo: o que você escreveu continua aqui.");
     } finally {
       setSalvando(false);
     }
@@ -50,15 +76,24 @@ export default function AvisoDoDia({
 
   async function limpar() {
     setLimpando(true);
+    setErro(null);
     try {
       const r = await fetch("/api/aviso", { method: "DELETE" });
       // Sem conferir, a tela dizia que o aviso saiu e a IA continuava contando
       // pro cliente que hoje nao tem entrega.
-      if (!r.ok) return;
+      if (!r.ok) {
+        setErro(
+          avisoDeSessao(r.status) ??
+            "Não consegui tirar o aviso. Ele CONTINUA VALENDO para os clientes: tente de novo.",
+        );
+        return;
+      }
       setTexto("");
       setAtualizadoEm(null);
       setAtivoHoje(false);
       router.refresh();
+    } catch {
+      setErro("Sem conexão. O aviso CONTINUA VALENDO para os clientes: tente de novo.");
     } finally {
       setLimpando(false);
     }
@@ -121,6 +156,8 @@ export default function AvisoDoDia({
           </span>
         )}
       </div>
+
+      {erro && <div className="text-[12.5px] text-[#ff8a8a] mt-3">{erro}</div>}
     </div>
   );
 }

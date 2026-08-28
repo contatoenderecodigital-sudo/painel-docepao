@@ -75,7 +75,7 @@ const SONDA = [
   "    const fala = falaDaEtapa(pecas, p, 21880);",
   "    const texto = String(fala.texto ?? '').trim();",
   "    if (!texto) return { fechou: false, turnos: turno, perguntas, vazia: true };",
-  "    perguntas.push(texto.slice(0, 40));",
+  "    perguntas.push(texto.slice(0, 120));",
   "    p = { ...p, etapasJaPerguntadas: marcarComoOFluxoMarca(pecas, fala, p.etapasJaPerguntadas) };",
   "    p = responde(p, texto);",
   "  }",
@@ -92,11 +92,22 @@ const SONDA = [
   "",
   "const tudoDeUmaVez = { ...BASE, dados: { nome: 'Ana', data: '12/09/2026', hora: '10:00', pagamento: 'pix' } };",
   "",
+  "// O CLIENTE DE VERDADE VIRA 'MANDOU TUDO DE UMA VEZ' NO MEIO DA CONVERSA.",
+  "//",
+  "// Foi assim na conversa medida em 28/08/2026: ele ouviu a pergunta do papel,",
+  "// nao respondeu, e mandou 'dia 12/09 as 10h, nome Ana Paula, pix'. Ai o",
+  "// `pediuTudoDeUmaVez` virou verdadeiro e a pergunta JUNTADA entrou em cena,",
+  "// perguntando o papel de novo. Nenhum dos casos de cima passava por aqui.",
+  "const mandaOsDadosDepois = (p) => ({",
+  "  ...p, dados: { nome: 'Ana', data: '12/09/2026', hora: '10:00', pagamento: 'pix' },",
+  "});",
+  "",
   "console.log(JSON.stringify({",
   "  ignorando:      conversar(BASE, ignoraTudo),",
   "  respondendo:    conversar(BASE, respondeNao),",
   "  juntadaIgnorada: conversar(tudoDeUmaVez, ignoraTudo),",
   "  juntadaRespondida: conversar(tudoDeUmaVez, respondeNao),",
+  "  dadosNoMeio:    conversar(BASE, mandaOsDadosDepois),",
   "}));",
 ];
 
@@ -114,10 +125,37 @@ const r = JSON.parse(bruto.trim().split("\n").pop());
 
 const falhas = [];
 
+// O ASSUNTO, E NAO A FRASE.
+//
+// A checagem antiga comparava o TEXTO das perguntas, e por isso ficou verde com
+// um defeito no ar em 28/08/2026: a padaria perguntou o papel de arroz duas
+// vezes, mas com frases diferentes, porque a segunda foi a pergunta juntada.
+//
+//     padaria >> E papel de arroz, com a foto impressa no bolo? Fica R$ 12,00.
+//     cliente >> dia 12/09 as 10h, nome Ana Paula, pix
+//     padaria >> So faltam os detalhes do bolo: quer papel de arroz (R$ 12,00)...
+//
+// Pro cliente as duas sao a MESMA pergunta. Entao o que se cobra e o assunto:
+// papel de arroz so pode ser perguntado uma vez, tenha a frase que tiver.
+const ASSUNTOS = [
+  ["papel de arroz", /papel de arroz/i],
+  ["topo de bolo", /topo/i],
+];
+
 for (const [nome, caso] of Object.entries(r)) {
   const repetida = caso.perguntas.find((q, i) => caso.perguntas.indexOf(q) !== i);
   console.log(nome + ": " + (caso.fechou ? "fechou" : "NAO FECHOU") + " em " + caso.turnos + " turno(s)");
-  for (const q of caso.perguntas) console.log("    >> " + q);
+  for (const q of caso.perguntas) console.log("    >> " + q.slice(0, 70));
+
+  for (const [assunto, marca] of ASSUNTOS) {
+    const vezes = caso.perguntas.filter((q) => marca.test(q)).length;
+    if (vezes > 1) {
+      falhas.push(
+        nome + ": perguntou sobre " + assunto + " " + vezes + " vezes. Pro cliente e a " +
+          "MESMA pergunta, mesmo saindo com frases diferentes",
+      );
+    }
+  }
 
   if (!caso.fechou) {
     falhas.push(

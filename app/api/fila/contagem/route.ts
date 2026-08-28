@@ -1,5 +1,6 @@
 // Contagem das duas filas, pro sino saber quando algo NOVO entrou.
-// Leve de propósito: só dois counts, chamado a cada 20s por aba aberta.
+// Leve de propósito: dois counts e uma lista curta. O sino chama a cada 7s
+// (INTERVALO_MS), e só UMA aba busca: as outras escutam dela.
 import { lerSessao } from "@/lib/auth";
 import { bancoConfigurado } from "@/lib/banco/db";
 

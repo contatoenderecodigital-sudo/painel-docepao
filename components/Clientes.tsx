@@ -13,6 +13,7 @@ import AjudaInfo from "@/components/AjudaInfo";
 import PedidoDetalhe from "@/components/PedidoDetalhe";
 import type { Pedido } from "@/lib/tipos";
 import { avisoDeSessao } from "@/lib/buscar-do-painel";
+import { filtrarClientes } from "@/lib/busca-cliente";
 import {
   Users,
   Search,
@@ -106,11 +107,12 @@ export default function Clientes({
   const [busca, setBusca] = useState("");
   const [selId, setSelId] = useState(clientes[0]?.id ?? "");
 
-  const lista = useMemo(() => {
-    const t = busca.trim().toLowerCase();
-    if (!t) return clientes;
-    return clientes.filter((c) => (c.nome + " " + c.telefone).toLowerCase().includes(t));
-  }, [clientes, busca]);
+  // A REGRA DE QUEM BATE NA BUSCA MORA NO `lib/busca-cliente.ts`.
+  //
+  // Ela saiu daqui pra poder ser medida sem subir a tela: o defeito que a fez
+  // sair foi a busca por telefone, que comparava contra o numero CRU do banco
+  // enquanto a ficha mostrava o numero FORMATADO logo ali em cima.
+  const lista = useMemo(() => filtrarClientes(clientes, busca), [clientes, busca]);
 
   // Buscar por um nome que nao existe mostrava "Nenhum cliente encontrado" e
   // deixava a ficha do cliente anterior aberta embaixo, como se ele tivesse
@@ -233,14 +235,24 @@ function Ficha({ c }: { c: ClienteCRM }) {
   const [detalheAberto, setDetalheAberto] = useState(false);
   const [detalhe, setDetalhe] = useState<Pedido | null>(null);
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false);
+  const [erroDetalhe, setErroDetalhe] = useState<string | null>(null);
 
   async function abrirPedido(id: string) {
     setDetalhe(null);
+    setErroDetalhe(null);
     setDetalheAberto(true);
     setCarregandoDetalhe(true);
     try {
       const r = await fetch(`/api/pedido/${id}`);
-      if (r.ok) setDetalhe((await r.json()) as Pedido);
+      if (!r.ok) {
+        // O modal ja tinha um estado honesto ("Nao consegui carregar este
+        // pedido"), mas ele dizia a mesma coisa pra sessao expirada. Quem le
+        // "tente de novo" tenta de novo, e com a sessao caida tentaria pra
+        // sempre sem nunca ver o pedido.
+        setErroDetalhe(avisoDeSessao(r.status));
+        return;
+      }
+      setDetalhe((await r.json()) as Pedido);
     } catch {
       /* o modal mostra o estado de erro */
     } finally {
@@ -397,6 +409,7 @@ function Ficha({ c }: { c: ClienteCRM }) {
         <PedidoDetalhe
           pedido={detalhe}
           carregando={carregandoDetalhe}
+          erro={erroDetalhe}
           onClose={() => setDetalheAberto(false)}
         />
       )}

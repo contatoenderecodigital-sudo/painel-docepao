@@ -309,7 +309,10 @@ function Status({ conexao }: { conexao: ConexaoWhatsapp }) {
             rotulo="Status"
             valor={caiu ? "Offline" : "Online"}
           />
-          <Indicador icon={<Clock size={15} className="text-dourado" />} rotulo="Conectado desde" valor={dataBr(conexao.conectadoEm) ?? "hoje"} />
+          {/* Sem data no banco a tela dizia "hoje", que e uma AFIRMACAO e nao um
+              fallback: um numero conectado ha meses aparecia como conectado
+              hoje. Nao saber a data e uma resposta melhor do que inventar uma. */}
+          <Indicador icon={<Clock size={15} className="text-dourado" />} rotulo="Conectado desde" valor={dataBr(conexao.conectadoEm) ?? "sem registro"} />
           <Indicador icon={<MessageSquare size={15} className="text-dourado" />} rotulo="Mensagens respondidas hoje" valor={String(conexao.mensagensHoje)} />
         </div>
       </div>

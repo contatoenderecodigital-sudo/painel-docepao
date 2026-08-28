@@ -3168,3 +3168,194 @@ valendo**. E a última existe pra ninguém recarregar a página e perder o texto
 
 O teste varre os **25 componentes**, e não só os quatro consertados: um quinto
 lugar que nascer com o mesmo padrão é pego no dia. Isca provada.
+
+---
+
+## 68. Duas contas do mesmo assunto, e a padaria perguntou o papel de arroz duas vezes
+
+Achado **medindo**, não lendo. Conversa de verdade contra a produção, logo depois
+do bloco do item 67 subir:
+
+```
+padaria >> E papel de arroz, com a foto impressa no bolo? Fica R$ 12,00.
+cliente >> dia 12/09 as 10h, nome Ana Paula, pix
+padaria >> Só faltam os detalhes do bolo: quer papel de arroz (R$ 12,00),
+           e quer topo de bolo?
+```
+
+Ele já tinha ouvido essa pergunta. Não respondeu, mandou os dados, e a padaria
+voltou a perguntar a mesma coisa com outra frase.
+
+### O motivo: a etapa tinha DUAS contas do que ainda falta
+
+A pergunta separada olhava as marcas:
+
+```ts
+const faltaPapel = papel === null && !jaPerguntou("papel");
+```
+
+E a juntada, no mesmo arquivo, olhava só o campo:
+
+```ts
+if ((p.pecas?.papelDeArroz ?? null) === null) falta.push("quer papel de arroz...");
+```
+
+Enquanto o cliente respondia picado, só a separada rodava e as duas nunca
+divergiam. **A divergência precisava de um cliente que mudasse de ritmo no meio
+da conversa**: ele ouviu a pergunta separada, e aí mandou data, hora, nome e
+pagamento numa mensagem só. Isso ligou o `pediuTudoDeUmaVez`, a juntada entrou
+em cena, viu os dois campos vazios, e perguntou o papel de novo.
+
+A juntada agora recebe o `faltaPapel` e o `faltaTopo` já calculados: a conta é
+uma só, e ela manda nas duas perguntas.
+
+### O teste ficou verde com isso no ar, e o motivo importa
+
+`a-conversa-das-pecas-sempre-termina.cjs` já cobrava "nenhuma pergunta sai duas
+vezes". Ele comparava o **texto** das perguntas, e os dois textos são diferentes.
+Pro cliente é a mesma pergunta; pro teste, não era.
+
+> **O cliente não ouve a frase, ouve o assunto.**
+
+Agora ele conta quantas perguntas **falam de papel de arroz**, tenha a frase que
+tiver, e a mesma conta pro topo. E ganhou o caso que faltava, `dadosNoMeio`: o
+cliente que vira "mandou tudo de uma vez" no meio da conversa, que é exatamente
+por onde o defeito entrou. Nenhum dos quatro casos antigos passava por ali.
+
+É a terceira vez que esta etapa me pega. As três pelo mesmo motivo de fundo: o
+teste media a forma da decisão, e não o efeito dela na conversa.
+
+---
+
+## 69. A busca do CRM não achava o número que a própria tela mostrava
+
+Lendo o `Clientes.tsx` linha a linha. A ficha do cliente mostra o telefone
+formatado, e a busca comparava contra o telefone cru do banco:
+
+```
+na tela:   +55 (49) 99999-9999      (components/Clientes.tsx:298)
+na busca:  "5549999999999"          (components/Clientes.tsx:112)
+```
+
+Então a equipe procurava o cliente pelo número escrito ali em cima, ou pelo
+número que ele dita no balcão com traço e parênteses, e a tela respondia
+**"Nenhum cliente encontrado"** com o cliente cadastrado.
+
+> **O que está escrito na tela tem que achar na busca da mesma tela.**
+
+Agora, quando a busca tem dígito, os dois lados viram só dígitos e o `55` do país
+sai fora dos dois. Nome continua funcionando como antes.
+
+A regra saiu de dentro do `useMemo` e virou `lib/busca-cliente.ts`, pelo mesmo
+motivo da cobrança e do cardápio: enquanto morava dentro do componente, não dava
+pra medir sem subir a tela. O teste cobra os dois lados, e cobra também que a
+tela **use** a regra em vez de fazer uma cópia local dela.
+
+### Varri as outras buscas do painel
+
+A da produção do dia procura só por nome, e o telefone não aparece naquela tela:
+o contrato "procure pelo que está na tela" continua valendo lá. Ficou como está.
+
+---
+
+## 70. Os `fetch` que faltavam tratar sessão expirada, e o pior deles
+
+Fechando a lista dos que ainda caíam no genérico. Sete lugares, e um deles não
+estava na lista porque eu não tinha percebido que era polling:
+
+| onde | o que acontecia |
+| --- | --- |
+| **`Atendimentos`, a caixa de entrada** | **buscava a cada 6s com `fetch` cru e `if (!r.ok) return`: parava no tempo com cara de tela viva** |
+| `ToggleIA` | a chave voltava sozinha, sem uma palavra |
+| `Recuperar`, cobrança automática | a mesma coisa, e essa manda mensagem pro cliente sozinha |
+| `AvisoDoDia`, salvar e limpar | falhava calado, sem certinho e sem erro |
+| `LogoUpload` | mostrava o texto cru da exceção de parse, em inglês |
+| `Clientes`, abrir pedido | dizia "tente de novo" pra sessão expirada |
+| `Atendimentos`, assumir e reportar | não diziam quem ficou atendendo |
+
+### O da caixa de entrada é o pior de todos
+
+É a tela onde a equipe fica o dia inteiro. Com a sessão caída ela congelava sem
+avisar, e quem está na padaria lê isso como **"parou de chegar mensagem"**,
+enquanto o cliente manda e ninguém responde.
+
+O aviso ali é fixo no alto da tela, e não um toast: toast some em 3 segundos, e
+quem chega perto do balcão depois nunca soube que a tela morreu.
+
+### E o meu próprio teste não cobria essa tela
+
+`a-tela-avisa-quando-para-de-atualizar.cjs` já existia e listava quatro telas com
+polling. A quinta, a mais usada de todas, ficou de fora. Agora está na lista, e
+a isca prova: com o `fetch` cru de volta, ele aponta o `Atendimentos` pelo nome.
+
+### Duas coisas que ficaram como regra nas mensagens
+
+**O status vem antes do corpo.** `r.json()` lança quando a resposta não é JSON, e
+um 401 responde a página de login. Ler o corpo primeiro perde o motivo da falha,
+e no `AvisoDoDia` a exceção nem tinha `catch`: virava rejeição solta e a tela
+ficava exatamente igual.
+
+**Mensagem de exceção não é recado pra quem está na padaria.** O `LogoUpload`
+jogava `err.message` na tela, então a dona lia um erro de parse em inglês.
+
+---
+
+## 71. O sino pedia permissão pra avisar, e nunca avisou
+
+Lendo o `SinoNotificacao.tsx` linha a linha. Tinha isto escrito:
+
+```ts
+// Pede permissão pro navegador na hora que ela liga o som: é o mesmo gesto,
+// e assim o aviso funciona com a aba minimizada, que é o caso real da padaria.
+const avisarNoNavegador = useCallback((texto: string) => { ... }, [nome]);
+```
+
+A função existia. Pedia a permissão à padaria junto com o som. Estava listada
+como dependência do efeito, o que faz ela **parecer usada** numa leitura rápida.
+
+E não era chamada em lugar nenhum. Nem uma notificação saiu, nunca.
+
+```
+grep -n "avisarNoNavegador" components/SinoNotificacao.tsx
+89:  const avisarNoNavegador = useCallback((texto: string) => {
+153:  }, [tocar, avisarNoNavegador]);
+```
+
+Duas linhas: a definição e a dependência. Nenhuma chamada.
+
+> **Definir a função não avisa ninguém.**
+
+O caso que o próprio comentário chamava de "o caso real da padaria", a aba
+minimizada, era exatamente o único que não existia. E a padaria autorizou a
+notificação no navegador para nada.
+
+### O número da aba só subia
+
+`document.title = "(3) Painel"` era escrito **dentro do `if (cresceu)`**. Então
+depois que a equipe aprovava tudo, a aba continuava marcando três pedidos pra
+sempre. O número na aba parou de querer dizer alguma coisa no primeiro dia.
+
+Agora ele acompanha a contagem pros dois lados, e volta pro nome puro no zero.
+
+### O texto do aviso saiu pro `lib`
+
+Mesmo motivo da busca do cliente e do texto da cobrança: dentro do componente
+não dava pra medir. E o que ele escreve só usa o que a contagem realmente traz:
+
+| situação | o que o aviso diz |
+| --- | --- |
+| um pedido, e o sino sabe qual | `Ana Paula, R$ 218,80` |
+| um pedido sem valor fechado | `Pedido novo de Ana Paula` |
+| três de uma vez | `3 pedidos novos esperando` |
+| entrou, mas sem saber de quem | `Pedido novo esperando` |
+| cliente pediu pra falar com gente | `Um cliente pediu pra falar com a equipe` |
+
+Nome e valor são o que fazem alguém largar o forno e vir olhar. O pedido sem
+valor fechado não vira `R$ 0,00`, que se lê como pedido vazio. E o segundo
+pedido avisa do **segundo**, e não repete o que já estava na fila.
+
+### Uma linha de documentação que mentia sobre a carga
+
+A rota `/api/fila/contagem` dizia "chamado a cada 20s por aba aberta". São 7
+segundos, e só uma aba busca: as outras escutam dela. Quem fosse dimensionar
+carga por esse comentário erraria por três vezes.

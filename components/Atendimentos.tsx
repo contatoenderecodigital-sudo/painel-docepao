@@ -18,7 +18,7 @@ import PedidoMontado from "./PedidoMontado";
 import type { Conversa, Mensagem, TipoMidia } from "@/lib/tipos";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatarTelefoneBR, linkWhatsapp, brl } from "@/lib/tipos";
-import { avisoDeSessao } from "@/lib/buscar-do-painel";
+import { avisoDeSessao, buscarDoPainel, AVISO_SESSAO_EXPIRADA } from "@/lib/buscar-do-painel";
 import CampoTelefone, { telefoneCompleto } from "@/components/CampoTelefone";
 import AudioBolha from "@/components/AudioBolha";
 import { Check,
@@ -321,6 +321,9 @@ export default function Atendimentos({
   const [aba, setAba] = useState<"todas" | "ia" | "humano" | "atencao">("todas");
   const [novaAberto, setNovaAberto] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  // Fica FIXO na tela: a caixa de entrada parada e uma informacao que precisa
+  // continuar visivel, e nao piscar por tres segundos.
+  const [sessaoCaiu, setSessaoCaiu] = useState<string | null>(null);
   const [, setTick] = useState(0); // força recomputar a janela de 24h
   const fileRef = useRef<HTMLInputElement>(null);
   const fim = useRef<HTMLDivElement>(null);
@@ -344,11 +347,26 @@ export default function Atendimentos({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clienteId, assumir }),
       });
-      if (!r.ok) throw new Error("falha");
+      if (!r.ok) {
+        setConversas((prev) => prev.map((c) => (c.id === clienteId ? { ...c, estado: assumir ? "ia" : "humano" } : c)));
+        // Diz QUEM esta atendendo agora, e nao so que falhou: e a unica coisa
+        // que importa saber antes de digitar a proxima mensagem pro cliente.
+        mostrarToast(
+          avisoDeSessao(r.status) ??
+            (assumir
+              ? "Não consegui assumir. A IA CONTINUA respondendo este cliente: tente de novo."
+              : "Não consegui devolver. VOCÊ continua atendendo este cliente: tente de novo."),
+        );
+        return;
+      }
       mostrarToast(assumir ? "Você assumiu. A IA não responde mais este cliente." : "Devolvido: a IA volta a atender.");
     } catch {
       setConversas((prev) => prev.map((c) => (c.id === clienteId ? { ...c, estado: assumir ? "ia" : "humano" } : c)));
-      mostrarToast("Não consegui mudar quem atende. Tente de novo.");
+      mostrarToast(
+        assumir
+          ? "Sem conexão. A IA CONTINUA respondendo este cliente: tente de novo."
+          : "Sem conexão. VOCÊ continua atendendo este cliente: tente de novo.",
+      );
     } finally {
       setAssumindo(null);
     }
@@ -370,10 +388,19 @@ export default function Atendimentos({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clienteId, oQue: oQue.trim() }),
       });
-      if (!r.ok) throw new Error("falha");
+      if (!r.ok) {
+        // O texto do `window.prompt` ja se perdeu neste ponto, entao o aviso
+        // precisa dizer isso: quem so ler "tente de novo" clica de novo e leva
+        // um prompt vazio, sem entender por que o que escreveu sumiu.
+        mostrarToast(
+          avisoDeSessao(r.status) ??
+            "Não consegui enviar o reporte. Ele NÃO chegou aqui: clique de novo e escreva outra vez.",
+        );
+        return;
+      }
       mostrarToast("Reportado. A gente já recebeu e vai olhar.");
     } catch {
-      mostrarToast("Não consegui enviar o reporte. Tente de novo.");
+      mostrarToast("Sem conexão. O reporte NÃO chegou aqui: clique de novo e escreva outra vez.");
     } finally {
       setReportando(null);
     }
@@ -382,9 +409,25 @@ export default function Atendimentos({
   // Busca a lista/histórico do servidor e reconcilia os envios otimistas.
   const atualizar = useCallback(async () => {
     try {
-      const r = await fetch("/api/conversas", { cache: "no-store" });
-      if (!r.ok) return;
-      const data = (await r.json()) as Conversa[];
+      // A CAIXA DE ENTRADA CONGELANDO CALADA E O PIOR DOS CASOS.
+      //
+      // Esta tela busca do servidor a cada 6 segundos, e o `if (!r.ok) return`
+      // engolia a sessao expirada exatamente como a fila de aprovacao engolia
+      // antes: a lista para no tempo, com cara de tela viva. Aqui e pior, porque
+      // e a caixa de entrada do WhatsApp: a equipe fica olhando uma tela sem
+      // mensagem nova achando que o movimento parou, enquanto o cliente manda e
+      // ninguem responde.
+      //
+      // O aviso e o mesmo das outras telas, e fica FIXO: um toast some em tres
+      // segundos, e quem chega perto depois disso nunca soube.
+      const r = await buscarDoPainel<Conversa[]>("/api/conversas", { cache: "no-store" });
+      if (r.estado === "sessao_expirada") {
+        setSessaoCaiu(AVISO_SESSAO_EXPIRADA);
+        return;
+      }
+      if (r.estado !== "ok") return;
+      setSessaoCaiu(null);
+      const data = r.dados;
       setConversas(data);
       // reconcilia pendentes: some com o que já chegou do servidor.
       setPendentes((prev) => {
@@ -550,7 +593,7 @@ export default function Atendimentos({
       else if (!r.ok) {
         const j = await r.json().catch(() => ({}));
         marcarPend(convId, tmpId, { status: "erro" });
-        mostrarToast(j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : j.erro === "conexao_expirada" ? "A conexão do WhatsApp expirou. Reconecte em Conectar WhatsApp." : "Não consegui enviar. Tente de novo.");
+        mostrarToast(j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : j.erro === "conexao_expirada" ? "A conexão do WhatsApp expirou. Reconecte em Conectar WhatsApp." : (avisoDeSessao(r.status) ?? "Não consegui enviar. A mensagem NÃO foi para o cliente: tente de novo."));
       } else {
         const j = await r.json();
         marcarPend(convId, tmpId, { status: "enviado", serverId: j.id });
@@ -583,7 +626,7 @@ export default function Atendimentos({
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
         marcarPend(convId, tmpId, { status: "erro" });
-        mostrarToast(j.erro === "janela_fechada" ? "A janela de 24h fechou." : j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : j.erro === "conexao_expirada" ? "A conexão do WhatsApp expirou. Reconecte em Conectar WhatsApp." : j.erro === "arquivo_grande" ? "Arquivo grande demais (máx 16MB)." : "Não consegui enviar o anexo.");
+        mostrarToast(j.erro === "janela_fechada" ? "A janela de 24h fechou." : j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : j.erro === "conexao_expirada" ? "A conexão do WhatsApp expirou. Reconecte em Conectar WhatsApp." : j.erro === "arquivo_grande" ? "Arquivo grande demais (máx 16MB)." : (avisoDeSessao(r.status) ?? "Não consegui enviar o anexo. Ele NÃO foi para o cliente: tente de novo."));
       } else {
         const j = await r.json();
         marcarPend(convId, tmpId, { status: "enviado", serverId: j.id });
@@ -601,7 +644,7 @@ export default function Atendimentos({
       const r = await fetch("/api/conversas/template", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) {
-        mostrarToast(j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : j.erro === "conexao_expirada" ? "A conexão do WhatsApp expirou. Reconecte em Conectar WhatsApp." : j.erro === "telefone_invalido" ? "Número inválido." : "Não consegui enviar o modelo.");
+        mostrarToast(j.erro === "sem_conexao" ? "Conecte o WhatsApp em Conectar WhatsApp." : j.erro === "conexao_expirada" ? "A conexão do WhatsApp expirou. Reconecte em Conectar WhatsApp." : j.erro === "telefone_invalido" ? "Número inválido." : (avisoDeSessao(r.status) ?? "Não consegui enviar o modelo. Ele NÃO foi para o cliente: tente de novo."));
         return false;
       }
       await atualizar();
@@ -947,6 +990,18 @@ export default function Atendimentos({
             if (ok) setNovaAberto(false);
           }}
         />
+      )}
+
+      {/* ============ A TELA PAROU DE ATUALIZAR ============ */}
+      {/* Fixo no alto e por cima de tudo: quem chega perto do balcao depois
+          precisa ver que a caixa de entrada nao esta mais recebendo. */}
+      {sessaoCaiu && (
+        <div
+          className="fixed top-0 left-0 right-0 z-[80] px-4 py-2.5 text-[13px] font-medium text-center"
+          style={{ background: "rgba(224,30,30,0.92)", color: "#fff" }}
+        >
+          {sessaoCaiu}
+        </div>
       )}
 
       {/* ===================== TOAST ===================== */}
