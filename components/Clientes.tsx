@@ -12,6 +12,7 @@ import { NumberTicker } from "@/components/ui/number-ticker";
 import AjudaInfo from "@/components/AjudaInfo";
 import PedidoDetalhe from "@/components/PedidoDetalhe";
 import type { Pedido } from "@/lib/tipos";
+import { avisoDeSessao } from "@/lib/buscar-do-painel";
 import {
   Users,
   Search,
@@ -220,6 +221,14 @@ function Ficha({ c }: { c: ClienteCRM }) {
   const [nota, setNota] = useState(c.nota ?? "");
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
+  // O "SALVO" SO PODE APARECER SE SALVOU.
+  //
+  // A funcao abaixo chamava a rota e marcava `salvo` sem olhar a resposta. A
+  // dona escreve a preferencia do cliente (pode ser uma alergia), ve o certinho
+  // verde, fecha, e a nota nao existe.
+  //
+  // Achado na leitura do `components/`, 28/08/2026.
+  const [erroNota, setErroNota] = useState<string | null>(null);
   // Detalhe de um pedido do histórico (a ficha só tem o resumo; busca o completo).
   const [detalheAberto, setDetalheAberto] = useState(false);
   const [detalhe, setDetalhe] = useState<Pedido | null>(null);
@@ -242,14 +251,24 @@ function Ficha({ c }: { c: ClienteCRM }) {
   async function salvar() {
     setSalvando(true);
     setSalvo(false);
+    setErroNota(null);
     try {
-      await fetch("/api/cliente/nota", {
+      const r = await fetch("/api/cliente/nota", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ telefone: c.telefone, nota }),
       });
+      if (!r.ok) {
+        setErroNota(
+          avisoDeSessao(r.status) ??
+            "Não consegui salvar a nota. O que você escreveu continua aqui: tente de novo.",
+        );
+        return;
+      }
       setSalvo(true);
       setTimeout(() => setSalvo(false), 2500);
+    } catch {
+      setErroNota("Sem conexão. O que você escreveu continua aqui: tente de novo.");
     } finally {
       setSalvando(false);
     }
@@ -323,6 +342,18 @@ function Ficha({ c }: { c: ClienteCRM }) {
             {salvando ? <Loader2 size={14} className="animate-spin" /> : salvo ? <Check size={14} /> : <Save size={14} />}
             {salvo ? "Salvo" : "Salvar"}
           </button>
+          {/* O QUE NAO SALVOU FICA DITO, e a nota continua no campo.
+              Antes o "Salvo" aparecia mesmo quando a gravacao falhava: a dona
+              escrevia a preferencia do cliente (pode ser uma alergia), via o
+              certinho verde, fechava, e a nota nao existia. */}
+          {erroNota ? (
+            <div
+              className="mt-2 rounded-lg px-3 py-2 text-[13px] text-cream"
+              style={{ background: "rgba(224,30,30,0.12)", border: "1px solid rgba(224,30,30,0.3)" }}
+            >
+              {erroNota}
+            </div>
+          ) : null}
         </div>
       </div>
 

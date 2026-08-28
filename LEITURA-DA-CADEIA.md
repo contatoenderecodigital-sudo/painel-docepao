@@ -3123,3 +3123,48 @@ As quatro do dia, todas com a mesma assinatura:
 
 **Duas mentiram dizendo que estava bem, duas mentiram dizendo que estava
 quebrado.** A causa é sempre a mesma: cobrar a forma em vez do efeito.
+
+
+## 67. A família inteira: telas dizendo que salvou sem ter salvado
+
+O item 65 achou uma. Varrendo os 25 componentes atrás da mesma forma, apareceram
+mais quatro, e todas com o mesmo detalhe técnico escondendo o defeito:
+
+> **`await fetch` só lança em erro de REDE.**
+
+Um 401 ou um 500 não lançam nada: passam direto pelo `try` e caem na linha
+seguinte. Então este padrão, que **parece** protegido, não protege:
+
+```ts
+try {
+  await fetch("/api/...", { method: "POST", ... });
+  onToast("Nota salva.");            // roda tambem com 401 e com 500
+} catch {
+  onToast("Nao consegui salvar.");   // so roda se a REDE cair
+}
+```
+
+| onde | o que a tela dizia | o que acontecia |
+| --- | --- | --- |
+| `Clientes` | "Salvo", com o certinho verde | a nota do cliente não gravava |
+| `Atendimentos` | toast "Nota salva" | a **mesma** nota, na outra tela |
+| `PainelConexao` | toggle com a Dora **desligada** | ela continuava atendendo |
+| `PainelConexao` | tela desconectando | o número continuava conectado |
+
+A nota do cliente é onde a equipe escreve o que precisa lembrar dele, e **pode
+ser uma alergia**. Dizer que salvou sem ter salvado é o pior tipo de mentira que
+essa tela pode contar.
+
+### As mensagens dizem o ESTADO, e não só a falha
+
+```
+"Não consegui desligar a Dora. Ela CONTINUA ATENDENDO: tente de novo."
+"Não consegui desconectar. O número CONTINUA CONECTADO: tente de novo."
+"Não consegui salvar a nota. O que você escreveu continua aqui."
+```
+
+Saber que falhou não basta: quem está na padaria precisa saber **o que ficou
+valendo**. E a última existe pra ninguém recarregar a página e perder o texto.
+
+O teste varre os **25 componentes**, e não só os quatro consertados: um quinto
+lugar que nascer com o mesmo padrão é pego no dia. Isca provada.

@@ -55,7 +55,7 @@ Contei **21 chamadas de ação** (salvar, mandar, trocar) em 8 componentes, e
 | `AvisoDoDia`, `Clientes`, `LogoUpload`, `PainelConexao`, `PedidoMontado`, `Recuperar` | 2 cada |
 | `ToggleIA.tsx` | 1 |
 
-**Consertei o `PedidoMontado`**, que é o que edita pedido e mexe em dinheiro. O
+**Consertados desde então:** `PedidoMontado`, `Clientes`, `Atendimentos` e as duas do `PainelConexao` (ligar/desligar a Dora e desconectar o número). O
 resto ficou, e o critério foi este: no polling a tela **mente continuamente**
 (mostra dado velho como se fosse novo); numa ação, ela diz "tente de novo", que
 é um conselho ruim mas a pessoa percebe que falhou.
@@ -182,7 +182,7 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 | | |
 | --- | --- |
 | arquivos lidos inteiros | **28** do cérebro + **11** da camada de banco |
-| defeitos consertados | **223** |
+| defeitos consertados | **227** |
 | testes no portão | **67**, todos verdes |
 | `tsc` | limpo |
 | cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |

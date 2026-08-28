@@ -7,6 +7,7 @@
 //     (reconectar / trocar numero / desconectar). Alerta vermelho se cair.
 
 import { useState } from "react";
+import { avisoDeSessao } from "@/lib/buscar-do-painel";
 import { useRouter } from "next/navigation";
 import ConectarWhatsApp from "./ConectarWhatsApp";
 import AjudaInfo from "./AjudaInfo";
@@ -162,20 +163,43 @@ function Status({ conexao }: { conexao: ConexaoWhatsapp }) {
   const [ia, setIa] = useState(conexao.iaAtiva);
   const [salvandoIa, setSalvandoIa] = useState(false);
   const [desconectando, setDesconectando] = useState(false);
+  // O QUE FALHOU PRECISA APARECER: AQUI SE DESLIGA A DORA E SE DERRUBA O NUMERO.
+  //
+  // O `toggleIa` revertia no `catch`, e `await fetch` SO LANCA EM ERRO DE REDE:
+  // um 401 ou um 500 passavam direto. A tela mostrava a IA desligada e ela
+  // continuava atendendo cliente.
+  //
+  // E o `desconectar` nao olhava nada. O `router.refresh()` trazia o estado
+  // certo de volta, entao a tela se corrigia sozinha, mas sem dizer por que: a
+  // dona clicava, a tela piscava, e continuava conectado.
+  //
+  // Achado na leitura do `components/`, 28/08/2026.
+  const [falha, setFalha] = useState<string | null>(null);
   const caiu = Boolean(conexao.problema);
 
   async function toggleIa() {
     const nova = !ia;
     setIa(nova);
     setSalvandoIa(true);
+    setFalha(null);
     try {
-      await fetch("/api/whatsapp/ia", {
+      const r = await fetch("/api/whatsapp/ia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ativa: nova }),
       });
+      if (!r.ok) {
+        setIa(!nova); // volta pro que estava: quem manda e o servidor
+        setFalha(
+          avisoDeSessao(r.status) ??
+            (nova
+              ? "Não consegui ligar a Dora. Ela continua sem atender: tente de novo."
+              : "Não consegui desligar a Dora. Ela CONTINUA ATENDENDO: tente de novo."),
+        );
+      }
     } catch {
       setIa(!nova); // reverte se falhar
+      setFalha("Sem conexão. O estado da Dora não mudou.");
     } finally {
       setSalvandoIa(false);
     }
@@ -184,9 +208,19 @@ function Status({ conexao }: { conexao: ConexaoWhatsapp }) {
   async function desconectar() {
     if (!confirm("Desconectar o WhatsApp? A IA para de atender neste número até você reconectar.")) return;
     setDesconectando(true);
+    setFalha(null);
     try {
-      await fetch("/api/whatsapp/desconectar", { method: "POST" });
+      const r = await fetch("/api/whatsapp/desconectar", { method: "POST" });
+      if (!r.ok) {
+        setFalha(
+          avisoDeSessao(r.status) ??
+            "Não consegui desconectar. O número CONTINUA CONECTADO: tente de novo.",
+        );
+        return;
+      }
       router.refresh();
+    } catch {
+      setFalha("Sem conexão. O número continua conectado.");
     } finally {
       setDesconectando(false);
     }
@@ -215,6 +249,18 @@ function Status({ conexao }: { conexao: ConexaoWhatsapp }) {
           </span>
         </button>
       )}
+
+      {/* O QUE FALHOU FICA NA TELA. Aqui se desliga a Dora e se derruba o
+          numero: mostrar o toggle mudado sem a mudanca ter acontecido faz a dona
+          achar que a IA parou de atender quando ela nao parou. */}
+      {falha ? (
+        <div
+          className="mb-4 rounded-xl px-4 py-3 text-sm text-cream"
+          style={{ background: "rgba(224,30,30,0.12)", border: "1px solid rgba(224,30,30,0.35)" }}
+        >
+          {falha}
+        </div>
+      ) : null}
 
       {/* card de status */}
       <div

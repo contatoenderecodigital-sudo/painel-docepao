@@ -18,6 +18,7 @@ import PedidoMontado from "./PedidoMontado";
 import type { Conversa, Mensagem, TipoMidia } from "@/lib/tipos";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatarTelefoneBR, linkWhatsapp, brl } from "@/lib/tipos";
+import { avisoDeSessao } from "@/lib/buscar-do-painel";
 import CampoTelefone, { telefoneCompleto } from "@/components/CampoTelefone";
 import AudioBolha from "@/components/AudioBolha";
 import { Check,
@@ -979,13 +980,32 @@ function ContatoDrawer({ conversa, qtdMensagens, onFechar, onToast }: { conversa
 function PainelContato({ conversa, qtdMensagens, onToast }: { conversa: Conversa; qtdMensagens: number; onToast: (t: string) => void }) {
   const [nota, setNota] = useState("");
   const [salvando, setSalvando] = useState(false);
+  // O AVISO DE "SALVA" SO SAI SE SALVOU.
+  //
+  // Aqui o `await fetch` era chamado e o toast dizia "Nota salva" logo abaixo,
+  // sem olhar a resposta. E `await fetch` so lanca em erro de REDE: um 401 ou um
+  // 500 passavam direto pro toast de sucesso.
+  //
+  // A nota do cliente e onde a equipe escreve o que precisa lembrar dele, e pode
+  // ser uma alergia. Dizer que salvou sem ter salvado e o pior tipo de mentira
+  // que esta tela pode contar.
+  //
+  // O mesmo defeito estava no `Clientes.tsx`, na outra tela que edita a mesma
+  // nota. Achado na leitura do `components/`, 28/08/2026.
   async function salvarNota() {
     setSalvando(true);
     try {
-      await fetch("/api/cliente/nota", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefone: conversa.clienteTelefone, nota }) });
+      const r = await fetch("/api/cliente/nota", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefone: conversa.clienteTelefone, nota }) });
+      if (!r.ok) {
+        onToast(
+          avisoDeSessao(r.status) ??
+            "Não consegui salvar a nota. O que você escreveu continua aqui.",
+        );
+        return;
+      }
       onToast("Nota salva.");
     } catch {
-      onToast("Não consegui salvar a nota.");
+      onToast("Não consegui salvar a nota. O que você escreveu continua aqui.");
     } finally {
       setSalvando(false);
     }
