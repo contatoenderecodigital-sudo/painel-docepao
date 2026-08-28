@@ -29,7 +29,7 @@ Isto sobrevive à compactação. A minha memória de ter lido, não.
 | --- | --- | --- | --- |
 | 1 | `app/api/whatsapp/route.ts` | 1-960, DUAS passadas | **INTEIRO** — 10 defeitos |
 | 2 | `lib/ia/fluxo/atender.ts` | 1-330, DUAS passadas | **INTEIRO** — 6 defeitos |
-| 3 | `lib/ia/fluxo/fluxo.ts` | 520-740 | falta o resto (~1450) |
+| 3 | `lib/ia/fluxo/fluxo.ts` | 1-1690, sem buraco | **INTEIRO** — 9 defeitos |
 | 4 | `lib/ia/fluxo/leitura.ts` | os trechos que mexi | falta quase tudo |
 | 5 | `lib/ia/fluxo/pensar-openai.ts` | 28-120 | falta o resto |
 | 6 | `lib/ia/fluxo/produto.ts` | 1-200 | falta o fim |
@@ -189,3 +189,70 @@ fecho do bloco mudou). O compilador NAO pega erro de logica ai, e os 43 testes
 nao cobrem o webhook: eles testam o cerebro, nao a porta de entrada.
 
 Falta mandar UMA mensagem de verdade depois do deploy e ver se ela responde.
+
+
+---
+
+## 3. `lib/ia/fluxo/fluxo.ts` — o motor do fluxo
+
+1690 linhas. Onde a leitura da IA vira pedido. **Nove defeitos.**
+
+### "dois bolos" nunca foi dois bolos
+
+    new RegExp("(?:[2-9][0-9]*|" + porExtenso + ")\s+bolos?")
+
+Dentro de aspas, `\s` vira a letra "s" e `` vira byte de backspace. A regex
+nascia como `(?:[2-9][0-9]*|(dois|duas|...))s+bolos?` e não casava com nada.
+**Quem pedia dois bolos levava um.**
+
+Os dois detectores de barra comida não pegavam: eles procuram byte estragado no
+ARQUIVO, e aqui o arquivo tem dois caracteres normais. Nasceu o terceiro,
+`barra-comida-dentro-de-aspas.cjs`, provado com isca.
+
+### Perguntar apagava o pedido
+
+`aplicar` rodava DEPOIS dos blocos de pergunta e de reclamação, e os dois saem
+da função com `return`:
+
+    cliente >> quanto é o cento de coxinha? quero 200
+    no pedido >> nada
+
+Não eram só os itens: data, hora, nome, cor da forminha, tudo que viesse junto.
+
+### Sabor negado virava sabor pedido
+
+"sem calabresa" dava calabresa na comanda: a checagem era só "a palavra está na
+frase?". A pergunta "afirmou ou negou?" já existia no leitor da frase e foi
+reusada, em vez de escrever uma segunda.
+
+### Bolo de brigadeiro virando docinho de brigadeiro
+
+`identificarProduto` chamado sem dica: "brigadeiro" resolve pro docinho de
+R$ 1,25, e o bolo é R$ 46,90 o quilo. Agora o "bolo" da frase volta pro nome, e
+só quando o bolo existe de verdade.
+
+### O topo sumia na fusão dos bolos
+
+Dois bolos viram um, e a observação mantida era só a do mais caro. Mas o topo e
+o tema são carimbados no PRIMEIRO bolo da lista. Primeiro ≠ mais caro = topo
+perdido, e topo é peça que a equipe encomenda com dois dias de antecedência.
+
+### O aviso de horário engolia a pergunta
+
+O comentário prometia "a etapa volta a perguntar, com o motivo na frente". O
+código SUBSTITUÍA a fala pelo aviso: o cliente ouvia "não abrimos nesse horário"
+e mais nada. E a etapa não era refeita depois de apagar a hora.
+
+### Mais três
+
+- uma guarda que nunca disparava (`itens === e.itens`, comparando cópia com
+  original)
+- a etapa do salgado lendo o catálogo cru, com o galho do bolo cinco linhas
+  abaixo já fazendo pela lista única
+- uma linha duplicada (`if (l.tema)` rodando duas vezes)
+
+### Duas coisas conferidas que estavam CERTAS
+
+Verificar e seguir também é resultado: o `??` dos dados não apaga o nome (os dois
+caminhos filtram vazio antes), e a comparação por referência do item que espera
+sabor funciona porque roda depois do carimbo da forminha.

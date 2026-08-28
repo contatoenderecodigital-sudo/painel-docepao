@@ -1336,10 +1336,40 @@ export async function responder(
           {
             ...caro,
             qtd: peso,
+            // A OBSERVACAO DE TODOS OS BOLOS VEM JUNTO, E NAO SO A DO MAIS CARO.
+            //
+            // Ficava so `caro.obs`, e o resto era jogado fora com as linhas. So
+            // que o topo, o tema e a embalagem sao carimbados no PRIMEIRO bolo
+            // da lista, e o primeiro nem sempre e o mais caro:
+            //
+            //     itens  [bolo biz (R$ 46,90), bolo strogonoff (R$ 55,90)]
+            //     topo   carimbado no biz, que e o primeiro
+            //     fusao  fica o strogonoff, e o topo some
+            //
+            // O topo e peca que a equipe ENCOMENDA fora, com dois dias de
+            // antecedencia. Perder ele na fusao e a cozinha descobrir no dia.
+            //
             // Sem limpar o "misto:" anterior a observacao empilhava a cada
             // mensagem: na conversa de 25/08 chegou a sete copias da mesma
             // frase, e isso vai impresso no cupom da cozinha.
-            obs: [semMisto(caro.obs), misto].filter(Boolean).join(" | ") || null,
+            //
+            // Achado lendo linha por linha em 27/08/2026.
+            obs:
+              [
+                ...[...bolos, ...semSabor]
+                  .map((b) => semMisto(b.obs))
+                  .filter(Boolean)
+                  .flatMap((o) => String(o).split(" | "))
+                  .map((x) => x.trim())
+                  .filter(Boolean)
+                  // Sem repetir: os dois bolos costumam trazer a mesma
+                  // embalagem, e "prato de MDF aberto" duas vezes no cupom e
+                  // ruido pra quem monta.
+                  .filter((x, n, todos) => todos.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === n),
+                misto,
+              ]
+                .filter(Boolean)
+                .join(" | ") || null,
           },
         ],
       };
@@ -1458,6 +1488,12 @@ export async function responder(
   const foraDoHorario = retiradaForaDoExpediente(estado.dados.data, estado.dados.hora);
   if (foraDoHorario) {
     estado = { ...estado, dados: { ...estado.dados, hora: null } };
+    // A ETAPA SE REFAZ DEPOIS DE APAGAR A HORA.
+    //
+    // `proxima` foi escolhida la em cima, com a hora ainda no lugar, entao ela
+    // podia ser a CONFIRMACAO. Apagar a hora sem refazer a escolha deixava a
+    // conversa apontando pra uma etapa que nao vale mais.
+    proxima = etapaDaVez(estado, roteiro());
     rastro.push("hora fora do expediente; avisei e perguntei de novo");
   }
 
@@ -1614,9 +1650,27 @@ export async function responder(
     );
   }
 
+  // O AVISO VEM NA FRENTE DA PERGUNTA, E NAO NO LUGAR DELA.
+  //
+  // Estava `texto: foraDoHorario`, que SUBSTITUIA a fala da etapa. O cliente
+  // ouvia "a padaria nao abre nesse horario" e mais nada: nenhuma pergunta,
+  // nenhuma opcao. Ele tinha que adivinhar sozinho que precisava dizer outra
+  // hora, e a conversa gastava um turno inteiro nisso.
+  //
+  // O proprio comentario la em cima ja prometia o certo: "a etapa dos dados
+  // volta a perguntar, e agora COM O MOTIVO NA FRENTE". O codigo nao fazia.
+  //
+  // E o mesmo desenho dos outros avisos deste arquivo (restricao, recheio,
+  // minimo por sabor): a frase entra na frente, a pergunta continua.
+  //
+  // Achado lendo linha por linha em 27/08/2026.
   if (foraDoHorario) {
     return {
-      fala: { ...fala, texto: foraDoHorario, botoes: [], cardapio: null, podeReescrever: false },
+      fala: {
+        ...fala,
+        texto: foraDoHorario + (fala.texto ? "\n\n" + fala.texto : ""),
+        podeReescrever: false,
+      },
       estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo, precisaHumano,
     };
   }
