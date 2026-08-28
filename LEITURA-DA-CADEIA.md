@@ -2224,3 +2224,47 @@ apareceu numa varredura de **linhas idênticas**, não numa leitura linha a linh
 
 As duas coisas são necessárias. Ler acha o que está errado dentro de um arquivo;
 varrer acha o que está errado por existir em muitos.
+
+
+### E os outros dois repositórios?
+
+Conferido, porque a regra é avisar do que falta nos outros arquivos também:
+
+- **`enderecodigital-hub`**: tem `middleware.ts`, que gateia `/owner`,
+  `/operacao` e `/parceiro` por papel antes de a rota rodar, e não usa o padrão
+  do `NEGOCIO_PADRAO_ID`. Não tem esse defeito.
+- **`site-enderecodigital`**: não usa `NEGOCIO_PADRAO_ID` em rota nenhuma.
+
+O buraco era só do `painel-docepao`, e é justamente o repositório que **não tem
+middleware**: cada rota se defendendo sozinha é o desenho que permite dezesseis
+se defenderem errado do mesmo jeito.
+
+**Vale considerar** (decisão sua, não fiz): um `middleware.ts` aqui também, que
+exija sessão em tudo debaixo de `/api` menos a lista de quatro. Aí o defeito
+deixa de ser possível em vez de ser proibido por teste.
+
+
+## 45. A varredura seguinte: "TODA query filtra por negocio_id" é falso, e está tudo bem
+
+Os cabeçalhos da camada de banco prometem, todos, que **toda** query filtra por
+`negocio_id`. Varri as 29 queries que tocam tabela de tenant sem esse filtro, e
+conferi uma por uma:
+
+- **`negocios where id = $1`** (21 delas): o `id` do negócio **é** o tenant. O
+  filtro é esse.
+- **`pedido_itens where pedido_id = $1`** (4): o escopo vem da linha pai em
+  `pedidos`, que o chamador já buscou com `negocio_id`. Nos dois casos que
+  escrevem (`adicionarItem`, `salvarItensDoPedido`) a transação começa com
+  `select id, status from pedidos where id = $1 and negocio_id = $2` e joga se
+  não achar.
+- **`update pedidos where id = $1`** (2): dentro de transação, depois da mesma
+  verificação de dono.
+
+**Nenhum vazamento entre tenants.** O que existe é a frase do cabeçalho dizendo
+mais do que o código faz, e é o mesmo defeito de forma que esta leitura vem
+corrigindo desde o começo: o próximo a ler acredita na frase e não confere o
+caminho.
+
+Não mexi no código porque não há o que consertar. Fica registrado que a garantia
+real é **"o escopo vem do chamador, e todo caminho de escrita confere o dono
+antes"**, que é uma promessa mais fraca e verdadeira.

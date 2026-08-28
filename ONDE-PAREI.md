@@ -331,3 +331,26 @@ do hub, e o relógio da cobrança), e um teste guarda essa lista.
    saíram do faturamento e da contagem de atendimento.
 3. Nada mais precisa de você pra isso funcionar: a correção já está no ar e o
    painel logado continua igual.
+
+
+### Conferido depois do deploy, contra a produção
+
+Container rodando a imagem `3aef05f` (confirmado pelo SHA, não pelo status), e a
+mesma sonda de antes:
+
+```
+api/cliente/nota      POST sem cookie  ->  401   (era 400: passava)
+api/whatsapp/ia       POST sem cookie  ->  401
+api/cobranca/ativa    POST sem cookie  ->  401
+api/aviso             POST sem cookie  ->  401
+api/marca/logo        POST sem cookie  ->  401
+api/midia/[id]        GET  sem cookie  ->  401
+```
+
+Nenhuma dessas sondas escreveu nada: o corpo era inválido de propósito, então a
+resposta só diz até onde a requisição chegou.
+
+E nos outros dois repositórios: o `enderecodigital-hub` tem `middleware.ts` e não
+usa esse padrão; o `site-enderecodigital` não usa `NEGOCIO_PADRAO_ID` em rota
+nenhuma. O buraco era só do painel, que é justamente o repositório **sem
+middleware**.
