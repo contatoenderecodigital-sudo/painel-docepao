@@ -15,7 +15,7 @@ import {
   deptoInfo,
   deptosDoPedido,
   qtdDoTicket,
-  unidadeDoItem,
+  unidadeDoTicket,
 } from "@/lib/departamentos";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import { DeptIcone } from "@/components/DeptIcone";
@@ -165,10 +165,10 @@ export default function PedidosDoDia({
   const kpis = useMemo(() => {
     // Peso nao e peca: um bolo de 3 kg e UM bolo pra cozinha, nao tres itens.
     // Somando o peso, a tela dizia "3 itens a produzir" pra um unico bolo.
-    // Quem diz se e peso e o unidadeDoItem, porque a coluna `unidade` do banco
+    // Quem diz se e peso e o unidadeDoTicket, porque a coluna `unidade` do banco
     // vem nula em linha antiga e o bolo de 3 kg voltava a contar como 3.
     const totalItens = doDia.reduce(
-      (s, p) => s + p.itens.reduce((x, i) => x + (unidadeDoItem(i) === "kg" ? 1 : i.qtd), 0),
+      (s, p) => s + p.itens.reduce((x, i) => x + (unidadeDoTicket(i) === "kg" ? 1 : i.qtd), 0),
       0,
     );
     const fat = doDia.reduce((s, p) => s + p.totalCentavos, 0);

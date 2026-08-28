@@ -217,9 +217,9 @@ export async function fecharPedido(
   }
 
   const pedidoId = await registrarPedido(negocioId, clienteId, {
-    // `itens` e o que o cliente pediu; `linhas` e o que o motor cotou. Os dois
-    // vao porque o banco guarda um e o cupom sai do outro.
-    itens: e.itens.map((i) => ({ item: i.produto, qtd: i.qtd, obs: i.obs ?? undefined })),
+    // So `linhas`, que e o que o motor cotou. Aqui tambem ia um `itens` com o
+    // que o cliente pediu, e o comentario dizia que o banco guardava um e o
+    // cupom saia do outro. O `registrarPedido` nunca leu o `itens`.
     clienteNome: e.dados.nome ?? undefined,
     retiradaData: String(e.dados.data),
     retiradaHora: e.dados.hora ?? undefined,

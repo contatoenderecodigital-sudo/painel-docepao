@@ -1,6 +1,11 @@
-// Dados fake pra DEMO — o painel roda sem Supabase configurado.
-// Quando o Supabase entrar, esta camada é trocada por queries reais
-// (mesma forma de dados, então as telas não mudam).
+// Dados fake pra DEMO — o painel roda sem banco configurado.
+//
+// O comentário aqui dizia "quando o Supabase entrar, esta camada é trocada":
+// o banco entrou (Postgres num container, não Supabase) e esta camada NÃO foi
+// trocada, porque ela ainda serve. Ela é o que a tela mostra quando não há
+// DATABASE_URL, e é assim que a demo roda sem tocar em dado de cliente.
+//
+// Mesma forma de dados das queries reais, de propósito: as telas não mudam.
 
 import type { Pedido, Conversa, MembroClube, ClienteCRM } from "./tipos";
 

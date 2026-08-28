@@ -94,7 +94,7 @@ const semComentario = (texto) =>
     .replace(/\/\*[\s\S]*?\*\//g, " ")
     .split("\n")
     .filter((l) => !/^\s*(\/\/|\*)/.test(l))
-    .map((l) => l.replace(/\/\/.*$/, ""))
+    .map((l) => l.replace(/\r/g, "").replace(/\/\/.*$/, ""))
     .join("\n");
 
 const copias = [];

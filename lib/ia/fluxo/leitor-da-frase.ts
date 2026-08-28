@@ -248,14 +248,66 @@ const PAGAMENTOS: [RegExp, string][] = [
   [cerca("boleto|faturado"), "boleto"],
 ];
 
-/** "as 14h", "14:30", "as 9 da manha". Devolve "HH:MM". */
+/**
+ * A HORA DENTRO DA FRASE INTEIRA. Devolve "HH:MM".
+ *
+ * Aqui um numero solto NAO e hora: "50 brigadeiro" e quantidade. Por isso a
+ * regra exige o separador (`:`, `h`, `hs`, `horas`) -- ao contrario do
+ * `horaDaRetirada`, em lib/tipos.ts, que arruma um campo que ja E a hora.
+ *
+ * O PERIODO DO DIA FAZ PARTE DA HORA, E ESTAVA FALTANDO.
+ *
+ * O comentario desta funcao sempre prometeu entender "as 9 da manha". Ela nao
+ * entendia: sem `h` nem `:` depois do 9, a regra nao casava e devolvia null.
+ * A padaria perguntava a hora de novo pra quem ja tinha respondido.
+ *
+ * E o pior caso nao era esse. "as 8 da noite" casava pelo caminho velho e
+ * virava 08:00 -- doze horas antes, num pedido que a cozinha produz por hora
+ * marcada. Em portugues, tarde e noite antes das 12 somam 12; "12 da noite" e
+ * meia-noite e "12 da manha" e meio-dia. Isso e lingua, nao regra da casa.
+ *
+ * Achado na leitura da camada de banco, 28/08/2026.
+ */
 function horaNaFrase(t: string): string | null {
   const m =
     /(^|[^0-9])([01]?[0-9]|2[0-3])\s*(?::|h|hs|horas?)\s*([0-5][0-9])?(?![0-9])/.exec(t) ?? null;
-  if (!m) return null;
-  const h = Number(m[2]);
-  const min = m[3] ? Number(m[3]) : 0;
+
+  // "9 da manha", "8 da noite": sem separador nenhum, so o periodo depois.
+  const semSeparador = m
+    ? null
+    : /(^|[^0-9])([01]?[0-9]|2[0-3])\s*(?:da|de|na|a)?\s*(manha|manhã|tarde|noite)(?![a-z])/i.exec(t);
+
+  const achado = m ?? semSeparador;
+  if (!achado) return null;
+
+  let h = Number(achado[2]);
+  const min = m && m[3] ? Number(m[3]) : 0;
   if (!Number.isFinite(h) || h > 23 || min > 59) return null;
+
+  // O periodo pode vir depois da hora com separador tambem ("8h da noite"), e
+  // ai ele manda: quem diz "8 da noite" nao quer as oito da manha.
+  //
+  // A JANELA E CURTA DE PROPOSITO. Procurar a palavra na frase toda faz "as 8h,
+  // boa noite" virar 20:00: a despedida no fim da mensagem mudaria a hora do
+  // pedido. So vale o periodo grudado na hora.
+  //
+  // No caminho SEM separador a palavra ja faz parte do que casou ("9 da
+  // manha"), entao ela vem do proprio grupo -- procurar depois dela nao acharia
+  // nada.
+  const fim = achado.index + achado[0].length;
+  const logoDepois = t.slice(fim, fim + 16);
+  const periodo = semSeparador
+    ? String(achado[3] ?? "").toLowerCase()
+    : /^[\s,]*(?:da|de|na|a|do)?[\s]*(manha|manhã|tarde|noite)/i.exec(logoDepois)?.[1]?.toLowerCase();
+  if (periodo === "tarde" || periodo === "noite") {
+    if (h < 12) h += 12;
+    // "12 da noite" e meia-noite, nao meio-dia.
+    else if (h === 12 && periodo === "noite") h = 0;
+  } else if (periodo === "manha" || periodo === "manhã") {
+    // "12 da manha" e meio-dia; so a meia-noite muda de nome.
+    if (h === 24) h = 0;
+  }
+
   return String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0");
 }
 

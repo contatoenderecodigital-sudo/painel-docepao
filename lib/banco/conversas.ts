@@ -9,7 +9,8 @@
 
 import { query, queryUm, transacao } from "./db";
 import type { Mensagem, PedidoParaGravar } from "./tipos-da-conversa";
-import { unidadeDoItem } from "../tipos";
+import { unidadeDoItem, horaDaRetirada } from "../tipos";
+import { dataDeRetirada } from "../ia/fluxo/falas-do-cliente";
 export type { Mensagem } from "./tipos-da-conversa";
 
 const LIMITE_HISTORICO = 40; // ultimas N mensagens que a IA enxerga. 20 truncava conversa
@@ -36,25 +37,47 @@ export async function acharOuCriarCliente(
   return linha.id;
 }
 
-// Últimas mensagens do cliente, no formato que a IA espera (ordem cronológica).
-export async function carregarHistorico(
+// A PADARIA JA FALOU COM ESTE CLIENTE NESTA CONVERSA?
+//
+// E a unica coisa que o cerebro pergunta sobre o passado da conversa: se ja
+// falou, nao cumprimenta de novo.
+//
+// Aqui existia `carregarHistorico`, que trazia as 40 ultimas mensagens INTEIRAS
+// pra responder esse sim ou nao. Ele era do tempo do cerebro antigo, que mandava
+// o historico pro modelo; o novo manda UMA mensagem so. Sobrou o custo.
+//
+// E ele tinha um terceiro parametro, `pedidoEmAberto`, que a propria funcao
+// jogava fora com um `void` -- mas o webhook, pra preencher esse parametro,
+// consultava `temPedidoAguardandoCliente` em TODA mensagem. Uma consulta ao
+// banco existindo so pra alimentar um argumento descartado, e ainda repetida
+// logo em seguida dentro do `atender`.
+//
+// Parametro que nao faz nada e pior que codigo morto: quem le a assinatura
+// acredita nele.
+//
+// A JANELA CONTINUA SENDO A MESMA: AS ULTIMAS `LIMITE_HISTORICO` MENSAGENS.
+//
+// A pergunta e a mesma de antes, feita direto no banco em vez de trazer o texto
+// de 40 mensagens pro Node so pra rodar um `.some()`. A janela e igual de
+// proposito: trocar por "nas ultimas N horas" seria eu escolhendo um numero que
+// ninguem me deu, e o comportamento na tela do cliente mudaria sem medida
+// nenhuma pra sustentar.
+//
+// Fica anotado como pergunta pra dona, nao como decisao minha: hoje, se a
+// conversa passar de 40 mensagens, a padaria cumprimenta de novo no meio dela.
+export async function padariaJaFalouNaConversa(
   negocioId: string,
   clienteId: string,
-  // Pedido fechado esperando o cliente aceitar o valor que a equipe ajustou:
-  // aí a conversa anterior AINDA está viva e o corte não vale.
-  pedidoEmAberto = false,
-): Promise<Mensagem[]> {
-  const linhas = await query<{ papel: "user" | "assistant"; conteudo: string }>(
-    `select papel, conteudo from mensagens
-       where negocio_id = $1 and cliente_id = $2
-       order by criado_em desc limit $3`,
+): Promise<boolean> {
+  const linha = await queryUm<{ existe: boolean }>(
+    `select 1 as existe from (
+       select papel from mensagens
+        where negocio_id = $1 and cliente_id = $2
+        order by criado_em desc limit $3
+     ) ultimas where papel = 'assistant' limit 1`,
     [negocioId, clienteId, LIMITE_HISTORICO],
   );
-  // O `pedidoEmAberto` ficou sem efeito quando o corte saiu daqui, e continua no
-  // lugar de proposito: ele diz, pra quem le, que existe um estado em que a
-  // conversa anterior ainda esta viva. Ver o bloco abaixo.
-  void pedidoEmAberto;
-  return linhas.reverse().map((m) => ({ role: m.papel, content: m.conteudo }));
+  return !!linha;
 }
 
 // AQUI FICAVAM O CORTE DO PEDIDO FECHADO E O RESUMO DELE, E OS DOIS ERAM DO
@@ -85,9 +108,10 @@ export async function carregarHistorico(
 // fluxo novo manda pro modelo UMA mensagem: `pensar({ instrucao, mensagem })`.
 // Ele nao ve historico, entao nao ha o que reaproveitar por engano.
 //
-// O historico continua sendo carregado, e serve pra duas coisas que nao passam
-// pelo modelo: saber se a padaria ja cumprimentou, e achar a mensagem citada
-// quando o cliente responde uma antiga.
+// O historico deixou de ser carregado por inteiro na mesma leitura: as duas
+// coisas que ainda dependiam dele nao precisam do texto de 40 mensagens. Saber
+// se a padaria ja cumprimentou virou `padariaJaFalouNaConversa`, aqui em cima, e
+// achar a mensagem citada e o `mensagemPorWamid`, que busca UMA linha pelo id.
 //
 // O `resumoPedidoFechado` tambem ja estava na lista de orfaos do
 // `nada-de-codigo-fantasma`, e escondido: a unica "segunda aparicao" dele era
@@ -197,18 +221,15 @@ export async function marcarWebhookNovo(wamid: string): Promise<boolean> {
 
 // Registra o pedido que a IA fechou: cabeçalho em `pedidos` + itens.
 // Entra como 'confirmado' → aparece na fila de APROVAÇÃO da equipe no painel.
-// A hora chega da conversa como o cliente falou: 16h, 16, 16:00, as 16h30.
-// No banco tem que ser um formato so, senao o cupom, o painel e a tela do dia
-// mostram a mesma hora de tres jeitos. Tem pedido gravado como '16h'.
-function horaPadrao(h?: string | null): string | null {
-  if (!h) return null;
-  const m = String(h).trim().match(/^(\d{1,2})(?:[h:.](\d{1,2}))?/);
-  if (!m) return null;
-  const hora = Number(m[1]);
-  const min = Number(m[2] ?? 0);
-  if (hora > 23 || min > 59) return null;
-  return String(hora).padStart(2, "0") + ":" + String(min).padStart(2, "0");
-}
+//
+// A hora chega da conversa como o cliente falou: 16h, 16, 16:00, as 16h30. No
+// banco tem que ser um formato so, senao o cupom, o painel e a tela do dia
+// mostram a mesma hora de tres jeitos -- e tem pedido gravado como '16h'. Quem
+// arruma e o `horaDaRetirada`, em lib/tipos.ts, que e o mesmo pra todo mundo.
+//
+// Aqui existia um `horaPadrao` proprio, ANCORADO no comeco da string, e o
+// comentario dele prometia entender "as 16h30". Nao entendia: a string comeca
+// com "a", a regex exigia digito, e o pedido era gravado SEM HORA.
 
 export async function registrarPedido(
   negocioId: string,
@@ -300,7 +321,7 @@ export async function registrarPedido(
         [
           aberto.id,
           parseDataRetirada(pedido.retiradaData),
-          horaPadrao(pedido.retiradaHora),
+          horaDaRetirada(pedido.retiradaHora),
           totalCentavos,
           pedido.observacoes ?? null,
           precisaConfirmacao,
@@ -321,7 +342,7 @@ export async function registrarPedido(
           negocioId,
           clienteId,
           parseDataRetirada(pedido.retiradaData),
-          horaPadrao(pedido.retiradaHora),
+          horaDaRetirada(pedido.retiradaHora),
           totalCentavos,
           pedido.observacoes ?? null,
           precisaConfirmacao,
@@ -455,23 +476,24 @@ export async function buscarFotoPedido(
   return linha;
 }
 
-// A IA guarda a data como texto livre ("sábado 25/07"). Tenta virar YYYY-MM-DD;
-// se não der (ou a data não existir no calendário), deixa null e a equipe
-// confirma o dia na aprovação, em vez de quebrar o registro do pedido.
+// A DATA DA RETIRADA JA FOI RESOLVIDA UMA VEZ; AQUI SO SE TRADUZ O FORMATO.
+//
+// Existia aqui um segundo interpretador de data, escrito do zero, e ele era
+// mais fraco que o primeiro num ponto que custa caro: quando o cliente diz
+// "05/01" sem o ano, ele carimbava `new Date().getFullYear()`. Pedido feito em
+// dezembro pra 05 de janeiro nascia com a data do janeiro que JA PASSOU -- e
+// numa padaria dezembro e justamente quando se encomenda bolo pro ano novo.
+//
+// O `dataDeRetirada`, no `falas-do-cliente.ts`, ja resolve isso (e resolve
+// tambem "sexta", "sabado que vem", e o 31 de fevereiro que o JavaScript vira
+// 3 de marco). Ele veio de um teste do dono em 23/08/2026, em que o pedido foi
+// anotado pra 2024. Ter um segundo parser aqui era desfazer aquele conserto na
+// ultima linha do caminho.
+//
+// Achado na leitura da camada de banco, 28/08/2026.
 function parseDataRetirada(texto: string): string | null {
-  const m = texto.match(/(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/);
-  if (!m) return null;
-  const dia = Number(m[1]);
-  const mes = Number(m[2]);
-  const ano = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : new Date().getFullYear();
-  // Valida o calendário de verdade: 31/04, 30/02, 29/02 em ano não bissexto, etc.
-  // Monta em UTC pra não sofrer com fuso e confere se os componentes bateram
-  // (se der overflow, ex: 31/04 vira 01/05, os campos não batem e cai fora).
-  const d = new Date(Date.UTC(ano, mes - 1, dia));
-  if (d.getUTCFullYear() !== ano || d.getUTCMonth() !== mes - 1 || d.getUTCDate() !== dia) {
-    return null; // data impossível: equipe confirma na aprovação
-  }
-  const mm = String(mes).padStart(2, "0");
-  const dd = String(dia).padStart(2, "0");
-  return `${ano}-${mm}-${dd}`;
+  const br = dataDeRetirada(texto); // "DD/MM/AAAA", sempre no futuro, ou null
+  if (!br) return null;
+  const [dd, mm, aaaa] = br.split("/");
+  return `${aaaa}-${mm}-${dd}`;
 }

@@ -197,6 +197,8 @@ let cache: ProdutoDaCasa[] | null = null;
 
 /** Os sabores da pizza, preenchidos ao montar a lista e usados pela redonda e pelo calzone. */
 let saboresDaPizza: string[] = [];
+/** Os mesmos sabores, separados por tipo: quem junta pizza precisa saber. */
+let saboresPorTipo: { doces: string[]; salgados: string[] } = { doces: [], salgados: [] };
 
 /** Todo produto da casa, no mesmo formato. Calculado uma vez. */
 export function produtosDaCasa(): ProdutoDaCasa[] {
@@ -309,6 +311,7 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
   // A redonda e o calzone usam esta mesma lista. O catalogo diz isso em prosa,
   // na nota de cada um, e prosa nao e dado que camada nenhuma consegue ler.
   saboresDaPizza = saboresPizza;
+  saboresPorTipo = { doces: pz.sabores_doces ?? [], salgados: pz.sabores_salgados ?? [] };
 
   const pzc = pz as unknown as {
     inteira: { preco: number; sabores_ate?: number };
@@ -516,4 +519,24 @@ export function unidadeDoPedido(nome: string, categoria?: string): "kg" | "un" {
   const t = limpo(nome);
   if ((t === "bolo" || t.startsWith("bolo ")) && categoria !== "bolo_caseiro") return "kg";
   return "un";
+}
+
+/**
+ * OS SABORES DA PIZZA SEPARADOS POR TIPO.
+ *
+ * Existe porque juntar duas pizzas anotadas depende disso: somar sabor da
+ * mesma pizza esta certo, somar uma doce com uma salgada nao (ninguem come
+ * calabresa com brigadeiro em cima).
+ *
+ * O `montagem.ts` respondia essa pergunta lendo o `catalogo.json` CRU, e era o
+ * unico leitor cru que sobrava no caminho da conversa. Ele nao estava sendo
+ * preguicoso: a lista unica que este arquivo expunha (`saboresDaPizza`) junta
+ * os dois tipos e perde justamente a informacao que ele precisava. Faltava a
+ * porta, entao ele foi na fonte por fora.
+ *
+ * Aberta na leitura da camada de banco, 28/08/2026.
+ */
+export function saboresDaPizzaPorTipo(): { doces: string[]; salgados: string[] } {
+  produtosDaCasa(); // garante que a lista foi montada (e o cache preenchido)
+  return saboresPorTipo;
 }

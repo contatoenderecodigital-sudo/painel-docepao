@@ -84,6 +84,13 @@ const SUSPEITAS = [
   { re: /unidade[^\n]*\|\|\s*["']un["']/, o: 'o || "un" resolve a unidade fora da funcao unica' },
   { re: /as\s+["']un["']\s*\|\s*["']kg["']/, o: "o cast nao converte nada, so cala o TypeScript" },
   { re: /===\s*["']kg["']\s*\?\s*["']kg["']/, o: 'o ternario do "kg" e uma copia da funcao unica' },
+  // A DECISAO TAMBEM SABE SE ESCONDER DENTRO DE UM SELECT.
+  //
+  // `coalesce(unidade, 'un')` no SQL parecia inofensivo e era a mesma armadilha
+  // do `??`: coalesce so troca NULL, entao unidade em branco continuava em
+  // branco -- e como mora numa string de query, nenhuma regra que olha codigo
+  // TypeScript enxergava. Estava em tres lugares.
+  { re: /coalesce\([^)]*unidade[^)]*,\s*["']un["']\)/i, o: "a unidade decidida dentro do SQL, onde coalesce so pega NULL" },
 ];
 
 const arquivos = [];
@@ -106,7 +113,7 @@ for (const abs of arquivos) {
   if (FORA.has(rel)) continue;
   const linhas = fs.readFileSync(abs, "utf8").split("\n");
   linhas.forEach((linha, i) => {
-    const codigo = linha.replace(/\/\/.*$/, "");
+    const codigo = linha.replace(/\r/g, "").replace(/\/\/.*$/, "");
     if (!/unidade|["']kg["']/.test(codigo)) return;
     // COMPARAR PODE; DECIDIR SOZINHO NAO. Uma linha que chama `unidadeDoItem`
     // ja tirou a decisao do lugar certo, e so esta perguntando o resultado --

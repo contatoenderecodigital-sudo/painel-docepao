@@ -200,14 +200,29 @@ const KG_POR_NATUREZA = new Set([
   "padaria",
 ]);
 
-export function unidadeDoItem(item: {
+// A UNIDADE QUE VAI SAIR NO PAPEL, COM AS ESCADAS DE SOCORRO.
+//
+// Nao confundir com a funcao de mesmo assunto em lib/tipos.ts: aquela responde
+// "este VALOR e un ou kg?" e nao sabe nada do produto. Esta aqui responde "o
+// que imprimir nesta LINHA do ticket?", e quando o valor gravado nao serve ela
+// pergunta pro cardapio, depois pra categoria, depois pro proprio numero.
+//
+// As duas se chamavam igual, em arquivos diferentes, as duas sobre unidade.
+// Renomeada na leitura de 28/08/2026, junto com a unificacao da unidade: duas
+// funcoes de mesmo nome sobre o mesmo assunto e o convite pra alguem importar
+// a errada.
+export function unidadeDoTicket(item: {
   categoria?: string | null;
   produto: string;
   qtd: number;
   unidade?: string | null;
 }): "un" | "kg" {
-  if (item.unidade === "kg") return "kg";
-  if (item.unidade === "un") return "un";
+  // O valor gravado manda, quando ele SERVE. Comparar com `===` cru deixava
+  // "KG" e "kg " cairem na escada de baixo como se nada estivesse gravado.
+  // Vazio continua caindo de proposito: ali o cardapio sabe mais que o campo.
+  const gravada = String(item.unidade ?? "").trim().toLowerCase();
+  if (gravada === "kg") return "kg";
+  if (gravada === "un") return "un";
 
   // O CARDAPIO RESPONDE, MAS SO NO CASAMENTO EXATO.
   //
@@ -243,7 +258,7 @@ export function qtdDoTicket(item: {
   unidade?: string | null;
 }): string {
   const numero = String(item.qtd).replace(".", ",");
-  return `${numero} ${unidadeDoItem(item)}`;
+  return `${numero} ${unidadeDoTicket(item)}`;
 }
 
 export type ItemAgregado = { produto: string; qtd: number; unidade?: string; horas?: string[] };
@@ -259,7 +274,7 @@ export function agregarPorDepto(pedidos: Pedido[]): Record<DeptoId, ItemAgregado
     for (const it of ped.itens) {
       const d = deptoDe(it);
       mapas[d].set(it.produto, (mapas[d].get(it.produto) || 0) + it.qtd);
-      unidades.set(it.produto, unidadeDoItem(it));
+      unidades.set(it.produto, unidadeDoTicket(it));
       const h = String(ped.retiradaHora ?? "").trim();
       if (h) {
         const jaTem = horas.get(it.produto) ?? new Set<string>();

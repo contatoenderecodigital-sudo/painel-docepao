@@ -35,6 +35,12 @@ type LinhaConversa = {
   nao_lidas: number;
   janela_expira_ms: number | null;
   custo_cent: number;
+  // Selecionado na query (linha do `c.origem_anuncio`). Faltava aqui, e por
+  // isso o mapeamento la embaixo fazia `as unknown as {...}` pra ler o campo.
+  // Um cast desses ESCONDE renomeacao: no dia em que a coluna mudasse de nome,
+  // o compilador ficaria calado e a tela pararia de mostrar de onde o cliente
+  // veio, sem ninguem saber. Declarado, o compilador volta a trabalhar.
+  origem_anuncio: { titulo?: string | null; url?: string | null; anuncio_id?: string | null } | null;
   msgs: MsgBruta[] | null;
 };
 
@@ -108,7 +114,7 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
       id: m.id,
     }));
     // O anuncio de origem, quando existir.
-    const anuncio = (l as unknown as { origem_anuncio?: Record<string, string> | null }).origem_anuncio ?? null;
+    const anuncio = l.origem_anuncio ?? null;
     const ultima = msgs[msgs.length - 1];
     return {
       id: l.cliente_id,

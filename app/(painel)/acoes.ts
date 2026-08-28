@@ -17,6 +17,7 @@
 import { bancoConfigurado } from "@/lib/banco/db";
 import { lerSessao } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { horaDaRetirada } from "@/lib/tipos";
 
 // Avisa o cliente no WhatsApp que a equipe aprovou ou recusou o pedido.
 // Tudo dentro de try/catch: um erro aqui nunca derruba a aprovação.
@@ -39,10 +40,11 @@ async function avisarCliente(
 
     let texto: string;
     if (tipo === "aprovado") {
-      const hora =
-        dados.retiradaHora && /^\d{1,2}:\d{2}/.test(dados.retiradaHora)
-          ? ` às ${dados.retiradaHora.slice(0, 5)}`
-          : "";
+      // A hora vem crua do banco aqui ("16:30:00"): o `dadosAvisoPedido` nao
+      // passa pelo `mapear`. Quem arruma e o mesmo `horaDaRetirada` do resto do
+      // sistema, senao esta mensagem e a unica do sistema com regra propria.
+      const arrumada = horaDaRetirada(dados.retiradaHora);
+      const hora = arrumada ? ` às ${arrumada}` : "";
       const quando = dados.retiradaFmt ? `\n\nFica pra ${dados.retiradaFmt}${hora}.` : "";
       texto = `${ola}tudo certo!\n\nA nossa equipe confirmou o seu pedido.${quando}\n\nQualquer coisa é só chamar por aqui.`;
     } else {

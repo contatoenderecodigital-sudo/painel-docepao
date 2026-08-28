@@ -44,6 +44,74 @@ export function unidadeDoItem(bruto: unknown): "un" | "kg" {
   return String(bruto ?? "").trim().toLowerCase() === "kg" ? "kg" : "un";
 }
 
+// A HORA DA RETIRADA TAMBEM E UMA DECISAO SO.
+//
+// Mesma historia da unidade, com mais copias. A hora nasce na conversa ("as
+// 16h30"), e gravada no banco como `time` (16:30:00), e reaparece no cupom da
+// cozinha, no painel, no aviso do WhatsApp e na tela do dia. Cada um desses
+// pontos tinha o seu jeito de arrumar:
+//
+//     conversas.ts   horaPadrao   ancorado no comeco, valida 0-23
+//     parados.ts     horaLimpa    ancorado no comeco, NAO valida a hora
+//     acoes.ts       regex solta + slice(0,5)
+//     pedidos.ts     slice(0, 5)
+//     fila.ts        slice(0, 5)
+//
+// Dois defeitos medidos na leitura de 28/08/2026:
+//
+//   1. o `horaPadrao` estava ancorado (`/^(\d{1,2})/`) e o comentario dele
+//      prometia entender "as 16h30". Nao entendia: a string comeca com "a", a
+//      regex exige digito, e a funcao devolvia null. Pedido gravado SEM HORA.
+//   2. o `horaLimpa` aceitava "99h" e devolvia "99:00", porque nao conferia o
+//      intervalo. A tela de recuperacao mostrava uma hora que nao existe.
+//
+// E o "1630", que os dois liam como 16:00 e jogavam os 30 minutos fora calados.
+//
+// ESTA FUNCAO E PRA CAMPO, NAO PRA FRASE.
+//
+// Ela normaliza um valor que ja e a hora ("16h30", "16:30:00", "1630"). Quem
+// procura hora DENTRO de uma frase inteira do cliente e o `horaNaFrase`, no
+// leitor: ali um numero solto e quantidade de brigadeiro, nao hora. Por
+// seguranca, mesmo se alguem apontar esta funcao pra uma frase, o numero solto
+// so vale quando ele e o UNICO numero da string.
+export function horaDaRetirada(bruto: unknown): string | null {
+  const t = String(bruto ?? "").trim().toLowerCase();
+  if (!t) return null;
+  const quantosNumeros = (t.match(/\d+/g) ?? []).length;
+
+  let hora: number | null = null;
+  let minuto = 0;
+
+  // "16:30", "16h30", "16.30", "as 16h30", e o "16:30:00" que o Postgres devolve
+  let m = t.match(/(\d{1,2})\s*[h:.]\s*(\d{1,2})(?!\d)/);
+  if (m) {
+    hora = Number(m[1]);
+    minuto = Number(m[2]);
+  }
+  // "16h", "as 16h"
+  if (hora === null) {
+    m = t.match(/(\d{1,2})\s*h(?![0-9])/);
+    if (m) hora = Number(m[1]);
+  }
+  // "1630", "830" -- HHMM colado, so quando e o unico numero da string
+  if (hora === null && quantosNumeros === 1) {
+    m = t.match(/(?:^|[^\d])(\d{3,4})(?!\d)/);
+    if (m) {
+      const n = m[1];
+      hora = Number(n.slice(0, n.length - 2));
+      minuto = Number(n.slice(-2));
+    }
+  }
+  // "16" -- numero solto, so quando e o unico da string
+  if (hora === null && quantosNumeros === 1) {
+    m = t.match(/(?:^|[^\d])(\d{1,2})(?!\d)/);
+    if (m) hora = Number(m[1]);
+  }
+
+  if (hora === null || !Number.isFinite(hora) || hora > 23 || minuto > 59) return null;
+  return String(hora).padStart(2, "0") + ":" + String(minuto).padStart(2, "0");
+}
+
 export type FormaPagamento = "pix" | "dinheiro" | "cartao" | "pago";
 
 // Historico do cliente REGISTRADO PELO SISTEMA (a partir do inicio do uso).

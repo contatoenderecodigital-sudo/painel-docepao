@@ -29,7 +29,17 @@ export type Mensagem = { role: "user" | "assistant"; content: string };
  * pedido e um dia elas divergiriam.
  */
 export type PedidoParaGravar = {
-  itens: { item: string; qtd: number; obs?: string }[];
+  // AQUI HAVIA UM `itens` TAMBEM, E NINGUEM LIA.
+  //
+  // O `fechar.ts` montava os dois com um comentario dizendo "os dois vao porque
+  // o banco guarda um e o cupom sai do outro". O `registrarPedido` -- unico
+  // consumidor deste tipo em todo o repositorio -- so le `linhas`. O `itens`
+  // era construido a cada pedido fechado e jogado fora.
+  //
+  // Campo que ninguem le e pior quando tem comentario garantindo que alguem le:
+  // no dia em que os dois divergissem, a explicacao ja estava escrita e errada.
+  //
+  // Achado na leitura da camada de banco, 28/08/2026.
   linhas: LinhaCotacao[];
   retiradaData: string;
   retiradaHora?: string;

@@ -11,8 +11,21 @@
 // O .json e uma lista de strings, na ordem em que o cliente fala:
 //   ["quero 100 coxinhas", "dia 05/09 as 15h, nome Ana, pix", "pode confirmar"]
 //
-// NAO E PORTAO: fala com producao e cria pedido de verdade na faixa de teste
-// (55119777700...), que nao e telefone de pessoa nenhuma.
+// NAO E PORTAO: fala com producao e cria pedido de verdade.
+//
+// O NUMERO E DA FAIXA DE TESTE, E AGORA O PAINEL SABE DISSO.
+//
+// A faixa 55119777700... ja era a declarada nos outros medidores, mas quem
+// escondia cliente de teste era so o CRM, e so conhecia o 55000000 da tela
+// "Testar IA". Resultado: cada medicao deixava na ficha da dona um cliente com
+// o nome que a conversa deu ('Marcos Alves', 'Ana'), e o pedido dela entrava no
+// faturamento da tela de Resultados, que nao filtrava nada.
+//
+// Agora a resposta mora num lugar so (`lib/banco/so-cliente-de-verdade.ts`), e
+// as duas faixas estao la. A limpeza daqui tambem passou a apagar a linha de
+// `clientes`, que ficava pra tras.
+//
+// Achado em 28/08/2026, lendo o `clientes.ts`.
 const fs = require("node:fs");
 const { execFile } = require("node:child_process");
 const CHAVE = require("node:os").homedir() + "/.ssh/id_ed25519_hub";
@@ -61,6 +74,9 @@ const FONE = process.env.FONE || "5511977770077";
       "delete from docepao." + t + " using docepao.clientes c where " + a + ".cliente_id=c.id and c.telefone='" + FONE + "'",
     ).catch(() => {});
   }
+  // E a propria linha de `clientes`, que ficava pra tras e aparecia no CRM da
+  // dona com o nome que a conversa deu.
+  await psql("delete from docepao.clientes where telefone='" + FONE + "'").catch(() => {});
 
   for (const f of FALAS) {
     console.log("  >> " + f.slice(0, 80));

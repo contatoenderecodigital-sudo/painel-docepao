@@ -10,7 +10,7 @@ export async function nomeNegocioAtual(padrao = "sua padaria"): Promise<string> 
   if (!bancoConfigurado) return padrao;
   const sessao = await lerSessao();
   if (!sessao) return padrao;
-  const { carregarMarcaCache } = await import("./banco/negocios");
-  const marca = await carregarMarcaCache(sessao.negocioId);
+  const { carregarMarca } = await import("./banco/negocios");
+  const marca = await carregarMarca(sessao.negocioId);
   return marca?.nome || padrao;
 }

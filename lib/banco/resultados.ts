@@ -32,6 +32,7 @@
 import { query, queryUm } from "./db";
 import type { Periodo, Resultados, Kpi, PontoSerie, ProdutoVenda, ClienteVenda } from "../resultados";
 import { unidadeDoItem } from "../tipos";
+import { pedidoDeClienteDeTeste, mensagemDeClienteDeTeste } from "./so-cliente-de-verdade";
 
 const TZ = "America/Sao_Paulo";
 const MIN_POR_RESPOSTA = 1.5;
@@ -92,7 +93,23 @@ export function janelaDe(periodo: Periodo, de?: string, ate?: string): Janela {
 
 // Data que conta como "quando vendeu": a aprovacao. Sem ela, o fechamento.
 const DATA_VENDA = "coalesce(p.aprovado_em, p.confirmado_em, p.criado_em) at time zone '" + TZ + "'";
-const VENDIDO = "p.status in ('aprovado', 'impresso')";
+
+// TESTE NAO E VENDA, E TESTE NAO E ATENDIMENTO.
+//
+// Esta tela nao filtrava cliente de teste em lugar nenhum. Toda conversa que
+// este projeto rodou contra a producao entrou aqui: o pedido virou faturamento,
+// e as mensagens viraram atendimento e resposta no numero que a dona abre pra
+// saber como foi o mes.
+//
+// O CRM ja escondia esse cliente, com a regra escrita dentro da propria query e
+// conhecendo so metade das faixas. Agora a resposta e uma so, em
+// so-cliente-de-verdade.ts, e as duas telas usam a mesma.
+//
+// Achado na leitura da camada de banco, 28/08/2026.
+const NAO_E_TESTE = "not " + pedidoDeClienteDeTeste("p");
+const MSG_NAO_E_TESTE = "not " + mensagemDeClienteDeTeste("m");
+
+const VENDIDO = "p.status in ('aprovado', 'impresso') and " + NAO_E_TESTE;
 const MSG_LOCAL = "m.criado_em at time zone '" + TZ + "'";
 
 // Pedido que ENTROU e espera a equipe. E exatamente o mesmo filtro de
@@ -101,13 +118,13 @@ const MSG_LOCAL = "m.criado_em at time zone '" + TZ + "'";
 // com o contador da fila na barra lateral e ninguem sabe em qual acreditar.
 const NA_FILA =
   "p.status = 'confirmado' and coalesce(p.precisa_confirmacao, false) = false" +
-  " and coalesce(p.aguardando_cliente, false) = false";
+  " and coalesce(p.aguardando_cliente, false) = false and " + NAO_E_TESTE;
 // Pedido que entrou mas parou antes da fila: esperando a equipe lançar o
 // valor do topo de bolo, ou esperando o cliente aceitar o total novo. Ele
 // sumia de toda conta desta tela, e com ele o dinheiro dele.
 const ESPERANDO_VALOR =
   "p.status = 'confirmado' and (coalesce(p.precisa_confirmacao, false)" +
-  " or coalesce(p.aguardando_cliente, false))";
+  " or coalesce(p.aguardando_cliente, false)) and " + NAO_E_TESTE;
 // Ainda nao existe aprovado_em nesses: a data que vale e quando o cliente fechou.
 const DATA_ENTRADA = "coalesce(p.confirmado_em, p.criado_em) at time zone '" + TZ + "'";
 
@@ -138,14 +155,14 @@ async function kpisDoIntervalo(negocioId: string, ini: string, fim: string): Pro
           where p.negocio_id = $1 and ${VENDIDO}
             and ${DATA_VENDA} >= $2 and ${DATA_VENDA} < $3) as pedidos,
        (select count(distinct m.cliente_id) from mensagens m
-          where m.negocio_id = $1 and m.papel = 'user'
+          where m.negocio_id = $1 and m.papel = 'user' and ${MSG_NAO_E_TESTE}
             and ${MSG_LOCAL} >= $2 and ${MSG_LOCAL} < $3) as atendimentos,
        (select count(distinct m.cliente_id) from mensagens m
-          where m.negocio_id = $1 and m.papel = 'user'
+          where m.negocio_id = $1 and m.papel = 'user' and ${MSG_NAO_E_TESTE}
             and ${MSG_LOCAL} >= $2 and ${MSG_LOCAL} < $3
             and (extract(hour from ${MSG_LOCAL}) < 8 or extract(hour from ${MSG_LOCAL}) >= 18)) as fora,
        (select count(*) from mensagens m
-          where m.negocio_id = $1 and m.papel = 'assistant'
+          where m.negocio_id = $1 and m.papel = 'assistant' and ${MSG_NAO_E_TESTE}
             and ${MSG_LOCAL} >= $2 and ${MSG_LOCAL} < $3) as respostas,
        (select coalesce(sum(p.total_centavos), 0) from pedidos p
           where p.negocio_id = $1 and ${NA_FILA}
@@ -286,7 +303,7 @@ export async function agregar(
 
   // O que mais vendeu, por produto.
   const prods = await query<{ produto: string; qtd: string; centavos: string; unidade: string }>(
-    `select i.produto, sum(i.qtd) as qtd, sum(i.subtotal_centavos) as centavos, min(coalesce(i.unidade, 'un')) as unidade
+    `select i.produto, sum(i.qtd) as qtd, sum(i.subtotal_centavos) as centavos, min(i.unidade) as unidade
        from pedido_itens i join pedidos p on p.id = i.pedido_id
       where p.negocio_id = $1 and ${VENDIDO} and ${DATA_VENDA} >= $2 and ${DATA_VENDA} < $3
       group by 1 order by 3 desc limit 8`,
@@ -303,7 +320,8 @@ export async function agregar(
   const horasMsg = await query<{ h: string; qtd: string }>(
     `select extract(hour from ${MSG_LOCAL})::int as h, count(*) as qtd
        from mensagens m
-      where m.negocio_id = $1 and m.papel = 'user' and ${MSG_LOCAL} >= $2 and ${MSG_LOCAL} < $3
+      where m.negocio_id = $1 and m.papel = 'user' and ${MSG_NAO_E_TESTE}
+        and ${MSG_LOCAL} >= $2 and ${MSG_LOCAL} < $3
       group by 1 order by 1`,
     [negocioId, j.ini, j.fim],
   );

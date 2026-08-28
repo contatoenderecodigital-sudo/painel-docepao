@@ -14,12 +14,16 @@
 import { query, queryUm } from "./db";
 // A lista de sabores do cardapio separa pizza doce de salgada, e e ela que
 // decide se duas pizzas anotadas sao a mesma ou duas.
+//
+// Isto lia o `catalogo.json` CRU, e era o ultimo leitor cru no caminho da
+// conversa. Nao por preguica: a lista que o `produtos.ts` expunha juntava os
+// dois tipos e perdia justamente a separacao. Faltava a porta, e agora ela
+// existe (`saboresDaPizzaPorTipo`).
 // Caminho relativo de proposito: os testes compilam este arquivo sozinho, e o
 // atalho "@/" so existe dentro do build do Next.
-import catalogo from "../ia/dados/catalogo.json";
 import { coresDaForminha } from "../ia/fluxo/sabor";
 import { ehNomeDeFamilia } from "../ia/fluxo/generico";
-import { produtosDaCasa } from "../ia/dados/produtos";
+import { produtosDaCasa, saboresDaPizzaPorTipo } from "../ia/dados/produtos";
 import { semAcento } from "../ia/texto";
 
 export type CategoriaItem =
@@ -296,14 +300,14 @@ export async function anotarItem(
   const doceOuSalgada = (obs: string | null | undefined): "doce" | "salgada" | null => {
     const t = marca(obs);
     if (!t) return null;
-    const p = catalogo.pizza as { sabores_salgados?: string[]; sabores_doces?: string[] };
+    const p = saboresDaPizzaPorTipo();
     const maior = (lista: string[] = []) =>
       lista.reduce((m, s) => {
         const x = marca(s);
         return t.includes(x) && x.length > m ? x.length : m;
       }, 0);
-    const doce = maior(p?.sabores_doces);
-    const salgada = maior(p?.sabores_salgados);
+    const doce = maior(p.doces);
+    const salgada = maior(p.salgados);
     if (!doce && !salgada) return null;
     return doce > salgada ? "doce" : "salgada";
   };

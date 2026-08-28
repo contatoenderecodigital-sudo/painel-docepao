@@ -113,22 +113,35 @@ const tudo = ondeProcurar.map((f) => {
 
 // O QUE JA ESTA ACHADO E AINDA NAO FOI DECIDIDO.
 //
-// Estes quatro sao orfaos de verdade: conferidos um por um no repositorio
-// inteiro em 28/08/2026, nenhum tem uma segunda aparicao. Mas os tres arquivos
-// onde eles moram (`fatos.ts`, `conversas.ts`, `parados.ts`) sao da camada de
-// banco e AINDA NAO FORAM LIDOS linha por linha.
-//
-// Apagar codigo de arquivo que eu nao li e o oposto do que esta leitura e. Entao
-// eles ficam anotados aqui, onde nao somem de vista, ate a vez daqueles arquivos
-// chegar.
+// Orfaos de verdade: conferidos um por um no repositorio inteiro, nenhum tem
+// uma segunda aparicao. Ficam anotados aqui, onde nao somem de vista, com o
+// motivo de ainda estarem de pe.
 //
 // ESTA LISTA SO PODE ENCOLHER. O teste reprova quando aparece orfao NOVO fora
 // dela, e tambem quando um daqui deixa de ser orfao sem ser tirado da lista: nos
 // dois casos alguem mexeu e a anotacao ficou pra tras.
+//
+// O `anexarFotoAoPedido` saiu daqui em 28/08/2026, apagado: era uma segunda
+// porta pra mesma tabela, e quem faz o trabalho e o `salvarFotoPendente` mais o
+// `grudarFotosNoPedido`.
 const PENDENTES = [
-  "RECADO_DA_EQUIPE",     // lib/ia/fatos.ts
-  "dispensarOrcamento",   // lib/banco/parados.ts
-  "reativarOrcamento",    // lib/banco/parados.ts
+  // lib/ia/fatos.ts. O arquivo ainda nao foi lido linha por linha; apagar
+  // codigo de arquivo que eu nao li e o oposto do que esta leitura e.
+  "RECADO_DA_EQUIPE",
+
+  // lib/banco/parados.ts, os dois. NAO sao codigo morto por engano: sao a
+  // metade escrita de uma funcionalidade que nao tem botao.
+  //
+  // O `carregarDispensados` roda em TODA carga da tela de Recuperar e filtra a
+  // lista por uma relacao que nada no sistema consegue escrever: nao existe
+  // nenhuma tela, rota ou acao que chame estas duas. A dona nao tem como
+  // dispensar um orcamento.
+  //
+  // Apagar seria apagar codigo certo e deixar o `carregarDispensados` lendo
+  // uma lista que nunca enche. A decisao e do dono: por o botao na tela de
+  // Recuperar, ou tirar os tres juntos. Anotado no ONDE-PAREI.
+  "dispensarOrcamento",
+  "reativarOrcamento",
 ];
 const orfaosAchados = [];
 

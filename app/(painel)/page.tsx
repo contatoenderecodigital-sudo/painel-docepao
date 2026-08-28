@@ -14,8 +14,8 @@ export default async function Home() {
   // Aprovação de pedido é de padaria. Agência (só WhatsApp/CRM) não tem essa
   // tela: cai direto no CRM de atendimentos.
   if (sessao) {
-    const { carregarMarcaCache } = await import("@/lib/banco/negocios");
-    const marca = await carregarMarcaCache(sessao.negocioId);
+    const { carregarMarca } = await import("@/lib/banco/negocios");
+    const marca = await carregarMarca(sessao.negocioId);
     if (marca?.tipo === "agencia") redirect("/atendimentos");
   }
   const fila = await carregarFilaAprovacao(sessao?.negocioId);

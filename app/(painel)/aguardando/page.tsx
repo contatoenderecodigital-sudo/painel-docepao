@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 export default async function Aguardando() {
   const sessao = await lerSessao();
   if (sessao) {
-    const { carregarMarcaCache } = await import("@/lib/banco/negocios");
-    const marca = await carregarMarcaCache(sessao.negocioId);
+    const { carregarMarca } = await import("@/lib/banco/negocios");
+    const marca = await carregarMarca(sessao.negocioId);
     if (marca?.tipo === "agencia") redirect("/atendimentos");
   }
   const pedidos = await carregarAguardandoConfirmacao(sessao?.negocioId);

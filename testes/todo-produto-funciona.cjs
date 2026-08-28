@@ -32,7 +32,7 @@ execFileSync(
   { stdio: "pipe", shell: true },
 );
 const { cotarPorItens } = require(join(pasta, "ia", "orcamento.js"));
-const { deptoDe, unidadeDoItem, DEPARTAMENTOS } = require(join(pasta, "departamentos.js"));
+const { deptoDe, unidadeDoTicket, DEPARTAMENTOS } = require(join(pasta, "departamentos.js"));
 const { montarCupons } = require(join(pasta, "cupom-escpos.js"));
 const catalogo = require("../lib/ia/dados/catalogo.json");
 
@@ -111,7 +111,7 @@ for (const p of tudo) {
     (p.unidade === "kg" ? "por_quilo" : "por_unidade");
   // Unidade vazia de proposito: e o caso do pedido corrigido na mao, que ja
   // fez 3 kg de bolo virarem tres bolos na bancada.
-  const u = unidadeDoItem({ produto: p.nome, categoria: cat, qtd: p.qtd, unidade: null });
+  const u = unidadeDoTicket({ produto: p.nome, categoria: cat, qtd: p.qtd, unidade: null });
   if (u !== p.unidade) papelErrado.push(`${p.nome}: deveria sair em ${p.unidade} e sai em ${u}`);
 }
 conferir(papelErrado.length === 0, "unidade errada no papel: " + papelErrado.join(" | "));

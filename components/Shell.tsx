@@ -62,8 +62,8 @@ export default async function Shell({
   let tipoNegocio = "padaria";
   let logoUrl: string | null = null;
   if (sessao) {
-    const { carregarMarcaCache } = await import("@/lib/banco/negocios");
-    const marca = await carregarMarcaCache(sessao.negocioId);
+    const { carregarMarca } = await import("@/lib/banco/negocios");
+    const marca = await carregarMarca(sessao.negocioId);
     if (marca?.nome) nomeNegocio = marca.nome;
     corPrimaria = marca?.corPrimaria ?? null;
     corDestaque = marca?.corDestaque ?? null;

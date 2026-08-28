@@ -5,6 +5,7 @@
 // ============================================================================
 
 import { query, queryUm } from "./db";
+import { horaDaRetirada } from "../tipos";
 import { unidadeDoPedido as unidadeDoProduto } from "@/lib/ia/dados/produtos";
 import { montarCupons } from "@/lib/cupom-escpos";
 
@@ -105,7 +106,7 @@ export async function jobsPendentes(negocioId: string): Promise<JobImpressao[]> 
       clienteNome: l.cliente_nome || "-",
       clienteTelefone: l.cliente_telefone || "",
       retiradaData: l.retirada_data,
-      retiradaHora: l.retirada_hora ? l.retirada_hora.slice(0, 5) : null,
+      retiradaHora: horaDaRetirada(l.retirada_hora),
       pessoas: l.pessoas,
       totalCentavos: l.total_centavos,
       formaPagamento: l.forma_pagamento ?? null,
@@ -120,7 +121,7 @@ export async function jobsPendentes(negocioId: string): Promise<JobImpressao[]> 
         //
         // `||` e nao `??`: o `??` so pega null e undefined, e o caso que o
         // comentario acima nomeia e a string VAZIA, que a tela da dona pode
-        // gravar. Hoje nao da prejuizo porque `unidadeDoItem`, no cupom, tem a
+        // gravar. Hoje nao da prejuizo porque `unidadeDoTicket`, no cupom, tem a
         // propria cadeia de fallback e acerta pela categoria. Mas a defesa que
         // esta escrita aqui tem que ser a defesa que roda aqui.
         unidade: i.unidade || unidadeDoProduto(String(i.produto ?? ""), String(i.categoria ?? "")),

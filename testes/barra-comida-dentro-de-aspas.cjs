@@ -40,10 +40,17 @@ const varrer = (dir) => {
       if (!/node_modules|\.next|\.git|\.tmpv/.test(e.name)) varrer(p);
       continue;
     }
-    if (/\.tsx?$/.test(e.name)) arquivos.push(p);
+    // .cjs TAMBEM, E POR MOTIVO MEDIDO.
+    //
+    // Isto varria so `lib` e `app`, so `.ts`/`.tsx`. Mas o lugar onde eu monto
+    // regex a partir de string com mais frequencia e AQUI DENTRO: as sondas dos
+    // testes sao arquivos escritos como texto. Em 28/08/2026 o tropeco
+    // aconteceu duas vezes num teste novo, e este detector nao enxergava nada,
+    // porque ele nao lia a pasta em que estava.
+    if (/\.(tsx?|cjs|mjs)$/.test(e.name)) arquivos.push(p);
   }
 };
-for (const d of ["lib", "app"]) varrer(path.join(RAIZ, d));
+for (const d of ["lib", "app", "components", "testes"]) varrer(path.join(RAIZ, d));
 
 // As letras que so significam alguma coisa em REGEX, e que dentro de aspas
 // viram outra coisa (ou nada). \n, \t e \\ sao escapes de STRING de verdade e
@@ -56,7 +63,22 @@ for (const arq of arquivos) {
   linhas.forEach((linha, i) => {
     // Comentario nao vira codigo: e la que a gente EXPLICA o defeito.
     if (/^\s*(\/\/|\*|\/\*)/.test(linha)) return;
-    const semComentario = linha.replace(/\/\/.*$/, "");
+    // O RETORNO DE CARRO DO WINDOWS COME O FIM DA LINHA, E O COMENTARIO VIRA
+    // CODIGO.
+    //
+    // Sem a flag `m`, o cifrao da expressao quer dizer FIM DA STRING. Toda
+    // linha deste repositorio termina com retorno de carro mais quebra de
+    // linha, e o ponto do JavaScript nao casa com retorno de carro: o `.*`
+    // para antes dele, o cifrao nao vale ali, e o `replace` nao troca nada.
+    // O comentario segue inteiro e o detector le comentario como codigo.
+    //
+    // Nao da erro nenhum, so passa. E da familia do "shell come a barra
+    // invertida", que ja custou horas duas vezes: caracter invisivel que
+    // desliga a regra em silencio.
+    //
+    // Medido em 28/08/2026, escrevendo o teste da data: um comentario que
+    // EXPLICAVA o defeito foi acusado de ser o defeito.
+    const semComentario = linha.replace(/\r/g, "").replace(/\/\/.*$/, "");
     // So interessa linha que monta expressao regular a partir de texto.
     if (!/new RegExp\(/.test(semComentario)) return;
 

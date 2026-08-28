@@ -4,7 +4,7 @@ import LogoUpload from "@/components/LogoUpload";
 import AjudaInfo from "@/components/AjudaInfo";
 import { lerSessao } from "@/lib/auth";
 import { bancoConfigurado } from "@/lib/banco/db";
-import { carregarAvisoDoDia, carregarIaAtiva, carregarMarcaCache } from "@/lib/banco/negocios";
+import { carregarAvisoDoDia, carregarIaAtiva, carregarMarca } from "@/lib/banco/negocios";
 import { ehHojeBR } from "@/lib/aviso";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ export default async function Page() {
     const [a, ia, marca] = await Promise.all([
       carregarAvisoDoDia(sessao.negocioId),
       carregarIaAtiva(sessao.negocioId),
-      carregarMarcaCache(sessao.negocioId),
+      carregarMarca(sessao.negocioId),
     ]);
     texto = a.texto;
     atualizadoEm = a.atualizadoEm;

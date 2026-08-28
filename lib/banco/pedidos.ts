@@ -7,7 +7,7 @@
 
 import { query, queryUm, transacao } from "./db";
 import type { Pedido, PedidoStatus, ItemPedido } from "../tipos";
-import { unidadeDoItem } from "../tipos";
+import { unidadeDoItem, horaDaRetirada } from "../tipos";
 
 type LinhaFila = {
   id: string;
@@ -44,7 +44,7 @@ function mapear(l: LinhaFila): Pedido {
     clienteTelefone: l.cliente_telefone || "",
     status: l.status,
     retiradaData: l.retirada_data,
-    retiradaHora: l.retirada_hora ? l.retirada_hora.slice(0, 5) : null,
+    retiradaHora: horaDaRetirada(l.retirada_hora),
     pessoas: l.pessoas,
     totalCentavos: l.total_centavos,
     observacoes: l.observacoes,
@@ -406,7 +406,7 @@ export async function pedidoEmAberto(
   );
   if (!l) return null;
   const itens = await query<{ produto: string; qtd: string; unidade: string; obs: string | null }>(
-    `select produto, qtd, coalesce(unidade, 'un') as unidade, obs
+    `select produto, qtd, unidade, obs
        from pedido_itens where pedido_id = $1 order by id`,
     [l.id],
   );
@@ -415,7 +415,9 @@ export async function pedidoEmAberto(
     status: l.status,
     aguardandoCliente: Boolean(l.aguardando_cliente),
     retiradaData: l.retirada_data,
-    retiradaHora: l.retirada_hora,
+    // Crua do banco isto e "16:30:00", e este objeto vai pro CEREBRO: a
+    // padaria chegava a repetir a hora com os segundos pro cliente.
+    retiradaHora: horaDaRetirada(l.retirada_hora),
     totalCentavos: Number(l.total_centavos) || 0,
     motivoHumano: l.motivo_humano,
     impresso: Boolean(l.impresso_em),
@@ -424,7 +426,7 @@ export async function pedidoEmAberto(
     itens: itens.map((i) => ({
       produto: i.produto,
       qtd: Number(i.qtd) || 0,
-      unidade: i.unidade,
+      unidade: unidadeDoItem(i.unidade),
       obs: i.obs,
     })),
   };
@@ -468,7 +470,24 @@ export async function pedidoRegistradoDoCliente(
         and p.status in ('confirmado', 'aprovado', 'impresso')
         -- O dia que vale e o da padaria: com current_date (UTC), pedido pra
         -- hoje sumia depois das 21h de Brasilia.
-        and (p.retirada_data is null or p.retirada_data >= (now() at time zone 'America/Sao_Paulo')::date)
+        --
+        -- E PEDIDO NAO IMPRESSO NAO SOME, MESMO COM A DATA PASSADA.
+        --
+        -- Esta guarda existia no pedidoEmAberto logo acima, com o caso
+        -- escrito ("o do Paulo sumiu no dia seguinte sem nunca ter sido
+        -- impresso, com o cliente pedindo pra mudar o pedido") e NAO existia
+        -- aqui. As duas funcoes respondem a mesma pergunta, qual pedido deste
+        -- cliente ainda esta em curso, e esta e a que alimenta a lateral onde
+        -- a equipe EDITA o pedido. O trabalho pendente sumia justamente da
+        -- tela onde alguem consertaria.
+        --
+        -- Achado na leitura da camada de banco, 28/08/2026: um conserto que foi
+        -- feito num lugar so, num par de funcoes gemeas.
+        and (
+          p.impresso_em is null
+          or p.retirada_data is null
+          or p.retirada_data >= (now() at time zone 'America/Sao_Paulo')::date
+        )
       order by p.criado_em desc
       limit 1`,
     [negocioId, clienteId],
@@ -481,7 +500,7 @@ export async function pedidoRegistradoDoCliente(
     unidade: string;
     obs: string | null;
   }>(
-    `select produto, coalesce(categoria, '') as categoria, qtd, coalesce(unidade, 'un') as unidade, obs
+    `select produto, coalesce(categoria, '') as categoria, qtd, unidade, obs
        from pedido_itens where pedido_id = $1 order by id`,
     [p.id],
   );
@@ -493,12 +512,12 @@ export async function pedidoRegistradoDoCliente(
     observacoes: p.observacoes,
     totalCentavos: Number(p.total_centavos) || 0,
     retiradaData: p.retirada_data,
-    retiradaHora: p.retirada_hora,
+    retiradaHora: horaDaRetirada(p.retirada_hora),
     itens: itens.map((i) => ({
       produto: i.produto,
       categoria: i.categoria,
       qtd: Number(i.qtd) || 0,
-      unidade: i.unidade,
+      unidade: unidadeDoItem(i.unidade),
       obs: i.obs,
     })),
   };
@@ -517,7 +536,7 @@ export async function salvarItensDoPedido(
     produto: string;
     categoria: string;
     qtd: number;
-    unidade: string;
+    unidade: "un" | "kg";
     obs: string | null;
     unitCentavos: number;
     subtotalCentavos: number;
@@ -567,7 +586,18 @@ export async function recuperadoNoMes(
       where negocio_id = $1
         and status in ('aprovado', 'impresso')
         and coalesce(cobrancas, 0) > 0
-        and coalesce(aprovado_em, confirmado_em, criado_em)
+        -- OS DOIS LADOS DA COMPARACAO NO MESMO FUSO.
+        --
+        -- Estava com a COLUNA crua (timestamptz) de um lado e o inicio do mes
+        -- ja convertido pra Sao Paulo do outro. Comparar timestamptz com
+        -- timestamp faz o Postgres converter o segundo usando o fuso da SESSAO:
+        -- num container em UTC, o mes comecava tres horas antes, e as vendas da
+        -- ultima madrugada do mes anterior entravam neste numero.
+        --
+        -- O resultados.ts ja faz do jeito certo (converte a COLUNA, nao o
+        -- corte) e esta linha ficou pra tras. Agora as duas fazem igual, e o
+        -- resultado deixa de depender de como o banco foi subido.
+        and (coalesce(aprovado_em, confirmado_em, criado_em) at time zone 'America/Sao_Paulo')
             >= date_trunc('month', now() at time zone 'America/Sao_Paulo')`,
     [negocioId],
   );

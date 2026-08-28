@@ -34,7 +34,7 @@
 //  da memória).
 // ============================================================================
 
-import { deptoDe, deptosDoPedido, nomeDaComanda, qtdDoTicket, unidadeDoItem, type DeptoId } from "./departamentos";
+import { deptoDe, deptosDoPedido, nomeDaComanda, qtdDoTicket, unidadeDoTicket, type DeptoId } from "./departamentos";
 import { tiraAcento } from "./ia/texto";
 
 export type ItemCupom = {
@@ -178,7 +178,7 @@ function resumoPorFaixa(itens: ItemCupom[]): { texto: string; total: number; tem
   const grupos = new Map<string, { unidade: string; unit: number; qtd: number; sub: number }>();
   let temKg = false;
   for (const i of itens) {
-    const u = unidadeDoItem(i);
+    const u = unidadeDoTicket(i);
     if (u === "kg") temKg = true;
     const unit = i.unitCentavos || 0;
     const chave = u + ":" + unit;

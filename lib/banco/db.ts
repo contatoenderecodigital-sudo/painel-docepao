@@ -1,13 +1,30 @@
 // ============================================================================
-//  CONEXÃO COM O POSTGRES (Supabase gerenciado) — driver pg, pool reaproveitado.
+//  CONEXÃO COM O POSTGRES — driver pg, pool reaproveitado.
 //
 //  O app conecta como UM usuário do banco. O isolamento entre clientes
 //  (multi-tenant) é feito no código: TODA query filtra por negocio_id.
 //
-//  ⚠️ NO VERCEL (serverless) use a string do CONNECTION POOLER do Supabase
-//  (porta 6543, modo "Transaction"), NÃO a conexão direta (5432). O pooler
-//  aguenta as muitas conexões curtas do serverless; a direta estoura.
-//  Ex: DATABASE_URL=postgres://postgres.xxxx:senha@aws-0-...pooler.supabase.com:6543/postgres
+//  ONDE ESTE BANCO MORA HOJE
+//
+//  Postgres num container na VPS, junto com o resto (Coolify). Não é mais
+//  serverless e não é mais Supabase: este cabeçalho descrevia o Vercel mais o
+//  pooler do Supabase, e nada disso é verdade desde a virada pro Postgres
+//  próprio. Comentário que descreve outra arquitetura é pior que comentário
+//  nenhum, porque quem lê acredita.
+//
+//  O que sobrou de verdade daquela época e continua valendo:
+//    - se um dia isto voltar pra serverless, use a porta do POOLER, não a
+//      conexão direta: cada instância abre o próprio pool e a direta estoura;
+//    - PGSSL=0 desliga o SSL, que é o caso de Postgres sem certificado.
+//
+//  O SCHEMA VEM NA STRING DE CONEXÃO, E ISSO IMPORTA AO ESCREVER QUERY.
+//
+//  A conexão traz search_path=docepao, então todo nome de tabela sem prefixo
+//  resolve NESSE schema. O que mora em `public` (a `uso_ia`, por exemplo) tem
+//  que ser escrito qualificado, senão a query procura no lugar errado e falha
+//  em produção sem falhar em lugar nenhum antes. Já pegou duas vezes, e está
+//  anotado no `uso.ts` e no `atendimentos.ts`, fica aqui também, que é onde
+//  quem vai escrever a próxima query olha primeiro.
 // ============================================================================
 
 import { Pool, types, type QueryResultRow } from "pg";
@@ -35,7 +52,8 @@ function criarPool(): Pool {
   const cfg = process.env.DATABASE_URL
     ? { connectionString: process.env.DATABASE_URL }
     : {}; // pega PGHOST/PGPORT/... do ambiente automaticamente
-  // Supabase exige SSL. PGSSL=0 desliga (só pra Postgres local sem SSL).
+  // Banco gerenciado costuma exigir SSL. PGSSL=0 desliga, que é o caso do
+  // Postgres do container e do Postgres local.
   const ssl = process.env.PGSSL === "0" ? undefined : { rejectUnauthorized: false };
   // Quantas conexões este container pode abrir.
   //
@@ -55,7 +73,7 @@ function criarPool(): Pool {
     connectionTimeoutMillis: 5_000, // não fica pendurado esperando conexão do pool
     allowExitOnIdle: true,
   } as never);
-  // Conexão OCIOSA que cai (o pooler do Supabase recicla, restart, etc.) emite
+  // Conexão OCIOSA que cai (restart do banco, reciclagem de pooler) emite
   // 'error' no pool. Sem este listener, o pg joga a exceção como não tratada e
   // pode DERRUBAR a instância inteira (mata todas as requisições em voo).
   p.on("error", (e) => console.error("[pg] erro em conexão ociosa do pool:", e.message));

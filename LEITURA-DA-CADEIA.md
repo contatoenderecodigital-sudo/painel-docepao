@@ -1683,3 +1683,365 @@ false`.
 Anotado com o caminho completo. Não é um `??` trocado: é desenho de estado, e
 mexer nele sem medir é como os seis defeitos que meus próprios consertos criaram
 nesta sessão.
+
+
+## 30. A hora da retirada — a mesma pergunta respondida de CINCO jeitos
+
+A hora nasce na conversa ("as 16h30"), vira `time` no Postgres (`16:30:00`), e
+reaparece no cupom da cozinha, no painel, no aviso do WhatsApp e na tela do dia.
+Cada ponto tinha o seu jeito:
+
+| arquivo | como arrumava |
+| --- | --- |
+| `conversas.ts` | `horaPadrao` — ancorado no começo, valida 0-23 |
+| `parados.ts` | `horaLimpa` — ancorado no começo, **não valida a hora** |
+| `acoes.ts` | regex solta + `slice(0, 5)` |
+| `pedidos.ts` | `slice(0, 5)` |
+| `fila.ts` | `slice(0, 5)` |
+
+E, do outro lado, o `horaNaFrase` no leitor — que é outro trabalho de verdade
+(dentro de uma frase, número solto é quantidade de brigadeiro, não hora).
+
+### Três defeitos, medidos rodando o código de ontem
+
+```
+campo  "as 16h30"              ->  null      pedido gravado SEM HORA
+campo  "1630"                  ->  "16:00"   trinta minutos jogados fora, calado
+frase  "quero as 9 da manha"   ->  null      a padaria pergunta de novo
+frase  "as 8h da noite"        ->  "08:00"   doze horas antes
+frase  "as 3h da tarde"        ->  "03:00"   três da manhã
+frase  "as 12h da noite"       ->  "12:00"   meio-dia em vez de meia-noite
+parados "99h"                  ->  "99:00"   hora que não existe, na tela
+```
+
+O `horaPadrao` estava ancorado (`/^(\d{1,2})/`) e o comentário dele prometia
+entender "as 16h30". A string começa com "a", a regex exige dígito: null.
+
+E o período do dia não entrava na conta em lugar nenhum do sistema. Numa padaria
+que produz por hora marcada, "as 3h da tarde" virando 03:00 é o bolo pronto doze
+horas antes de alguém buscar.
+
+Agora são duas funções, cada uma com um trabalho: `horaDaRetirada`
+(`lib/tipos.ts`) arruma o CAMPO, `horaNaFrase` (leitor) lê a FRASE. O teste
+`a-hora-da-retirada-e-uma-decisao-so.cjs` mede 32 horas e varre os 135 arquivos
+atrás de um terceiro dono.
+
+## 31. `parseDataRetirada` — o segundo interpretador de data, mais fraco que o primeiro
+
+Rodando o código de ontem, em 28/08/2026:
+
+```
+parseDataRetirada("05/01")  ->  "2026-01-05"
+```
+
+Oito meses no passado. Ele carimbava `new Date().getFullYear()` e pronto. Pedido
+feito em dezembro pra 05 de janeiro nascia com a data do janeiro que já passou —
+e dezembro é justamente quando se encomenda bolo pro ano novo numa padaria.
+
+O `dataDeRetirada`, no `falas-do-cliente.ts`, já resolve isso desde 23/08/2026,
+quando o dono testou "dia 05 de setembro" e o pedido foi anotado pra 2024. Ele
+também entende "sexta", "sábado que vem", e o 31 de fevereiro que o JavaScript
+vira 3 de março.
+
+Ter um segundo parser na hora de gravar era desfazer aquele conserto na última
+linha do caminho. Agora `parseDataRetirada` só traduz o formato.
+
+## 32. O `` do Windows desligava CINCO detectores, em silêncio
+
+Escrevendo o teste da data, o detector acusou um comentário que EXPLICAVA o
+defeito de ser o defeito. A causa:
+
+```js
+linha.replace(/\/\/.*$/, "")   // nao tira nada
+```
+
+Sem a flag `m`, o `$` quer dizer fim da string. Toda linha deste repositório
+termina em `
+`, e o `.` do JavaScript não casa com ``: o `.*` para antes
+dele, o `$` não vale ali, e o `replace` não troca nada. **O comentário segue
+inteiro e o detector lê comentário como código.**
+
+Estava assim em cinco lugares, incluindo o `barra-comida-dentro-de-aspas` — o
+detector que já pegou o "shell come a barra invertida" cinco vezes nesta sessão.
+É a mesma família: caractere invisível que desliga a regra sem dar erro.
+
+Vale a nota de método: eu tinha "consertado" o quarto buraco do detector de
+código fantasma mais cedo nesta sessão, e conferido só que o teste continuava
+passando. Passar não prova que o conserto pegou.
+
+## Anotado, não consertado: cinco SELECTs quase iguais em `pedidos.ts`
+
+`listarFilaAprovacao`, `listarAguardandoConfirmacao`, `listarParados`,
+`listarDoDia` e `buscarPedido` repetem a mesma lista de 15 colunas, diferindo só
+no WHERE e no ORDER BY. Conferi coluna por coluna: **hoje são idênticos**, então
+não é defeito ainda. Mas quem acrescentar um campo tem cinco lugares pra lembrar,
+e divergência entre o banco e a tela já aconteceu neste sistema. Cabe um detector
+que cobre a igualdade das cinco listas.
+
+
+## 33. `pedidos.ts` — o conserto que ficou num lado só do par
+
+`pedidoEmAberto` e `pedidoRegistradoDoCliente` respondem a mesma pergunta: qual
+pedido deste cliente ainda está em curso. A primeira tem esta guarda, com o caso
+escrito no comentário:
+
+```sql
+p.impresso_em is null
+or p.retirada_data is null
+or p.retirada_data >= hoje_em_sao_paulo
+```
+
+> "Pedido nao impresso NAO some da tela, mesmo com a data passada: e trabalho
+> pendente. O do Paulo sumiu no dia seguinte sem nunca ter sido impresso, com o
+> cliente pedindo pra mudar o pedido."
+
+A segunda tinha só as duas últimas linhas. E a segunda é a que alimenta a
+lateral onde a **equipe edita** o pedido: o trabalho pendente sumia justamente
+da tela onde alguém consertaria.
+
+É a nona pergunta da lista funcionando: *eu consertei um lado dessa regra em
+outro arquivo?*
+
+## 34. O mês do card de recuperação começava três horas antes
+
+```sql
+and coalesce(aprovado_em, confirmado_em, criado_em)
+    >= date_trunc('month', now() at time zone 'America/Sao_Paulo')
+```
+
+Coluna crua (`timestamptz`) de um lado, início do mês já convertido pra São
+Paulo do outro. Comparar `timestamptz` com `timestamp` faz o Postgres converter
+o segundo usando o fuso da **sessão**: num container em UTC, o mês começa três
+horas antes, e as vendas da última madrugada do mês anterior entram no número.
+
+O `resultados.ts` já faz do jeito certo (converte a coluna, não o corte). Esta
+linha ficou pra trás. Agora as duas fazem igual, e o resultado deixa de depender
+de como o banco foi subido.
+
+Não consegui confirmar rodando contra a produção (o acesso ao psql foi negado
+nesta sessão), então o conserto foi feito na forma que está certa nos dois
+cenários, em vez de na forma que depende do fuso da sessão.
+
+## 35. Duas funções diferentes com o mesmo nome, as duas sobre unidade
+
+`unidadeDoItem` existia em `lib/tipos.ts` (a que eu criei hoje: responde sobre o
+VALOR) e em `lib/departamentos.ts` (responde sobre a LINHA do ticket, com
+escadas de socorro pro cardápio, pra categoria e pro próprio número).
+
+Trabalhos diferentes, mesmo nome, mesmo assunto: convite pra alguém importar a
+errada. A do ticket virou `unidadeDoTicket`, que combina com a `qtdDoTicket` ao
+lado dela. E a primeira linha dela, que era `item.unidade === "kg"`, passou a
+tolerar `"KG"` e `"kg "` — antes esses caíam na escada de baixo como se nada
+estivesse gravado. Vazio continua caindo de propósito: ali o cardápio sabe mais
+que o campo.
+
+## Duas armadilhas de escrita que me pegaram hoje
+
+**Crase dentro de template literal de SQL.** Escrevi `` `resultados.ts` `` num
+comentário `--` dentro de uma query e a crase FECHOU o template. Aconteceu duas
+vezes em dez minutos. O `tsc` pegou nas duas, mas só porque o resto virou lixo
+sintático: uma crase em posição diferente mudaria a query calada.
+
+**Abrir o arquivo pra escrita antes de terminar o texto.** Um script meu fazia
+`open(p, "w").write(f(s))` — o Python abre (e TRUNCA) antes de avaliar `f(s)`.
+`f(s)` deu erro no meio e o `departamentos.ts` ficou com zero byte. Recuperado
+do git na hora. Monta tudo primeiro, abre depois.
+
+
+## 36. A tela de Resultados contava os meus testes como venda da padaria
+
+Este é o pior achado da leitura da camada de banco, e a causa é o próprio jeito
+como a gente trabalha: medir contra a produção é regra desta casa. O preço disso
+é o painel saber separar o instrumento do cliente, e ele não sabia.
+
+O `clientes.ts` escondia cliente de teste do CRM com três condições escritas
+dentro da própria query:
+
+```sql
+and c.telefone not like '55000000%'
+and coalesce(c.nome, '') not ilike 'cliente de teste%'
+and coalesce(c.nome, '') not ilike 'qa %'
+```
+
+O `resultados.ts` (faturado, pedidos, atendimentos, respostas, horário de pico,
+produtos mais vendidos) **não tinha filtro nenhum**.
+
+E o recorte que existia conhecia metade das faixas: sabia do `55000000` da tela
+"Testar IA" e não sabia do `55119777700`, que é a faixa das medições por linha
+de comando, declarada no `medidor.cjs`, no `guardar-conversas.cjs` e no
+`uma-conversa-contra-o-banco.cjs` com o motivo escrito: *"é instrumento, e
+instrumento não é cliente"*.
+
+Resultado prático: cada conversa medida deixava na ficha do CRM um cliente com o
+nome que a conversa deu ("Marcos Alves", "Ana"), indistinguível de gente, e o
+pedido dela entrava no faturamento.
+
+Agora existe `lib/banco/so-cliente-de-verdade.ts`, com as duas faixas e os dois
+nomes num lugar só, usado pelo CRM e pelos recortes de dinheiro e de mensagem da
+tela de Resultados. E o `mede-uma-conversa` passou a apagar também a linha de
+`clientes`, que ficava pra trás depois da limpeza.
+
+O teste `teste-nao-entra-no-numero-da-dona.cjs` cobra as três coisas: a
+definição, os recortes, e que ninguém volte a escrever a regra na mão dentro de
+uma query.
+
+**Fica pra você conferir:** os números dos meses passados ainda incluem o que já
+foi gravado. O filtro novo esconde daqui pra frente e também pra trás, porque
+ele filtra na leitura, não na escrita, então a tela já deve mostrar o número
+limpo. Vale abrir e comparar.
+
+## 37. O detector da barra não lia a pasta onde eu mais erro
+
+O `barra-comida-dentro-de-aspas` varria só `lib` e `app`, e só `.ts`/`.tsx`.
+Mas o lugar onde regex é montada a partir de string com mais frequência é dentro
+dos próprios testes: as sondas são arquivos escritos como texto.
+
+Hoje o tropeço aconteceu duas vezes num teste novo (`new RegExp("const " + nome +
+"\s*=...")`, com o `\s` virando um `s` solto), e o detector não enxergava
+nada, porque não lia a pasta em que ele mesmo estava. Agora varre `components` e
+`testes` também, e reconhece `.cjs` e `.mjs`: 107 arquivos viraram 216.
+
+Confirmado com isca: um arquivo com o defeito é acusado, e some quando ele sai.
+
+
+## 38. `atendimentos.ts` — um cast escondendo o compilador
+
+```ts
+const anuncio = (l as unknown as { origem_anuncio?: ... }).origem_anuncio ?? null;
+```
+
+O campo ESTAVA na query (`c.origem_anuncio`), só faltava no tipo da linha. O
+cast resolvia calando o TypeScript, e é justamente o que esconde renomeação: no
+dia em que a coluna mudasse de nome, o compilador ficaria quieto e a tela
+pararia de mostrar de onde o cliente veio, sem ninguém saber. Declarado no tipo,
+o compilador volta a trabalhar.
+
+## Anotado, não consertado: sete cópias de "esta mensagem é do cliente"
+
+```sql
+coalesce(autor, case when papel = 'user' then 'cliente' else 'ia' end) = 'cliente'
+```
+
+Sete vezes, em três arquivos (`atendimentos.ts` ×5, `conversas.ts`,
+`whatsapp/route.ts`). Conferi uma por uma: **hoje são idênticas**. Mesma família
+da unidade e da hora, e o mesmo remédio (uma constante só), mas sem defeito vivo
+pra provar o conserto. Fica escrito pra ser a próxima da fila.
+
+## Anotado: o CRM conta pedido de um jeito e soma dinheiro de outro
+
+Em `listarClientes`, `qtd_pedidos` conta `confirmado, aprovado, impresso` e
+`total_gasto` soma só `aprovado, impresso`. É defensável (dinheiro só conta
+depois que a equipe aprovou), mas não está escrito em lugar nenhum, e um número
+que diz "3 pedidos, R$ 0,00" na ficha do cliente parece defeito pra quem lê.
+Decisão sua: escrever o porquê ou igualar os dois.
+
+
+## 39. O AVISO DO DIA não chega na IA, e a tela continua prometendo que chega
+
+A dona tem um campo em Configurações pra escrever o "cérebro temporário" do dia:
+*"sem pão após as 18h"*. O comentário do `negocios.ts` explica que ele expira
+sozinho na virada, e o `lib/ia/tenant.ts` faz isso certinho
+(`ehHojeBR(cfg.aviso_atualizado_em)`).
+
+Só que `carregarTenant` é chamado por **dois lugares**: `/api/montagem` e
+`/api/testar-ia`. O webhook do WhatsApp não chama mais: a chamada saiu junto com
+o cérebro antigo, em 26/08/2026, e está escrito lá que ela "consultava o banco em
+TODA mensagem e o resultado não era lido por ninguém".
+
+**Numa conversa de verdade, o aviso do dia não existe.** A dona escreve, a tela
+confirma que salvou, e a Dora nunca fica sabendo.
+
+### E não é um fio solto: é incompatível com o desenho novo
+
+No cérebro antigo o aviso ia pro prompt, e o modelo respondia em cima dele. No
+novo, **a fala da padaria é escrita em código** (`falaDaEtapa`,
+`respostaDeInformacao`); o modelo só LÊ a frase do cliente e reescreve o texto
+pronto. Não há prompt onde enfiar "sem pão após as 18h" e esperar obediência, e
+enfiar na reescrita seria abrir de novo a porta que este sistema fechou de
+propósito: modelo inventando fato.
+
+**Decisão sua, e é de produto, não de código:**
+
+1. tirar o campo da tela, porque hoje ele mente; ou
+2. dar mecanismo de verdade pro aviso: por exemplo, ele vira um fato que o
+   código anexa à resposta (como o `RECADO_DA_EQUIPE` faz), ou uma regra que
+   marca um produto como indisponível hoje e o orçamento respeita.
+
+A segunda é a que a dona quer de verdade (ela escreveu o aviso pra mudar o que a
+padaria responde), e é trabalho de desenho, não de conserto. Anotado aqui
+inteiro pra não se perder.
+
+
+## 40. Mais dois que prometiam o que não faziam
+
+### `carregarMarcaCache` não tinha cache nenhum
+
+Repasse de uma linha pro `carregarMarca`, sobrando de quando havia mesmo um cache
+em memória. O cache saiu (dava bug com várias instâncias: trocar a logo e o
+refresh cair numa com a marca antiga), o **nome ficou**, e seis telas o chamavam.
+
+Nome que promete o que a função não faz é do mesmo tipo dos outros achados desta
+leitura, e aqui a mentira é convidativa: *"já tem cache"* é argumento pra não
+pensar no assunto. As seis telas passaram a chamar `carregarMarca` direto.
+
+### `PedidoParaGravar.itens` era construído a cada pedido e jogado fora
+
+O `fechar.ts` montava `itens` e `linhas`, com o comentário: *"os dois vão porque
+o banco guarda um e o cupom sai do outro"*. O `registrarPedido`, único consumidor
+do tipo em todo o repositório, **só lê `linhas`**.
+
+Campo que ninguém lê é ruim; campo que ninguém lê com um comentário garantindo
+que alguém lê é pior, porque no dia em que os dois divergissem a explicação já
+estava escrita e errada.
+
+## 41. O contador de "mensagens hoje" começava três horas antes
+
+Mesmo defeito do card de recuperado do mês, no `negocios.ts`:
+
+```sql
+and criado_em >= (now() at time zone 'America/Sao_Paulo')::date
+```
+
+Coluna crua (`timestamptz`) de um lado, data local do outro. O comentário acima
+dela já contava que `current_date` fazia a conta zerar às 21h de Brasília, e o
+conserto resolveu metade: trocou o `current_date` pela data de São Paulo e deixou
+a coluna sem converter. Num container em UTC, o corte cai às 21h do dia anterior
+e a conta de hoje começa com as mensagens da noite de ontem.
+
+Os dois eram a mesma pergunta ("este registro é de hoje/deste mês na padaria?")
+resolvida em dois arquivos, e os dois erravam do mesmo jeito.
+
+
+## 42. `montagem.ts` — o último leitor cru do catálogo no caminho da conversa
+
+Ele lia `catalogo.json` direto pra saber se um sabor de pizza é doce ou salgado,
+e isso decide se duas pizzas anotadas viram uma linha ou duas (o rastro de
+20/08/2026: o cliente pediu uma salgada de três sabores e uma doce de brigadeiro,
+e a cozinha recebeu UMA pizza de brigadeiro).
+
+E não era preguiça: a lista que o `produtos.ts` expunha (`saboresDaPizza`) junta
+os dois tipos e perde exatamente a separação de que ele precisava. **Faltava a
+porta, então ele foi na fonte por fora.** Agora existe `saboresDaPizzaPorTipo()`
+na fonte única, e o `montagem.ts` não conhece mais o JSON.
+
+Arquivos lendo o `catalogo.json` cru: de **9** para **8**, e agora nenhum no
+caminho da conversa de verdade.
+
+## Anotado, não consertado: a família escrita à mão no `montagem.ts`
+
+```ts
+const familia = (c, p) =>
+  /^salgado/.test(c) || /^salgado/.test(p) ? "salgado"
+  : c === "docinho" || /^(docinho|doce)s?$/.test(p) ? "docinho"
+  : /^bolo/.test(c) || /^bolos?$/.test(p) ? "bolo" : c;
+```
+
+É a tabela `FAMILIAS` do `generico.ts` escrita de novo, ao contrário e com
+regex. Ela decide de qual linha genérica subtrair ("o cliente pediu 300 assados e
+agora está dizendo quais são"), e esse trecho já custou um "salgado 200" fantasma
+no pedido.
+
+**Não mexi ainda de propósito:** não existe teste cobrindo a subtração da linha
+genérica, e trocar essa regra sem rede é o oposto do que esta leitura é. A ordem
+certa é escrever o teste que prende o comportamento de hoje, depois inverter o
+`FAMILIAS` pra derivar a resposta, depois conferir que o teste continua verde.

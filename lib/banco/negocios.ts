@@ -174,8 +174,20 @@ export async function carregarConexao(negocioId: string): Promise<ConexaoWhatsap
       `select count(*)::int as c from mensagens
         -- O dia da padaria, nao o do servidor: com current_date (UTC) a conta
         -- zerava as 21h de Brasilia, no meio do expediente.
+        --
+        -- E OS DOIS LADOS PRECISAM ESTAR NO MESMO FUSO.
+        --
+        -- Estava com a COLUNA crua (timestamptz) de um lado e a data local do
+        -- outro. Comparar timestamptz com date faz o Postgres converter a data
+        -- usando o fuso da SESSAO: num container em UTC, o corte caia as 21h do
+        -- dia anterior, e a conta de hoje ja comecava com as mensagens da noite
+        -- de ontem. O conserto de cima resolveu metade e esta linha ficou.
+        --
+        -- Achado na leitura da camada de banco, 28/08/2026, junto com o mesmo
+        -- defeito no card de recuperado do mes (pedidos.ts).
         where negocio_id = $1 and papel = 'assistant'
-          and criado_em >= (now() at time zone 'America/Sao_Paulo')::date`,
+          and (criado_em at time zone 'America/Sao_Paulo')::date
+              = (now() at time zone 'America/Sao_Paulo')::date`,
       [negocioId],
     );
     mensagensHoje = c?.c ?? 0;
@@ -312,13 +324,18 @@ export async function carregarMarca(negocioId: string): Promise<NegocioMarca | n
   };
 }
 
-// Leitura direta da marca (sem cache em memória). Um cache por instância trazia
-// bug: o Vercel roda em várias instâncias e, ao trocar a logo/cor, o refresh
-// podia cair numa instância com a marca ANTIGA em cache. Como é uma consulta por
-// chave primária (rápida), lemos fresco toda vez e a mudança aparece na hora.
-export async function carregarMarcaCache(negocioId: string): Promise<NegocioMarca | null> {
-  return carregarMarca(negocioId);
-}
+// AQUI EXISTIA UM `carregarMarcaCache`, E ELE NAO TINHA CACHE NENHUM.
+//
+// Era um repasse de uma linha pro `carregarMarca`, sobrando de quando havia
+// mesmo um cache em memoria. O cache saiu porque dava bug (varias instancias, e
+// ao trocar a logo o refresh podia cair numa com a marca ANTIGA), mas o NOME
+// ficou, chamado por seis telas.
+//
+// Nome que promete o que a funcao nao faz e do mesmo tipo de defeito que o
+// resto desta leitura achou: quem le acredita. E aqui a mentira e convidativa,
+// porque "ja tem cache" e argumento pra nao pensar no assunto.
+//
+// As seis telas passaram a chamar o `carregarMarca` direto.
 
 // Salva (ou remove, com dataUrl null) a logo do tenant no config.logo_url.
 export async function definirLogo(negocioId: string, dataUrl: string | null): Promise<void> {

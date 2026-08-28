@@ -24,7 +24,7 @@ import { avisarDono, avisarDona } from "@/lib/alertas";
 import { transcrever } from "@/lib/whatsapp/transcrever";
 import {
   acharOuCriarCliente,
-  carregarHistorico,
+  padariaJaFalouNaConversa,
   salvarMensagem,
   marcarWebhookNovo,
   salvarFotoPendente,
@@ -34,7 +34,7 @@ import {
   guardarOrigemAnuncio,
 } from "@/lib/banco/conversas";
 import { definirHandoff, iaPausada, ultimaMsgClienteMs } from "@/lib/banco/atendimentos";
-import { temPedidoAguardandoCliente, pedidoEmAberto } from "@/lib/banco/pedidos";
+import { pedidoEmAberto } from "@/lib/banco/pedidos";
 import { anotarItem, anotarDados, lerMontagem } from "@/lib/banco/montagem";
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
@@ -437,25 +437,40 @@ async function processar(corpo: WebhookPayload) {
       }
 
 
-      // Pedido esperando o cliente aceitar o valor da equipe: a conversa
-      // anterior ainda esta viva e o historico vai inteiro.
-      const aguardando = await temPedidoAguardandoCliente(negocioId, clienteId).catch(() => false);
-      const historico = await carregarHistorico(negocioId, clienteId, aguardando);
-      // MENSAGEM MARCADA: ela responde AQUILO, nao a ultima coisa que falou.
+      // A PADARIA JA FALOU COM ELE NESTA CONVERSA?
       //
-      // Sem isso, cliente que responde uma pergunta antiga (ou corrige um item
-      // la de tras) recebe resposta sobre outro assunto.
+      // E a unica coisa que o cerebro precisa saber do passado: se ja falou,
+      // nao cumprimenta de novo. Aqui se carregavam as 40 ultimas mensagens
+      // INTEIRAS pra responder esse sim ou nao, e mais uma ida ao banco
+      // (`temPedidoAguardandoCliente`) cujo resultado ia pra um parametro que o
+      // `carregarHistorico` jogava fora com um `void`. Duas consultas por
+      // mensagem, e a segunda o `atender` refazia logo depois.
+      //
+      // Achado na leitura da camada de banco, 28/08/2026.
+      const jaFalou = await padariaJaFalouNaConversa(negocioId, clienteId).catch(() => false);
+
+      // MENSAGEM MARCADA: ELA RESPONDE AQUILO -- E ISSO ESTAVA MORTO.
+      //
+      // Quando o cliente responde CITANDO uma mensagem antiga, o WhatsApp manda
+      // o id dela em `msg.context.id`. Este bloco lia a mensagem citada e
+      // escrevia o aviso dentro do array `historico` -- que, depois que o
+      // cerebro novo entrou, so era perguntado se tinha alguma fala da padaria.
+      // O texto que o modelo recebe e o `textoJunto`, e nele nunca entrou nada
+      // disto.
+      //
+      // O comentario prometia que "cliente que responde uma pergunta antiga nao
+      // recebe resposta sobre outro assunto", e era exatamente o que continuava
+      // acontecendo. O aviso agora e montado aqui e grudado no `textoJunto` la
+      // embaixo, depois que ele fica pronto.
+      let avisoDaMarcada = "";
       try {
         const marcado = msg.context?.id ? await mensagemPorWamid(negocioId, clienteId, msg.context.id) : null;
         if (marcado?.conteudo) {
-          const ult = historico[historico.length - 1];
-          if (ult && ult.role === "user" && typeof ult.content === "string") {
-            const trecho = String(marcado.conteudo).slice(0, 220);
-            const dequem = marcado.papel === "assistant" ? "voce disse" : "ele disse";
-            ult.content =
-              "[o cliente respondeu MARCANDO esta mensagem, onde " + dequem + ": \"" + trecho + "\". Responda em cima dela]\n" +
-              ult.content;
-          }
+          const trecho = String(marcado.conteudo).slice(0, 220);
+          const dequem = marcado.papel === "assistant" ? "voce disse" : "ele disse";
+          avisoDaMarcada =
+            "[o cliente respondeu MARCANDO esta mensagem, onde " + dequem + ": " +
+            JSON.stringify(trecho) + ". Responda em cima dela]" + String.fromCharCode(10);
         }
       } catch (e) {
         console.error("[whatsapp] falha ao ler a mensagem marcada (segue sem ela):", e);
@@ -648,16 +663,21 @@ async function processar(corpo: WebhookPayload) {
             }
           }
 
+          // O aviso da mensagem citada entra AQUI, no texto que o cerebro le, e
+          // nao no historico que ninguem manda pro modelo. Depois do "juntar as
+          // falas", porque o cliente cita uma mensagem e escreve mais duas
+          // linhas: o aviso vale pro conjunto.
+          if (avisoDaMarcada) textoJunto = avisoDaMarcada + textoJunto;
+
           const novo = await atenderComFluxoNovo(
             new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
             negocioId,
             clienteId,
             { texto: textoJunto, botaoId },
             // A padaria ja falou com este cliente nesta conversa? Se falou, nao
-            // cumprimenta de novo. O historico ja esta carregado aqui em cima, e
-            // ele e a unica fonte que sabe disso: o pedido em montagem nao
-            // guarda quem falou o que.
-            historico.some((m) => m.role === "assistant"),
+            // cumprimenta de novo. Quem sabe disso e a tabela de mensagens: o
+            // pedido em montagem nao guarda quem falou o que.
+            jaFalou,
           );
           console.log("[fluxo-novo] " + novo.rastro.join(" / "));
 

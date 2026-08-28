@@ -7,3 +7,8 @@ persona.txt
 .cardapios/
 conversas-da-medicao.txt
 .tmp-pad/
+
+# Sondas dos testes: cada teste escreve a sua, roda, e apaga no finally.
+# Quando a bateria e interrompida no meio, ficam pra tras e apareciam no
+# git status como se fossem arquivo do projeto.
+testes/_sonda-*

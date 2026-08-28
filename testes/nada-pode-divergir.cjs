@@ -187,11 +187,11 @@ conferir(comandaErrada.length === 0, "todo docinho vai pra comanda de docinhos")
 // ---------------------------------------------------------------------------
 console.log("");
 console.log("== peso e peso nos dois lados ==");
-const { unidadeDoItem } = require(join(pasta, "departamentos.js"));
+const { unidadeDoTicket } = require(join(pasta, "departamentos.js"));
 const unidadeErrada = [];
 for (const p of catalogo.outros_produtos) {
   if (p.unidade !== "kg") continue;
-  const deu = unidadeDoItem({ produto: p.nome, categoria: p.categoria, qtd: 2, unidade: null });
+  const deu = unidadeDoTicket({ produto: p.nome, categoria: p.categoria, qtd: 2, unidade: null });
   if (deu !== "kg") unidadeErrada.push(`${p.nome} (${p.categoria}) saiu como ${deu}`);
 }
 conferir(unidadeErrada.length === 0, "produto por quilo no catalogo sai como kg no papel" + (unidadeErrada.length ? ": " + unidadeErrada.join("; ") : ""));

@@ -22,7 +22,7 @@
 import { query, queryUm } from "./db";
 import { cotarPorItens } from "@/lib/ia/orcamento";
 import type { ItemPedido, Pedido } from "@/lib/tipos";
-import { unidadeDoItem } from "../tipos";
+import { unidadeDoItem, horaDaRetirada } from "../tipos";
 
 // Dois relógios, de propósito.
 //
@@ -109,21 +109,30 @@ function precificar(itens: ItemMontado[]): { linhas: ItemPedido[]; totalCentavos
 
 // dd/mm/aaaa da conversa vira ISO pra tela; o que não casar vira nulo em vez
 // de virar uma data inventada.
+//
+// AQUI NAO SE USA O `dataDeRetirada`, E ISSO E DE PROPOSITO.
+//
+// Ele joga toda data pra FRENTE, que e o certo pra quem esta marcando a
+// retirada. Esta tela e a de orcamento PARADO: o cliente sumiu, e a data que
+// ele tinha pedido pode muito bem ja ter passado. Jogar pra frente aqui seria
+// mostrar pra dona um dia que o cliente nunca falou.
+//
+// O que faltava era so conferir o calendario: sem isso "31/02" virava
+// "2026-02-31", uma data que nao existe indo pra tela.
 function dataISO(br?: string | null): string | null {
   if (!br) return null;
   const m = br.trim().match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
   if (!m) return null;
-  const [, d, mes, a] = m;
-  const ano = a.length === 2 ? "20" + a : a;
-  return `${ano}-${mes.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  const dia = Number(m[1]);
+  const mes = Number(m[2]);
+  const ano = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+  // 31 de fevereiro vira 3 de marco no JavaScript: se os campos nao voltarem
+  // iguais, o dia nao existe e e melhor nao mostrar nada.
+  const d = new Date(Date.UTC(ano, mes - 1, dia));
+  if (d.getUTCFullYear() !== ano || d.getUTCMonth() !== mes - 1 || d.getUTCDate() !== dia) return null;
+  return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
 }
 
-function horaLimpa(h?: string | null): string | null {
-  if (!h) return null;
-  const m = h.trim().match(/^(\d{1,2})(?:[h:](\d{2}))?/);
-  if (!m) return null;
-  return `${m[1].padStart(2, "0")}:${m[2] ?? "00"}`;
-}
 
 // ---------------------------------------------------------------------------
 // A LISTA.
@@ -204,7 +213,7 @@ export async function listarParados(negocioId: string, horas = HORAS_PARA_LISTAR
         clienteTelefone: l.telefone,
         status: "orcado" as const,
         retiradaData: dataISO(d.retirada_data),
-        retiradaHora: horaLimpa(d.retirada_hora),
+        retiradaHora: horaDaRetirada(d.retirada_hora),
         pessoas: d.pessoas ? Number(d.pessoas) || null : null,
         totalCentavos,
         observacoes: null,
