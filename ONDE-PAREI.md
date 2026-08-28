@@ -34,6 +34,10 @@ esse valor esta decidido em outro lugar tambem?
 esse return larga alguma coisa pra tras?
 ```
 
+A lista completa das perguntas que ACHARAM defeito, com quantas vezes cada uma
+achou e o pior caso que pegou, está no `LEITURA-DA-CADEIA.md`, na seção **AS
+PERGUNTAS QUE ACHARAM DEFEITO**. É por onde eu começaria uma releitura.
+
 E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 
 1. **Lista minha, nunca.** Só o cardápio e os preços são fixos. Toda vez que

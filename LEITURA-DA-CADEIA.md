@@ -17,6 +17,49 @@ conferi as regras que ele tinha; não conferi o que chamava o quê.
 
 ---
 
+## AS PERGUNTAS QUE ACHARAM DEFEITO
+
+**Esta é a parte mais útil deste documento para a releitura.** A lista de cinco
+perguntas nasceu no arquivo 1; estas oito cresceram com a leitura, e cada uma
+está aqui porque ACHOU coisa, não porque parece boa ideia. O número é quantas
+vezes ela achou.
+
+| a pergunta | achou | o pior caso que ela pegou |
+| --- | --- | --- |
+| **essa lista é minha, ou é do cardápio?** | 9 | o padeiro saía de seis nomes à mão: pão novo cadastrado ia pra confeitaria |
+| **quem mais responde essa mesma pergunta?** | 8 | quatro lugares decidiam se o produto era genérico, e consertar um criava beco no outro |
+| **esse comentário descreve o código que está embaixo dele?** | 9 | `leituraQueCabeNaEtapa` jurava ser a última trava de toda etapa; era de três |
+| **esse arquivo lê o `catalogo.json` cru?** | 7 | a chave `pizza` fora dos quatro baldes: a meia pizza saía com o sabor colado no nome |
+| **esse import, tipo ou galho tem chamador?** | 4 | `p.categoria === "bolo"` nunca casava: bolo de café cotado como docinho de R$ 1,25 |
+| **esse valor está decidido em outro lugar também?** | 8 | dezesseis cópias do normalizador, e quatro já divergiam |
+| **essa regra tem fronteira de palavra?** | 3 | "certo" dentro de "incerto": alguém em dúvida aprovando um valor |
+| **o teste que jura cobrir isso consegue falhar?** | 5 | três defeitos passaram meses sob teste verde, incluindo a pizza sem candidato |
+
+E a nona, que só apareceu depois do arquivo 8 e é a mais cara de ignorar:
+
+> **eu consertei um lado dessa regra em outro arquivo?**
+
+Cinco defeitos vieram daí, e um deles virou beco sem saída: trocar o genérico do
+bolo na etapa sem trocar na fala fazia a padaria perguntar o prato para sempre.
+
+---
+
+## COMO RETOMAR ISTO DEPOIS
+
+Se a conversa se perder, o estado inteiro está em três lugares, e nenhum deles é
+a minha memória:
+
+1. **`ONDE-PAREI.md`** — o placar, o que está no ar, o que falta ler
+2. **este arquivo** — arquivo por arquivo, defeito por defeito, com o que foi
+   medido em cada um
+3. **`git log --oneline`** — um commit por arquivo lido, com o resumo dentro
+
+E os **59 testes** são o que impede o trabalho de se desfazer sozinho: cada
+conserto tem isca provada, e isca provada quer dizer que eu removi o conserto e
+vi o teste ficar vermelho.
+
+---
+
 ## A ordem, e ATÉ QUE LINHA foi lido
 
 A coluna do meio existe porque "eu li" não é verificável e eu já disse isso sem
