@@ -23,6 +23,7 @@ documentos é o detalhe de cada um.
 | **Dispensar orçamento** | o banco sabe dispensar (`dispensarOrcamento`), e não existe botão em tela nenhuma. O filtro roda em toda carga da tela de Recuperar lendo uma lista que nunca enche | `LEITURA` item 45, e a lista do `nada-de-codigo-fantasma` |
 | **Pedido sem dia de retirada** | a equipe resolve a pendência e não tem onde preencher a data, então o pedido entra na fila com um tracinho no lugar do dia | `LEITURA`, seção do `pedidos.ts` |
 | **CRM: pedidos e dinheiro** | conta pedido `confirmado+aprovado+impresso` e soma dinheiro só de `aprovado+impresso`. Defensável, mas não está escrito, e a ficha mostra "3 pedidos, R$ 0,00" | `LEITURA` item pós-38 |
+| **rota de preview pública** | `app/preview/atendimentos` serve a tela com dados falsos, sem login. Não vaza nada (é mock), mas o próprio comentário dela diz "apagar depois". Apagar, ou pôr atrás do login |
 | **`middleware.ts` no painel** | hoje cada rota se defende sozinha, e foi por isso que dezesseis se defenderam errado do mesmo jeito. Um middleware faria o defeito deixar de ser possível, em vez de proibido por teste | `LEITURA` item 44 |
 
 ### 2. Coisas que eu vi, medi, e decidi NÃO mexer
@@ -139,7 +140,7 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 | | |
 | --- | --- |
 | arquivos lidos inteiros | **28** do cérebro + **11** da camada de banco |
-| defeitos consertados | **207** |
+| defeitos consertados | **208** |
 | testes no portão | **67**, todos verdes |
 | `tsc` | limpo |
 | cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |

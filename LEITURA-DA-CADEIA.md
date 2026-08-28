@@ -2787,3 +2787,43 @@ campo?** Sobe pra 4 achados, e é a mesma família dos outros três.
 A rota recusa corpo sem mensagem **antes** de chegar no trecho que limpa. Mandar
 só `{ reiniciar: true }` devolveria erro e não limparia nada. Por isso o botão
 marca, e o sinal viaja com a próxima mensagem, que é como as baterias já fazem.
+
+
+## 58. O painel sem login mostrava dados de exemplo
+
+Nenhuma página do painel redirecionava. Todas faziam:
+
+```tsx
+const sessao = await lerSessao();
+const fila = await carregarFilaAprovacao(sessao?.negocioId);
+```
+
+Sem sessão, `sessao?.negocioId` é `undefined`, e o `lib/dados.ts` **cai no mock**
+quando não recebe negócio. Quem abrisse o painel sem estar logado via a fila de
+aprovação e a lista de clientes cheias de dados de exemplo, com a cara do painel
+de verdade.
+
+Não vazava nada real: é mock, e as Server Actions conferem a sessão e devolvem
+erro (confirmei no item 52). Mas ficava a inconsistência, e ela é feia: **no mesmo
+dia em que as rotas de API passaram a responder 401 (item 44), as telas
+continuavam mostrando teatro.**
+
+O layout do painel é o ponto único, então a guarda mora lá e cobre as 12 páginas
+de dentro. E ela respeita o modo demo: **sem banco configurado o mock continua
+valendo**, que é pra isso que ele existe. Com banco no ar e sem sessão, não há
+demo nenhuma pra mostrar.
+
+O teste também cobra que cada página continue escopando pelo negócio da sessão.
+Não é redundante com a guarda: o layout impede a tela de abrir, e o escopo impede
+a tela de misturar tenant se um dia ela abrir por outro caminho.
+
+## Anotado na leitura do `app/`: uma rota de preview pública
+
+`app/preview/atendimentos/page.tsx` serve a tela de atendimentos com
+`CONVERSAS_MOCK`, sem login. Não vaza nada (é mock), mas é uma rota pública no
+domínio da padaria mostrando uma tela de atendimento falsa, e o próprio
+comentário dela diz: *"ATENCAO: ROTA DE PREVIEW, só pra iterar o design sem
+login/banco. Apagar depois."*
+
+Não apaguei porque pode estar em uso pra ajustar design. **Decisão sua:** apagar,
+ou pôr atrás do login como o resto.
