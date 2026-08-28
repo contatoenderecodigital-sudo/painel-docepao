@@ -23,8 +23,9 @@ import { query, queryUm } from "./db";
 // atalho "@/" so existe dentro do build do Next.
 import { coresDaForminha } from "../ia/fluxo/sabor";
 import { ehNomeDeFamilia, familiaDaCategoria, familiaDoNome } from "../ia/fluxo/generico";
-import { produtosDaCasa, saboresDaPizzaPorTipo } from "../ia/dados/produtos";
+import { produtosDaCasa, saboresDaPizzaPorTipo, categoriaDoPedido } from "../ia/dados/produtos";
 import { semAcento } from "../ia/texto";
+import { unidadeDoItem } from "../tipos";
 
 export type CategoriaItem =
   | "bolo_festa"
@@ -526,6 +527,55 @@ export async function anotarDados(
 // A equipe editando a montagem inteira pela tela. Grava no mesmo lugar que a IA
 // lê, então a correção passa a valer pra conversa: se a dona arruma o sabor do
 // bolo, a IA já conversa com o sabor certo daí pra frente.
+/**
+ * O QUE A EQUIPE MANDA DA TELA, CONFERIDO ANTES DE VIRAR LINHA NO BANCO.
+ *
+ * A rota gravava o corpo do request direto, com um `as never` calando o
+ * compilador. O que a equipe digita vai pro mesmo jsonb que a IA LE na proxima
+ * mensagem do cliente: uma `qtd` que nao e numero vira preco errado no
+ * fechamento, e um `produto` vazio vira uma linha muda na comanda da cozinha.
+ *
+ * No MESMO arquivo, o caminho que edita o pedido ja fechado faz tudo certo:
+ * cota pelo motor e recusa item que o cardapio nao reconhece, com o nome do
+ * item na resposta. So o caminho da montagem entrava cru.
+ *
+ * RECUSA A GRAVACAO INTEIRA EM VEZ DE DESCARTAR O ITEM RUIM. Descartar calado e
+ * o defeito do "nada some do pedido": a equipe salva, a tela diz que salvou, e
+ * o item que ela digitou nao esta la. Melhor a tela dizer qual linha esta
+ * errada.
+ *
+ * NAO INVENTA LISTA: a categoria que falta sai do `categoriaDoPedido`, que e a
+ * fonte unica, e a unidade sai do `unidadeDoItem`, pelo mesmo motivo.
+ *
+ * Achado na leitura do `app/`, 28/08/2026.
+ */
+export function itensDaEquipe(
+  brutos: unknown[],
+): { ok: true; itens: ItemMontagem[] } | { ok: false; erro: string } {
+  const itens: ItemMontagem[] = [];
+  for (let i = 0; i < brutos.length; i++) {
+    const b = (brutos[i] ?? {}) as Record<string, unknown>;
+    const produto = String(b.produto ?? "").trim();
+    if (!produto) return { ok: false, erro: "A linha " + (i + 1) + " esta sem o nome do produto." };
+
+    const qtd = Number(b.qtd);
+    if (!Number.isFinite(qtd) || qtd <= 0) {
+      return { ok: false, erro: "A quantidade de " + produto + " nao e um numero valido." };
+    }
+
+    const categoria = String(b.categoria ?? "").trim() || categoriaDoPedido(produto);
+    const obs = b.obs == null ? null : String(b.obs);
+    itens.push({
+      produto,
+      categoria: categoria as CategoriaItem,
+      qtd,
+      unidade: unidadeDoItem(b.unidade),
+      obs,
+    });
+  }
+  return { ok: true, itens };
+}
+
 export async function salvarMontagemInteira(
   negocioId: string,
   clienteId: string,

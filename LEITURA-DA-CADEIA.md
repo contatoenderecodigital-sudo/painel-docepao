@@ -2601,3 +2601,37 @@ O teste `aprovar-so-vale-uma-vez.cjs` lê os **três arquivos** (a query, as aç
 o gatilho) e cobra a guarda, o `returning`, a ordem (conferir antes de avisar) e
 que o gatilho continue com o `is distinct from`, que é o motivo de tudo isso
 existir. Isca provada.
+
+
+## 53. `app/api/montagem/route.ts` — o corpo do request ia direto pro banco
+
+O arquivo tem dois caminhos, e o contraste está dentro dele mesmo:
+
+| caminho | o que faz com o que a equipe manda |
+| --- | --- |
+| edita o **pedido fechado** | cota pelo motor, recusa item que o cardápio não reconhece, e devolve o nome do item pra tela mostrar |
+| grava a **montagem** | `itens: (corpo.itens ?? []) as never` |
+
+O cast calando o compilador, e nada conferindo o conteúdo. E esse jsonb é o que a
+**IA lê na próxima mensagem do cliente**: uma `qtd` que não é número vira preço
+errado no fechamento, e um `produto` vazio vira linha muda na comanda da cozinha.
+
+Agora existe `itensDaEquipe` no `montagem.ts`, junto do tipo, e a rota chama.
+
+**Recusa a gravação inteira em vez de descartar a linha ruim.** Descartar calado é
+o defeito do "nada some do pedido": a equipe salva, a tela diz que salvou, e o
+item que ela digitou não está lá. Agora a tela recebe o motivo: *"A quantidade de
+coxinha nao e um numero valido"*, *"A linha 2 esta sem o nome do produto"*.
+
+E não inventa lista: a categoria que falta sai do `categoriaDoPedido` e a unidade
+do `unidadeDoItem`, que são as fontes únicas.
+
+### O erro que eu cometi escrevendo o teste
+
+Ele acusou o `as never` **dentro do meu próprio comentário**, o que explica que o
+cast foi removido. **Terceira vez no mesmo dia** que comentário conta como
+código (as outras foram no detector de código fantasma e no da barra comida).
+
+Consertei o teste, não o comentário: ele corta os comentários antes de procurar,
+e tira o `` antes do corte, porque sem a flag `m` o `$` quer dizer fim da
+string e o corte não tiraria nada.

@@ -166,9 +166,22 @@ export async function POST(req: NextRequest) {
       }
       return Response.json({ ok: true, totalCentavos: total, assumiu });
     }
-    const { salvarMontagemInteira } = await import("@/lib/banco/montagem");
+    // O QUE VEM DA TELA E CONFERIDO ANTES DE VIRAR LINHA NO BANCO.
+    //
+    // Aqui o corpo do request ia direto pro jsonb, com um cast calando o
+    // compilador, e nada conferindo o conteudo. E esse jsonb e o
+    // que a IA LE na proxima mensagem do cliente: uma `qtd` que nao e numero
+    // vira preco errado no fechamento, e um `produto` vazio vira linha muda na
+    // comanda da cozinha.
+    //
+    // O caminho de cima, no MESMO arquivo, ja fazia certo: cota pelo motor e
+    // recusa item sem preco, com o nome do item na resposta. So este entrava
+    // cru.
+    const { salvarMontagemInteira, itensDaEquipe } = await import("@/lib/banco/montagem");
+    const conferidos = itensDaEquipe(corpo.itens ?? []);
+    if (!conferidos.ok) return Response.json({ erro: conferidos.erro }, { status: 400 });
     await salvarMontagemInteira(sessao.negocioId, corpo.clienteId, {
-      itens: (corpo.itens ?? []) as never,
+      itens: conferidos.itens,
       dados: corpo.dados ?? {},
     });
     return Response.json({ ok: true });
