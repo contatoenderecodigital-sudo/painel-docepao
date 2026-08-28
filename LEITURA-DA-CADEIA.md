@@ -2372,3 +2372,67 @@ Em um dia, os dois piores defeitos vieram de fora da leitura linha a linha:
 Ler acha o que está errado dentro de um arquivo. Varrer acha o que está errado
 por existir em muitos. **Medir acha o que está errado entre os arquivos** — o
 lugar onde nenhum dos dois olha, e onde o cliente vive.
+
+
+## 48. E a medição de novo, que fez o dono decidir sobre o prato
+
+Com o conserto no ar, rodei a mesma conversa. **A padaria passou a perguntar:**
+
+```
+cliente >> o bolo é de brigadeiro, 2 kg
+padaria >> O bolo vai no prato de MDF aberto ou na embalagem com tampa?
+cliente >> dia 12/09 as 10h, nome Ana Paula, pix
+padaria >> Só faltam os detalhes do bolo: o prato..., quer papel de arroz
+           com a foto impressa (R$ 12,00), e quer topo de bolo?
+cliente >> pode confirmar
+```
+
+E aí a medição mostrou o que faltava enxergar. O cabeçalho do pedido, direto do
+banco de produção:
+
+```
+status|data|hora|pendencia|motivo|esperando_cliente
+confirmado|12/09/2026|10:00|f|-|f
+```
+
+O cliente **ignorou as três** e o pedido foi pra fila sem prato, sem topo, sem
+papel e **sem nenhuma marca de que falta alguma coisa**. Para topo e papel isso
+é defensável (são opcionais, quem ignorou não quis). Para o prato não: todo bolo
+vai em algum prato.
+
+### A decisão do dono: tirar a pergunta do prato
+
+Ela não existe no fluxograma da Kemilly e já estava anotada como decisão em
+aberto no `ARQUITETURA.md`. Entre perguntar e aceitar ficar sem resposta, ou não
+perguntar, ele escolheu não perguntar: a equipe decide o prato na produção, como
+sempre fez.
+
+**Saiu:** a fala do prato, o prato de dentro da pergunta juntada, os botões
+`prato_aberto`/`prato_tampa` (que viraram código morto), e a exigência do prato
+no `cumprida` da etapa do bolo, que passou a terminar no sabor.
+
+**Ficou, de propósito:** a **leitura** do prato. Quem escrever "prato aberto" ou
+"manda com tampa" continua sendo entendido, gravado, e o prato continua saindo na
+comanda. Tirar a pergunta não é jogar fora o que o cliente disser, e o teste
+cobra isso com as duas frases.
+
+### O portão pegou dois rastros que eu deixei pra trás
+
+E os dois eram legítimos:
+
+- `o-cliente-sempre-tem-saida` achou os botões do prato ainda tratados no código
+  sem nenhuma etapa oferecendo: *"ou some, ou alguém esqueceu de oferecer"*;
+- `topo-e-papel-tem-todas-as-opcoes` cobrava que a pergunta juntada falasse do
+  prato. Atualizado, e ficou **mais forte**: agora cobra que a pergunta não
+  volte, nos dois caminhos.
+
+## 49. O medidor não mostrava o cabeçalho do pedido
+
+Ele imprimia os itens e a montagem, e não o cabeçalho. Faltou justo quando
+importava: os itens mostravam o pedido bonito, e a pergunta que decidia se aquilo
+estava certo — *foi pra fila da equipe ou pra aprovação direto? com data? com
+hora? com pendência?* — não tinha como ser respondida sem abrir o banco na mão.
+
+Medição que não mostra o cabeçalho deixa passar o pedido que fecha faltando
+coisa, que é exatamente o que ela existe pra pegar. Acrescentado, e paga em toda
+medição daqui pra frente.

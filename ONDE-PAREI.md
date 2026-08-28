@@ -54,7 +54,7 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 | | |
 | --- | --- |
 | arquivos lidos inteiros | **28** do cérebro + **11** da camada de banco |
-| defeitos consertados | **188** |
+| defeitos consertados | **192** |
 | testes no portão | **67**, todos verdes |
 | `tsc` | limpo |
 | cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |
@@ -389,3 +389,35 @@ onde o cliente vive.
 **Recomendação pra continuar:** alternar os três. A metade que falta ler
 (telas e rotas, ~12.000 linhas) merece a leitura, mas depois de cada bloco vale
 uma varredura e uma conversa medida.
+
+
+---
+
+## A DECISÃO DO PRATO, E O QUE MUDOU NA CONVERSA
+
+Você decidiu **tirar a pergunta do prato**. O que motivou foi a medição: com o
+conserto no ar, a padaria passou a perguntar as três coisas do bolo, e o cliente
+ignorou as três e mandou "pode confirmar". O pedido foi pra fila assim:
+
+```
+status|data|hora|pendencia|motivo|esperando_cliente
+confirmado|12/09/2026|10:00|f|-|f
+```
+
+Sem prato, sem topo, sem papel, e **sem nenhuma marca de que falta algo**. Pra
+topo e papel tudo bem, são opcionais. Pro prato não, porque todo bolo vai em
+algum prato.
+
+**Como ficou a conversa:** ela pergunta o topo e o papel de arroz, e não pergunta
+o prato. Se o cliente falar do prato por conta ("prato aberto", "manda com
+tampa"), continua sendo anotado e sai na comanda igual.
+
+**O que sobra da sua parte:** nada. Está no ar e testado.
+
+### Uma coisa que eu melhorei na ferramenta, e vale saber
+
+O medidor não mostrava o **cabeçalho** do pedido, só os itens. Foi por isso que
+o "fechou sem nada e sem aviso" quase passou: os itens ficam bonitos, e a
+pergunta que importa (foi pra fila ou pra pendência? com data? com hora?) não
+tinha como ser respondida sem abrir o banco na mão. Agora ele mostra, e isso
+paga em toda medição daqui pra frente.
