@@ -2708,3 +2708,51 @@ ele deve cobrar **que a decisão passe pelo dono dela**, e não o texto da decis
 
 O primeiro quebra quando a regra muda de casa. O segundo quebra quando o fluxo
 **para de perguntar**, que é o que importa.
+
+
+## 56. A lista que a equipe escolhe: uma chave errada e uma categoria ignorada
+
+Quando a equipe corrige um pedido na tela, ela escolhe o produto numa lista em
+vez de digitar. Digitar erra o nome, e nome errado não casa com a tabela de
+preço: o item entra sem valor e o pedido fecha menor do que o combinado.
+
+Essa lista era montada percorrendo o `catalogo.json` ramo por ramo. Dois
+defeitos, os dois medidos:
+
+**1. Procurava uma chave que o catálogo não tem.** Lia `it.recheios` (plural), e
+o cardápio escreve `recheio` (singular). O recheio da coxinha, da bolinha de
+queijo e de mais cinco salgados **nunca chegava na lista**.
+
+**2. Ignorava a categoria que o catálogo dá.** Cada item de `outros_produtos`
+traz a sua, e a montagem decidia só pela unidade (kg → `por_quilo`, resto →
+`por_unidade`):
+
+```
+pizza redonda      a mao = por_quilo     cardapio = pizza
+mini bolha doce    a mao = por_unidade   cardapio = salgado_frito
+```
+
+A pizza redonda como `por_quilo` **não junta sabores como pizza**, que é uma
+regra que o `montagem.ts` aplica por categoria. E a "mini bolha doce" tem a nota
+da dona no cardápio explicando que é a mesma bolha frita, só doce, e por isso a
+categoria dela é `salgado`.
+
+Agora a lista sai de `produtosDaCasa()`, que já lê o `recheio` e já respeita a
+categoria do item. Cadastrar produto novo passa a aparecer sozinho.
+
+### O erro que eu quase cometi, e que virou regra
+
+A montagem morava **dentro do route handler** e não era exportável. Pra medir, eu
+**reconstruí** ela numa sonda: errei as chaves do catálogo (usei `docinhos` e
+`outros`; o catálogo tem `doces` e `outros_produtos`) e quase reportei que **65
+produtos da casa não apareciam pra equipe**.
+
+Não faltava nenhum: são 86 dos dois lados. O que me salvou foi decidir ler a
+função inteira antes de afirmar.
+
+> **Reconstruir o código pra medir é medir a reconstrução.**
+
+É a segunda vez neste dia: a primeira foi um teste que extraía o corpo de uma
+função da fonte e rodava com `new Function`, e quebrava no primeiro tipo de
+TypeScript. Por isso a montagem saiu pra `lib/cardapio-opcoes.ts`: agora dá pra
+importar a lista de verdade, e o teste mede **ela**.
