@@ -32,7 +32,8 @@ import catalogo from "../dados/catalogo.json";
 import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitura } from "./leitura";
-import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase, afirmouOuNegou } from "./leitor-da-frase";
+import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase } from "./leitor-da-frase";
+import { afirmouOuNegou, cercaDaPalavra } from "../texto";
 import { identificarProduto } from "./produto";
 import { nomePeloApelido } from "../dados/apelidos";
 import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
@@ -400,8 +401,7 @@ function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado 
  * O sabor sai do catalogo, entao o escape aqui e higiene de regex, e nao
  * desconfianca do dado: um sabor com parentese no nome quebraria a expressao.
  */
-const cercaDoSabor = (sabor: string) =>
-  new RegExp("(^|[^a-z])(" + sabor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")($|[^a-z])", "i");
+const cercaDoSabor = cercaDaPalavra;
 
 /** Tira uma marca da observacao dos itens ("Topo: tema Minnie, Arthur, 5 anos"). */
 function tirarMarca(itens: Estado["itens"], prefixo: string): Estado["itens"] {

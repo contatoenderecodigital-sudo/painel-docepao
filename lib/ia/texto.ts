@@ -35,3 +35,70 @@ export const semAcento = (t: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
+
+/**
+ * O termo apareceu na frase, e ele estava afirmando ou negando?
+ *
+ * Olha o pedaço da frase ANTES do termo, curto de propósito: um "sem" lá no
+ * começo não pode negar uma coisa citada no fim.
+ *
+ * EXPORTADA EM 27/08/2026 porque o fluxo precisava da mesma pergunta, e MUDADA
+ * PRA CA em 28/08/2026, quando a terceira precisou (a trava do sabor em
+ * aberto). Ela morava no leitor da frase, e o leitor da frase importa do
+ * `sabor.ts`: a terceira usuaria fechava um ciclo de import entre os dois.
+ *
+ * Ciclo de import nao quebra hoje porque as duas so se chamam DENTRO de funcao.
+ * Quebra no dia em que alguem chamar no topo do modulo, e ai o erro e
+ * `undefined is not a function` em producao, longe daqui.
+ *
+ * Lá o sabor solto era grudado no item que estava esperando sabor, e a checagem
+ * era só "a palavra está na frase?". Quem dissesse "sem calabresa" ganhava
+ * calabresa na comanda: a palavra estava lá, e ninguém olhava o "sem" na frente
+ * dela.
+ *
+ * Escrever uma segunda negação lá seria repetir o erro que este projeto mais
+ * cometeu: duas listas do mesmo assunto, que nascem iguais e divergem depois.
+ */
+export function afirmouOuNegou(t: string, termo: RegExp): boolean | null {
+  const m = termo.exec(t);
+  if (m == null) return null;
+
+  // O SIM E O NAO TAMBEM VEM DEPOIS DA PALAVRA.
+  //
+  // "papel nao" e "topo sim" e como gente responde uma pergunta que juntou
+  // varias, e isso nao era lido: o leitor olhava so o que vinha ANTES.
+  //
+  // Medido em 26/08/2026, e o erro era do tipo que cobra do cliente:
+  //
+  //     "quero topo sim, papel nao, prato aberto"  ->  papel = SIM
+  //
+  // O "quero" de trinta caracteres atras valia pro papel, e o "nao" colado nele
+  // era ignorado. Sao R$ 12 cobrados de quem recusou com todas as letras.
+  //
+  // O depois GANHA do antes, porque esta mais perto e e mais explicito.
+  const fim = m.index + m[0].length;
+  const depois = t.slice(fim, fim + 14);
+  if (/^ *(nao|nem|nenhum)([^a-z]|$)/.test(depois)) return false;
+  if (/^ *(sim|pode|quero)([^a-z]|$)/.test(depois)) return true;
+
+  const antes = t.slice(Math.max(0, m.index - 22), m.index);
+  if (/(^|[^a-z])(sem|nao|nem)([^a-z][^.,;]*)?$/.test(antes)) return false;
+  if (/(^|[^a-z])(com|quero|vai com|pode por|poe|bota|sim|so o|so a|apenas o|apenas a)([^a-z][^.,;]*)?$/.test(antes)) return true;
+  return null;
+}
+
+
+/**
+ * A CERCA DE UMA PALAVRA INTEIRA, pronta pra `afirmouOuNegou`.
+ *
+ * "carne" nao pode casar dentro de "carnes" nem de "descarnado", e o termo vem
+ * do cardapio, entao pode ter ponto, parentese ou porcento dentro ("frutas
+ * (pessego e abacaxi)", "0% lactose"). Escapar e obrigatorio.
+ *
+ * Estava escrita duas vezes, no `fluxo.ts` e no `sabor.ts`, e a segunda copia
+ * nasceu com UMA BARRA no lugar de duas: `"\$&"` em vez de `"\\$&"`. Em
+ * JavaScript `"\$"` nao e escape valido e a barra some, entao a copia escapava
+ * NADA. Pegou pelo olho, comparando com a que funciona.
+ */
+export const cercaDaPalavra = (termo: string) =>
+  new RegExp("(^|[^a-z])(" + termo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")($|[^a-z])", "i");

@@ -33,7 +33,7 @@ Isto sobrevive à compactação. A minha memória de ter lido, não.
 | 4 | `lib/ia/fluxo/leitura.ts` | 1-681, sem buraco | **INTEIRO** — 10 defeitos |
 | 5 | `lib/ia/fluxo/pensar-openai.ts` | 1-195, sem buraco | **INTEIRO** — 7 defeitos |
 | 6 | `lib/ia/fluxo/produto.ts` | 1-227, sem buraco | **INTEIRO** — 3 defeitos |
-| 7 | `lib/ia/fluxo/sabor.ts` | 1-196 e os trechos novos | falta conferir o meio |
+| 7 | `lib/ia/fluxo/sabor.ts` | 1-295, sem buraco | **INTEIRO** — 6 defeitos |
 | 8 | `lib/ia/fluxo/etapas.ts` | nada | não lido |
 | 9 | `lib/ia/fluxo/pergunta.ts` | 538-660 | falta quase tudo |
 | 10 | `lib/ia/fluxo/fechar.ts` | 60-152 | falta o resto |
@@ -538,3 +538,75 @@ pro `lib/ia/texto.ts`.
 Os 86 produtos da casa continuam separando produto de recheio depois da troca,
 medido um por um. E a ambiguidade bolo/docinho segue funcionando: `brigadeiro`
 sozinho é docinho, `bolo brigadeiro` é bolo, `cenoura` é bolo caseiro.
+
+---
+
+## 7. `lib/ia/fluxo/sabor.ts` — sabor em aberto é buraco no pedido
+
+295 linhas. A trava que impede comanda sair sem recheio. **Seis defeitos, e os
+três primeiros abriam a própria trava.**
+
+### O apelido não chegava na trava
+
+    saborQueFalta("risólis")  ->  pergunta o sabor
+    saborQueFalta("risoles")  ->  NÃO PERGUNTA
+    saborQueFalta("esfiha")   ->  NÃO PERGUNTA
+
+A busca comparava letra por letra com o nome do cardápio. "risoles" e "esfiha"
+são apelidos que a casa mantém em `apelidos.ts` justamente porque é assim que o
+cliente escreve. Item que entrasse no pedido com esse nome **atravessava a trava
+do fechamento em silêncio**, e a comanda ia pra cozinha sem recheio.
+
+A função vinte linhas abaixo, `passouDoLimiteDeSabores`, já perguntava ao
+catálogo. Duas funções do mesmo arquivo respondendo "que produto é este?" de
+dois jeitos diferentes só podia divergir.
+
+### O sabor negado contava como escolhido
+
+    esfirra, obs "sem carne"        ->  achava que ele já tinha escolhido
+    quiche,  obs "sem frango"       ->  idem
+    esfirra, obs "não quero carne"  ->  idem
+
+A conferida era só "a palavra está na linha?". A padaria parava de perguntar e a
+comanda saía com uma esfirra sem recheio nenhum, carregando "sem carne" no
+recado. Era a **quarta** pergunta desse tipo no sistema e a única que não usava
+o `afirmouOuNegou`, que já resolve isso pro topo, pro papel de arroz e pro sabor
+do bolo.
+
+### O corte do nome era uma conta de caracteres
+
+    "pastel carne"   o canônico é "mini bolha", 10 letras
+    sobrava          "rne"   ->  não acha "carne", pergunta de novo
+
+`linha.slice(nomeCanonico.length)` só funciona enquanto o cliente escrever o
+nome do cardápio. **Treze jeitos de escrever davam isso**, e eu só descobri
+porque o teste novo cobra o catálogo inteiro em vez de três exemplos meus.
+
+O corte tinha que existir mesmo: "empadão com palmito" tem "palmito" no NOME, e
+sem tirar o nome o produto respondia por si. Agora quem separa é
+`identificarProduto`, que já devolve as duas metades.
+
+### Um ciclo de import que eu mesmo criei
+
+Ao reusar o `afirmouOuNegou` eu fechei um ciclo: `sabor.ts` importava do
+`leitor-da-frase.ts`, que importa do `sabor.ts`. Não quebra hoje porque as duas
+só se chamam dentro de função. Quebra no dia em que alguém chamar no topo do
+módulo, e aí o erro é `undefined is not a function` em produção, longe daqui.
+
+`afirmouOuNegou` e a cerca da palavra mudaram pro `lib/ia/texto.ts`.
+
+### Mais dois
+
+- `ItemDoCardapio`: tipo morto
+- sexta cópia do normalizador, e a única sem `.trim()`. Por isso o
+  `recheioQueNaoExiste` tinha que chamar `trim` por fora e os outros não
+- a cerca da palavra estava escrita duas vezes, e **a segunda cópia nasceu com
+  uma barra no lugar de duas**: `"\$&"` em vez de `"\$&"`. Em JavaScript
+  `"\$"` não é escape válido e a barra some, então a cópia escapava nada
+
+### Teste novo
+
+`o-sabor-em-aberto-nao-passa.cjs`: 25 produtos que pedem escolha, em 61 jeitos
+de escrever (nome do cardápio e apelidos da casa), cobrados nas três direções
+(sem sabor pergunta, com sabor não pergunta, negando pergunta). Duas iscas
+provadas.

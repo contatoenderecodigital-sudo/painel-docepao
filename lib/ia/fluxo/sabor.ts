@@ -33,8 +33,8 @@
 
 import catalogo from "../dados/catalogo.json";
 import { produtosDaCasa, produtoNoComeco, produtoPorNome } from "../dados/produtos";
-
-type ItemDoCardapio = { nome?: string; recheios?: string[]; sabores?: string[] };
+import { semAcento, afirmouOuNegou, cercaDaPalavra } from "../texto";
+import { identificarProduto } from "./produto";
 
 /**
  * Todo produto do cardapio que tem lista de sabor ou recheio pra escolher.
@@ -58,8 +58,10 @@ function comEscolha(): { nome: string; opcoes: string[] }[] {
     .map((p) => ({ nome: p.nome, opcoes: p.sabores }));
 }
 
-const semAcMin = (t: string) =>
-  String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+// O mesmo normalizador de todo mundo. Esta era a sexta copia, e a unica sem
+// `.trim()`: por isso o `recheioQueNaoExiste` la embaixo tinha que chamar trim
+// por fora, e os outros nao.
+const semAcMin = semAcento;
 
 /**
  * ESTE ITEM PRECISA DE SABOR, E ELE JA FOI ESCOLHIDO?
@@ -75,12 +77,39 @@ export function saborQueFalta(produto: string, obs?: string | null): { nome: str
   const linha = semAcMin(produto) + " " + semAcMin(obs ?? "");
   const nome = semAcMin(produto);
 
-  // Casamento pelo comeco do nome: "esfirra de carne" e uma esfirra. O mais
-  // longo primeiro pra "empadao com palmito" nao virar "empadao".
-  const candidatos = comEscolha()
-    .filter((c) => nome.startsWith(semAcMin(c.nome)) || nome === semAcMin(c.nome))
-    .sort((a, b) => b.nome.length - a.nome.length);
-  const item = candidatos[0];
+  // QUEM DIZ QUAL PRODUTO E ESTE E O CATALOGO, E NAO O COMECO DA STRING.
+  //
+  // Esta busca comparava letra por letra com o nome do cardapio, e por isso o
+  // jeito que o CLIENTE escreve nao chegava nela. Medido em 28/08/2026:
+  //
+  //   saborQueFalta("risolis")  ->  pergunta o sabor
+  //   saborQueFalta("risoles")  ->  NAO PERGUNTA
+  //   saborQueFalta("esfiha")   ->  NAO PERGUNTA
+  //
+  // "risoles" e "esfiha" sao apelidos que a casa mantem em `apelidos.ts`
+  // justamente porque e assim que o cliente escreve. Um item que entrasse no
+  // pedido com esse nome atravessava a trava do fechamento em silencio, e a
+  // comanda ia pra cozinha SEM RECHEIO -- que e a unica coisa que este arquivo
+  // existe pra impedir.
+  //
+  // A funcao logo abaixo, `passouDoLimiteDeSabores`, ja perguntava ao catalogo.
+  // Duas funcoes do mesmo arquivo respondendo "que produto e este?" de dois
+  // jeitos diferentes so podia divergir, e divergia.
+  // `produtoNoComeco` compara com o nome do CARDAPIO, e "risoles" nao e o nome
+  // do cardapio: e o apelido que a casa mantem porque e assim que o cliente
+  // escreve. Quem traduz apelido pro nome canonico e `identificarProduto`, e
+  // perguntar a ele custa uma linha.
+  const canonico = identificarProduto(produto).produto;
+  const daCasa =
+    produtoNoComeco(produto) ?? produtoPorNome(produto) ??
+    produtoNoComeco(canonico) ?? produtoPorNome(canonico);
+  const item = daCasa && !daCasa.saborFixo && daCasa.sabores.length
+    ? { nome: daCasa.nome, opcoes: daCasa.sabores }
+    : // Nome que o catalogo nao resolve: sobra o casamento pelo comeco, que
+      // ainda pega "esfirra de carne" escrito por extenso.
+      comEscolha()
+        .filter((c) => nome.startsWith(semAcMin(c.nome)) || nome === semAcMin(c.nome))
+        .sort((a, b) => b.nome.length - a.nome.length)[0];
   if (!item) return null;
 
   // O SABOR TEM QUE ESTAR FORA DO NOME DO PRODUTO.
@@ -99,11 +128,44 @@ export function saborQueFalta(produto: string, obs?: string | null): { nome: str
   // divergencia de verdade.
   //
   // Tirando o nome do produto, sobra o que o CLIENTE escreveu.
-  const semONome = linha.slice(semAcMin(item.nome).length).trim();
+  // O QUE SOBRA DEPOIS DO NOME QUEM SEPARA E O RESOLVEDOR, E NAO UMA CONTA DE
+  // CARACTERES.
+  //
+  // Isto era `linha.slice(nomeCanonico.length)`, e so funcionava enquanto o
+  // cliente escrevesse o nome do cardapio. Com apelido, o canonico tem outro
+  // tamanho e o corte comia o recado:
+  //
+  //   "pastel carne"   canonico "mini bolha", 10 letras
+  //   sobrava          "rne"      ->  nao acha "carne", pergunta de novo
+  //
+  // Treze jeitos de escrever davam isso, medidos em 28/08/2026. E o corte tinha
+  // que existir mesmo: "empadao com palmito" tem "palmito" no NOME, e sem tirar
+  // o nome o produto respondia por si e a padaria nunca perguntava se era
+  // palmito puro ou frango com palmito.
+  //
+  // `identificarProduto` ja devolve as duas metades: o produto e o que veio
+  // grudado nele. A segunda metade E o que sobra depois do nome, seja qual for
+  // o jeito que ele escreveu.
+  const grudado = identificarProduto(produto).recheio ?? "";
+  const semONome = (semAcMin(grudado) + " " + semAcMin(obs ?? "")).trim();
   const escolhido = item.opcoes.some((o) => {
-    // "frango com legumes" casa por inteiro; "carne" casa como palavra.
     const alvo = semAcMin(o);
-    return semONome.includes(alvo);
+    if (!semONome.includes(alvo)) return false;
+    // O SABOR NEGADO NAO E O SABOR ESCOLHIDO.
+    //
+    // A conferida era so "a palavra esta na linha?". Medido em 28/08/2026:
+    //
+    //   esfirra, obs "sem carne"        ->  achava que ele ja tinha escolhido
+    //   quiche, obs "sem frango"        ->  idem
+    //   esfirra, obs "nao quero carne"  ->  idem
+    //
+    // A padaria parava de perguntar o recheio e a comanda ia pra cozinha com
+    // uma esfirra sem recheio nenhum, carregando "sem carne" no recado.
+    //
+    // Quem sabe separar "carne" de "sem carne" e o leitor da frase, que ja faz
+    // isso pelo topo, pelo papel de arroz e pelo sabor do bolo. Aqui era a
+    // quarta pergunta do mesmo tipo, e a unica que nao usava ele.
+    return afirmouOuNegou(semONome, cercaDaPalavra(alvo)) !== false;
   });
   return escolhido ? null : item;
 }
@@ -224,7 +286,8 @@ export function saboresQueFaltam(
  */
 export function coresDaForminha(texto: string): string[] {
   const t = semAcMin(texto);
-  const cores = ((catalogo.forminhas_docinho?.cores ?? []) as string[]).map(String);
+  // A lista sai de quem ja e dono dela, e nao de uma segunda leitura do JSON.
+  const cores = coresDoCardapio();
 
   // Do nome mais longo pro mais curto: "azul bebe" antes de "azul", senao a
   // primeira acha "azul" e sobra "bebe" perdido.

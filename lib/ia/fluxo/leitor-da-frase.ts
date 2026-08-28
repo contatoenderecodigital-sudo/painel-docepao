@@ -38,6 +38,7 @@
 
 import catalogo from "../dados/catalogo.json";
 import { coresDaForminha } from "./sabor";
+import { afirmouOuNegou } from "../texto";
 import { APELIDOS } from "../dados/apelidos";
 import type { Leitura } from "./leitura";
 
@@ -52,49 +53,7 @@ const cerca = (miolo: string) => new RegExp("(^|[^a-z])(" + miolo + ")($|[^a-z])
 
 /* -------------------------------------------------------------- sim e não */
 
-/**
- * O termo apareceu na frase, e ele estava afirmando ou negando?
- *
- * Olha o pedaço da frase ANTES do termo, curto de propósito: um "sem" lá no
- * começo não pode negar uma coisa citada no fim.
- *
- * EXPORTADA EM 27/08/2026 porque o fluxo precisava da mesma pergunta.
- *
- * Lá o sabor solto era grudado no item que estava esperando sabor, e a checagem
- * era só "a palavra está na frase?". Quem dissesse "sem calabresa" ganhava
- * calabresa na comanda: a palavra estava lá, e ninguém olhava o "sem" na frente
- * dela.
- *
- * Escrever uma segunda negação lá seria repetir o erro que este projeto mais
- * cometeu: duas listas do mesmo assunto, que nascem iguais e divergem depois.
- */
-export function afirmouOuNegou(t: string, termo: RegExp): boolean | null {
-  const m = termo.exec(t);
-  if (m == null) return null;
-
-  // O SIM E O NAO TAMBEM VEM DEPOIS DA PALAVRA.
-  //
-  // "papel nao" e "topo sim" e como gente responde uma pergunta que juntou
-  // varias, e isso nao era lido: o leitor olhava so o que vinha ANTES.
-  //
-  // Medido em 26/08/2026, e o erro era do tipo que cobra do cliente:
-  //
-  //     "quero topo sim, papel nao, prato aberto"  ->  papel = SIM
-  //
-  // O "quero" de trinta caracteres atras valia pro papel, e o "nao" colado nele
-  // era ignorado. Sao R$ 12 cobrados de quem recusou com todas as letras.
-  //
-  // O depois GANHA do antes, porque esta mais perto e e mais explicito.
-  const fim = m.index + m[0].length;
-  const depois = t.slice(fim, fim + 14);
-  if (/^ *(nao|nem|nenhum)([^a-z]|$)/.test(depois)) return false;
-  if (/^ *(sim|pode|quero)([^a-z]|$)/.test(depois)) return true;
-
-  const antes = t.slice(Math.max(0, m.index - 22), m.index);
-  if (/(^|[^a-z])(sem|nao|nem)([^a-z][^.,;]*)?$/.test(antes)) return false;
-  if (/(^|[^a-z])(com|quero|vai com|pode por|poe|bota|sim|so o|so a|apenas o|apenas a)([^a-z][^.,;]*)?$/.test(antes)) return true;
-  return null;
-}
+export { afirmouOuNegou } from "../texto";
 
 /* ---------------------------------------------------------------- produtos */
 
