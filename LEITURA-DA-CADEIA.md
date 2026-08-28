@@ -30,7 +30,7 @@ Isto sobrevive à compactação. A minha memória de ter lido, não.
 | 1 | `app/api/whatsapp/route.ts` | 1-960, DUAS passadas | **INTEIRO** — 10 defeitos |
 | 2 | `lib/ia/fluxo/atender.ts` | 1-330, DUAS passadas | **INTEIRO** — 6 defeitos |
 | 3 | `lib/ia/fluxo/fluxo.ts` | 1-1690, sem buraco | **INTEIRO** — 9 defeitos |
-| 4 | `lib/ia/fluxo/leitura.ts` | os trechos que mexi | falta quase tudo |
+| 4 | `lib/ia/fluxo/leitura.ts` | 1-681, sem buraco | **INTEIRO** — 10 defeitos |
 | 5 | `lib/ia/fluxo/pensar-openai.ts` | 28-120 | falta o resto |
 | 6 | `lib/ia/fluxo/produto.ts` | 1-200 | falta o fim |
 | 7 | `lib/ia/fluxo/sabor.ts` | 1-196 e os trechos novos | falta conferir o meio |
@@ -256,3 +256,119 @@ e mais nada. E a etapa não era refeita depois de apagar a hora.
 Verificar e seguir também é resultado: o `??` dos dados não apaga o nome (os dois
 caminhos filtram vazio antes), e a comparação por referência do item que espera
 sabor funciona porque roda depois do carimbo da forminha.
+
+---
+
+## 4. `lib/ia/fluxo/leitura.ts` — o portão da etapa
+
+681 linhas. Monta a instrução que a IA recebe, e decide o que da leitura dela
+vira pedido. **Dez defeitos.**
+
+### A etapa da oferta não tinha instrução nenhuma
+
+`daEtapa` era `Record<string, string>`: o compilador aceitava qualquer chave e
+não cobrava nenhuma. Faltava a `oferta`, e faltava calada. Quem respondesse
+escrevendo em vez de tocar o botão chegava na IA com o bloco comum e mais nada:
+nenhuma palavra sobre docinho, sobre bolo, sobre o que fazer com o que ele
+pediu.
+
+O estrago já estava escrito no `fluxo.ts`, no comentário do resgate que nasceu
+pra tapar isto: *"50 brigadeiro, forminha rosa, e um bolo de 2 kg de 4 leites"
+na etapa da oferta — o brigadeiro entrou, o bolo não, e a padaria perguntou o
+sabor do bolo duas vezes até a conversa morrer.*
+
+O tipo virou `Record<EtapaId, string>`. Agora o compilador é o dono da lista:
+etapa nova em `etapas.ts` quebra o build aqui até ganhar instrução.
+
+### Os quinze bolos caseiros sumiam quando guardados
+
+    etapaDesteProduto("bolo caseiro cenoura")  ->  null
+    etapaDesteProduto("bolo brigadeiro")       ->  docinho
+
+Os dois vinham de uma cirurgia de texto: tirar o prefixo `bolo ` e procurar o
+resto no vocabulário. "bolo caseiro cenoura" virava "caseiro cenoura", que não é
+sabor nenhum. E "bolo brigadeiro" virava "brigadeiro", que a varredura acha no
+DOCINHO primeiro.
+
+Onde doía: o `fluxo.ts` estaciona o item citado fora da hora **já com o nome
+canônico**, e depois pergunta a esta função de quem ele é. Null nunca casa com
+etapa nenhuma, então o bolo caseiro ficava estacionado para sempre.
+
+É o mesmo defeito que o comentário do `fluxo.ts` diz ter consertado em
+26/08/2026. Consertou o bolo de festa; o caseiro ficou, porque o conserto foi na
+string e não na fonte. Agora quem responde é a categoria do catálogo.
+
+### O caso fundador do arquivo perdia o pedido
+
+O bloco que separa bolo de docinho pela quantidade — o da Kemilly, escrito
+dentro do próprio arquivo — terminava em `return []` seco:
+
+    4 leites 1kg e 100 brigadeiros e 100 beijinhos
+    entra  >> 1 kg de bolo 4 leites
+    sai    >> os 200 docinhos, sem rastro
+
+Com um item válido na frase, o desvio pra etapa do docinho nem dispara: ele
+exige que NADA tenha entrado. Os 200 docinhos dela desapareciam — que é
+exatamente o defeito que aquele bloco diz ter consertado.
+
+### A padaria negava o que ela vende
+
+`barrados` misturava três coisas: o que não existe, o que existe e é de outra
+etapa, e o que a quantidade desmentiu. Quem consumia separava de novo por REGEX
+no texto do rastro, e a separação vazava:
+
+    cliente >> 50 brigadeiro        (na etapa do salgado)
+    padaria >> Não achei brigadeiro no cardápio com esse nome.
+
+O brigadeiro estava sendo guardado pra etapa do docinho na linha de cima. Ela
+negava enquanto anotava. Agora `naoExistem` é lista própria e só o que a casa
+não vende entra nela.
+
+### Vinte e quatro produtos da casa eram barrados e perdidos
+
+Pizza, cuca, cupcake, torta fria, empadão, calzone, franciscano, pão. As etapas
+de produto são três e nenhuma cobre esses. Barrar só podia perder, porque não
+existe um "depois" pra onde guardar: nenhuma etapa vai chamar por eles nunca.
+Quem estava escolhendo salgado e dizia "e uma torta fria" perdia a torta E ouvia
+que a padaria não tinha.
+
+### O nome do catálogo era barrado na própria etapa dele
+
+O vocabulário mostrado ao modelo é o nome curto ("brigadeiro"); o nome do
+catálogo carrega a família ("bolo brigadeiro"). Quem chegasse pelo nome do
+catálogo entrava pela porta certa e era tratado como intruso.
+
+### O desvio de etapa era um chute
+
+    etapa === "bolo" ? "docinho" : etapa === "docinho" ? "bolo" : undefined
+
+Não olhava PARA O QUE tinha sido barrado. Medido: `50 xilofone` na etapa do
+docinho levava a conversa pra etapa do BOLO. Xilofone não existe e ninguém falou
+de bolo. E na etapa do salgado o mesmo código não levava a lugar nenhum, nem
+quando o item barrado era claramente de outra família. Agora o destino sai do
+item guardado, que sabe a resposta certa.
+
+### Mais dois
+
+- `import catalogo from "../dados/catalogo.json"`: o catálogo inteiro entrava no
+  módulo e ninguém lia
+- **seis blocos de comentário órfãos**: doc de uma função grudado em outra,
+  todos por inserção de código novo logo abaixo de um bloco existente. O de
+  `leituraQueCabeNaEtapa` ainda jura ser "a última trava antes de virar pedido"
+
+### O que ficou de fora, e por quê
+
+O portão só existe nas três etapas de produto. Nas outras oito (`abertura`,
+`dados`, `oferta`, `confirmacao`...) `vocabularioDaEtapa` devolve lista vazia e
+**qualquer coisa que o modelo devolver entra no pedido sem ser conferida** —
+inclusive um produto inventado.
+
+Não consertei nesta passada porque a defesa óbvia (barrar o que o catálogo não
+conhece) nega a palavra de família: "quero um bolo" e "queria uma torta" não são
+produto nenhum no catálogo, e são frases que gente escreve na abertura o tempo
+todo. Trocar um item inventado por uma conversa travada na primeira mensagem é
+um mau negócio, e medir isso exige rodar o modelo de verdade, não só o portão.
+
+Uma coisa conferida que estava CERTA: a faixa de acentos escrita com os
+caracteres literais (`U+0300`–`U+036F`, em quinze lugares do cérebro) é a mesma
+coisa que `̀-ͯ`. Conferido nos bytes, não no olho.

@@ -872,7 +872,7 @@ export async function responder(
     const crua = await pensar({ instrucao, mensagem: mensagem.texto });
     chamouIA = true;
 
-    const { limpa, barrados, paraDepois } = leituraQueCabeNaEtapa(etapaAgora.id, crua);
+    const { limpa, barrados, naoExistem, paraDepois } = leituraQueCabeNaEtapa(etapaAgora.id, crua);
     if (barrados.length) rastro.push("barrado nesta etapa: " + barrados.join(", "));
 
     // O QUE ESTA ESCRITO NA FRASE E O MODELO NAO LEU.
@@ -993,7 +993,18 @@ export async function responder(
     // O que foi barrado por NAO EXISTIR no cardapio vira aviso pro cliente. O
     // que foi barrado por ser de outra familia nao: aquele a conversa resolve
     // indo pra etapa certa, e dizer "a gente nao faz brigadeiro" seria mentira.
-    naoTemos = barrados.filter((b) => !/e docinho, nao bolo/.test(b));
+    // A PADARIA SO NEGA O QUE ELA NAO VENDE.
+    //
+    // Isto era `barrados` filtrado por REGEX no texto do rastro, e o filtro so
+    // conhecia UM dos casos que nao deviam virar negativa. Passavam os outros
+    // dois: o item guardado pra etapa certa e o produto de familia sem etapa.
+    //
+    //   cliente >> 50 brigadeiro          (na etapa do salgado)
+    //   padaria >> Nao achei brigadeiro no cardapio com esse nome.
+    //
+    // Negava enquanto guardava. Agora quem separa e a leitura, que sabe a
+    // diferenca, e nao uma busca de texto aqui dentro.
+    naoTemos = naoExistem;
 
     // ELE FALOU DE OUTRA ETAPA: VAI PRA LA E VOLTA DEPOIS.
     //

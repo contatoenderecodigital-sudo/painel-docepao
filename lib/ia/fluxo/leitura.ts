@@ -32,10 +32,9 @@
 //  desenho do anterior.
 // ============================================================================
 
-import catalogo from "../dados/catalogo.json";
 import type { EtapaId, PedidoEmMontagem } from "./etapas";
 import { APELIDOS } from "../dados/apelidos";
-import { produtosDaCasa } from "../dados/produtos";
+import { produtosDaCasa, produtoNoComeco, produtoPorNome } from "../dados/produtos";
 
 /** O que a IA pode devolver. Nada alem disto entra no pedido. */
 export type Leitura = {
@@ -97,6 +96,14 @@ export type Leitura = {
   /** A cor da forminha do docinho, do cardapio de cores. */
   forminha?: string;
   /**
+   * A CONVERSA NAO E UM PEDIDO.
+   *
+   * A Rota C: reclamacao e cancelamento sao sempre da equipe, e status a Dora
+   * responde se souber. Ate 24/08/2026 quem escrevia "meu pao veio queimado"
+   * caia no fluxo de pedido e recebia oferta de docinho.
+   */
+  situacao?: "reclamacao" | "cancelar" | "status";
+  /**
    * ELE SO PERGUNTOU, NAO PEDIU.
    *
    * "Quanto e o cento de salgado?" nao e pedido de salgado. No sistema antigo a
@@ -105,14 +112,6 @@ export type Leitura = {
    *
    * A resposta sai do codigo, com o dado da casa, e nada e anotado.
    */
-  /**
-   * A CONVERSA NAO E UM PEDIDO.
-   *
-   * A Rota C: reclamacao e cancelamento sao sempre da equipe, e status a Dora
-   * responde se souber. Ate 24/08/2026 quem escrevia "meu pao veio queimado"
-   * caia no fluxo de pedido e recebia oferta de docinho.
-   */
-  situacao?: "reclamacao" | "cancelar" | "status";
   perguntou?: {
     sobre: "preco" | "horario" | "endereco" | "pagamento" | "entrega" | "prazo" | "desconto" | "outro";
     familia?: string;
@@ -145,27 +144,6 @@ export type Leitura = {
 
 const nomes = (lista: { nome: string }[]) => lista.map((i) => String(i.nome));
 
-/**
- * O VOCABULARIO TAMBEM ACEITA O JEITO QUE O CLIENTE ESCREVE.
- *
- * A casa mantem uma lista de sinonimos em `apelidos.ts` justamente porque o
- * cliente nao escreve o nome do cardapio: escreve "risoles" e nao "risólis",
- * "esfiha" e nao "esfirra". O portao da etapa nao conhecia essa lista, entao
- * jogava fora um nome que o resto do sistema sabe traduzir.
- *
- * Medido em 27/08/2026, numa festa de 30 pessoas:
- *
- *   cliente >> coxinha e risoles de carne, metade de cada
- *   rastro  >> barrado nesta etapa: risoles de carne
- *
- * Os 300 salgados foram todos pra coxinha e o risoles SUMIU do pedido. Item que
- * some e a coisa mais grave que este sistema faz: se o cliente nao repetir, a
- * padaria produz metade do que ele pediu e ninguem descobre antes da retirada.
- *
- * Duas listas pro mesmo assunto sempre divergem, e este arquivo ja avisava
- * disso no cabecalho do `apelidos.ts`: "se as duas camadas usassem listas
- * diferentes, uma aceitaria o que a outra recusa, e isso ja aconteceu".
- */
 /**
  * UMA LETRA TROCADA NAO PODE FAZER A PADARIA NEGAR O QUE ELA VENDE.
  *
@@ -290,6 +268,27 @@ function quaseIgual(nome: string, vocab: string[]): string | null {
   return produtos.size === 1 ? [...produtos][0] : null;
 }
 
+/**
+ * O VOCABULARIO TAMBEM ACEITA O JEITO QUE O CLIENTE ESCREVE.
+ *
+ * A casa mantem uma lista de sinonimos em `apelidos.ts` justamente porque o
+ * cliente nao escreve o nome do cardapio: escreve "risoles" e nao "risólis",
+ * "esfiha" e nao "esfirra". O portao da etapa nao conhecia essa lista, entao
+ * jogava fora um nome que o resto do sistema sabe traduzir.
+ *
+ * Medido em 27/08/2026, numa festa de 30 pessoas:
+ *
+ *   cliente >> coxinha e risoles de carne, metade de cada
+ *   rastro  >> barrado nesta etapa: risoles de carne
+ *
+ * Os 300 salgados foram todos pra coxinha e o risoles SUMIU do pedido. Item que
+ * some e a coisa mais grave que este sistema faz: se o cliente nao repetir, a
+ * padaria produz metade do que ele pediu e ninguem descobre antes da retirada.
+ *
+ * Duas listas pro mesmo assunto sempre divergem, e este arquivo ja avisava
+ * disso no cabecalho do `apelidos.ts`: "se as duas camadas usassem listas
+ * diferentes, uma aceitaria o que a outra recusa, e isso ja aconteceu".
+ */
 function comOsApelidos(canonicos: string[]): string[] {
   const semAc = (t: string) =>
     String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
@@ -301,6 +300,39 @@ function comOsApelidos(canonicos: string[]): string[] {
   return [...canonicos, ...extras];
 }
 
+/** Os nomes CURTOS (do jeito que o cliente fala) das categorias pedidas. */
+const daLista = (...categorias: string[]) =>
+  produtosDaCasa()
+    .filter((p) => categorias.includes(p.categoria))
+    .map((p) => p.nomeCurto);
+
+/**
+ * QUAIS CATEGORIAS DO CATALOGO CADA ETAPA COBRE.
+ *
+ * Um lugar so, e de proposito. Duas funcoes precisam desta fiacao -- a que monta
+ * o vocabulario e a que descobre de quem e um produto -- e enquanto cada uma
+ * tinha o seu jeito, elas discordavam:
+ *
+ *   vocabularioDaEtapa("bolo")     incluia o brigadeiro de bolo
+ *   etapaDesteProduto("bolo brigadeiro")  ->  docinho
+ *
+ * Porque a segunda perguntava pelo NOME CURTO, e "brigadeiro" e nome curto nas
+ * duas familias. Categoria nao empata: `bolo_festa` e `docinho` sao coisas
+ * diferentes no catalogo, e o catalogo e quem sabe.
+ *
+ * Isto NAO e o cardapio escrito no codigo: nenhum produto aparece aqui. E a
+ * ligacao entre as tres etapas de produto e os nomes de categoria que a casa ja
+ * usa. Categoria que nao esta aqui existe e e vendida (pizza, cuca, cupcake,
+ * torta, calzone), so nao tem etapa que pergunte por ela.
+ */
+const CATEGORIAS_DA_ETAPA = {
+  salgado: ["salgado_frito", "salgado_assado"],
+  docinho: ["docinho"],
+  bolo: ["bolo_festa", "bolo_caseiro"],
+} as const;
+
+const ETAPAS_DE_PRODUTO = Object.keys(CATEGORIAS_DA_ETAPA) as (keyof typeof CATEGORIAS_DA_ETAPA)[];
+
 /**
  * O VOCABULARIO DA ETAPA.
  *
@@ -308,18 +340,12 @@ function comOsApelidos(canonicos: string[]): string[] {
  * cliente falar de outra coisa, ela devolve falouDeOutraEtapa e quem decide o
  * rumo e o codigo.
  */
-/** Os nomes CURTOS (do jeito que o cliente fala) das categorias pedidas. */
-const daLista = (...categorias: string[]) =>
-  produtosDaCasa()
-    .filter((p) => categorias.includes(p.categoria))
-    .map((p) => p.nomeCurto);
-
 export function vocabularioDaEtapa(etapa: EtapaId): string[] {
   switch (etapa) {
     case "salgado":
-      return comOsApelidos(daLista("salgado_frito", "salgado_assado"));
+      return comOsApelidos(daLista(...CATEGORIAS_DA_ETAPA.salgado));
     case "docinho":
-      return comOsApelidos(daLista("docinho"));
+      return comOsApelidos(daLista(...CATEGORIAS_DA_ETAPA.docinho));
     case "bolo":
       // O BOLO CASEIRO TAMBEM E BOLO, E ISSO FALTAVA.
       //
@@ -336,10 +362,17 @@ export function vocabularioDaEtapa(etapa: EtapaId): string[] {
       //
       // Achado migrando este arquivo pra lista unica, que e o que o dono mandou
       // fazer. Cada migração destas achou defeito que ninguem sabia que existia.
-      return comOsApelidos(daLista("bolo_festa", "bolo_caseiro"));
+      return comOsApelidos(daLista(...CATEGORIAS_DA_ETAPA.bolo));
     default:
       return [];
   }
+}
+
+/** Que dia e hoje, pelo relogio da padaria. O modelo nao tem relogio. */
+function hojeEmSaoPaulo(): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Sao_Paulo",
+  }).format(new Date());
 }
 
 /**
@@ -348,13 +381,6 @@ export function vocabularioDaEtapa(etapa: EtapaId): string[] {
  * Curta de proposito. A carta de trinta paginas da versao antiga existia porque
  * a IA precisava saber tudo pra decidir tudo; aqui ela decide uma coisa so.
  */
-/** Que dia e hoje, pelo relogio da padaria. O modelo nao tem relogio. */
-function hojeEmSaoPaulo(): string {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Sao_Paulo",
-  }).format(new Date());
-}
-
 export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
   const vocab = vocabularioDaEtapa(etapa);
   // QUEM ENTENDE ERRO DE DIGITAÇÃO É QUEM TEM CONTEXTO, E ISSO É A IA.
@@ -450,16 +476,6 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "\"cancelar\". Pergunta de pedido já feito = \"status\"." + String.fromCharCode(10) +
     "- Pergunta e reclamação NÃO viram item.";
 
-  // A RECUSA E RESPOSTA, NAO SILENCIO.
-  //
-  // So a etapa da proposta sabia ouvir "nao quero". Nas etapas de familia, quem
-  // dissesse "nao quero docinho" nao anotava item (nao pediu nada) e nao
-  // recusava nada (ninguem estava ouvindo), entao a etapa continuava aberta e a
-  // padaria perguntava de docinho pra sempre. Beco igual ao de "vcs fazem
-  // bolo?", e nas tres familias.
-  //
-  // Escrita uma vez e usada nas tres de proposito: o dono pediu que as regras
-  // fossem as mesmas em todas as familias, senao cada uma quebra de um jeito.
   // NA FESTA, O NUMERO JA FOI COMBINADO.
   //
   // Ele aceitou "300 salgados no total" e agora diz quais quer. Se o modelo
@@ -470,6 +486,17 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       ? " Se ele NÃO disser a quantidade, devolva qtd 0: o total já foi combinado na proposta."
       : "";
 
+  // A RECUSA E RESPOSTA, NAO SILENCIO.
+  //
+  // So a etapa da proposta sabia ouvir "nao quero". Nas etapas de familia, quem
+  // dissesse "nao quero docinho" nao anotava item (nao pediu nada) e nao
+  // recusava nada (ninguem estava ouvindo), entao a etapa continuava aberta e a
+  // padaria perguntava de docinho pra sempre. Beco igual ao de "vcs fazem
+  // bolo?", e nas tres familias.
+  //
+  // Escrita uma vez e usada nas tres de proposito: o dono pediu que as regras
+  // fossem as mesmas em todas as familias, senao cada uma quebra de um jeito.
+  //
   // CURTA DE PROPOSITO: ela entra em tres etapas, entao cada palavra aqui custa
   // tres vezes. A lista de exemplos ("nao quero, sem X, pode tirar, deixa pra
   // la") saiu em 27/08/2026 pra caber o aviso de correcao de quantidade: o
@@ -477,7 +504,23 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
   const recusa = (familia: string) =>
     " Se ele recusar " + familia + ", devolva naoQuer com essa palavra.";
 
-  const daEtapa: Record<string, string> = {
+  // O TIPO E `EtapaId`, E NAO `string`, E ISSO NAO E ENFEITE.
+  //
+  // Com `Record<string, string>` o compilador aceita qualquer chave e nao cobra
+  // nenhuma. Faltava a etapa da OFERTA, e faltava calada: quem escrevesse em
+  // vez de tocar o botao chegava na IA com o bloco comum e MAIS NADA. Nenhuma
+  // palavra sobre docinho, sobre bolo, sobre o que fazer com o que ele pediu.
+  //
+  // O estrago esta escrito no `fluxo.ts`, no comentario do resgate que nasceu
+  // pra tapar isto: "50 brigadeiro, forminha rosa, e um bolo de 2 kg de 4
+  // leites" na etapa da oferta -- o brigadeiro entrou, o bolo nao, e a padaria
+  // perguntou o sabor do bolo duas vezes ate a conversa morrer.
+  //
+  // Com o tipo fechado, o compilador passa a ser o dono da lista: cadastrar uma
+  // etapa nova em `etapas.ts` quebra o build aqui ate ela ganhar instrucao. A
+  // etapa que de fato nao precisa de uma diz isso com "" na cara, escolhido por
+  // alguem, em vez de sumir da lista sem ninguem notar.
+  const daEtapa: Record<EtapaId, string> = {
     quantas_pessoas:
       "A etapa é QUANTAS PESSOAS vão na festa. Devolva o número em pessoas. " +
       "Se ele falar de outra coisa, devolva falouDeOutraEtapa.",
@@ -516,6 +559,16 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       // padaria continuou perguntando o nome do topo.
       "Não quer o topo? naoQuer com \"topo\". Não quer o papel? naoQuer com " +
       "\"papel\". Vale mesmo se ele já disse sim antes: quem muda de ideia manda.",
+    oferta:
+      "A padaria acabou de oferecer DOCINHO ou BOLO junto com o que ele pediu. " +
+      "Se ele quer, devolva os itens; se ele recusou (só isso, não, mais nada), " +
+      "devolva naoQuer com \"docinho\" e \"bolo\". Se ele falou de outra coisa " +
+      "(dados da retirada, mudar o pedido), leia normalmente: a oferta é " +
+      "opcional e não trava a conversa." + String.fromCharCode(10) +
+      "Aqui valem docinho E bolo ao mesmo tempo. Quantidade em unidades é " +
+      "docinho; peso em quilos é bolo." + String.fromCharCode(10) +
+      "Docinhos: " + daLista("docinho").join(", ") + "." + String.fromCharCode(10) +
+      "Bolos: " + daLista("bolo_festa", "bolo_caseiro").join(", ") + ".",
     dados:
       "A etapa é PEGAR OS DADOS DA RETIRADA: nome de quem retira, dia, hora e " +
       "forma de pagamento. Devolva só o que ele falou nesta mensagem. " +
@@ -531,6 +584,10 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "fechar, isso mesmo, confirmo, tá certo, pode ser, fechado), devolva " +
       "confirmou = true. Se ele pediu para mudar algo, devolva falouDeOutraEtapa " +
       "com a etapa do que ele quer mudar.",
+    // O pedido ja esta com a equipe e esta etapa nunca e a da vez (`cumprida`
+    // devolve true sempre). Fica aqui porque o tipo cobra, e cobrar e o ponto:
+    // no dia em que ela virar uma etapa de verdade, isto aparece.
+    registrado: "",
     abertura:
       "A conversa está começando e você ainda não sabe o que ele quer." + String.fromCharCode(10) + 
       "Se ele falou de FESTA, aniversário, formatura, coffee break ou de um " +
@@ -552,15 +609,6 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
 }
 
 /**
- * A LEITURA CABE NA ETAPA?
- *
- * Ultima trava antes de virar pedido: item que nao esta no vocabulario da etapa
- * nao entra, por mais que a IA tenha devolvido. E o que impede o docinho de
- * virar recheio de bolo mesmo se o modelo insistir.
- *
- * Devolve a leitura limpa e a lista do que foi barrado, pra ficar no rastro.
- */
-/**
  * O ITEM E DE OUTRA ETAPA, OU NAO EXISTE?
  *
  * Sao coisas diferentes e o tratamento tem que ser diferente. O que existe no
@@ -580,8 +628,43 @@ export function etapaDesteProduto(produto: string): EtapaId | null {
   // Quando o canonico passou a valer, em 26/08/2026, esta comparacao parou de
   // casar e o bolo guardado nunca era aplicado: ficava estacionado pra sempre.
   // Peguei medindo UMA conversa contra o banco antes de rodar a bateria.
+  // A CATEGORIA DO CATALOGO DECIDE ANTES DO NOME. MEDIDO EM 27/08/2026:
+  //
+  //   etapaDesteProduto("bolo caseiro cenoura")  ->  null
+  //   etapaDesteProduto("bolo brigadeiro")       ->  docinho
+  //
+  // Os dois vinham da cirurgia de texto logo abaixo. "bolo caseiro cenoura"
+  // menos o prefixo "bolo " e "caseiro cenoura", que nao e sabor nenhum, e os
+  // QUINZE bolos caseiros davam null. E "bolo brigadeiro" menos o prefixo e
+  // "brigadeiro", que a varredura encontra no DOCINHO primeiro.
+  //
+  // Onde isso doia: o `fluxo.ts` estaciona o item citado fora da hora ja com o
+  // nome canonico, e depois pergunta a esta funcao de quem ele e pra aplicar na
+  // etapa certa. Null nunca casa com etapa nenhuma, entao o bolo caseiro ficava
+  // estacionado PARA SEMPRE. E o mesmo defeito que o comentario do `fluxo.ts`
+  // diz ter consertado em 26/08/2026: consertou o bolo de festa, e o caseiro
+  // ficou, porque o conserto foi na string e nao na fonte.
+  //
+  // O nome do cardapio pergunta pelo CATALOGO, que sabe a categoria de cada
+  // produto sem ninguem cortar prefixo. E a etapa continua saindo de
+  // `vocabularioDaEtapa`, que e o unico lugar onde categoria vira etapa: aqui
+  // nao nasce uma segunda lista dizendo a mesma coisa de outro jeito.
+  const daCasa = produtoNoComeco(produto);
+  if (daCasa) {
+    for (const etapa of ETAPAS_DE_PRODUTO) {
+      if ((CATEGORIAS_DA_ETAPA[etapa] as readonly string[]).includes(daCasa.categoria)) return etapa;
+    }
+    // Existe na casa e nenhuma etapa pergunta por ele: pizza, cuca, cupcake,
+    // torta, calzone. Null aqui e verdade, e quem chama precisa saber que e
+    // diferente de "nao existe" -- ver `existeNoCardapio`.
+    return null;
+  }
+
+  // O modelo nem sempre devolve o nome canonico: "cenoura" e "4 leites" chegam
+  // pelados, e o catalogo nao acha nenhum dos dois pelo nome curto. Entao a
+  // busca pelo vocabulario continua, agora como segunda tentativa.
   const nome = semAc(produto).replace(/^bolo +/, "");
-  for (const etapa of ["salgado", "docinho", "bolo"] as EtapaId[]) {
+  for (const etapa of ETAPAS_DE_PRODUTO) {
     const cabe = vocabularioDaEtapa(etapa)
       .map(semAc)
       .some((v) => nome === v || nome.startsWith(v + " "));
@@ -590,18 +673,63 @@ export function etapaDesteProduto(produto: string): EtapaId | null {
   return null;
 }
 
+/**
+ * EXISTE NO CARDAPIO, MESMO QUE NENHUMA ETAPA PERGUNTE POR ELE.
+ *
+ * `etapaDesteProduto` devolve null para duas coisas MUITO diferentes: o que a
+ * casa nao vende, e o que a casa vende mas nenhuma etapa cobre -- pizza, cuca,
+ * cupcake, torta fria, empadao, calzone, franciscano, pao. Sao 24 produtos.
+ *
+ * Tratar os dois igual fazia a padaria negar o que ela vende: quem estivesse na
+ * etapa do salgado e dissesse "e uma torta fria" ouvia "Nao achei torta fria no
+ * cardapio com esse nome", e o item sumia do pedido.
+ */
+export function existeNoCardapio(produto: string): boolean {
+  return Boolean(produtoNoComeco(produto) || produtoPorNome(produto));
+}
+
+/**
+ * A LEITURA CABE NA ETAPA?
+ *
+ * Ultima trava antes de virar pedido: item que nao esta no vocabulario da etapa
+ * nao entra, por mais que a IA tenha devolvido. E o que impede o docinho de
+ * virar recheio de bolo mesmo se o modelo insistir.
+ *
+ * Devolve a leitura limpa e a lista do que foi barrado, pra ficar no rastro.
+ */
 export function leituraQueCabeNaEtapa(
   etapa: EtapaId,
   leitura: Leitura,
-): { limpa: Leitura; barrados: string[]; paraDepois: NonNullable<Leitura["itens"]> } {
+): {
+  limpa: Leitura;
+  barrados: string[];
+  /**
+   * O QUE A CASA NAO VENDE. So isto pode virar "nao achei no cardapio".
+   *
+   * Ate 28/08/2026 existia so o `barrados`, e ele misturava tres coisas
+   * diferentes: o que nao existe, o que existe e e de outra etapa, e o que a
+   * quantidade desmentiu. Quem chamava tinha que separar de novo por REGEX no
+   * texto do rastro (`/e docinho, nao bolo/`), e a separacao vazava:
+   *
+   *   cliente >> 50 brigadeiro       (na etapa do salgado)
+   *   padaria >> Nao achei brigadeiro no cardapio com esse nome.
+   *
+   * O brigadeiro estava guardado pra etapa do docinho na linha de cima. A
+   * padaria negou o produto que ela mais vende enquanto o anotava.
+   */
+  naoExistem: string[];
+  paraDepois: NonNullable<Leitura["itens"]>;
+} {
   const vocab = vocabularioDaEtapa(etapa);
-  if (!vocab.length || !leitura.itens?.length) return { limpa: leitura, barrados: [], paraDepois: [] };
+  if (!vocab.length || !leitura.itens?.length)
+    return { limpa: leitura, barrados: [], naoExistem: [], paraDepois: [] };
 
   const semAc = (t: string) =>
     String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
   const permitido = new Set(vocab.map(semAc));
 
   const barrados: string[] = [];
+  const naoExistem: string[] = [];
   // O QUE FOI CITADO FORA DA HORA NAO E JOGADO FORA.
   //
   // Ate 25/08/2026 o item barrado sumia: o codigo guardava so o NOME numa lista
@@ -639,10 +767,39 @@ export function leituraQueCabeNaEtapa(
       }
     }
 
+    // O NOME DO CATALOGO TAMBEM E O NOME DESTA ETAPA.
+    //
+    // O vocabulario mostrado ao modelo e o nome CURTO ("brigadeiro"), e o nome
+    // do catalogo carrega a familia ("bolo brigadeiro"). Quem chegasse aqui
+    // pelo nome do catalogo era barrado NA PROPRIA ETAPA dele:
+    //
+    //   etapa do bolo, item "bolo brigadeiro"
+    //   antes  >> barrado, guardado pra depois, e a conversa mandada pro docinho
+    //
+    // O item entrava pela porta certa e era tratado como intruso. Quem sabe de
+    // quem e o produto e o catalogo, e ele ja foi perguntado logo acima.
+    if (!cabe && etapaDesteProduto(i.produto) === etapa) cabe = true;
+
     if (!cabe) {
       barrados.push(i.produto);
-      // Existe no cardapio e so nao e a hora? Guarda para quando for.
-      if (etapaDesteProduto(i.produto)) paraDepois.push(i);
+      // Existe no cardapio e alguma etapa vai perguntar por ele? Guarda pra la.
+      if (etapaDesteProduto(i.produto)) {
+        paraDepois.push(i);
+        return [];
+      }
+      // EXISTE, E NENHUMA ETAPA VAI PERGUNTAR POR ELE.
+      //
+      // Sao 24 produtos da casa: pizza, cuca, cupcake, torta fria, empadao,
+      // calzone, franciscano, pao. As etapas de produto sao tres (salgado,
+      // docinho, bolo) e nenhuma delas cobre esses.
+      //
+      // Barrar aqui so podia perder o item, porque nao existe um "depois" pra
+      // onde guardar: nenhuma etapa vai chamar por ele nunca. Antes disto, quem
+      // estava escolhendo salgado e dizia "e uma torta fria" perdia a torta E
+      // ouvia que a padaria nao tinha.
+      if (existeNoCardapio(i.produto)) return [i];
+
+      naoExistem.push(i.produto);
       return [];
     }
 
@@ -659,6 +816,29 @@ export function leituraQueCabeNaEtapa(
     // por unidade (25, 50, 100). Ninguem encomenda um bolo de 100 quilos.
     if (etapa === "bolo" && Number(i.qtd) > 20) {
       barrados.push(i.produto + " (" + i.qtd + ": e docinho, nao bolo)");
+      // E ELE PRECISA SER GUARDADO, SENAO O CONSERTO PERDE O PEDIDO QUE VEIO
+      // CONSERTAR.
+      //
+      // Este bloco nasceu da frase da kemilly, que esta escrita logo acima, e
+      // ate 28/08/2026 ele terminava em `return []` seco. Rodando a frase dela
+      // inteira na etapa do bolo:
+      //
+      //   4 leites 1kg e 100 brigadeiros e 100 beijinhos
+      //   entra  >> 1 kg de bolo 4 leites
+      //   sai    >> os 100 brigadeiros e os 100 beijinhos, sem rastro
+      //
+      // Com um item valido na frase, o desvio pra etapa do docinho la embaixo
+      // nem acontece (ele exige que NADA tenha entrado). Os 200 docinhos dela
+      // desapareciam do pedido -- que e exatamente o defeito que este bloco diz
+      // ter consertado.
+      //
+      // A quantidade disse que o modelo carimbou de bolo o que e docinho, entao
+      // guarda-se a leitura sem o carimbo, e so quando ela e docinho de
+      // verdade.
+      const semCarimbo = String(i.produto).replace(/^ *bolo +(caseiro +)?/i, "");
+      if (etapaDesteProduto(semCarimbo) === "docinho") {
+        paraDepois.push({ ...i, produto: semCarimbo });
+      }
       return [];
     }
 
@@ -668,14 +848,32 @@ export function leituraQueCabeNaEtapa(
   // O que foi barrado por ser de outra familia manda a conversa pra la, em vez
   // de sumir calado. Sumir calado foi o que fez os 200 docinhos da kemilly
   // desaparecerem do pedido.
+  // A ETAPA DE DESTINO SAI DO ITEM GUARDADO, E NAO DE UM CHUTE.
+  //
+  // Isto era `etapa === "bolo" ? "docinho" : ...`, um pingue-pongue entre as
+  // duas familias que nao olhava PARA O QUE tinha sido barrado. Medido em
+  // 28/08/2026, na etapa do docinho:
+  //
+  //   cliente >> 50 xilofone
+  //   antes   >> a conversa ia pra etapa do BOLO
+  //
+  // Xilofone nao existe, ninguem falou de bolo, e o cliente era levado pro bolo
+  // porque a etapa da vez era a do docinho. Na etapa do salgado o mesmo codigo
+  // devolvia `undefined` e nao levava a lugar nenhum, nem quando o item barrado
+  // era claramente de outra familia.
+  //
+  // `paraDepois` sabe a resposta certa: ele so recebe item que existe E tem
+  // etapa. Perguntar a ele e a mesma regra da fonte unica que vale no resto.
+  const destinoGuardado = paraDepois.length ? etapaDesteProduto(paraDepois[0].produto) : null;
   const mandaPraOutraEtapa =
-    barrados.length && !itens.length && !leitura.falouDeOutraEtapa
-      ? (etapa === "bolo" ? "docinho" : etapa === "docinho" ? "bolo" : undefined)
+    destinoGuardado && destinoGuardado !== etapa && !itens.length && !leitura.falouDeOutraEtapa
+      ? destinoGuardado
       : undefined;
 
   return {
     limpa: { ...leitura, itens, ...(mandaPraOutraEtapa ? { falouDeOutraEtapa: mandaPraOutraEtapa as EtapaId } : {}) },
     barrados,
+    naoExistem,
     paraDepois,
   };
 }
