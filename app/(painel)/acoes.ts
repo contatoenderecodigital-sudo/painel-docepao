@@ -67,7 +67,15 @@ export async function aprovarPedido(pedidoId: string): Promise<{ ok: boolean }> 
   const sessao = await lerSessao();
   if (!sessao) return { ok: false };
   const { mudarStatus } = await import("@/lib/banco/pedidos");
-  await mudarStatus(pedidoId, "aprovado", sessao.negocioId);
+  // SO AVISA O CLIENTE SE A APROVACAO PEGOU.
+  //
+  // O `mudarStatus` so age sobre pedido em 'confirmado' (o porque esta escrito
+  // la, e envolve a cozinha imprimir duas vezes). Antes esta funcao devolvia
+  // `ok: true` sempre, entao a tela dizia "aprovado" mesmo quando nada tinha
+  // mudado, e o cliente recebia o aviso de aprovacao por um pedido que ja
+  // estava impresso ou recusado.
+  const pegou = await mudarStatus(pedidoId, "aprovado", sessao.negocioId);
+  if (!pegou) return { ok: false };
   await avisarCliente(sessao.negocioId, pedidoId, "aprovado");
   return { ok: true };
 }
@@ -77,7 +85,11 @@ export async function recusarPedido(pedidoId: string): Promise<{ ok: boolean }> 
   const sessao = await lerSessao();
   if (!sessao) return { ok: false };
   const { mudarStatus } = await import("@/lib/banco/pedidos");
-  await mudarStatus(pedidoId, "recusado", sessao.negocioId);
+  // Mesma coisa da aprovacao: recusar um pedido que a cozinha ja imprimiu
+  // avisaria o cliente que "a equipe precisa acertar alguns detalhes" com o
+  // papel dele ja na bancada.
+  const pegou = await mudarStatus(pedidoId, "recusado", sessao.negocioId);
+  if (!pegou) return { ok: false };
   await avisarCliente(sessao.negocioId, pedidoId, "recusado");
   return { ok: true };
 }

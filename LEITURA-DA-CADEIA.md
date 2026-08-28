@@ -2552,3 +2552,52 @@ deslogada sem motivo.
 A duplicação tem uma razão real: o `lib/auth.ts` grava com `cookies()`, e o
 `/sso` precisa gravar num `NextResponse`. Mas o `assinar`/`verificar` podiam sair
 de um lugar só.
+
+
+## 52. `app/(painel)/acoes.ts` — aprovar de novo manda a cozinha imprimir de novo
+
+O `mudarStatus` é o que **manda o pedido pra cozinha**: pôr o status em
+`'aprovado'` dispara o gatilho `on_pedido_aprovado`, que insere a comanda na fila
+e a ponte imprime.
+
+Ele não tinha guarda de estado nenhuma. E **todos os vizinhos têm**, e dizem por
+quê:
+
+| função | a guarda que ela tem |
+| --- | --- |
+| `adicionarItem` | *"pedido já aprovado: não dá pra mexer nos itens"* |
+| `salvarItensDoPedido` | *"pedido já aprovado: a cozinha recebeu"* |
+| `reenfileirarImpressao` | só age em `status in ('aprovado','impresso')` |
+| **`mudarStatus`** | **nenhuma** |
+
+O único sem guarda era justamente o que manda pra cozinha.
+
+### Duas consequências, as duas caladas
+
+O gatilho:
+
+```sql
+if new.status = 'aprovado' and (old.status is distinct from 'aprovado') then
+  insert into fila_impressao ...
+  new.aprovado_em := now();
+```
+
+1. **`'impresso'` é distinto de `'aprovado'`**, então aprovar um pedido já
+   impresso insere comanda nova e **a cozinha imprime o mesmo pedido outra vez**.
+2. `new.aprovado_em := now()` é a data que conta como "quando vendeu" na tela de
+   Resultados. Reaprovar um pedido do mês passado **move ele pro faturamento do
+   mês atual**.
+
+E recusar um pedido já impresso avisa o cliente que *"a equipe precisa acertar
+alguns detalhes"* com o papel dele já na bancada.
+
+### E a tela dizia que aprovou sem ter aprovado
+
+As duas ações devolviam `ok: true` sempre, independente de o update ter pegado
+alguma linha. Agora o `mudarStatus` devolve se pegou, e as ações só avisam o
+cliente nesse caso.
+
+O teste `aprovar-so-vale-uma-vez.cjs` lê os **três arquivos** (a query, as ações e
+o gatilho) e cobra a guarda, o `returning`, a ordem (conferir antes de avisar) e
+que o gatilho continue com o `is distinct from`, que é o motivo de tudo isso
+existir. Isca provada.

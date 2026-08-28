@@ -294,17 +294,48 @@ export async function dadosAvisoPedido(
 }
 
 // Muda o status de um pedido. 'aprovado' dispara o trigger da fila de impressão.
+//
+// SO SAI DE 'confirmado', E ISSO TEM CONSEQUENCIA FISICA.
+//
+// Aqui nao havia guarda de estado nenhuma: o update valia pra qualquer pedido do
+// negocio, em qualquer status. Os vizinhos todos tem a guarda e dizem por que
+// ("pedido ja aprovado: a cozinha recebeu, nao da pra mexer por aqui"), e este,
+// que e o que MANDA PRA COZINHA, nao tinha.
+//
+// Aprovar um pedido JA IMPRESSO fazia duas coisas, as duas caladas:
+//
+//   1. o gatilho dispara de novo. Ele testa `new.status = 'aprovado' and
+//      old.status is distinct from 'aprovado'`, e 'impresso' e distinto, entao
+//      entra uma comanda nova na fila e A COZINHA IMPRIME O MESMO PEDIDO OUTRA
+//      VEZ;
+//   2. o gatilho faz `new.aprovado_em := now()`, e essa e a data que conta como
+//      "quando vendeu" na tela de Resultados. Reaprovar um pedido do mes passado
+//      MOVE ELE pro faturamento do mes atual.
+//
+// E recusar um pedido ja impresso avisa o cliente que "a equipe precisa acertar
+// alguns detalhes" com o papel dele ja na cozinha.
+//
+// Os dois chamadores (aprovar e recusar) partem sempre de 'confirmado', entao a
+// guarda nao tira caminho de ninguem. Reimprimir de proposito continua sendo o
+// `reenfileirarImpressao`, que existe pra isso e nao mexe em status.
+//
+// Devolve se PEGOU: sem isso a tela dizia "aprovado" quando nada tinha mudado.
+//
+// Achado na leitura do `app/`, 28/08/2026.
 export async function mudarStatus(
   pedidoId: string,
   status: PedidoStatus,
   negocioId: string,
-): Promise<void> {
+): Promise<boolean> {
   const carimbo =
     status === "confirmado" ? ", confirmado_em = now()" : "";
-  await query(
-    `update pedidos set status = $1${carimbo} where id = $2 and negocio_id = $3`,
+  const r = await query<{ id: string }>(
+    `update pedidos set status = $1${carimbo}
+      where id = $2 and negocio_id = $3 and status = 'confirmado'
+     returning id`,
     [status, pedidoId, negocioId],
   );
+  return r.length > 0;
 }
 
 // Acrescenta um item ao pedido e recalcula o total a partir da SOMA dos itens.
