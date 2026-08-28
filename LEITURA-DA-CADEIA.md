@@ -2916,3 +2916,34 @@ isso a função não redireciona sozinha — quem decide é a tela.
 
 A de aguardando fica de fora de propósito: ela usa `router.refresh()`, e quem
 trata o caso dela é o redirect do layout (item 58).
+
+
+## 61. O aviso que resolvia a pendência de DATA falava só de VALOR
+
+Fecha um ciclo que ficou aberto de manhã. Eu tinha anotado, na leitura do
+`pedidos.ts`, que o pedido sem dia de retirada entra na fila de aprovação, e
+deixei como decisão do dono. Agora achei o caminho exato.
+
+O `registrarPedido` **segura** o pedido sem data: ele nasce com
+`precisa_confirmacao` e o motivo escrito (*"O cliente não disse o dia da
+retirada"*), e vai pra tela de pendências. Essa parte funciona.
+
+A tela de pendências tem o botão *"Não tem valor a cobrar, mandar direto pra
+aprovação"*, que existe por um bom motivo (nem toda pendência é de dinheiro) e
+até pergunta antes. Mas o texto da pergunta falava **só de valor**:
+
+> *"Mandar este pedido direto pra aprovação, sem cobrar valor nenhum a mais? O
+> cliente não vai receber pedido de confirmação de valor."*
+
+Então a pendência de **data** era resolvida por um aviso que não fala de data. A
+equipe lê, concorda, e o pedido vai pra cozinha sem dia.
+
+A tela **já sabia**: mostra "Retirada: —" no canto e o motivo na frente do card.
+Só o aviso de confirmar não dizia.
+
+Agora ele diz, com a consequência junto: *"a comanda sai sem dia, e a cozinha
+produz por dia"*. E quem decide é o campo `retiradaData`, não o texto do motivo:
+o texto é escrito pra pessoa ler e muda, o campo não.
+
+**Continua sendo decisão sua** pôr um campo de data ali. Dizer a verdade no aviso
+não é decisão, e não muda o fluxo de ninguém.

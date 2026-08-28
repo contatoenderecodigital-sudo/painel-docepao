@@ -288,8 +288,25 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
               // Pergunta antes: é a ação que mais empurra o pedido pra frente
               // e era a menos protegida da tela. Um dedo torto no celular
               // mandava pra fila sem o valor do topo de bolo, e daí sai papel.
+              // E QUANDO FALTA A DATA, O AVISO DIZ ISSO.
+              //
+              // O texto falava so de VALOR. Mas a pendencia mais comum depois do
+              // topo de bolo e "o cliente nao disse o dia da retirada", e este
+              // botao mandava o pedido pra aprovacao com a data em branco: a
+              // cozinha produz POR DIA, e o papel sai com um tracinho no lugar
+              // do dia.
+              //
+              // A tela ja sabe que falta (o `retiradaData` e null) e ja mostra o
+              // motivo na frente. So o aviso de confirmar nao dizia.
+              //
+              // Achado na leitura do `components/`, 28/08/2026. Por um CAMPO de
+              // data aqui e decisao do dono, e esta anotada no ONDE-PAREI;
+              // dizer a verdade no aviso nao e.
+              const semDia = !pedido.retiradaData;
               const ok = window.confirm(
-                "Mandar este pedido direto pra aprovação, sem cobrar valor nenhum a mais?\n\nO cliente não vai receber pedido de confirmação de valor."
+                semDia
+                  ? "Este pedido esta SEM O DIA DA RETIRADA.\n\nMandando assim, ele entra na fila de aprovacao e a comanda sai sem dia, e a cozinha produz por dia.\n\nO certo e perguntar o dia pro cliente na conversa e voltar aqui. Mandar mesmo assim?"
+                  : "Mandar este pedido direto pra aprovação, sem cobrar valor nenhum a mais?\n\nO cliente não vai receber pedido de confirmação de valor."
               );
               if (ok) enviar(false);
             }}

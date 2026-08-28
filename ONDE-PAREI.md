@@ -21,7 +21,7 @@ documentos é o detalhe de cada um.
 | --- | --- | --- |
 | **Aviso do dia** | a dona escreve "sem pão após as 18h" e a IA nunca fica sabendo. No cérebro novo a fala é escrita em código, então não existe prompt onde enfiar o aviso | `LEITURA` item 39 |
 | **Dispensar orçamento** | o banco sabe dispensar (`dispensarOrcamento`), e não existe botão em tela nenhuma. O filtro roda em toda carga da tela de Recuperar lendo uma lista que nunca enche | `LEITURA` item 45, e a lista do `nada-de-codigo-fantasma` |
-| **Pedido sem dia de retirada** | a equipe resolve a pendência e não tem onde preencher a data, então o pedido entra na fila com um tracinho no lugar do dia | `LEITURA`, seção do `pedidos.ts` |
+| **Pedido sem dia de retirada** | a equipe resolve a pendência e não tem onde preencher a data. **O aviso já diz que falta o dia e por que importa** (28/08); falta decidir se entra um CAMPO de data ali | `LEITURA`, seção do `pedidos.ts` |
 | **CRM: pedidos e dinheiro** | conta pedido `confirmado+aprovado+impresso` e soma dinheiro só de `aprovado+impresso`. Defensável, mas não está escrito, e a ficha mostra "3 pedidos, R$ 0,00" | `LEITURA` item pós-38 |
 | **rota de preview pública** | `app/preview/atendimentos` serve a tela com dados falsos, sem login. Não vaza nada (é mock), mas o próprio comentário dela diz "apagar depois". Apagar, ou pôr atrás do login |
 | **`middleware.ts` no painel** | hoje cada rota se defende sozinha, e foi por isso que dezesseis se defenderam errado do mesmo jeito. Um middleware faria o defeito deixar de ser possível, em vez de proibido por teste | `LEITURA` item 44 |
@@ -147,7 +147,7 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 | | |
 | --- | --- |
 | arquivos lidos inteiros | **28** do cérebro + **11** da camada de banco |
-| defeitos consertados | **215** |
+| defeitos consertados | **216** |
 | testes no portão | **67**, todos verdes |
 | `tsc` | limpo |
 | cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |
