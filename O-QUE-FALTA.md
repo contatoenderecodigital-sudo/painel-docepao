@@ -136,6 +136,64 @@ cliente não tem como saber quanto vai pagar, e o catálogo sabe a faixa.
 
 ---
 
+## PRIORIDADE MÁXIMA: CORTAR PELA RAIZ
+
+Decisão do dono, 27/08/2026, depois de me pedir a lista do que eu tinha
+declarado e não aplicado: *"vamo começar a corrigir da raiz, cortar o mal pela
+raiz"*.
+
+O padrão que gerou quase todo defeito de dinheiro deste projeto é sempre o
+mesmo: **o mesmo assunto decidido em dois lugares.** Duas listas de produto,
+dois vocabulários de categoria, duas implementações de cor. Elas nunca nascem
+divergentes; elas divergem depois, caladas, e o defeito aparece meses adiante.
+
+A ordem abaixo é por raiz, e não por sintoma.
+
+### 1. Sete arquivos ainda remontam o catálogo cru  ⟵ A RAIZ
+
+```
+app/api/cardapio/opcoes/route.ts    salgados, doces, bolos, pizza
+lib/ia/orcamento.ts                 salgados, bolos_recheados, pizza
+lib/ia/fluxo/leitura.ts             salgados, doces, bolos_recheados
+lib/ia/fluxo/informacao.ts          salgados, doces, bolos_recheados
+lib/ia/fluxo/fluxo.ts               salgados, bolos_recheados
+lib/ia/fatos.ts                     pizza, outros_produtos
+lib/banco/montagem.ts               pizza
+```
+
+É a doença que fez o bolo de café custar R$ 1,25 e o churros R$ 34,90. **Cada
+migração feita até aqui achou defeito que ninguém sabia que existia**, então a
+migração não é arrumação: é o método que acha os defeitos.
+
+**Medir a divergência ANTES de trocar**, sempre: o que o arquivo decide hoje
+contra o que a lista única diz. O que divergir é defeito vivo.
+
+### 2. Dois vocabulários de categoria
+
+A lista única diz `docinho`, o banco grava `doce`, e `departamentos.ts` mantém
+uma tabela de tradução de vinte linhas costurando os dois. Enquanto existirem
+dois, toda regra nova precisa saber os dois.
+
+### 3. O sabor que ela não achou some
+
+A frase já foi consertada ("não achei chocolate no cardápio" em vez de "a gente
+não faz"), mas o sabor pedido não fica registrado em lugar nenhum. A dona disse
+*"se o cliente pedir outro sabor, a gente vai colocando"*, e pra ir colocando
+ela precisa VER o que pediram.
+
+### 4. O leitor da frase não lê quantidade
+
+`"muda a coxinha pra 100"`: ele acha a coxinha e ignora o 100. Quando o modelo
+se distrai com a pergunta da etapa, ninguém pega a correção. É o que sobrou da
+festa 3, e ainda mata pedido inteiro.
+
+### 5. As duas pequenas, já nomeadas
+
+`obs: metade` indo como lixo pra comanda, e o `valor_tipico`: quem pede pizza
+redonda compra por peso sem saber que sai entre R$ 35 e R$ 45.
+
+---
+
 ## O QUE FAZER AGORA, em ordem
 
 ### 1. Migrar o `sabor.ts` para a lista única  ⟵ RETOMAR AQUI
@@ -234,14 +292,25 @@ Citação de origem em `O-QUE-A-DONA-FALOU.md`. Decisões do dono em 26/08:
   se o cara pedir"*.
 - **Entrega sempre chamar gente.** Em `informacao.ts`, coberto por
   `testes/as-regras-da-casa-no-fluxo.cjs`.
+- **Comanda separada por segmento.** Estava listado aqui como pendente e **já
+  estava pronto**, em `lib/departamentos.ts` e `lib/cupom-escpos.ts`: treze
+  segmentos, um por tipo de produto, na ordem da produção. Verificado em
+  27/08/2026 imprimindo a festa medida, que sai em quatro papéis:
+
+  ```
+  == DOCINHOS ==   café, docinho de churros, brigadeiro, beijinho
+  == BOLO FESTA == bolo strogonoff de nozes
+  == SALGADOS ==   quiche, coxinha
+  == CAIXA ==      o pedido inteiro, R$ 592,75
+  ```
+
+  Cada comanda termina com `CLIENTE TAMBEM PEDIU: BOLO FESTA, SALGADOS`, que é o
+  aviso cruzado que ela pediu depois do item esquecido no mural. E o resumo por
+  faixa de preço que ela usa pra conferir com o caixa também está lá:
+  `94 un x R$ 1,25 = R$ 117,50`.
 
 **Falta:**
 
-- **Comanda separada por segmento**: a regra mais repetida dos 55 áudios.
-  Docinho de festa numa, salgadinho de festa noutra, cupcake noutra, bolo salgado
-  noutra, empadão, torta doce e torta recheada cada uma na sua. E **cada comanda
-  tem que avisar que existem as outras.** Motivo real dado por ela: um item foi
-  esquecido no mural porque veio tudo junto.
 - **Lista de sabor é ABERTA**: hoje o sistema recusa o que não está no catálogo,
   e a resposta da casa é *"se o cliente pedir outro sabor, a gente vai
   colocando"*. É venda perdida por regra nossa.

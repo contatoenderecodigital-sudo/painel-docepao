@@ -28,6 +28,9 @@
 import catalogo from "../dados/catalogo.json";
 import { brl } from "../orcamento";
 import { DOCE_PAO } from "../persona";
+import { produtoPorNome } from "../dados/produtos";
+import { opcoesDaFamilia } from "./generico";
+import { minimoPorSabor } from "./base";
 
 export type SobreOQue =
   | "preco"
@@ -92,26 +95,74 @@ function precoDaFamilia(familia: string): string | null {
     );
   }
 
+  // O DOCINHO E O BOLO SAEM DA LISTA UNICA, E NAO DE ADIVINHACAO.
+  //
+  // Aqui havia duas derivacoes escritas a mao, e a segunda era uma bomba
+  // relogio: a trufa era achada como "o PRIMEIRO doce que tem sabores".
+  //
+  //   itens.find((i) => i.sabores?.length)?.preco
+  //
+  // Funciona hoje por acidente de ordem. No dia em que a dona der sabores a
+  // outro docinho na tela, a padaria passa a cotar o preco desse outro como se
+  // fosse a trufa, numa resposta que o CLIENTE le. Medido em 27/08/2026: hoje
+  // bate, R$ 2,25 nos dois lados.
+  //
+  // E o bolo respondia so pelo de FESTA. Quem perguntava "quanto e o bolo?"
+  // nunca ouvia falar dos quinze bolos caseiros, de R$ 30,90 a R$ 35,90 a
+  // unidade. Nao e preco errado: e venda que nem chega a ser oferecida.
   if (/docinh|doce|brigadeir|trufa/.test(f)) {
-    const itens = (catalogo.doces?.itens ?? []) as { nome: string; preco?: number; sabores?: string[] }[];
-    const tradicional = itens.find((i) => semAc(i.nome) === "brigadeiro")?.preco;
-    const trufa = itens.find((i) => i.sabores?.length)?.preco;
-    if (!tradicional) return null;
+    const doces = opcoesDaFamilia("docinho").map(produtoPorNome).filter(Boolean);
+    if (!doces.length) return null;
+    const barato = Math.min(...doces.map((d) => d!.preco));
+    const caro = Math.max(...doces.map((d) => d!.preco));
+    // O minimo por sabor tambem sai do catalogo: ele estava escrito "20" dentro
+    // desta frase, e o catalogo ja o guardava em `_minimo_por_sabor.sugerir`.
+    const { sugerir } = minimoPorSabor();
     return (
-      "Docinho tradicional sai " + brl(tradicional) + " a unidade e a trufa " + brl(trufa ?? 0) +
-      ". O mínimo é 20 de cada sabor."
+      "Docinho sai de " + brl(barato) + " a " + brl(caro) + " a unidade, conforme o sabor." +
+      (sugerir ? " O ideal é pelo menos " + sugerir + " de cada sabor." : "")
     );
   }
 
   if (/bolo/.test(f)) {
-    const faixas = (catalogo.bolos_recheados?.faixas ?? []) as { preco: number }[];
-    if (!faixas.length) return null;
-    const menor = Math.min(...faixas.map((x) => Number(x.preco)));
-    const maior = Math.max(...faixas.map((x) => Number(x.preco)));
-    return (
-      "Bolo de festa sai de " + brl(menor) + " a " + brl(maior) + " o quilo, conforme o sabor. " +
-      "Um quilo serve umas 10 pessoas."
-    );
+    const daFamilia = opcoesDaFamilia("bolo").map(produtoPorNome).filter(Boolean);
+    const festa = daFamilia.filter((b) => b!.categoria === "bolo_festa");
+    const caseiro = daFamilia.filter((b) => b!.categoria === "bolo_caseiro");
+    if (!festa.length && !caseiro.length) return null;
+    const faixa = (lista: typeof festa) =>
+      brl(Math.min(...lista.map((b) => b!.preco))) + " a " + brl(Math.max(...lista.map((b) => b!.preco)));
+    const partes: string[] = [];
+    if (festa.length) partes.push("Bolo de festa sai de " + faixa(festa) + " o quilo, conforme o sabor");
+    if (caseiro.length) partes.push("e o caseiro de " + faixa(caseiro) + " a unidade");
+    return partes.join(" ") + ". Um quilo serve umas 10 pessoas.";
+  }
+
+  // E QUALQUER OUTRA FAMILIA QUE O CARDAPIO CONHECA.
+  //
+  // Antes, quem perguntasse o preco de qualquer coisa fora de salgado, docinho e
+  // bolo nao recebia resposta nenhuma: a padaria caia na saudacao. A PIZZA
+  // estava nesse buraco, e ela tem tres produtos de R$ 41,90 a R$ 120,00.
+  //
+  // Aqui nao ha lista: `opcoesDaFamilia` sai da lista unica, entao a familia que
+  // a dona cadastrar amanha ja e respondida sozinha.
+  const daFamilia = opcoesDaFamilia(f).map(produtoPorNome).filter(Boolean);
+  if (daFamilia.length) {
+    // A unidade muda a frase, e um mesmo grupo pode ter as duas: a pizza redonda
+    // e por quilo e a de forma e por peca.
+    const porUnidade = (u: "kg" | "un") => daFamilia.filter((x) => x!.unidade === u);
+    const faixa = (lista: typeof daFamilia) => {
+      const precos = lista.map((x) => x!.preco);
+      const menor = Math.min(...precos);
+      const maior = Math.max(...precos);
+      return menor === maior ? brl(menor) : "de " + brl(menor) + " a " + brl(maior);
+    };
+    const partes: string[] = [];
+    if (porUnidade("kg").length) partes.push(faixa(porUnidade("kg")) + " o quilo");
+    if (porUnidade("un").length) partes.push(faixa(porUnidade("un")) + " a unidade");
+    if (partes.length) {
+      const nome = String(familia).trim();
+      return nome.charAt(0).toUpperCase() + nome.slice(1) + " sai " + partes.join(", e ") + ".";
+    }
   }
 
   return null;
