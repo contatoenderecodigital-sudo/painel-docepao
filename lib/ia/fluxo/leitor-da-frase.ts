@@ -36,17 +36,16 @@
 //  fronteiras são escritas na mão: (^|[^a-z]) e ($|[^a-z]).
 // ============================================================================
 
-import catalogo from "../dados/catalogo.json";
 import { coresDaForminha } from "./sabor";
-import { afirmouOuNegou } from "../texto";
+import { afirmouOuNegou, semAcento } from "../texto";
 import { APELIDOS } from "../dados/apelidos";
+import { produtosDaCasa } from "../dados/produtos";
 import type { Leitura } from "./leitura";
 
-const semAcMin = (t: string) =>
-  String(t || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+// O mesmo normalizador de todo mundo. Era a decima segunda copia, e a unica
+// diferenca era nao aparar as pontas, o que aqui nao muda nada: as posicoes que
+// este arquivo guarda sao dentro do texto ja normalizado.
+const semAcMin = semAcento;
 
 /** Fronteira de palavra escrita na mão. Ver o aviso no topo do arquivo. */
 const cerca = (miolo: string) => new RegExp("(^|[^a-z])(" + miolo + ")($|[^a-z])", "i");
@@ -57,27 +56,27 @@ export { afirmouOuNegou } from "../texto";
 
 /* ---------------------------------------------------------------- produtos */
 
-/** Todo nome de produto do cardápio, para achar o que o cliente escreveu. */
+/**
+ * TODO NOME DE PRODUTO DA CASA, pra achar o que o cliente escreveu.
+ *
+ * SAI DA LISTA UNICA. Aqui havia a leitura crua do `catalogo.json`, com a mesma
+ * lista de QUATRO baldes escrita a mao que causou o buraco da pizza no
+ * `produto.ts`: salgados.frito, salgados.assado, doces e outros_produtos, mais
+ * os sabores de bolo de festa.
+ *
+ * Ficavam de fora `bolos_caseiros` e `pizza`. Medido em 28/08/2026, procurando
+ * cada produto numa frase: CATORZE dos 86 nao eram achados -- doze bolos
+ * caseiros e as duas pizzas.
+ *
+ * O estrago: `produtosNaFrase` e quem responde "ele nomeou um produto?" no
+ * fluxo. Quem escrevesse "na verdade quero um bolo de cenoura" no meio do
+ * docinho nao nomeava produto nenhum, e a conversa NAO ia pro bolo.
+ *
+ * O nome curto entra junto porque e como o cliente fala: ele diz "cenoura", nao
+ * "bolo caseiro cenoura".
+ */
 function nomesDoCatalogo(): string[] {
-  const c = catalogo as unknown as Record<string, unknown>;
-  const de = (v: unknown): string[] =>
-    Array.isArray(v) ? v.map((x) => String((x as { nome?: string })?.nome ?? "")).filter(Boolean) : [];
-  const salgados = c.salgados as { frito?: { itens?: unknown }; assado?: { itens?: unknown } } | undefined;
-  // Os sabores de bolo entram aqui tambem. Sem eles "4 leites" nao era achado
-  // em frase nenhuma, e o bolo citado junto com o docinho se perdia: o cliente
-  // escrevia "50 brigadeiro e um bolo de 2 kg de 4 leites" e ouvia de volta "e
-  // o bolo, qual sabor?".
-  const sabores = ((c.bolos_recheados as { faixas?: { sabores?: string[] }[] } | undefined)?.faixas ?? [])
-    .flatMap((faixa) => faixa.sabores ?? [])
-    .map(String);
-
-  return [
-    ...de(salgados?.frito?.itens),
-    ...de(salgados?.assado?.itens),
-    ...de((c.doces as { itens?: unknown } | undefined)?.itens),
-    ...de(c.outros_produtos),
-    ...sabores,
-  ];
+  return [...new Set(produtosDaCasa().flatMap((p) => [p.nome, p.nomeCurto]))].filter(Boolean);
 }
 
 /** Distância de edição curta, só para pegar troca e falta de letra. */
@@ -107,25 +106,84 @@ function dist(x: string, y: string): number {
  * nome curto, duas letras de diferença já é outro produto.
  */
 export function produtosNaFrase(fala: string): string[] {
+  return [...new Set(acharNaFrase(fala).map((a) => a.nome))];
+}
+
+/**
+ * OS PRODUTOS DA FRASE, COM O LUGAR ONDE CADA UM FOI ACHADO.
+ *
+ * O lugar importa por dois motivos, os dois medidos em 28/08/2026:
+ *
+ * 1. QUEM ACHOU POR ERRO DE DIGITACAO ERA JOGADO FORA LOGO DEPOIS. O
+ *    `itensDeOutraEtapaNaFrase` reprocurava o nome CANONICO com um `indexOf`, e
+ *    "coxinia" nao contem "coxinha":
+ *
+ *        "100 coxinia"     achou coxinha    ->  item: nenhum
+ *        "100 brigadero"   achou brigadeiro ->  item: nenhum
+ *
+ *    A tolerancia a erro de digitacao existia e era desfeita na linha seguinte.
+ *
+ * 2. O SABOR DE UM VIRAVA PRODUTO DO OUTRO:
+ *
+ *        "50 trufa de morango"  ->  50 trufa E 50 "morango"
+ *
+ *    "morango" e sabor de bolo de festa, entao e produto quando dito sozinho.
+ *    Colado atras de "trufa de" ele e o RECHEIO da trufa, e virava uma linha
+ *    propria que o motor cotaria como bolo, a R$ 46,90 o quilo.
+ */
+function acharNaFrase(fala: string): { nome: string; onde: number; tamanho: number }[] {
   const t = semAcMin(fala);
   if (!t.trim()) return [];
   const palavras = t.split(/[^a-z]+/).filter((p) => p.length >= 4);
-  const achados: string[] = [];
+  const achados: { nome: string; onde: number; tamanho: number }[] = [];
 
   for (const nome of nomesDoCatalogo()) {
     const alvo = semAcMin(nome);
     if (!alvo) continue;
     // Escrito igual: não precisa de aproximação nenhuma.
-    if (cerca(alvo.replace(/[^a-z ]/g, "")).test(t) || t.includes(alvo)) {
-      achados.push(nome);
+    const direto = t.indexOf(alvo);
+    if (direto >= 0) {
+      achados.push({ nome, onde: direto, tamanho: alvo.length });
       continue;
     }
     // Apelido e corretor do celular: "chique" é o que o teclado escreve no
     // lugar de "quiche", e as duas estão a quatro letras uma da outra. Isso é
     // caso de lista, nunca de afrouxar a régua da distância.
-    const apelidos = (APELIDOS[nome] ?? APELIDOS[alvo] ?? []).map(semAcMin);
-    if (apelidos.some((a) => cerca(a.replace(/[^a-z ]/g, "")).test(t))) {
-      achados.push(nome);
+    // O DIGITO FICA. Tirar tudo que nao e letra transformava o apelido "de 30"
+    // da pizza redonda em "de ", e "de " esta em quase toda frase:
+    //
+    //   "50 brigadeiro, forminha rosa, e um bolo de 2 kg de 4 leites"
+    //   achava  ->  brigadeiro, PIZZA REDONDA, 4 leites
+    //
+    // A pizza fantasma virava item guardado com quantidade zero, e a padaria
+    // passava a perguntar o sabor de uma pizza que ninguem pediu. Medido em
+    // 28/08/2026, e defeito anterior a esta leitura.
+    //
+    // Os unicos dois apelidos com digito no cardapio sao "de 30" e "30 cm", os
+    // dois da pizza redonda, e eram justamente os dois destruidos.
+    const semRuido = (a: string) => a.replace(/[^a-z0-9 ]/g, "");
+    // APELIDO DE UMA PALAVRA CURTA NAO SERVE PRA VARRER FRASE SOLTA.
+    //
+    // A lista de apelidos foi escrita pra RESOLVER um nome que o cliente ja
+    // disse ("ele escreveu esfiha, e isso e esfirra"). Aqui ela e usada pra
+    // CACAR nome dentro de frase livre, e ai apelido que tambem e palavra da
+    // lingua acha o que nao existe:
+    //
+    //   "meia duzia de coxinha"  ->  6 coxinha E 194 PIZZA MEIA
+    //
+    // Medido em 28/08/2026, na lista inteira: "meia" e o UNICO apelido de uma
+    // palavra com menos de cinco letras, e e o unico que e palavra comum. Os de
+    // cinco pra cima sao todos nome de produto torto ("bolha", "esfia",
+    // "kiche"). A regua sai dessa medicao, e o teste cobra que nenhum apelido da
+    // casa se perca por causa dela.
+    //
+    // Apelido de duas palavras passa direto: "de 30", "uma pizza", "de forma".
+    const serveParaCacar = (a: string) => a.includes(" ") || a.length >= 5;
+    const apelidos = (APELIDOS[nome] ?? APELIDOS[alvo] ?? []).map(semAcMin).filter(serveParaCacar);
+    const apelido = apelidos.find((a) => cerca(semRuido(a)).test(t));
+    if (apelido) {
+      const onde = t.indexOf(apelido);
+      achados.push({ nome, onde: onde >= 0 ? onde : 0, tamanho: apelido.length });
       continue;
     }
     // Nome de uma palavra só é o que dá para comparar por distância com
@@ -149,10 +207,36 @@ export function produtosNaFrase(fala: string): string[] {
     // Erro de digitação quase nunca começa noutra letra: "brigadero",
     // "coxinia" e "beijino" mantêm a inicial. Trocar a primeira letra é outro
     // produto, não o mesmo escrito torto.
-    if (palavras.some((p) => p[0] === alvo[0] && dist(p, alvo) <= folga)) achados.push(nome);
+    const parecida = palavras.find((p) => p[0] === alvo[0] && dist(p, alvo) <= folga);
+    if (parecida) {
+      const onde = t.indexOf(parecida);
+      achados.push({ nome, onde: onde >= 0 ? onde : 0, tamanho: parecida.length });
+    }
   }
 
-  return [...new Set(achados)];
+  // DOIS NOMES NO MESMO PEDACO DA FRASE SAO UM PRODUTO SO, E VENCE O MAIOR.
+  //
+  // "uma pizza" e apelido de pizza inteira, e "pizza redonda" e outro produto.
+  // Na frase "quero uma pizza redonda" os dois casam, em pedacos que se
+  // sobrepoem, e os DOIS viravam item:
+  //
+  //   "quero uma pizza redonda"      ->  pizza inteira E pizza redonda
+  //   "uma pizza meia de calabresa"  ->  pizza inteira E pizza meia
+  //
+  // Uma pizza pedida virava duas linhas no pedido, e a inteira custa R$ 120.
+  // Medido em 28/08/2026.
+  //
+  // O maior ganha porque e o mais especifico: quem escreveu "pizza redonda"
+  // disse mais do que quem escreveu "pizza". O menor sai inteiro, e nao vira
+  // sabor nem observacao: ele nunca foi produto ali.
+  const porTamanho = [...achados].sort((a, b) => b.tamanho - a.tamanho || a.onde - b.onde);
+  const ficam: typeof achados = [];
+  for (const c of porTamanho) {
+    const pisa = ficam.some((f) => c.onde < f.onde + f.tamanho && f.onde < c.onde + c.tamanho);
+    if (!pisa) ficam.push(c);
+  }
+  // Devolvidos na ordem da frase, que e a ordem em que ele pensou.
+  return ficam.sort((a, b) => a.onde - b.onde);
 }
 
 /* ------------------------------------------------------------------ dados */
@@ -406,15 +490,20 @@ export function juntarComAFrase(doModelo: Leitura, fala: string): Leitura {
 
 /* --------------------------------------------------------------- recheio */
 
-/** Os recheios que a casa faz. Sai do cardapio, nao de lista escrita a mao. */
+/**
+ * OS SABORES QUE A CASA FAZ, de TODOS os produtos.
+ *
+ * Era outra leitura crua, e so dos salgados. Medido em 28/08/2026:
+ *
+ *   "100 quiche de frango"   ->  obs: frango     (salgado, achava)
+ *   "2 cuca de chocolate"    ->  sem obs         (cuca nao estava na lista)
+ *
+ * A cuca tem sete sabores, a trufa nove, o franciscano oito, a pizza trinta e
+ * um. Nenhum deles chegava aqui, entao o sabor colado no nome se perdia e a
+ * padaria perguntava de novo o que o cliente ja tinha escrito.
+ */
 function recheiosDoCatalogo(): string[] {
-  const c = catalogo as unknown as Record<string, unknown>;
-  const de = (v: unknown): string[] =>
-    Array.isArray(v)
-      ? v.flatMap((x) => ((x as { recheios?: string[] })?.recheios ?? []).map(String))
-      : [];
-  const salgados = c.salgados as { frito?: { itens?: unknown }; assado?: { itens?: unknown } } | undefined;
-  return [...new Set([...de(salgados?.frito?.itens), ...de(salgados?.assado?.itens)])];
+  return [...new Set(produtosDaCasa().flatMap((p) => p.sabores))].filter(Boolean);
 }
 
 /**
@@ -441,12 +530,14 @@ export function itensDeOutraEtapaNaFrase(
   if (!t.trim()) return [];
 
   const achados: { produto: string; qtd: number; obs?: string }[] = [];
-  for (const nome of produtosNaFrase(fala)) {
-    if (daEtapaDeAgora(nome)) continue;
+  // Onde termina o que ja foi consumido como RECHEIO de um produto anterior. O
+  // que cair dentro disso e sabor, e nao um item novo.
+  let fimDoRecheioAnterior = -1;
 
-    const alvo = semAcMin(nome);
-    const onde = t.indexOf(alvo);
-    if (onde < 0) continue;
+  for (const { nome, onde, tamanho } of acharNaFrase(fala)) {
+    if (daEtapaDeAgora(nome)) continue;
+    // "50 trufa de morango": o morango esta dentro do recheio da trufa.
+    if (onde < fimDoRecheioAnterior) continue;
 
     // NEGACAO MANDA. "sem coxinha" nao e pedido de coxinha, e adivinhar aqui
     // colocaria no pedido o que ele acabou de recusar.
@@ -481,7 +572,7 @@ export function itensDeOutraEtapaNaFrase(
     // mundo, e nao da padaria: cm, kg, g, ml, l, litro. Esta e uma das tres
     // listas que o CLAUDE.md permite, junto com dia da semana e mes.
     if (!qtd) {
-      const depois = t.slice(onde + alvo.length, onde + alvo.length + 24);
+      const depois = t.slice(onde + tamanho, onde + tamanho + 24);
       const m = depois.match(/^[^0-9]{0,12}?([0-9]+(?:[.,][0-9]+)?)\s*([a-z]*)/);
       const medida = /^(cm|mm|m|kg|g|gr|gramas?|ml|l|litros?|horas?|h|anos?|reais?)$/.test(m?.[2] ?? "");
       if (m && !medida) qtd = Number(m[1].replace(",", "."));
@@ -499,12 +590,20 @@ export function itensDeOutraEtapaNaFrase(
     // Aqui o recheio sai da MESMA lista do cardapio que o resto do sistema usa,
     // e so vale colado no nome: "quiche de frango, e esfirra de carne" da
     // frango pro quiche e carne pra esfirra, e nao os dois pros dois.
-    const depois = t.slice(onde + nome.length).replace(/^ *(de|da|do|com) +/, "");
-    const ateOProximo = depois.split(/[,;]| e (?=[a-z])/)[0] ?? "";
+    // O tamanho e o do que CASOU na frase, e nao o do nome canonico: quem
+    // escreveu "coxinia" tem sete letras ali, e cortar por "coxinha" moveria o
+    // resto da frase de lugar.
+    const cru = t.slice(onde + tamanho);
+    const semLigacao = cru.replace(/^ *(de|da|do|com) +/, "");
+    const ateOProximo = semLigacao.split(/[,;]| e (?=[a-z])/)[0] ?? "";
     const recheio = recheiosDoCatalogo().find((r) => {
       const rr = semAcMin(r);
       return rr && (ateOProximo === rr || ateOProximo.startsWith(rr + " ") || ateOProximo.startsWith(rr));
     });
+    if (recheio) {
+      // Tudo ate o fim do recheio ja tem dono.
+      fimDoRecheioAnterior = onde + tamanho + (cru.length - semLigacao.length) + semAcMin(recheio).length;
+    }
 
     achados.push({
       produto: nome,

@@ -1036,7 +1036,7 @@ eram 15. Sobram **27, com 5.744 linhas**, e há peça central ali.
 | # | arquivo | linhas | estado |
 | --- | --- | --- | --- |
 | 15 | `lib/ia/dados/produtos.ts` | 517 | **INTEIRO** — 6 defeitos |
-| 16 | `lib/ia/fluxo/leitor-da-frase.ts` | 516 | não lido |
+| 16 | `lib/ia/fluxo/leitor-da-frase.ts` | 516 | **INTEIRO** — 7 defeitos |
 | 17 | `lib/ia/fluxo/falas-do-cliente.ts` | 357 | não lido |
 | 18 | `lib/ia/fluxo/informacao.ts` | 253 | não lido |
 | 19 | `lib/ia/persona.ts` | 223 | não lido |
@@ -1150,3 +1150,74 @@ antiga com a nova: **0 pioraram, 33 melhoraram.**
 testes compilam os arquivos DE VERDADE com `tsc` (em vez de testar uma cópia
 digitada, que esconderia divergência), e um deles morria com *"Cannot find
 module './catalogo.json'"*. Faltava `--resolveJsonModule`.
+
+---
+
+## 16. `lib/ia/fluxo/leitor-da-frase.ts` — o código lendo junto com a IA
+
+516 linhas. Ele existe pra segurar o que o modelo larga, e responde duas
+perguntas que mudam o rumo da conversa: *"ele nomeou um produto?"* e *"o que ele
+pediu fora da hora?"*. **Sete defeitos.**
+
+### Catorze produtos eram invisíveis
+
+A lista de nomes era a leitura crua do catálogo com **a mesma lista de quatro
+baldes** que causou o buraco da pizza no `produto.ts`. Ficavam de fora
+`bolos_caseiros` e `pizza`: **12 bolos caseiros e as 2 pizzas**.
+
+Quem escrevesse *"na verdade quero um bolo de cenoura"* no meio do docinho não
+nomeava produto nenhum, e a conversa **não ia pro bolo**.
+
+### A tolerância a erro de digitação era desfeita na linha seguinte
+
+    "100 coxinia"    achava coxinha     ->  item: nenhum
+    "100 brigadero"  achava brigadeiro  ->  item: nenhum
+
+O item era reprocurado pelo nome CANÔNICO com um `indexOf`, e "coxinia" não
+contém "coxinha". Agora o leitor guarda **onde** cada nome casou.
+
+### O sabor de um virava produto do outro
+
+    "50 trufa de morango"  ->  50 trufa E 50 "morango"
+
+"morango" é sabor de bolo de festa, então é produto quando dito sozinho. Colado
+atrás de "trufa de" ele é o recheio, e virava linha própria que o motor cotaria
+como bolo, a R$ 46,90 o quilo.
+
+### Uma pizza virava duas linhas
+
+    "quero uma pizza redonda"      ->  pizza inteira E pizza redonda
+    "uma pizza meia de calabresa"  ->  pizza inteira E pizza meia
+
+"uma pizza" é apelido da inteira, e os dois pedaços se sobrepõem. A regra nova é
+geral: **dois nomes no mesmo pedaço da frase são um produto só, e vence o
+maior**, porque o maior é o mais específico.
+
+### O sabor colado no nome só existia pro salgado
+
+`recheiosDoCatalogo` lia só os salgados. A cuca tem 7 sabores, a trufa 9, o
+franciscano 8, a pizza 31, e nenhum chegava lá: *"2 cuca de chocolate"* perdia o
+chocolate e a padaria perguntava de novo o que o cliente já tinha escrito.
+
+### Dois que vieram da lista de apelidos
+
+**`"de 30"` perdia os dígitos e virava `"de "`**, que está em quase toda frase:
+
+    "50 brigadeiro, forminha rosa, e um bolo de 2 kg de 4 leites"
+    achava  ->  brigadeiro, PIZZA REDONDA, 4 leites
+
+E **`"meia"` é apelido da pizza meia e palavra da língua**. Esse eu introduzi ao
+incluir as pizzas: *"meia dúzia de coxinha"* passou a dar 6 coxinha e **194 pizza
+meia**. A régua nova (apelido de uma palavra precisa de cinco letras) saiu de
+medir a lista inteira: "meia" é o único abaixo disso, e o único que é palavra
+comum.
+
+### Teste novo, e um erro meu dentro dele
+
+`o-leitor-da-frase-acha-e-nao-inventa.cjs`, com **quatro iscas, uma por
+conserto**, cada uma reproduzindo o defeito exato.
+
+A primeira versão de uma das cobranças reprovava **todo** apelido curto,
+inclusive o que eu tinha decidido descartar de propósito. Isso não cobra nada:
+cobra a minha decisão de volta pra mim. Virou a pergunta certa: **o produto
+continua tendo porta?**

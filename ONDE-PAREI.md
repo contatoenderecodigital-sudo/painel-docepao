@@ -50,12 +50,12 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 
 | | |
 | --- | --- |
-| arquivos lidos inteiros | **16** |
-| defeitos consertados | **90** |
-| testes no portão | **56**, todos verdes |
+| arquivos lidos inteiros | **17** |
+| defeitos consertados | **97** |
+| testes no portão | **57**, todos verdes |
 | `tsc` | limpo |
-| cópias do normalizador de texto | de **16** para **4** |
-| arquivos lendo o `catalogo.json` cru | de **17** para **10**, e nenhum do fluxo |
+| cópias do normalizador de texto | de **16** para **3** |
+| arquivos lendo o `catalogo.json` cru | de **17** para **9**, e nenhum do fluxo |
 
 ---
 
@@ -66,7 +66,6 @@ ordem de importância, está na tabela do `LEITURA-DA-CADEIA.md`. Os próximos:
 
 | arquivo | linhas | por que importa |
 | --- | --- | --- |
-| `lib/ia/fluxo/leitor-da-frase.ts` | 516 | o código que lê a frase junto com a IA. **Já vi de relance o mesmo padrão de quatro baldes** que causou o buraco da pizza |
 | `lib/ia/fluxo/falas-do-cliente.ts` | 357 | lê sim/não, data, hora e peso sem modelo |
 | `lib/ia/fluxo/informacao.ts` | 253 | onde a padaria fala número pro cliente. 5 leituras cruas do catálogo |
 | `lib/ia/persona.ts` | 223 | o jeito de falar |
@@ -78,7 +77,7 @@ ordem de importância, está na tabela do `LEITURA-DA-CADEIA.md`. Os próximos:
 
 ## O QUE EU RECOMENDO QUANDO VOCÊ ACORDAR
 
-**Medir uma conversa de verdade contra o banco.** Os 56 testes provam que 90
+**Medir uma conversa de verdade contra o banco.** Os 57 testes provam que 97
 defeitos velhos não voltam. **Nenhum prova que a conversa melhorou.** Isso só
 aparece rodando.
 
