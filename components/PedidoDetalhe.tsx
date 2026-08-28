@@ -49,12 +49,39 @@ export default function PedidoDetalhe({
   const router = useRouter();
   const [agindo, setAgindo] = useState<null | "aprovar" | "recusar" | "reimprimir">(null);
   const [reimpFeito, setReimpFeito] = useState(false);
+  // O QUE DEU ERRADO PRECISA APARECER, EM VEZ DE A TELA FECHAR DIZENDO QUE DEU
+  // CERTO.
+  //
+  // O `aprovar` e o `recusar` daqui IGNORAVAM o retorno: chamavam a acao,
+  // atualizavam e fechavam o modal, sempre. E o `reimprimir`, tres linhas
+  // abaixo, ja conferia (`r?.ok !== false`) desde sempre.
+  //
+  // Isso ficou pior com o conserto de 28/08/2026: o `aprovarPedido` passou a
+  // devolver `{ ok: false }` quando o pedido nao esta mais esperando a equipe
+  // (aprovar de novo um pedido ja impresso mandava a cozinha imprimir de novo).
+  // Entao agora existe um "nao" de verdade pra ignorar.
+  //
+  // O caso real: a dona abre o detalhe de um pedido que alguem ja aprovou no
+  // meio tempo, clica, o servidor recusa, e a tela fecha como se tivesse
+  // aprovado. Ela sai achando que mandou pra cozinha.
+  //
+  // A `FilaAprovacao` ja fazia certo (desfaz e diz "nada foi para a cozinha");
+  // este vizinho nao fazia.
+  const [falha, setFalha] = useState<string | null>(null);
 
   async function aprovar() {
     if (!pedido) return;
     setAgindo("aprovar");
+    setFalha(null);
     try {
-      await aprovarPedido(pedido.id);
+      const r = await aprovarPedido(pedido.id);
+      if (r?.ok === false) {
+        setFalha(
+          "Não deu pra aprovar: este pedido não está mais esperando a equipe. " +
+            "Alguém pode ter aprovado antes. Feche e abra a lista de novo.",
+        );
+        return;
+      }
       router.refresh();
       onClose();
     } finally {
@@ -64,8 +91,16 @@ export default function PedidoDetalhe({
   async function recusar() {
     if (!pedido) return;
     setAgindo("recusar");
+    setFalha(null);
     try {
-      await recusarPedido(pedido.id);
+      const r = await recusarPedido(pedido.id);
+      if (r?.ok === false) {
+        setFalha(
+          "Não deu pra recusar: este pedido não está mais esperando a equipe. " +
+            "Feche e abra a lista de novo.",
+        );
+        return;
+      }
       router.refresh();
       onClose();
     } finally {
@@ -255,6 +290,18 @@ export default function PedidoDetalhe({
                 </span>
               </div>
             </div>
+
+            {/* O QUE DEU ERRADO FICA NA TELA, e nao some com o modal.
+                Antes o aprovar e o recusar fechavam o modal sempre, mesmo quando
+                o servidor recusava a mudanca. */}
+            {falha ? (
+              <div
+                className="mx-6 mb-1 rounded-xl px-4 py-3 text-sm text-cream"
+                style={{ background: "rgba(224,30,30,0.12)", border: "1px solid rgba(224,30,30,0.35)" }}
+              >
+                {falha}
+              </div>
+            ) : null}
 
             {/* rodapé — botões padrão conforme o status do pedido */}
             <div className="px-6 py-4 border-t border-white/10 flex flex-wrap justify-end gap-2">

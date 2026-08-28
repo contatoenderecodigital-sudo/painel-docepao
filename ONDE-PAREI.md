@@ -97,9 +97,25 @@ exemplo no `LEITURA-DA-CADEIA.md`, item 55.
 | `lib/ia/` (cérebro) | ~7.600 | **lido**, 28 arquivos |
 | `lib/banco/` | ~4.700 | **lido**, 11 arquivos |
 | `app/` (rotas e páginas) | 3.922 | **lido**, 8 defeitos |
-| `components/` (telas) | 8.129 | **falta** |
+| `components/` (telas) | 8.129 | **lido o que tem risco** + varredura completa |
 
-**Só falta `components/`.** São as telas, e é a maior pasta: 8.129 linhas.
+**No `components/` a leitura foi por RISCO**, mais uma varredura dirigida nas
+8.129 linhas atrás dos dois padrões que mais renderam no dia.
+
+**Lidos:** `CupomPreview`, `FilaAprovacao`, `AguardandoConfirmacao`,
+`Recuperar`, `Resultados`, `PedidosDoDia`, `StatusImpressora`, e as partes do
+`Atendimentos` e do `PedidoMontado` que mandam mensagem e salvam pedido.
+
+**Ainda NÃO lidos linha a linha, e têm risco:**
+
+| arquivo | linhas | por que importa |
+| --- | --- | --- |
+| `Clientes.tsx` | 406 | o CRM, com dado de cliente e histórico |
+| `PainelConexao.tsx` | 334 | a conexão do WhatsApp |
+| `PedidoDetalhe.tsx` | 313 | mostra o pedido fechado |
+| `SinoNotificacao.tsx` | 289 | li só o polling |
+
+Mais os pequenos de layout e ícone, onde o pior defeito possível é cosmético.
 
 O `app/` rendeu 8 defeitos em 3.922 linhas, e três deles eram de autenticação
 (as dezesseis rotas, o SSO e o painel mostrando mock sem login). A pasta que
@@ -166,7 +182,7 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 | | |
 | --- | --- |
 | arquivos lidos inteiros | **28** do cérebro + **11** da camada de banco |
-| defeitos consertados | **221** |
+| defeitos consertados | **223** |
 | testes no portão | **67**, todos verdes |
 | `tsc` | limpo |
 | cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |

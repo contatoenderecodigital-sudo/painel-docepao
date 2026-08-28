@@ -121,7 +121,49 @@ if (!/new\.aprovado_em := now\(\)/.test(gatilho)) {
   falhas.push("o gatilho parou de carimbar `aprovado_em`: a data da venda vem dai");
 }
 
+// -----------------------------------------------------------------------------
+// 5. E AS TELAS QUE CHAMAM AS ACOES OLHAM O RESULTADO.
+//
+// De nada adianta a acao devolver `{ ok: false }` se a tela ignora e fecha
+// dizendo que deu certo. Aconteceu no `PedidoDetalhe`: o `aprovar` e o `recusar`
+// ignoravam o retorno, enquanto o `reimprimir`, tres linhas abaixo, ja conferia.
+//
+// O caso real: a dona abre um pedido que alguem ja aprovou no meio tempo, clica,
+// o servidor recusa, e a tela fecha como se tivesse mandado pra cozinha.
+// -----------------------------------------------------------------------------
+const telas = [
+  ["FilaAprovacao.tsx", "a fila"],
+  ["PedidoDetalhe.tsx", "o detalhe do pedido"],
+];
+for (const [arquivo, oQueE] of telas) {
+  // Comentario nao conta como codigo: o `ler` ja tirou o `\r`, entao o corte
+  // por linha funciona.
+  const fonte = ler("components", arquivo)
+    .split(/\n/)
+    .map((l) => l.replace(/\/\/.*$/, ""))
+    .join("\n");
+  // A CHAMADA SEM GUARDAR O RETORNO, e nao qualquer chamada.
+  //
+  // A primeira versao procurava `await aprovarPedido(...)` solto, e isso casa
+  // TAMBEM com `const r = await aprovarPedido(...)`, que e a forma CERTA. O
+  // teste reprovou o codigo consertado.
+  //
+  // E o mesmo erro que ja apareceu tres vezes neste dia: cobrar a forma em vez
+  // do efeito. Aqui o efeito e "o retorno foi guardado", e a marca disso e a
+  // linha comecar com `await` sem nada recebendo.
+  if (/^\s*await aprovarPedido\(/m.test(fonte)) {
+    falhas.push(
+      oQueE + " (" + arquivo + ") voltou a ignorar o retorno do aprovar: a tela " +
+        "diz que aprovou mesmo quando o servidor recusou",
+    );
+  }
+  if (/^\s*await recusarPedido\(/m.test(fonte)) {
+    falhas.push(oQueE + " (" + arquivo + ") voltou a ignorar o retorno do recusar");
+  }
+}
+
 console.log("Arquivos conferidos: lib/banco/pedidos.ts, app/(painel)/acoes.ts, db/2026-08-19_gatilho_com_schema.sql");
+console.log("Telas conferidas: " + telas.map((t) => t[0]).join(", "));
 console.log("");
 
 if (falhas.length) {

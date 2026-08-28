@@ -3069,3 +3069,57 @@ que não são mensagem enviada nem regra de negócio.
 
 Registrar o que a varredura **não** achou vale tanto quanto o que achou: sem
 isso, a próxima leitura repete a mesma busca sem saber que ela já foi feita.
+
+
+## 65. O detalhe do pedido fechava dizendo que aprovou, mesmo quando não aprovou
+
+```ts
+await aprovarPedido(pedido.id);   // ignora o retorno
+router.refresh();
+onClose();                        // fecha como se tivesse dado certo
+```
+
+E o `reimprimir`, **três linhas abaixo no mesmo arquivo**, já conferia:
+`setReimpFeito(r?.ok !== false)`.
+
+### E o conserto de hoje criou o "não" que estava sendo ignorado
+
+Até o item 52, o `aprovarPedido` devolvia `{ ok: true }` sempre. Depois dele,
+devolve `{ ok: false }` quando o pedido não está mais esperando a equipe.
+
+O caso real: a dona abre o detalhe de um pedido que alguém já aprovou no meio
+tempo, clica, o servidor recusa, e a tela **fecha como se tivesse mandado pra
+cozinha**. Ela sai achando que mandou.
+
+A `FilaAprovacao` já fazia certo (desfaz a animação, devolve o pedido pra fila e
+diz *"nada foi para a cozinha"*). Este vizinho não fazia. Nona pergunta de novo.
+
+**É a segunda vez no dia que fechar uma porta muda o que acontece do outro lado
+dela** (a primeira foi o item 60, as telas congelando). Vale como método: depois
+de fazer uma função passar a dizer "não", procurar quem chamava ela achando que
+ela nunca diria.
+
+## 66. E o teste que eu escrevi pra isso reprovou o código certo
+
+Quarta vez no dia. O regex procurava `await aprovarPedido(...)` solto, e isso casa
+**também** com `const r = await aprovarPedido(...)`, que é a forma correta.
+
+Corrigido pra cobrar o efeito ("o retorno foi guardado"), cuja marca é a linha
+começar com `await` sem nada recebendo:
+
+```js
+ruim:  /await aprovarPedido\([^)]*\);/
+bom:   /^\s*await aprovarPedido\(/m
+```
+
+As quatro do dia, todas com a mesma assinatura:
+
+| teste | cobrava | resultado |
+| --- | --- | --- |
+| `pergunta-uma-vez-e-nao-repete` | uma marca escrita à mão | verde com defeito no ar |
+| `o-bolo-de-festa-nao-fecha-sem-as-pecas` | uma marca que ninguém escreve | verde com defeito no ar |
+| `nada-fica-sem-ser-perguntado` | a expressão dentro de um arquivo | reprovou sem defeito |
+| `aprovar-so-vale-uma-vez` | a chamada, sem olhar a atribuição | reprovou o conserto |
+
+**Duas mentiram dizendo que estava bem, duas mentiram dizendo que estava
+quebrado.** A causa é sempre a mesma: cobrar a forma em vez do efeito.
