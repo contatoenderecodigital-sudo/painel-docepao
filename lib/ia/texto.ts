@@ -28,13 +28,23 @@
 //  reescreva o arquivo noutra codificacao apaga a defesa sem deixar rastro.
 // ============================================================================
 
-/** Sem acento, minusculo e aparado. */
-export const semAcento = (t: string) =>
-  String(t || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
+/**
+ * SO TIRA O ACENTO, E PRESERVA MAIUSCULA E ESPACO.
+ *
+ * Existe porque o cupom da cozinha precisa disso: a impressora termica engasga
+ * com acento (sai caractere trocado no meio da palavra), mas o papel e lido por
+ * gente e o nome do cliente vai em maiuscula. Baixar a caixa ali estragaria o
+ * papel.
+ *
+ * Era a decima copia do normalizador, la no `cupom-escpos.ts`, e com o MESMO
+ * NOME da funcao de comparar. Nome igual e comportamento diferente e a
+ * armadilha que ja apareceu no motor de preco: quem le acha que conhece.
+ */
+export const tiraAcento = (t: string) =>
+  String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+/** Sem acento, minusculo e aparado. E o que se usa pra COMPARAR. */
+export const semAcento = (t: string) => tiraAcento(String(t || "")).toLowerCase().trim();
 
 /**
  * O termo apareceu na frase, e ele estava afirmando ou negando?

@@ -35,6 +35,7 @@
 // ============================================================================
 
 import { deptoDe, deptosDoPedido, nomeDaComanda, qtdDoTicket, unidadeDoItem, type DeptoId } from "./departamentos";
+import { tiraAcento } from "./ia/texto";
 
 export type ItemCupom = {
   produto: string;
@@ -71,9 +72,13 @@ const LARGURA = 48; // colunas de uma impressora de 80mm
 
 // Impressora térmica engasga com acento: sai caractere trocado no meio da
 // palavra. Melhor "PAES E CUCAS" legível do que "PÃES" virando ruído.
-function semAcento(t: string): string {
-  return String(t ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "");
-}
+//
+// A MAIUSCULA E O ESPACO FICAM: este papel é lido por gente, e o nome do
+// cliente vai em caixa alta de propósito. Aqui havia uma cópia local chamada
+// `semAcento`, com o mesmo nome da função que o resto do sistema usa pra
+// COMPARAR (aquela baixa a caixa e apara). Nome igual e comportamento diferente
+// é a armadilha que já apareceu no motor de preço.
+const semAcento = tiraAcento;
 
 function risco(c = "="): string {
   return c.repeat(LARGURA) + "\n";

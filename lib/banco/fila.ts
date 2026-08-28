@@ -117,14 +117,17 @@ export async function jobsPendentes(negocioId: string): Promise<JobImpressao[]> 
         obs: i.obs,
         // Unidade vazia vira peca na impressao: 3 kg de bolo viram tres bolos.
         // O cardapio decide, igual ao preco.
-        unidade: i.unidade ?? unidadeDoProduto(String(i.produto ?? ""), String(i.categoria ?? "")),
+        //
+        // `||` e nao `??`: o `??` so pega null e undefined, e o caso que o
+        // comentario acima nomeia e a string VAZIA, que a tela da dona pode
+        // gravar. Hoje nao da prejuizo porque `unidadeDoItem`, no cupom, tem a
+        // propria cadeia de fallback e acerta pela categoria. Mas a defesa que
+        // esta escrita aqui tem que ser a defesa que roda aqui.
+        unidade: i.unidade || unidadeDoProduto(String(i.produto ?? ""), String(i.categoria ?? "")),
         unitCentavos: i.unit_centavos,
         subtotalCentavos: i.subtotal_centavos,
       })),
     };
-    // O cupom sai pronto daqui. Se montar falhar por causa de um pedido
-    // estranho, a ponte ainda tem o pedido inteiro pra se virar: melhor um
-    // papel no formato antigo do que nenhum papel.
     // O cupom sai pronto daqui, com as comandas do jeito que a dona ditou:
     // uma por segmento, cada uma avisando o que mais o cliente pediu. Se
     // montar falhar por causa de um pedido estranho, a ponte ainda recebe o
@@ -141,8 +144,12 @@ export async function jobsPendentes(negocioId: string): Promise<JobImpressao[]> 
 
 // REIMPRESSÃO MANUAL — recoloca um pedido JÁ APROVADO na fila de impressão.
 // Replica exatamente o que o trigger `on_pedido_aprovado` faz ao aprovar: insere
-// uma linha 'pendente' referenciando o pedido (a fila só guarda pedido_id; a
-// ponte remonta o cupom a partir do pedido/itens/cliente em jobsPendentes()).
+// uma linha 'pendente' referenciando o pedido (a fila só guarda pedido_id, e o
+// cupom é montado aqui no servidor por jobsPendentes()).
+//
+// O comentário dizia que "a ponte remonta o cupom", que era verdade até o
+// layout mudar de casa. O cabeçalho deste arquivo explica a mudança e este
+// pedaço tinha ficado descrevendo o mundo antigo.
 // Guarda de tenant + estado: só reimprime pedido do próprio negócio que já
 // passou pela aprovação (status 'aprovado' ou 'impresso'). Retorna false se o
 // pedido não existe/não é do negócio/ainda não foi aprovado.

@@ -40,7 +40,7 @@ Isto sobrevive à compactação. A minha memória de ter lido, não.
 | 11 | `lib/ia/orcamento.ts` | 1-521, sem buraco | **INTEIRO** — 4 defeitos |
 | 12 | `lib/banco/montagem.ts` | 1-440, sem buraco | **INTEIRO** — 3 defeitos |
 | 13 | `lib/ia/fluxo/gravar.ts` | 1-267, sem buraco | **INTEIRO** — 1 defeito |
-| 14 | `lib/banco/fila.ts` + `lib/cupom-escpos.ts` | fila 100-140, cupom 200-260 | falta quase tudo |
+| 14 | `lib/banco/fila.ts` + `lib/cupom-escpos.ts` | 1-255 e 1-264, sem buraco | **INTEIRO** — 4 defeitos |
 
 **O arquivo 1 quase entrou aqui como "inteiro" com dois buracos**: as linhas
 631-635 e 768-789 tinham escapado, e só apareceram quando o dono perguntou pela
@@ -951,3 +951,77 @@ verdade é medir uma conversa contra o banco.
 - a assimetria entre "só grava valor cheio" (nos dados do cliente) e "vazio vira
   a palavra `nenhum`" (na memória da conversa) é deliberada e está documentada:
   o único caminho que limpa de verdade é o recomeçar, e ele apaga a linha toda
+
+---
+
+## 14. `lib/banco/fila.ts` + `lib/cupom-escpos.ts` — o papel do mural
+
+255 + 264 linhas. O fim da linha: se o item não sai no papel, ninguém produz.
+**Quatro defeitos, e nenhum deles estava custando dinheiro hoje.**
+
+### A décima cópia do normalizador, e a única que tinha razão de existir
+
+O cupom precisa tirar o acento (a impressora térmica engasga) **sem** baixar a
+caixa: o papel é lido por gente e o nome do cliente vai em maiúscula. A cópia
+local fazia isso certo, e se chamava `semAcento` — **o mesmo nome da função que
+o resto do sistema usa pra comparar**, que baixa a caixa e apara.
+
+Nome igual e comportamento diferente é a mesma armadilha que apareceu no motor
+de preço. Nasceu `tiraAcento` no módulo de texto, e `semAcento` passou a ser
+construído em cima dele.
+
+### `??` onde o comentário pedia `||`
+
+    // Unidade vazia vira peça na impressão: 3 kg de bolo viram três bolos.
+    unidade: i.unidade ?? unidadeDoProduto(...)
+
+O `??` só pega `null` e `undefined`, e o caso que o comentário nomeia é a string
+**vazia**, que a tela da dona pode gravar. **Não estava dando prejuízo**, e vale
+dizer por quê: `unidadeDoItem`, no cupom, tem a própria cadeia de fallback e
+acerta pela categoria. Mas a defesa que está escrita ali tem que ser a defesa que
+roda ali.
+
+### Dois comentários mentindo
+
+Um duplicado, com duas versões da mesma explicação empilhadas. E outro dizendo
+que *"a ponte remonta o cupom"* — era verdade até o layout mudar de casa, e o
+cabeçalho do próprio arquivo explica a mudança.
+
+### O que o teste passou a cobrar
+
+`todo-produto-chega-na-cozinha.cjs`, os 86 produtos da casa um por um. Ele existe
+porque três decisões independentes, em dois arquivos, precisam concordar:
+`categoriaDoPedido` diz a categoria, `deptoDe` diz em que comanda ela cai, e
+`deptosDoPedido` diz quais comandas o pedido tem. **`montarCupons` agrupa pela
+segunda e imprime pela terceira**: comanda que uma cria e a outra não lista
+simplesmente não sai, e o item só aparece no cupom do caixa. Não há erro nenhum
+pra ninguém ver — o papel sai, só que sem aquele item.
+
+Medido: os 86 chegam, escritos, com a unidade certa. Duas iscas provadas.
+
+### Dois erros meus, no teste
+
+A primeira versão pegava a primeira linha que continha o nome do produto, e essa
+é o **cabeçalho da comanda** — sete produtos reprovaram por defeito do teste. E a
+limpeza dos comandos ESC/POS tirava só o byte de controle, deixando a letra
+grudada na linha (`E200 un coxinha`), o que fez os 86 reprovarem na tentativa
+seguinte. Os dois consertados e explicados dentro do arquivo.
+
+---
+
+# A CADEIA INTEIRA FOI LIDA
+
+Os catorze arquivos, do primeiro byte ao último, com as cinco perguntas em cada
+linha. **78 defeitos consertados.**
+
+O que a leitura ensinou, e que nenhuma sonda tinha achado antes:
+
+- **peça consertada num arquivo vira defeito no seguinte** quando os dois
+  decidiam a mesma coisa por conta própria. Aconteceu três vezes com o mesmo
+  `produto === "bolo"`, e a terceira só apareceu porque eu já tinha lido as
+  outras duas
+- **o teste que jura cobrir aquilo é o próximo lugar a olhar.** Três defeitos
+  passaram anos por baixo de um teste verde: a pizza sem candidato, a instrução
+  gigante da oferta e o formato da IA sem `ehFesta`
+- **a mesma linha copiada dez vezes já divergia em quatro delas**, e as
+  divergências eram justamente onde doía
