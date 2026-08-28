@@ -184,3 +184,43 @@ export function formasDoCliente(t: string): string[] {
 // `leitura.ts` sem ser chamada em lugar nenhum do corpo, e passava.
 
 
+
+/**
+ * O RECADO DE QUE CHEGOU UMA FOTO, E QUEM O ENTENDE.
+ *
+ * Quando o cliente manda uma imagem, o texto que vai pro cerebro ganha este
+ * recado, e o cerebro usa ele pra decidir que o TEMA da peca veio pela foto
+ * ("quem manda a foto do Homem Aranha ja disse o tema, e insistir depois da
+ * foto e o tipo de coisa que faz o cliente achar que ninguem olhou").
+ *
+ * ESTAVA ESCRITO A MAO EM DOIS LUGARES, E O CEREBRO PROCURAVA POR UM TERCEIRO.
+ *
+ * O webhook escrevia a frase, a tela de teste escrevia a MESMA frase de novo, e
+ * o `fluxo.ts` procurava por uma expressao que casava com as duas. Tres copias
+ * da mesma combinacao: bastava alguem mexer numa pra as outras pararem de se
+ * entender, sem erro nenhum aparecer.
+ *
+ * Pior: na tela de teste o recado era injetado no HISTORICO, e o cerebro le o
+ * TEXTO. Entao o recado nunca chegava, e a tela de teste deixava de exercitar
+ * justamente o caminho da foto. O arquivo dela diz, com todas as letras: "uma
+ * tela de teste que testa outra coisa e pior do que nao ter tela de teste".
+ *
+ * Achado na leitura do `app/`, 28/08/2026.
+ */
+export const RECADO_DE_FOTO = "[o cliente enviou uma foto de referência para o pedido]";
+
+/** O texto do cliente com o recado da foto grudado, do jeito que o cerebro le. */
+export function comORecadoDaFoto(texto: string): string {
+  const t = String(texto ?? "").trim();
+  return t ? t + "\n" + RECADO_DE_FOTO : RECADO_DE_FOTO;
+}
+
+/**
+ * Este texto avisa que veio foto?
+ *
+ * Aceita as formas antigas de proposito: conversa gravada ontem, e mensagem que
+ * ja esta no banco, continua sendo entendida.
+ */
+export function falaDeFotoRecebida(texto: unknown): boolean {
+  return /foto de refer|enviou uma foto|\[imagem\]/i.test(String(texto ?? ""));
+}

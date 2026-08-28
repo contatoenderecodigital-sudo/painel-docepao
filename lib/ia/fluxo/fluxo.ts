@@ -32,7 +32,7 @@ import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMon
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitura } from "./leitura";
 import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase } from "./leitor-da-frase";
-import { afirmouOuNegou, cercaDaPalavra } from "../texto";
+import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida } from "../texto";
 import { identificarProduto } from "./produto";
 import { produtoNoComeco, produtoPorNome, produtosDaCasa } from "../dados/produtos";
 import { semAcento as semAc } from "../texto";
@@ -1249,7 +1249,7 @@ export async function responder(
     //
     // A foto ja fica guardada no pedido pela rota do WhatsApp; aqui so se anota
     // que o tema veio por ela, pra conversa seguir.
-    if (!estado.tema && /foto de refer|enviou uma foto|\[imagem\]/i.test(String(mensagem.texto))) {
+    if (!estado.tema && falaDeFotoRecebida(mensagem.texto)) {
       estado = { ...estado, tema: "conforme a foto que ele mandou" };
       rastro.push("a foto virou o tema da peca");
     }

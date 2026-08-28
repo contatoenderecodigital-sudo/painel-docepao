@@ -39,6 +39,7 @@ import { anotarItem, anotarDados, lerMontagem } from "@/lib/banco/montagem";
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
 import crypto from "node:crypto";
+import { RECADO_DE_FOTO } from "@/lib/ia/texto";
 
 const pausa = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -856,7 +857,7 @@ async function montarEntrada(
   // Imagem: baixa, guarda como foto de referência do pedido E como mídia do chat.
   if (msg.type === "image" && msg.image?.id) {
     const legenda = msg.image.caption?.trim();
-    const nota = "[o cliente enviou uma foto de referência para o pedido]";
+    const nota = RECADO_DE_FOTO;
     const mime = msg.image.mime_type || "image/jpeg";
     let dados: string | undefined;
     try {

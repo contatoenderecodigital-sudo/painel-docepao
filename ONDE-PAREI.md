@@ -55,6 +55,21 @@ Todas são risco latente, não defeito vivo. Conferi uma por uma.
 1. **Abrir a tela de Resultados.** Os números mudaram hoje: as conversas de teste saíram do faturamento e da contagem de atendimento.
 2. **Trocar `SESSION_SECRET` e `PONTE_TOKEN`** se algum dia foram commitados ou compartilhados. Não achei nenhum vazado, mas depois de dezesseis rotas abertas é barato fechar o assunto.
 
+### 4b. A REGRA QUE EU APRENDI HOJE, E QUE VOCÊ PODE ME COBRAR
+
+Três testes deste repositório cobravam a FORMA da regra em vez do efeito dela, e
+os três mentiram:
+
+| teste | o que ele cobrava | o que aconteceu |
+| --- | --- | --- |
+| `pergunta-uma-vez-e-nao-repete` | uma marca escrita à mão | **verde com o defeito no ar** |
+| `o-bolo-de-festa-nao-fecha-sem-as-pecas` | uma marca que ninguém escreve | **verde com o defeito no ar** |
+| `nada-fica-sem-ser-perguntado` | a expressão dentro de um arquivo | **reprovou sem defeito nenhum** |
+
+Quando um teste precisa olhar o código em vez de rodá-lo, ele tem que cobrar que
+a decisão **passe pelo dono dela**, e não o texto da decisão. Está escrito com
+exemplo no `LEITURA-DA-CADEIA.md`, item 55.
+
 ### 5. O que falta LER, que é a missão principal
 
 | | linhas | estado |
@@ -124,7 +139,7 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 | | |
 | --- | --- |
 | arquivos lidos inteiros | **28** do cérebro + **11** da camada de banco |
-| defeitos consertados | **199** |
+| defeitos consertados | **202** |
 | testes no portão | **67**, todos verdes |
 | `tsc` | limpo |
 | cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |

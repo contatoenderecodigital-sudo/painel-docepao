@@ -122,7 +122,23 @@ const temaAceitaImagem = r.festa.find((i) => i.id === "tema")?.tipo;
 if (!Array.isArray(temaAceitaImagem) || !temaAceitaImagem.includes("imagem")) {
   falhas.push("a tabela diz que o tema nao aceita imagem, e ele aceita");
 }
-if (!/foto de refer|enviou uma foto/.test(fluxo)) {
+// A FOTO VALE COMO TEMA, E QUEM RECONHECE ELA MUDOU DE CASA.
+//
+// Isto procurava a expressao `foto de refer|enviou uma foto` DENTRO do
+// `fluxo.ts`. Em 28/08/2026 ela saiu de la: a mesma combinacao estava escrita em
+// tres lugares (o webhook escrevia a frase, a tela de teste escrevia de novo, e
+// o fluxo procurava por uma expressao que casava com as duas), e virou uma
+// funcao so, o `falaDeFotoRecebida`, em lib/ia/texto.ts.
+//
+// O teste reprovou dizendo que "a foto deixou de valer como tema", e a foto
+// continuava valendo: ele cobrava a FORMA (a expressao escrita naquele arquivo)
+// e nao o comportamento. E a mesma armadilha que deixou dois outros testes
+// verdes com defeito no ar neste dia.
+//
+// Agora cobra o que importa: que o fluxo continue perguntando se veio foto antes
+// de decidir o tema. Quem cobra que o recado CHEGA pelos dois caminhos (WhatsApp
+// e tela de teste) e o `a-tela-de-teste-manda-o-mesmo-que-o-whatsapp`.
+if (!/falaDeFotoRecebida\(/.test(fluxo)) {
   falhas.push("a foto do cliente deixou de valer como tema; ele manda a imagem e a padaria pergunta de novo");
 }
 

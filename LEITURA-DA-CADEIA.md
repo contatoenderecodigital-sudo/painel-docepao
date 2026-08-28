@@ -2635,3 +2635,76 @@ código (as outras foram no detector de código fantasma e no da barra comida).
 Consertei o teste, não o comentário: ele corta os comentários antes de procurar,
 e tira o `` antes do corte, porque sem a flag `m` o `$` quer dizer fim da
 string e o corte não tiraria nada.
+
+
+## 54. A tela de teste não testava o caminho da foto
+
+O `/testar` existe pro dono ver o que o cliente veria. O cabeçalho promete *"usa
+o MESMO cérebro da produção"*, *"nada de mock"*, e o arquivo tem escrita a regra
+que se aplica quando isso deixa de ser verdade:
+
+> *"uma tela de teste que testa outra coisa é pior do que não ter tela de teste"*
+
+Ela já foi escrita ali por causa de um episódio anterior: até 26/08 a tela
+chamava o cérebro **antigo** enquanto a produção usava o novo.
+
+### O que estava errado agora
+
+Quando o dono anexa uma foto, o cérebro precisa saber: ele procura o recado **no
+texto da mensagem** pra decidir que o tema da peça veio pela foto (*"quem manda a
+foto do Homem Aranha já disse o tema, e insistir depois da foto é o tipo de coisa
+que faz o cliente achar que ninguém olhou"*).
+
+| onde | o que fazia com o recado |
+| --- | --- |
+| webhook | grudava no **texto** que vai pro cérebro |
+| `/testar` | injetava no `historico`, que o cérebro **nunca vê** |
+
+O que a tela manda é `ultima.texto`, montado direto de `corpo.mensagens`. O
+recado ficava num array usado só pra `historico.length === 0`.
+
+### E eram três cópias da mesma combinação
+
+O webhook escrevia a frase, a tela escrevia a **mesma frase de novo**, e o
+`fluxo.ts` procurava por uma expressão que casava com as duas. Bastava mexer numa
+pra as outras pararem de se entender, **sem erro nenhum aparecer**.
+
+Agora quem escreve e quem lê usam a mesma coisa: `RECADO_DE_FOTO`,
+`comORecadoDaFoto` e `falaDeFotoRecebida`, em `lib/ia/texto.ts`. As formas
+antigas continuam sendo entendidas de propósito, porque conversa gravada ontem
+tem que continuar valendo.
+
+## 55. O teste que cobrava a FORMA e não o comportamento (terceira vez no dia)
+
+Ao mover a expressão pro `texto.ts`, o `nada-fica-sem-ser-perguntado` reprovou
+dizendo *"a foto do cliente deixou de valer como tema"* — e a foto continuava
+valendo. Ele procurava a expressão **dentro do `fluxo.ts`**:
+
+```js
+if (!/foto de refer|enviou uma foto/.test(fluxo))
+```
+
+Cobrava onde a regra estava escrita, não o que ela faz.
+
+**É a terceira vez neste dia**, e as três com a mesma assinatura:
+
+| teste | o que ele cobrava | o que aconteceu |
+| --- | --- | --- |
+| `pergunta-uma-vez-e-nao-repete` | a marca `['bolo']`, escrita à mão | ficou verde com o defeito no ar |
+| `o-bolo-de-festa-nao-fecha-sem-as-pecas` | a marca `bolo:tres`, que ninguém escreve | ficou verde com o defeito no ar |
+| `nada-fica-sem-ser-perguntado` | a expressão dentro de um arquivo | reprovou sem defeito nenhum |
+
+Os dois primeiros mentiram dizendo que estava tudo bem. O terceiro mentiu
+dizendo que estava quebrado. **A causa é a mesma: cobrar a forma em vez do
+efeito.**
+
+### A regra que fica
+
+Quando um teste precisa olhar o código em vez de rodá-lo (e às vezes precisa),
+ele deve cobrar **que a decisão passe pelo dono dela**, e não o texto da decisão:
+
+- ruim: `/foto de refer|enviou uma foto/.test(fluxo)`
+- bom: `/falaDeFotoRecebida\(/.test(fluxo)`
+
+O primeiro quebra quando a regra muda de casa. O segundo quebra quando o fluxo
+**para de perguntar**, que é o que importa.

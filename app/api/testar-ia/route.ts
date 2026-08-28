@@ -19,6 +19,7 @@ import { unidadeDoPedido as unidadeDoProduto } from "@/lib/ia/dados/produtos";
 import { lerMontagem, anotarItem, removerItem, anotarDados, limparMontagem } from "@/lib/banco/montagem";
 import { pedidoEmAberto } from "@/lib/banco/pedidos";
 import type { Mensagem } from "@/lib/banco/tipos-da-conversa";
+import { comORecadoDaFoto } from "@/lib/ia/texto";
 import { acharOuCriarCliente, salvarFotoPendente } from "@/lib/banco/conversas";
 import { atenderComFluxoNovo } from "@/lib/ia/fluxo/atender";
 import OpenAI from "openai";
@@ -71,16 +72,23 @@ export async function POST(req: NextRequest) {
       content: m.texto,
     }));
 
-  // Igual ao webhook: quando há foto anexada, a IA recebe um recado de que chegou
-  // uma foto de referência (pra acusar o recebimento e anotar no item). Cai na
-  // última mensagem do cliente; se ele mandou só a foto sem texto, vira um turno.
-  if (foto) {
-    const nota = "[o cliente enviou uma foto de referência para o pedido]";
-    const ult = historico[historico.length - 1];
-    if (ult && ult.role === "user") ult.content = ult.content ? `${ult.content}\n${nota}` : nota;
-    else historico.push({ role: "user", content: nota });
-  }
-
+  // AQUI O RECADO DA FOTO IA PRO HISTORICO, E O CEREBRO LE O TEXTO.
+  //
+  // O comentario dizia "igual ao webhook", e nao era. O webhook gruda o recado
+  // no TEXTO da mensagem, que e o que chega no cerebro; aqui ele era injetado no
+  // array `historico`, que serve so pra saber se a padaria ja falou.
+  //
+  // O cerebro procura esse recado (o `falaDeFotoRecebida`, no `fluxo.ts`) pra
+  // decidir que o TEMA da peca veio pela foto: "quem manda a foto do Homem
+  // Aranha ja disse o tema". Como o recado nunca chegava, a tela de teste
+  // deixava de exercitar justamente o caminho da foto, e este arquivo diz com
+  // todas as letras que "uma tela de teste que testa outra coisa e pior do que
+  // nao ter tela de teste".
+  //
+  // Agora o recado entra no texto que vai pro cerebro, la embaixo, com a mesma
+  // constante que o webhook usa.
+  //
+  // Achado na leitura do `app/`, 28/08/2026.
   if (historico.length === 0) {
     return Response.json({ erro: "Envie uma mensagem pra IA responder." });
   }
@@ -166,13 +174,18 @@ export async function POST(req: NextRequest) {
     // saber se a padaria JA falou nesta conversa, que e o que decide se ela
     // cumprimenta: o estado do pedido o fluxo le do banco sozinho.
     const ultima = [...(corpo.mensagens ?? [])].reverse().find((m) => m?.de === "cliente");
+    // O recado da foto vai GRUDADO no texto, igual ao webhook: e nele que o
+    // cerebro procura.
+    const textoDoTurno = foto
+      ? comORecadoDaFoto(String(ultima?.texto ?? ""))
+      : String(ultima?.texto ?? "").trim();
     const jaAtendeu = (corpo.mensagens ?? []).some((m) => m?.de === "ia");
 
     resp = await atenderComFluxoNovo(
       new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
       negocioId,
       clienteId,
-      { texto: String(ultima?.texto ?? "").trim(), botaoId: corpo.botaoId ?? null },
+      { texto: textoDoTurno, botaoId: corpo.botaoId ?? null },
       jaAtendeu,
     );
   } catch (e) {
