@@ -1037,7 +1037,7 @@ eram 15. Sobram **27, com 5.744 linhas**, e há peça central ali.
 | --- | --- | --- | --- |
 | 15 | `lib/ia/dados/produtos.ts` | 517 | **INTEIRO** — 6 defeitos |
 | 16 | `lib/ia/fluxo/leitor-da-frase.ts` | 516 | **INTEIRO** — 7 defeitos |
-| 17 | `lib/ia/fluxo/falas-do-cliente.ts` | 357 | não lido |
+| 17 | `lib/ia/fluxo/falas-do-cliente.ts` | 357 | **INTEIRO** — 8 defeitos |
 | 18 | `lib/ia/fluxo/informacao.ts` | 253 | não lido |
 | 19 | `lib/ia/persona.ts` | 223 | não lido |
 | 20 | `lib/ia/texto.ts` | 178 | não lido (**eu escrevi nesta sessão**) |
@@ -1221,3 +1221,67 @@ A primeira versão de uma das cobranças reprovava **todo** apelido curto,
 inclusive o que eu tinha decidido descartar de propósito. Isso não cobra nada:
 cobra a minha decisão de volta pra mim. Virou a pergunta certa: **o produto
 continua tendo porta?**
+
+---
+
+## 17. `lib/ia/fluxo/falas-do-cliente.ts` — o que o código lê sem modelo
+
+357 linhas. Três decisões que **não passam pelo modelo de propósito**, cada uma
+com o motivo escrito: apagar o pedido de alguém não é decisão de redação; a
+resposta ao valor é dinheiro com duas saídas; a saudação sai do relógio.
+
+**Oito defeitos**, e justamente por serem regra e não interpretação, erravam
+calados.
+
+### "não, não apaga tudo" apagava o pedido
+
+A negação era uma regra própria daqui, e exigia a forma exata `(nao|sem)
+(quero|precisa|vamos)? (reiniciar|recomecar|zerar|apagar)`. O cliente escreveu
+**"apaga"** e a lista tinha **"apagar"**.
+
+Apagar o pedido de quem pediu pra NÃO apagar é o pior que essa função pode
+fazer, e ela diz isso no próprio comentário. Agora a pergunta é feita ao
+`afirmouOuNegou`, que é quem responde isso no sistema inteiro.
+
+### "sim, mas não esquece do topo" era lido como recusa
+
+O comentário dizia *"quem diz não PRIMEIRO está recusando"* e o código fazia
+outra coisa: testava a recusa inteira antes, então "nao" em **qualquer** lugar
+ganhava. O cliente aceitava o valor e o pedido ficava no limbo — que é
+exatamente o defeito que essa função existe pra impedir.
+
+### "incerto ainda" era lido como aceite
+
+Sem fronteira de palavra, **"certo" casava dentro de "incerto"**. Alguém em
+dúvida aprovando um valor.
+
+### Duas listas de cumprimento, e elas já divergiam
+
+`"como vai"` era cumprimento pra quem TIRA e não era pra quem PÕE:
+
+    cliente >> Como vai, quero coxinha
+    padaria >> Boa tarde, tudo bem? Como vai, quero coxinha
+
+Dois cumprimentos na mesma frase, que é o tique de robô que a regra do dono manda
+evitar.
+
+### O "boa tarde" no meio da frase
+
+O comentário sempre prometeu que *"boa tarde no meio de uma frase sobre horário
+de retirada não é cumprimento"*, e o código procurava em qualquer lugar dos 40
+primeiros caracteres. Quem escrevia `"retirar boa tarde nao, as 14h"` ficava sem
+o bom dia da casa.
+
+### Mais três
+
+- o cabeçalho dizia **"são vinte e quatro linhas"**; são 357
+- a décima terceira e a décima quarta cópias do normalizador, a segunda
+  escondida dentro do leitor de dia da semana
+- um bloco de doc órfão (a data de retirada) sobre a função errada
+
+### Teste novo
+
+`o-sim-e-o-nao-do-cliente.cjs`, **43 frases** que gente escreve de verdade, nos
+dois sentidos: o que tem que valer e o que não pode valer. E a simetria entre pôr
+e tirar cumprimento, que é o que impede as duas listas de divergirem de novo.
+Três iscas provadas.

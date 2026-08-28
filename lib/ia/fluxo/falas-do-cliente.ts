@@ -10,11 +10,17 @@
 //  importava de la, e isso amarrava o novo no velho: enquanto essa corda
 //  existir, apagar o antigo quebra o novo.
 //
-//  Sao vinte e quatro linhas. Copiar sai mais barato que a corda.
+//  Eram vinte e quatro linhas quando isto foi escrito. Hoje sao 357: o arquivo
+//  virou a casa de tudo que o codigo le da fala sem gastar modelo. Copiar
+//  continua saindo mais barato que a corda, mas a conta mudou e o comentario
+//  dizia o numero de antes.
 // ============================================================================
 
-const semAcMin = (t: string) =>
-  String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+// O mesmo normalizador de todo mundo. Este arquivo tinha DUAS copias dele, a
+// segunda escondida dentro do leitor de dia da semana com um `-?feira` a mais.
+import { semAcento, afirmouOuNegou, cercaDaPalavra } from "../texto";
+
+const semAcMin = semAcento;
 
 /**
  * QUEM MANDA RECOMECAR, RECOMECA.
@@ -38,11 +44,42 @@ export function mandouRecomecar(fala: string): boolean {
   const recomecar =
     /(reiniciar|recomecar|comecar de novo|do zero|comeca de novo|zerar|apagar tudo|cancelar tudo|esquece tudo|esquecer tudo|apaga tudo|desconsidera tudo)/;
   if (!recomecar.test(t)) return false;
-  // "nao quero recomecar" e o contrario: quem escreve isso esta pedindo pra NAO
-  // apagar, e apagar por engano e pior que nao apagar.
-  if (/(nao |sem )(quero |precisa |vamos )?(reiniciar|recomecar|zerar|apagar)/.test(t)) return false;
+  // A NEGACAO SAI DO LEITOR UNICO, E NAO DE UMA REGRA PROPRIA DAQUI.
+  //
+  // A regra daqui exigia a forma exata "(nao|sem) (quero|precisa|vamos)?
+  // (reiniciar|recomecar|zerar|apagar)", e por isso deixava passar o jeito mais
+  // comum de dizer a mesma coisa. Medido em 28/08/2026:
+  //
+  //   "nao, nao apaga tudo"  ->  APAGAVA O PEDIDO
+  //
+  // Porque a lista tem "apagar" e o cliente escreveu "apaga". Apagar o pedido de
+  // quem pediu pra NAO apagar e o pior erro que esta funcao pode cometer, e ela
+  // mesma diz isso no comentario acima.
+  //
+  // `afirmouOuNegou` e quem ja responde essa pergunta no sistema inteiro, e sabe
+  // "sem", "nao", "nem", "nada de", "tirar" e o sim ou nao que vem DEPOIS.
+  const negou = ["reiniciar", "recomecar", "comecar de novo", "do zero", "zerar",
+    "apagar tudo", "apaga tudo", "cancelar tudo", "esquece tudo", "esquecer tudo",
+    "desconsidera tudo"]
+    .some((termo) => afirmouOuNegou(t, cercaDaPalavra(termo)) === false);
+  if (negou) return false;
   return true;
 }
+
+/**
+ * COMO A GENTE CUMPRIMENTA, NUMA LISTA SO.
+ *
+ * Havia duas, uma em cada funcao, e elas ja discordavam: "como vai" era
+ * cumprimento pra quem TIRA e nao era pra quem POE. Medido em 28/08/2026:
+ *
+ *   cliente >> Como vai, quero coxinha
+ *   padaria >> Boa tarde, tudo bem? Como vai, quero coxinha
+ *
+ * Dois cumprimentos na mesma frase, que e exatamente o tique de robo que a
+ * regra do dono manda evitar.
+ */
+const CUMPRIMENTOS = ["bom dia", "boa tarde", "boa noite", "ola", "oi", "opa"];
+const COMO_VAI = ["tudo bem", "tudo bom", "como vai"];
 
 /**
  * QUEM ATENDE CUMPRIMENTA PRIMEIRO.
@@ -61,10 +98,19 @@ export function comCumprimento(texto: string, agora: Date): string {
   const t = String(texto ?? "").trim();
   if (!t) return t;
 
-  // Ja cumprimentou? Olha so o comeco: "boa tarde" no meio de uma frase sobre
-  // horario de retirada nao e cumprimento.
-  const comeco = semAcMin(t).slice(0, 40);
-  if (/(bom dia|boa tarde|boa noite|^ola|^oi|^opa|tudo bem|tudo bom)/.test(comeco)) return t;
+  // SO CONTA NO COMECO, e o comentario sempre prometeu isso sem cumprir.
+  //
+  // A regra antiga procurava "boa tarde" em qualquer lugar dos 40 primeiros
+  // caracteres, entao:
+  //
+  //   "retirar boa tarde nao, as 14h"  ->  a padaria nao cumprimentava
+  //
+  // O cliente falava de horario e ficava sem o bom dia que a regra do dono
+  // manda dar. Ancorar no comeco e o que o proprio comentario dizia: "boa
+  // tarde" no meio de uma frase sobre retirada nao e cumprimento.
+  const comeco = semAcMin(t);
+  const jaCumprimentou = [...CUMPRIMENTOS, ...COMO_VAI].some((c) => comeco.startsWith(c));
+  if (jaCumprimentou) return t;
 
   return saudacaoDaHora(agora) + ", tudo bem? " + t;
 }
@@ -90,10 +136,13 @@ export function tirarCumprimento(texto: string): string {
 
   // Come o cumprimento e o "tudo bem?" que vier grudado nele, uma vez so e so
   // no comeco: "boa tarde" falando de horario de retirada continua inteiro.
-  const limpo = t
-    .replace(/^(bom dia|boa tarde|boa noite|ola|oi|opa)[\s,!.]*/i, "")
-    .replace(/^(tudo bem|tudo bom|como vai)[\s,!.?]*/i, "")
-    .trim();
+  const tira = (texto: string, quais: string[]) => {
+    const semAc = semAcMin(texto);
+    const achou = quais.find((c) => semAc.startsWith(c));
+    if (!achou) return texto;
+    return texto.slice(achou.length).replace(/^[\s,!.?]*/, "");
+  };
+  const limpo = tira(tira(t, CUMPRIMENTOS), COMO_VAI).trim();
 
   if (!limpo) return t; // era so cumprimento: melhor repetir que mandar vazio
   return limpo.charAt(0).toUpperCase() + limpo.slice(1);
@@ -133,21 +182,6 @@ export function saudacaoDaHora(agora = new Date()): string {
 }
 
 /**
- * A RETIRADA E SEMPRE NO FUTURO.
- *
- * Teste do dono em 23/08/2026: ele disse "dia 05 de setembro" e o pedido foi
- * anotado pra 05/09/2024. Um ano e meio no passado, numa padaria que produz sob
- * encomenda: a comanda sairia com uma data que ja passou e ninguem saberia
- * quando assar.
- *
- * O modelo nao tem relogio, entao ele chuta o ano. A instrucao agora diz que dia
- * e hoje, e ESTA FUNCAO CONFERE DEPOIS: prompt pede, codigo garante. Data que
- * caiu pra tras ganha o ano que faz ela cair pra frente.
- *
- * Devolve null pro que nao da pra entender. Null faz a padaria perguntar de
- * novo, que e melhor que anotar uma data inventada.
- */
-/**
  * O NOME DO DIA DA SEMANA VIRA A PROXIMA DATA COM ESSE NOME.
  *
  * Resolve sempre no futuro. "Quarta" dita numa quarta e a quarta que vem: a
@@ -160,12 +194,7 @@ function diaDaSemanaViraData(texto: string, agora: Date): string | null {
   const NOMES: Record<string, number> = {
     domingo: 0, segunda: 1, terca: 2, quarta: 3, quinta: 4, sexta: 5, sabado: 6,
   };
-  const limpo = String(texto || "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/-?feira/g, " ")
-    .trim();
+  const limpo = semAcMin(texto).replace(/-?feira/g, " ").trim();
   // Fronteira escrita com classe de caracter, e nao com o limite de palavra:
   // o shell come a barra invertida e a regra para de casar sem dar erro.
   const alvo = Object.keys(NOMES).find((d) =>
@@ -183,6 +212,21 @@ function diaDaSemanaViraData(texto: string, agora: Date): string | null {
   return dd + "/" + mm + "/" + hoje.getFullYear();
 }
 
+/**
+ * A RETIRADA E SEMPRE NO FUTURO.
+ *
+ * Teste do dono em 23/08/2026: ele disse "dia 05 de setembro" e o pedido foi
+ * anotado pra 05/09/2024. Um ano e meio no passado, numa padaria que produz sob
+ * encomenda: a comanda sairia com uma data que ja passou e ninguem saberia
+ * quando assar.
+ *
+ * O modelo nao tem relogio, entao ele chuta o ano. A instrucao agora diz que dia
+ * e hoje, e ESTA FUNCAO CONFERE DEPOIS: prompt pede, codigo garante. Data que
+ * caiu pra tras ganha o ano que faz ela cair pra frente.
+ *
+ * Devolve null pro que nao da pra entender. Null faz a padaria perguntar de
+ * novo, que e melhor que anotar uma data inventada.
+ */
 export function dataDeRetirada(bruto: string | null | undefined, agora = new Date()): string | null {
   const t = String(bruto ?? "").trim();
   if (!t) return null;
@@ -346,12 +390,45 @@ export function respostaAoValor(fala: string): "aceitou" | "recusou" | null {
   const t = semAcMin(fala).trim();
   if (!t) return null;
 
-  const recusa = /(nao|nao quero|nao da|nao vai dar|muito caro|caro demais|deixa|deixa pra la|desisti|cancela|nem|ta caro|esquece)/;
-  const aceite = /(sim|isso|pode ser|pode|ok|okay|beleza|fechado|fechou|combinado|aceito|ta bom|tudo bem|perfeito|certo|confirma|manda|bora|show|otimo|maravilha)/;
+  const RECUSA = ["nao", "nao quero", "nao da", "nao vai dar", "muito caro", "caro demais",
+    "deixa", "deixa pra la", "desisti", "cancela", "nem", "ta caro", "esquece"];
+  const ACEITE = ["sim", "isso", "pode ser", "pode", "ok", "okay", "beleza", "fechado",
+    "fechou", "combinado", "aceito", "ta bom", "tudo bem", "perfeito", "certo",
+    "confirma", "manda", "bora", "show", "otimo", "maravilha"];
 
-  // A recusa e conferida ANTES: "nao, pode ser mais barato?" tem as duas
-  // palavras, e quem diz "nao" primeiro esta recusando.
-  if (recusa.test(t)) return "recusou";
-  if (aceite.test(t)) return "aceitou";
-  return null;
+  // GANHA QUEM VEM PRIMEIRO NA FRASE, E COM PALAVRA INTEIRA.
+  //
+  // O comentario antigo dizia "quem diz nao PRIMEIRO esta recusando", e o codigo
+  // fazia outra coisa: testava a recusa inteira antes, entao "nao" em qualquer
+  // lugar ganhava. Medido em 28/08/2026:
+  //
+  //   "sim, mas nao esquece do topo"  ->  RECUSOU
+  //
+  // O cliente aceitou o valor e o pedido ficava no limbo, que e o defeito que
+  // esta funcao existe pra impedir -- esta escrito no comentario dela.
+  //
+  // E sem fronteira de palavra "certo" casava dentro de "incerto":
+  //
+  //   "incerto ainda"  ->  ACEITOU
+  //
+  // Alguem em duvida aprovando um valor. Agora cada palavra e procurada inteira,
+  // e vence a que aparecer antes.
+  const ondeEsta = (quais: string[]) => {
+    let melhor = -1;
+    for (const p of quais) {
+      const m = cercaDaPalavra(p).exec(t);
+      if (!m) continue;
+      // O casamento inclui a letra da fronteira: o comeco da palavra e um a mais.
+      const onde = m.index + (m[1] ? m[1].length : 0);
+      if (melhor < 0 || onde < melhor) melhor = onde;
+    }
+    return melhor;
+  };
+
+  const naoQuer = ondeEsta(RECUSA);
+  const quer = ondeEsta(ACEITE);
+  if (naoQuer < 0 && quer < 0) return null;
+  if (naoQuer < 0) return "aceitou";
+  if (quer < 0) return "recusou";
+  return naoQuer <= quer ? "recusou" : "aceitou";
 }
