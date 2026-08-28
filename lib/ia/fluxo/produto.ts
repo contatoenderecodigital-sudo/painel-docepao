@@ -25,49 +25,15 @@
 //  Todo mundo que precisa saber o que é um item passa por aqui.
 // ============================================================================
 
-import catalogo from "../dados/catalogo.json";
 import { APELIDOS } from "../dados/apelidos";
-import { unidadeDoPedido as unidadeDoProduto } from "@/lib/ia/dados/produtos";
-
-const semAcMin = (t: string) =>
-  String(t || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-
-/** Os sabores de bolo de festa, que no cardápio vêm sem o prefixo. */
-function saboresDeBolo(): string[] {
-  const c = catalogo as unknown as { bolos_recheados?: { faixas?: { sabores?: string[] }[] } };
-  return (c.bolos_recheados?.faixas ?? []).flatMap((f) => f.sabores ?? []).map(String);
-}
-
-/**
- * Os bolos caseiros, que no cardápio vêm sem o "caseiro" no nome ("cenoura").
- *
- * O nome do catálogo e o nome do sistema são "bolo caseiro cenoura", porque é
- * assim que a tabela de preço guarda e é assim que a comanda roteia.
- */
-function bolosCaseiros(): string[] {
-  const c = catalogo as unknown as { bolos_caseiros?: { itens?: { nome?: string }[] } };
-  return (c.bolos_caseiros?.itens ?? []).map((i) => String(i?.nome ?? "")).filter(Boolean);
-}
-
-/** Nome de produto vendido avulso, fora os bolos (de festa e caseiros). */
-function produtosDoCatalogo(): string[] {
-  const c = catalogo as unknown as Record<string, unknown>;
-  const de = (v: unknown): string[] =>
-    Array.isArray(v)
-      ? v.map((x) => String((x as { nome?: string })?.nome ?? "")).filter(Boolean)
-      : [];
-  const s = c.salgados as { frito?: { itens?: unknown }; assado?: { itens?: unknown } } | undefined;
-  return [
-    ...de(s?.frito?.itens),
-    ...de(s?.assado?.itens),
-    ...de((c.doces as { itens?: unknown } | undefined)?.itens),
-    ...de(c.outros_produtos),
-  ];
-}
+import {
+  produtosDaCasa,
+  ehCategoriaDeBolo,
+  unidadeDoPedido as unidadeDoProduto,
+} from "../dados/produtos";
+// O MESMO normalizador de todo mundo. Aqui era a quinta copia dele, e esta
+// trocava a ordem do toLowerCase com o normalize.
+import { semAcento as semAcMin } from "../texto";
 
 export type Identidade = {
   /** O nome como o resto do sistema tem que escrever, sempre igual. */
@@ -107,64 +73,53 @@ export function identificarProduto(nomeBruto: string, categoria?: string): Ident
   // logo abaixo, na escolha.
   const cand: { canonico: string; casa: string; deBolo: boolean; apelido: boolean }[] = [];
 
-  for (const s of saboresDeBolo()) {
-    // O sabor sozinho E com o prefixo casam, e os dois viram "bolo <sabor>".
-    cand.push({ canonico: "bolo " + s, casa: semAcMin(s), deBolo: true, apelido: false });
-    cand.push({ canonico: "bolo " + s, casa: semAcMin("bolo " + s), deBolo: true, apelido: false });
-  }
-  // O BOLO CASEIRO TAMBÉM PRECISA DE UM NOME SÓ.
+  // O CANDIDATO SAI DA LISTA UNICA, E NAO DO catalogo.json.
   //
-  // Ele não tinha. O fluxo devolvia o que o cliente escrevesse, e o mesmo bolo
-  // saía como "cenoura", "bolo cenoura" ou "bolo de cenoura". Funcionava por
-  // sorte, no casamento parcial do motor de preço. Medido em 26/08/2026, a
-  // sorte já tinha acabado em três casos:
+  // Este arquivo lia o JSON cru e remontava os grupos do jeito dele, com uma
+  // lista escrita a mao de QUATRO baldes: salgados.frito, salgados.assado,
+  // doces e outros_produtos. O catalogo tem quinze chaves.
   //
-  //   "café" sozinho     -> cotava o DOCINHO de café, R$ 1,25 no lugar de
-  //                         R$ 35,90. É o mesmo defeito do brigadeiro, que já
-  //                         tinha transformado um bolo de 2 kg em R$ 2,50.
-  //   "bolo banana caramelizada"   -> cotava a LARANJA caramelizada, R$ 34,90
-  //                                   no lugar de R$ 30,90.
-  //   "bolo prestígio com ganache" -> cotava o bolo de FESTA de prestígio,
-  //                                   R$ 46,90 o quilo no lugar de R$ 33,90 a
-  //                                   unidade. Errava preço, produto E unidade.
+  // O que ficou de fora foi a chave `pizza`. Medido em 28/08/2026:
   //
-  // Marcado como bolo (`deBolo`) de propósito: "café" é docinho e é bolo
-  // caseiro, e quem desempata é a etapa da conversa, igual ao brigadeiro.
-  for (const n of bolosCaseiros()) {
-    const canonico = "bolo caseiro " + n;
-    for (const jeito of [n, "bolo " + n, "bolo caseiro " + n]) {
-      cand.push({ canonico, casa: semAcMin(jeito), deBolo: true, apelido: false });
-    }
-  }
-  for (const p of produtosDoCatalogo()) {
-    cand.push({ canonico: p, casa: semAcMin(p), deBolo: false, apelido: false });
-
-    // O NOME QUE CARREGA A FAMÍLIA TAMBÉM ATENDE PELO NOME CURTO.
+  //   "pizza meia de frango"        -> produto "pizza meia de frango", sem recheio
+  //   "pizza redonda de calabresa"  -> produto "pizza redonda", recheio calabresa
+  //
+  // A redonda mora em `outros_produtos` e por isso funcionava; a meia e a
+  // inteira moram em `pizza` e sairam com o sabor colado no nome. Comanda com
+  // nome que nao existe na tabela, e a cozinha lendo "pizza meia de frango"
+  // como se fosse um produto.
+  //
+  // E o defeito que o `nomeCurto` do `produtos.ts` diz, no comentario dele, ter
+  // acabado: "cada arquivo que precisava do nome curto o derivava sozinho,
+  // lendo o catalogo cru e remontando os grupos do seu jeito". Este arquivo
+  // continuava fazendo isso, e ele e justamente o que se chama "um nome so por
+  // produto".
+  for (const p of produtosDaCasa()) {
+    const deBolo = ehCategoriaDeBolo(p.categoria);
+    // Os jeitos pelos quais o cliente pode ter escrito ESTE produto.
+    const casas = new Set<string>([p.nome, p.nomeCurto]);
+    // "bolo cenoura" tem que alcancar "bolo caseiro cenoura": o cliente nao
+    // diz "caseiro", isso e classificacao da casa.
+    if (deBolo) casas.add("bolo " + p.nomeCurto);
+    // O NOME QUE CARREGA A FAMILIA TAMBEM ATENDE PELO NOME CURTO.
     //
-    // Onze dos doze docinhos se chamam pelo sabor puro ("brigadeiro", "café").
-    // UM se chama "docinho de churros". Essa diferença de uma palavra tinha
-    // preço: a palavra "churros" sozinha não alcançava o docinho, e o único
+    // Onze dos doze docinhos se chamam pelo sabor puro ("brigadeiro", "cafe").
+    // UM se chama "docinho de churros". Essa diferenca de uma palavra tinha
+    // preco: a palavra "churros" sozinha nao alcancava o docinho, e o unico
     // candidato que sobrava era `bolo caseiro churros`.
     //
     //     "churros" na etapa do docinho  ->  bolo caseiro churros, R$ 34,90
     //     o certo                        ->  docinho de churros,   R$  1,75
     //
-    // Vinte vezes o preço, num item que a festa pede em dezenas. Medido em
-    // 27/08/2026 contra `identificarProduto`, com a dica de etapa que o fluxo
-    // passa de verdade.
-    //
-    // Não sofria disso o "café", porque o docinho dele se chama só "café": os
-    // dois candidatos existem, a escolha fica ambígua e a ETAPA desempata. Era
-    // exatamente esse desempate que o nome comprido impedia de acontecer.
-    //
-    // Registrar o nome curto devolve o desempate. O canônico não muda, então a
-    // tabela de preço e a comanda continuam recebendo "docinho de churros".
-    //
-    // Hoje a regra pega um produto só. Ela existe geral porque o dia em que a
-    // dona cadastrar "docinho de maracujá" na tela, ninguém vai lembrar disto.
-    const curto = semAcMin(p).replace(/^(docinho|salgado|doce|bolo|torta|mini) (de|da|do) +/, "");
-    if (curto && curto !== semAcMin(p)) {
-      cand.push({ canonico: p, casa: curto, deBolo: false, apelido: false });
+    // Vinte vezes o preco, num item que a festa pede em dezenas. O "cafe" nao
+    // sofria disso porque o docinho dele se chama so "cafe": os dois candidatos
+    // existem, a escolha fica ambigua e a ETAPA desempata. Era esse desempate
+    // que o nome comprido impedia de acontecer.
+    const semFamilia = semAcMin(p.nome).replace(/^(docinho|salgado|doce|bolo|torta|mini) (de|da|do) +/, "");
+    if (semFamilia) casas.add(semFamilia);
+    for (const casa of casas) {
+      const c = semAcMin(casa);
+      if (c) cand.push({ canonico: p.nome, casa: c, deBolo, apelido: false });
     }
   }
   for (const [canonico, lista] of Object.entries(APELIDOS)) {

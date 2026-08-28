@@ -32,7 +32,7 @@ Isto sobrevive à compactação. A minha memória de ter lido, não.
 | 3 | `lib/ia/fluxo/fluxo.ts` | 1-1690, sem buraco | **INTEIRO** — 9 defeitos |
 | 4 | `lib/ia/fluxo/leitura.ts` | 1-681, sem buraco | **INTEIRO** — 10 defeitos |
 | 5 | `lib/ia/fluxo/pensar-openai.ts` | 1-195, sem buraco | **INTEIRO** — 7 defeitos |
-| 6 | `lib/ia/fluxo/produto.ts` | 1-200 | falta o fim |
+| 6 | `lib/ia/fluxo/produto.ts` | 1-227, sem buraco | **INTEIRO** — 3 defeitos |
 | 7 | `lib/ia/fluxo/sabor.ts` | 1-196 e os trechos novos | falta conferir o meio |
 | 8 | `lib/ia/fluxo/etapas.ts` | nada | não lido |
 | 9 | `lib/ia/fluxo/pergunta.ts` | 538-660 | falta quase tudo |
@@ -484,3 +484,57 @@ que chega aqui é texto que o modelo escreveu. A lista de etapas sai de
 
 `o-formato-pede-tudo-que-o-codigo-le.cjs` e `o-limpador-nao-come-a-resposta.cjs`.
 As duas iscas reproduzem os defeitos exatos que foram achados.
+
+---
+
+## 6. `lib/ia/fluxo/produto.ts` — um nome só por produto
+
+227 linhas. **Três defeitos, e o principal é o próprio arquivo desobedecendo ao
+que ele se propõe.**
+
+### A meia pizza saía com o sabor colado no nome
+
+O arquivo lia o `catalogo.json` cru e remontava os grupos do jeito dele, com uma
+lista escrita à mão de **quatro baldes**: `salgados.frito`, `salgados.assado`,
+`doces` e `outros_produtos`. O catálogo tem quinze chaves. A que ficou de fora
+foi `pizza`:
+
+    "pizza meia de frango"        ->  produto "pizza meia de frango", sem recheio
+    "pizza redonda de calabresa"  ->  produto "pizza redonda", recheio calabresa
+
+A redonda mora em `outros_produtos` e por isso funcionava. A meia e a inteira
+moram em `pizza` e não tinham candidato nenhum: `identificarProduto` devolve o
+texto cru quando não acha, e o texto cru vira o nome do produto. Comanda com
+nome que não existe na tabela de preço, e a cozinha lendo "pizza meia de frango"
+como se fosse um produto.
+
+O comentário do `nomeCurto`, em `produtos.ts`, diz que isso acabou: *"cada
+arquivo que precisava do nome curto o derivava sozinho, lendo o catálogo cru e
+remontando os grupos do seu jeito... agora a lista única responde os dois nomes,
+e ninguém precisa derivar"*. Este arquivo continuava derivando, e ele é
+justamente o que se chama **"um nome só por produto"**.
+
+Agora os candidatos saem de `produtosDaCasa()`. O `catalogo.json` não é mais
+importado aqui.
+
+### O teste que devia pegar isso não podia pegar
+
+`o-nome-curto-alcanca-o-produto` perguntava `identificarProduto(p.nome)` e
+comparava com `p.nome`. **Esse teste não podia falhar:** quando nenhum candidato
+casa, a função devolve o texto cru, e o texto cru é o nome. Eco contava como
+acerto, e foi assim que a chave `pizza` passou meses invisível.
+
+Agora o nome vai com um sufixo (`p.nome + " de teste"`). Só passa quem realmente
+casou, porque separar o produto do resto é coisa que o eco não faz. Isca
+provada: recolocando o buraco da pizza, o teste fica vermelho.
+
+### A quinta cópia do normalizador
+
+`semAcMin`, com o `toLowerCase` em ordem trocada em relação às outras. Aponta
+pro `lib/ia/texto.ts`.
+
+### Uma coisa conferida que estava CERTA
+
+Os 86 produtos da casa continuam separando produto de recheio depois da troca,
+medido um por um. E a ambiguidade bolo/docinho segue funcionando: `brigadeiro`
+sozinho é docinho, `bolo brigadeiro` é bolo, `cenoura` é bolo caseiro.

@@ -35,7 +35,9 @@
 import type { EtapaId, PedidoEmMontagem } from "./etapas";
 import { semAcento } from "../texto";
 import { APELIDOS } from "../dados/apelidos";
-import { produtosDaCasa, produtoNoComeco, produtoPorNome, gruposDaCasa } from "../dados/produtos";
+import {
+  produtosDaCasa, produtoNoComeco, produtoPorNome, gruposDaCasa, CATEGORIAS_DE_BOLO,
+} from "../dados/produtos";
 
 /**
  * SOBRE O QUE ELE PODE TER PERGUNTADO.
@@ -347,7 +349,7 @@ const daLista = (...categorias: string[]) =>
 const CATEGORIAS_DA_ETAPA = {
   salgado: ["salgado_frito", "salgado_assado"],
   docinho: ["docinho"],
-  bolo: ["bolo_festa", "bolo_caseiro"],
+  bolo: CATEGORIAS_DE_BOLO,
 } as const;
 
 const ETAPAS_DE_PRODUTO = Object.keys(CATEGORIAS_DA_ETAPA) as (keyof typeof CATEGORIAS_DA_ETAPA)[];

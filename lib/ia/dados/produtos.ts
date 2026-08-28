@@ -120,6 +120,21 @@ function bancadaDe(nome: string): Bancada {
 }
 
 /**
+ * AS CATEGORIAS QUE SAO SABOR DE BOLO.
+ *
+ * Exportada porque QUEM DESEMPATA precisa dela. "brigadeiro" e docinho de
+ * R$ 1,25 e e bolo de R$ 46,90 o quilo, e quem resolve isso e saber se o
+ * candidato e de bolo. `bolo_salgado` fica de fora de proposito: e um produto
+ * so, com nome proprio, que nao disputa nome com docinho nenhum.
+ */
+export const CATEGORIAS_DE_BOLO = ["bolo_festa", "bolo_caseiro"] as const;
+
+/** Este produto e sabor de bolo? */
+export function ehCategoriaDeBolo(categoria: string): boolean {
+  return (CATEGORIAS_DE_BOLO as readonly string[]).includes(String(categoria || ""));
+}
+
+/**
  * O GRUPO DE CADA COISA.
  *
  * Sai da categoria que o próprio catálogo já usa, quando ela existe. O resto é
