@@ -1166,6 +1166,26 @@ export async function responder(
       // Teste da Kemilly: ela perguntou "quanto fica?" com o pedido montado e a
       // padaria respondeu perguntando a forma de pagamento. A pergunta caiu no
       // vazio porque nao tinha familia junto.
+      // O PRODUTO QUE ELE ESCREVEU GANHA DO PALPITE DO MODELO.
+      //
+      // A instrucao pede `perguntou.sobre = preco (com familia)`, e o modelo
+      // preenche a familia com o que ELE acha. Medido numa conversa de verdade
+      // em 28/08/2026, na primeira mensagem:
+      //
+      //     cliente >> boa tarde, quanto e a cuca?
+      //     padaria >> Bolo de festa sai de R$ 46,90 a R$ 55,90 o quilo...
+      //
+      // Ele classificou a cuca como bolo. A cuca custa R$ 22,90 o quilo e a
+      // resposta certa existe: quem recebe "cuca" responde certo. O que errou
+      // foi a palavra que chegou ali.
+      //
+      // O leitor da frase sabe o que o cliente NOMEOU, e agora ele alcanca os 86
+      // produtos da casa. Quando ele acha um, esse manda; quando nao acha
+      // ("quanto e o cento de salgado?", que e familia e nao produto), vale o
+      // que o modelo leu.
+      const nomeadoNaFrase = produtosNaFrase(String(mensagem.texto ?? ""))[0];
+      if (nomeadoNaFrase) limpa.perguntou = { ...limpa.perguntou, familia: nomeadoNaFrase };
+
       const perguntouOTotal =
         limpa.perguntou.sobre === "preco" && !limpa.perguntou.familia && estado.itens.length > 0;
       const resposta = perguntouOTotal

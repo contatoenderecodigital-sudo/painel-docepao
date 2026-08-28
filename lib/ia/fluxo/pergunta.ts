@@ -76,10 +76,30 @@ export type Fala = {
 function falaDaBase(p: PedidoEmMontagem): string {
   const b = p.base;
   if (!b) return "Quantas pessoas vão na festa?";
+  // A FAMILIA RECUSADA NAO APARECE NA PROPOSTA.
+  //
+  // A frase listava as tres sempre, com o zero e tudo. Medido numa conversa de
+  // verdade em 28/08/2026:
+  //
+  //   cliente >> nao quero salgadinho, so docinho e bolo
+  //   padaria >> uma base boa e 0 SALGADOS NO TOTAL, 100 docinhos e 2 kg de bolo
+  //
+  // A conta estava certa (R$ 218,80, ja sem os salgados) e o texto devolvia pro
+  // cliente a coisa que ele acabou de recusar. Quem le "0 salgados" acha que a
+  // padaria nao entendeu, e repete.
   const kg = String(b.boloKg).replace(".", ",");
+  const partes = [
+    b.salgados > 0 ? b.salgados + " salgados no total" : null,
+    b.docinhos > 0 ? b.docinhos + " docinhos" : null,
+    b.boloKg > 0 ? kg + " kg de bolo" : null,
+  ].filter(Boolean);
+  if (!partes.length) return "Me diz o que você quer levar que eu monto a conta.";
+  const lista =
+    partes.length === 1
+      ? partes[0]
+      : partes.slice(0, -1).join(", ") + " e " + partes[partes.length - 1];
   return (
-    "Pra " + p.pessoas + " pessoas, uma base boa é " + b.salgados + " salgados no total, " +
-    b.docinhos + " docinhos e " + kg + " kg de bolo." + "\n\n" +
+    "Pra " + p.pessoas + " pessoas, uma base boa é " + lista + "." + String.fromCharCode(10, 10) +
     "Dá " + brl(b.totalCentavos / 100) + " no total, e dá pra ajustar o que você quiser."
   );
 }
