@@ -17,7 +17,6 @@ import { registrarUsoIA } from "@/lib/ia/uso";
 import { atenderComFluxoNovo, ehDoFluxoNovo } from "@/lib/ia/fluxo/atender";
 import { NextRequest, after } from "next/server";
 import { unidadeDoPedido as unidadeDoProduto, categoriaDoPedido as categoriaDoProduto } from "@/lib/ia/dados/produtos";
-import { carregarTenant } from "@/lib/ia/tenant";
 import { enviarTexto, enviarImagemPorLink, urlDoCardapio, RECADOS_CARDAPIO, baixarMidia, marcarLidaEDigitando, type CredsEnvio,
   enviarBotoes,
 } from "@/lib/whatsapp/api";
@@ -31,7 +30,6 @@ import {
   marcarWebhookNovo,
   salvarFotoPendente,
   falasSemResposta,
-  resumoPedidoFechado,
   mensagemPorWamid,
   marcarStatusMensagem,
   guardarOrigemAnuncio,
@@ -45,13 +43,6 @@ import crypto from "node:crypto";
 import { avisoDeProblema } from "@/lib/padaria-aberta";
 
 const pausa = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// Quanto tempo a gente segura antes de responder, esperando o cliente terminar
-// de falar. Mora aqui em cima porque o aviso de áudio não transcrito espera o
-// mesmo tanto: os dois caminhos correm o mesmo risco de falar por cima dele.
-// 12s: é o tempo de terminar a segunda frase ou gravar um áudio curto. Com 7s
-// ela cortava a pessoa no meio do raciocínio.
-const ESPERA_MS = 12000;
 
 // Começo do texto que a reação vira no histórico (montarEntrada monta ele).
 // Serve pra reconhecer a reação de volta na hora de decidir se o cliente
@@ -108,6 +99,30 @@ function tempoDeDigitar(texto: string): number {
  * pouco: a mensagem seguinte quase sempre e o pedido de verdade.
  *
  * Da pra mexer sem deploy pela variavel ESPERA_SEGUNDOS.
+ *
+ * E ESTA E A UNICA ESPERA. HAVIA DUAS, E O CLIENTE ESPERAVA AS DUAS.
+ *
+ * Existia um `ESPERA_MS = 12000` chumbado aqui em cima fazendo o MESMO
+ * trabalho: segurar alguns segundos e desistir se chegou outra mensagem. As
+ * duas rodavam no mesmo caminho, uma depois da outra:
+ *
+ *     12s antes de carregar o historico  +  10s antes de chamar a IA  =  22s
+ *
+ * Vinte e dois segundos de silencio pra toda mensagem de texto. Do lado do
+ * cliente e atendimento que sumiu.
+ *
+ * E era perigoso alem de lento: o turno inteiro tem 60s antes do Vercel matar a
+ * funcao, e o proprio comentario do `tempoDeDigitar` ja avisava disso. Vinte e
+ * dois segundos parado mais ate 30s de IA chega no teto, e quando estoura a IA
+ * ja foi chamada e cobrada, e o cliente nao recebe nada.
+ *
+ * As duas nasceram em datas diferentes pro mesmo problema, com valores
+ * diferentes (12 e 10) e explicacoes que se contradiziam. E o defeito de sempre
+ * deste projeto: o mesmo assunto decidido em dois lugares.
+ *
+ * Fica a do dono, que ele decidiu em 23/08/2026 e da pra ajustar sem deploy. O
+ * aviso de audio nao transcrito usa a mesma, que e o que o comentario dele ja
+ * pedia: "espera o mesmo tanto do resto do fluxo".
  */
 const ESPERA_ANTES_DE_RESPONDER = Math.max(0, Number(process.env.ESPERA_SEGUNDOS ?? 10) * 1000);
 
@@ -288,7 +303,7 @@ async function processar(corpo: WebhookPayload) {
             );
           }
           const antesDoAviso = await ultimaMsgClienteMs(negocioId, clienteId).catch(() => null);
-          await pausa(ESPERA_MS);
+          await pausa(ESPERA_ANTES_DE_RESPONDER);
           const jaEscreveu = await clienteFalouDepois(negocioId, clienteId, antesDoAviso).catch(() => false);
           if (jaEscreveu) {
             console.log("[whatsapp] audio nao transcrito, mas o cliente ja escreveu depois; nao aviso");
@@ -350,7 +365,7 @@ async function processar(corpo: WebhookPayload) {
       let marcoDoTurno: number | null = null;
       try {
         const antes = await ultimaMsgClienteMs(negocioId, clienteId);
-        await pausa(ESPERA_MS);
+        await pausa(ESPERA_ANTES_DE_RESPONDER);
         const depois = await ultimaMsgClienteMs(negocioId, clienteId);
         // Guarda o marco: qualquer mensagem depois desta hora e assunto novo.
         // O marco leva em conta ate a reacao, pra ela nao ser confundida com
@@ -402,13 +417,19 @@ async function processar(corpo: WebhookPayload) {
       } catch (e) {
         console.error("[whatsapp] falha ao ler a mensagem marcada (segue sem ela):", e);
       }
-      const tenant = await carregarTenant(negocioId); // cardápio/persona DESTE negócio
-
-      // A IA tenta os provedores em cadeia (OpenAI, Gemini, ...). Se TODOS caírem,
-      // responder() lança: não deixa o cliente no vácuo, avisa que já já responde.
-      // O que já está anotado vai junto: é a memória do pedido. Sem isso ela
-      // reconstrói tudo de cabeça a cada mensagem, e é aí que perde item, troca
-      // bolo por docinho e pergunta de novo o que o cliente já respondeu.
+      // AQUI SAIU UMA IDA AO BANCO QUE NAO SERVIA MAIS PRA NADA.
+      //
+      // `carregarTenant` trazia o cardapio e a persona DAQUELE negocio, e o
+      // cerebro antigo montava a carta dele com isso. O cerebro foi apagado em
+      // 26/08/2026 e a chamada ficou: consultava o banco em TODA mensagem e o
+      // resultado nao era lido por ninguem.
+      //
+      // O TypeScript nao reclama de variavel sem uso com a configuracao atual,
+      // entao ela sobreviveu calada. Achada lendo o arquivo linha por linha.
+      //
+      // O pedido em montagem, esse sim, e lido: e a memoria do pedido, e sem ele
+      // a IA reconstroi tudo de cabeca a cada mensagem, que e onde ela perde
+      // item e pergunta de novo o que o cliente ja respondeu.
       const montado = await lerMontagem(negocioId, clienteId).catch(() => null);
       // O pedido que ele ja fez e que ainda esta andando. Enquanto o ticket nao
       // imprime, toda mensagem dele chega em cima DESTE pedido, nao no vazio.
@@ -449,12 +470,19 @@ async function processar(corpo: WebhookPayload) {
       } catch (e) {
         console.error("[whatsapp] falha ao devolver o pedido pro rascunho:", e);
       }
-      const pedidoAnterior = await resumoPedidoFechado(negocioId, clienteId).catch(() => null);
+      // AQUI SAIU A SEGUNDA IDA AO BANCO QUE NAO SERVIA MAIS PRA NADA.
+      //
+      // `resumoPedidoFechado` trazia o ultimo pedido ja fechado pra dar contexto
+      // ao cerebro antigo. Ele foi apagado em 26/08/2026 e a consulta ficou,
+      // rodando em TODA mensagem, com o resultado nao lido por ninguem.
+      //
+      // Junto com o `carregarTenant` logo acima, eram duas idas ao banco por
+      // mensagem, pra nada. As duas achadas lendo o arquivo inteiro.
 
       // RENOVA O 'DIGITANDO...' ANTES DE PENSAR.
       //
-      // A Meta apaga o indicador sozinha em ~25s, e a espera de 12s ja comeu
-      // metade disso antes da IA comecar. Com a IA levando os 30s dela, o
+      // A Meta apaga o indicador sozinha em ~25s, e a espera ja comeu parte
+      // disso antes da IA comecar. Com a IA levando os 30s dela, o
       // indicador morria e o cliente ficava olhando pra uma conversa parada,
       // que e exatamente a hora em que ele manda "oi?" e atropela a resposta.
       // Uma renovacao so: a Meta zera os 25s a cada chamada e isso cobre o que
@@ -466,15 +494,17 @@ async function processar(corpo: WebhookPayload) {
       }
 
       // ================================================================
-      //  O FLUXO NOVO, QUANDO LIGADO
+      //  O FLUXO, QUE E O SISTEMA
       //
-      //  Enquanto FLUXO_NOVO_PARA estiver vazio, nada disto roda e a Dora
-      //  antiga atende como sempre. Com "todos", todo mundo cai aqui; com uma
-      //  lista de numeros, so eles.
+      //  Todo mundo cai aqui. `FLUXO_NOVO_PARA=off` desliga a IA em segundos,
+      //  sem deploy, pro dia em que ela fizer besteira com cliente na linha.
       //
-      //  Apagar a variavel no Coolify volta tudo em segundos, sem deploy: se o
-      //  fluxo novo fizer besteira com um cliente na linha, ninguem espera
-      //  build.
+      //  O QUE ESTAVA ESCRITO AQUI ERA MENTIRA, e perigosa: dizia que sem a
+      //  variavel "a Dora antiga atende como sempre". A Dora antiga foi apagada
+      //  em 26/08/2026. Desligar nao passava a bola pra ninguem: o codigo caia
+      //  fora deste `if` e acabava, em silencio.
+      //
+      //  Agora o desligamento entrega a conversa pra equipe, logo abaixo.
       // ================================================================
       if (ehDoFluxoNovo(telefone)) {
         try {
@@ -509,9 +539,23 @@ async function processar(corpo: WebhookPayload) {
           let textoJunto = texto ?? "";
 
           if (!botaoId) {
-            const marco = Date.now();
-            await pausa(ESPERA_ANTES_DE_RESPONDER);
-            const falouDeNovo = await clienteFalouDepois(negocioId, clienteId, marco).catch(() => false);
+            // AQUI NAO SE ESPERA DE NOVO: a espera ja aconteceu la em cima.
+            //
+            // Havia um `await pausa(...)` nesta linha, e ele era a SEGUNDA
+            // espera do mesmo turno. O cliente esperava as duas, 22 segundos,
+            // pra toda mensagem de texto.
+            //
+            // A conferida continua, e continua barata: entre a espera la de cima
+            // e este ponto passaram algumas leituras no banco, e uma mensagem
+            // pode ter chegado no meio delas.
+            //
+            // O MARCO E O DO TURNO, e nao `Date.now()`. Sem espera nenhuma
+            // entre um e outro, perguntar "chegou algo depois de agora?" e
+            // perguntar o obvio: nunca chegou, e a conferida viraria enfeite. O
+            // `marcoDoTurno` foi tirado logo depois da espera la em cima, entao
+            // ele responde o que importa: chegou algo desde que eu parei de
+            // esperar?
+            const falouDeNovo = await clienteFalouDepois(negocioId, clienteId, marcoDoTurno).catch(() => false);
             if (falouDeNovo) {
               console.log("[fluxo-novo] o cliente ainda esta falando; quem responde e a proxima mensagem");
               continue;
@@ -587,6 +631,30 @@ async function processar(corpo: WebhookPayload) {
               "Cardápio de " + String(novo.cardapio).replace(/-/g, " "),
               { tipo: "imagem", url: urlDoCardapio(novo.cardapio as never) },
             ).catch(() => {});
+
+            // O RECADO QUE ACOMPANHA A PECA, QUE ESTAVA MORTO.
+            //
+            // O dono pediu isto: que a regra do sabor misto e o valor do papel
+            // de arroz saissem do rodape em letra miuda da imagem e virassem
+            // MENSAGEM, porque "no celular ninguem le rodape de cardapio", e sao
+            // justamente as duas coisas que mais geram duvida no bolo de festa.
+            //
+            // Foi construido, e quando o cerebro antigo foi apagado em
+            // 26/08/2026 perdeu quem chamava: `RECADOS_CARDAPIO` continuava
+            // importado aqui e NUNCA era usado. Achado lendo o arquivo linha por
+            // linha em 27/08/2026.
+            //
+            // Os valores saem da tabela, e nao escritos a mao: isso foi
+            // consertado no mesmo dia, e estava consertando codigo que nao
+            // rodava.
+            const recados: string[] =
+              (RECADOS_CARDAPIO as Record<string, string[] | undefined>)[String(novo.cardapio)] ?? [];
+            for (const recado of recados) {
+              await enviarTexto(telefone, recado, creds).catch((e: unknown) =>
+                console.error("[fluxo-novo] falha ao mandar o recado do cardapio:", e),
+              );
+              await salvarMensagem(negocioId, clienteId, "assistant", recado).catch(() => {});
+            }
           }
           return;
         } catch (e) {
@@ -619,6 +687,31 @@ async function processar(corpo: WebhookPayload) {
           return;
         }
       }
+
+      // O INTERRUPTOR DE EMERGENCIA NAO PODE SER UM BOTAO DE CALAR A PADARIA.
+      //
+      // `FLUXO_NOVO_PARA=off` desliga a IA em segundos, sem deploy, e existe pro
+      // dia em que ela fizer besteira com cliente na linha. A documentacao dela
+      // diz que isso "volta pra Dora antiga", e a Dora antiga foi APAGADA em
+      // 26/08/2026.
+      //
+      // Entao ate aqui o desligamento nao ligava nada: a mensagem era salva, o
+      // codigo caia fora do `if` e ACABAVA. Ninguem respondia, ninguem era
+      // avisado, e o cliente ficava falando sozinho sem saber. Achado lendo este
+      // arquivo linha por linha em 27/08/2026.
+      //
+      // O proposito do interruptor continua valendo. O que muda e o que ele faz:
+      // em vez de silencio, a conversa vai pra equipe e o cliente ouve isso.
+      await definirHandoff(negocioId, clienteId, true).catch(() => {});
+      avisarDona(
+        "cliente-esperando:" + clienteId,
+        "A IA esta desligada (FLUXO_NOVO_PARA) e um cliente escreveu.",
+      ).catch(() => {});
+      const semIA =
+        "Oi! Agora quem te responde e alguem da equipe da padaria. " +
+        "Ja avisei eles, e daqui a pouco te falam por aqui.";
+      await enviarTexto(telefone, semIA, creds).catch(() => {});
+      await salvarMensagem(negocioId, clienteId, "assistant", semIA).catch(() => {});
     }
   }
 }

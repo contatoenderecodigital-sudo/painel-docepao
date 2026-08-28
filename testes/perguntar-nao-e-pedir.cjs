@@ -116,7 +116,16 @@ const rota = fs.readFileSync(path.join(__dirname, "..", "app/api/whatsapp/route.
 if (!/ESPERA_ANTES_DE_RESPONDER/.test(rota)) {
   falhas.push("a espera sumiu: ela volta a responder duas vezes quem manda duas mensagens seguidas");
 }
-if (!/clienteFalouDepois\(negocioId, clienteId, marco\)/.test(rota)) {
+// O NOME DA VARIAVEL NAO E A REGRA. A CHAMADA E.
+//
+// Isto cobrava a letra `marco`, e em 27/08/2026 ficou vermelho por causa de um
+// CONSERTO: a variavel virou `marcoDoTurno` quando a espera duplicada saiu do
+// webhook (o cliente esperava 22 segundos, duas esperas fazendo o mesmo). A
+// conferida continuou no lugar, so mudou de nome.
+//
+// Teste preso a nome de variavel reprova quem arruma e passa quem quebra. O que
+// importa e que a conferida exista com ALGUM marco.
+if (!/clienteFalouDepois\(negocioId, clienteId, marco\w*\)/.test(rota)) {
   falhas.push("ela espera mas nao confere se o cliente falou de novo; a espera sozinha nao resolve nada");
 }
 if (!/falasSemResposta/.test(rota)) {

@@ -5,14 +5,20 @@
 //  passa pelo fluxo, grava o que mudou, fecha o pedido quando for a hora, e
 //  devolve o texto e os botoes.
 //
-//  LIGADO SO PRA QUEM ESTIVER NA LISTA
+//  ELE ATENDE TODO MUNDO. NAO HA LISTA, E NAO HA VERSAO ANTIGA.
 //
-//  Enquanto a versao antiga atende os clientes, esta atende so os numeros de
-//  FLUXO_NOVO_PARA. E o unico jeito honesto de testar: o dono conversa com o
-//  fluxo novo no celular dele e a padaria continua funcionando igual pra quem
-//  esta comprando.
+//  Estava escrito aqui que este arquivo atendia "so os numeros de
+//  FLUXO_NOVO_PARA" e que "sem a variavel preenchida, ninguem cai aqui". As
+//  duas frases eram falsas em 27/08/2026, e a segunda era o contrario do que o
+//  codigo faz: `ehDoFluxoNovo` devolve TRUE por padrao.
 //
-//  Sem a variavel preenchida, ninguem cai aqui. O padrao e nao mudar nada.
+//  O cabecalho contradizia a funcao vinte linhas abaixo dele, que ja dizia
+//  "QUEM CAI NO FLUXO NOVO: TODO MUNDO". Cabecalho velho e pior que cabecalho
+//  nenhum: quem le comeca por ele e sai com a ideia errada de como o sistema
+//  funciona.
+//
+//  A versao antiga foi apagada em 26/08/2026. O que resta e o interruptor de
+//  emergencia, documentado na funcao logo abaixo.
 // ============================================================================
 
 import type OpenAI from "openai";
@@ -51,9 +57,22 @@ export type RespostaDoFluxo = {
  *
  * A CHAVE DE DESLIGAR CONTINUA EXISTINDO, e so ela.
  *
- * FLUXO_NOVO_PARA=nao (ou "off", "antigo") volta pra Dora antiga em segundos,
- * sem deploy e sem git. Ela fica aqui pro dia em que houver cliente comprando e
- * alguma coisa der errado: nesse dia ninguem vai querer esperar build.
+ * FLUXO_NOVO_PARA=nao (ou "off", "antigo") desliga a IA em segundos, sem deploy
+ * e sem git. Ela fica aqui pro dia em que houver cliente comprando e alguma
+ * coisa der errado: nesse dia ninguem vai querer esperar build.
+ *
+ * O QUE ELA FAZ MUDOU, PORQUE O QUE ELA PROMETIA NAO EXISTE MAIS.
+ *
+ * Estava escrito aqui que desligar "volta pra Dora antiga". A Dora antiga foi
+ * APAGADA em 26/08/2026, e ate 27/08 desligar nao ligava nada: a mensagem do
+ * cliente era salva, o webhook caia fora do `if` e acabava. Ninguem respondia e
+ * ninguem era avisado.
+ *
+ * O interruptor de emergencia era, na pratica, um botao de calar a padaria.
+ *
+ * Agora desligar entrega a conversa pra EQUIPE: o painel acende o aviso e o
+ * cliente ouve que alguem vai falar com ele. E o que a dona ja faz quando
+ * assume uma conversa na mao.
  */
 export function ehDoFluxoNovo(_telefone: string): boolean {
   const bruto = String(process.env.FLUXO_NOVO_PARA ?? "").trim();
@@ -115,6 +134,35 @@ export async function atenderComFluxoNovo(
   // Apagar o pedido de alguem nao e decisao de redacao, e de quebra sai de
   // graca.
   if (mandouRecomecar(mensagem.texto)) {
+    const rastro = ["recomecar: zerei o pedido em montagem"];
+
+    // RECOMECAR APAGAVA O RASCUNHO E DEIXAVA O PEDIDO DE PE.
+    //
+    // `zerar` limpa o pedido EM MONTAGEM, que e a conversa. O pedido ja
+    // REGISTRADO, esperando o cliente aceitar o valor da equipe, continuava
+    // vivo na fila.
+    //
+    // Entao o cliente mandava "cancela tudo", ouvia "apaguei tudo o que a gente
+    // tinha combinado", e a equipe seguia com um pedido pra aprovar e produzir.
+    // Alguem ia assar o que ele acabou de cancelar.
+    //
+    // Achado lendo o arquivo inteiro em 27/08/2026. Nao da pra a Dora cancelar
+    // sozinha um pedido que ja esta com a equipe: quem decide isso e gente. Ela
+    // devolve pra equipe com o motivo, que e o mesmo caminho de quando o cliente
+    // recusa o valor.
+    try {
+      if (await temPedidoAguardandoCliente(negocioId, clienteId)) {
+        await devolverPedidoParaEquipe(
+          negocioId,
+          clienteId,
+          "O cliente pediu pra recomecar do zero: " + String(mensagem.texto).slice(0, 200),
+        );
+        rastro.push("havia pedido esperando ele; devolvi pra equipe com o motivo");
+      }
+    } catch (e) {
+      console.error("[fluxo-novo] falha ao devolver o pedido no recomecar:", e);
+    }
+
     await zerar(negocioId, clienteId);
     return {
       texto:
@@ -123,7 +171,9 @@ export async function atenderComFluxoNovo(
       botoes: [],
       cardapio: null,
       etapa: "abertura",
-      rastro: ["recomecar: zerei o pedido em montagem"],
+      // Se havia pedido com a equipe, alguem precisa olhar: o rastro conta.
+      precisaHumano: rastro.length > 1,
+      rastro,
       uso,
     };
   }
@@ -224,7 +274,25 @@ export async function atenderComFluxoNovo(
       r.rastro.push("pedido fechado: " + fechado.pedidoId + " (R$ " + (fechado.totalCentavos / 100).toFixed(2) + ")");
       const lista = roteiroDoPedido(r.estado);
       const fim = falaDaEtapa(lista[lista.length - 1], r.estado);
-      return { texto: semEmoji(fim.texto), botoes: [], cardapio: null, etapa: "registrado", pedidoId, rastro: r.rastro, uso };
+      return {
+        texto: semEmoji(fim.texto),
+        botoes: [],
+        cardapio: null,
+        etapa: "registrado",
+        pedidoId,
+        // O CHAMADO DA EQUIPE NAO PODE SUMIR JUNTO COM O FECHAMENTO.
+        //
+        // Este `return` nao levava o `precisaHumano`, e ele e o unico sinal que
+        // acende o aviso no painel da dona. Quem pedisse "bolo sem lactose" e
+        // fechasse o pedido na mesma mensagem entrava na fila SEM ninguem ser
+        // avisado de que havia algo pra resolver, e a restricao ja tinha saido
+        // da observacao pra nao virar promessa. Ninguem ficava sabendo de nada.
+        //
+        // Achado lendo o arquivo inteiro em 27/08/2026.
+        precisaHumano: r.precisaHumano,
+        rastro: r.rastro,
+        uso,
+      };
     }
     r.rastro.push("tocou em confirmar mas o pedido ainda nao podia fechar");
   }
@@ -253,6 +321,10 @@ export async function atenderComFluxoNovo(
       botoes: [],
       cardapio: null,
       etapa: r.etapa,
+      // Os dois botoes que respondem sem chamar a IA tambem levam o chamado da
+      // equipe: a saida curta nao pode apagar o que a conversa ja tinha
+      // decidido. Mesmo defeito do fechamento, na mesma leitura de 27/08/2026.
+      precisaHumano: r.precisaHumano,
       rastro: [...r.rastro, "tocou em ajustar; perguntei o que muda (sem chamar a IA)"],
       uso,
     };
@@ -264,6 +336,7 @@ export async function atenderComFluxoNovo(
       botoes: [],
       cardapio: null,
       etapa: r.etapa,
+      precisaHumano: r.precisaHumano,
       rastro: [...r.rastro, "tocou em mudar algo; perguntei o que (sem chamar a IA)"],
       uso,
     };

@@ -619,9 +619,19 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       if (outroRecheio) {
         recheiosTrocados.push(produto + " de " + outroRecheio);
       } else if (saborPedido && !String(obsItem ?? "").toLowerCase().includes(saborPedido.toLowerCase())) {
-        // O sabor da casa vai junto do recado na observação, que é o que a
-        // comanda lê. Os dois inteiros: "frango bem passada" chega assim.
-        obsItem = [obsItem, saborPedido].filter(Boolean).join(" | ");
+        // O SABOR VEM NA FRENTE DO RECADO, e não atrás.
+        //
+        // Estava escrito ao contrário, e a comanda saía assim:
+        //
+        //     esfirra ~ com pouco sal | carne
+        //
+        // Quem produz lê o recheio primeiro, porque é ele que decide o que a
+        // pessoa vai montar. O recado vem depois, como recado.
+        //
+        //     esfirra ~ carne | com pouco sal
+        //
+        // Os dois inteiros: "frango bem passada" continua chegando junto.
+        obsItem = [saborPedido, obsItem].filter(Boolean).join(" | ");
       }
 
       // A PROMESSA QUE A CASA NÃO CUMPRE SAI DA OBSERVAÇÃO.
@@ -672,10 +682,39 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       const achou = itens.findIndex(
         (x) => x.produto.toLowerCase().trim() === produto.toLowerCase().trim(),
       );
-      // Repetir o mesmo item SUBSTITUI, nao soma: "na verdade quero 200" e
-      // correcao, nao pedido de mais 200. Somar ja dobrou pedido de festa.
-      if (achou >= 0) itens[achou] = { ...itens[achou], ...linha };
-      else itens.push(linha);
+      // Repetir o mesmo item SUBSTITUI a quantidade, nao soma: "na verdade
+      // quero 200" e correcao, nao pedido de mais 200. Somar ja dobrou pedido
+      // de festa.
+      //
+      // MAS A OBSERVACAO NAO SE SUBSTITUI, ELA SE JUNTA.
+      //
+      // `{...itens[achou], ...linha}` escrevia por cima de TUDO, e a observacao
+      // da linha nova vem so da leitura DESTE turno. Entao:
+      //
+      //     cliente >> 50 brigadeiro forminha rosa
+      //     cliente >> muda pra 100 brigadeiro
+      //     no pedido >> 100 brigadeiro, obs VAZIA
+      //
+      // O "forminha rosa" so nao sumia por sorte: o carimbo da cor roda logo
+      // abaixo e reescreve a cor nos docinhos. Num salgado com "sem cebola" ou
+      // num bolo com "misto: dois sabores", sumia de vez.
+      //
+      // E isto ficou MAIS provavel em 27/08/2026, quando a instrucao passou a
+      // pedir que o modelo reporte correcao de quantidade: agora ele repete o
+      // item com mais frequencia, e cada repeticao apagava o que estava anotado.
+      //
+      // Regra do dono, desde o primeiro dia: nada some do pedido.
+      if (achou >= 0) {
+        const antes = String(itens[achou].obs ?? "");
+        const agora = String(linha.obs ?? "");
+        // Junta sem repetir: cada pedaco da observacao e separado por " | ", e
+        // o que ja estava escrito nao entra duas vezes.
+        const pedacos = [...antes.split(" | "), ...agora.split(" | ")]
+          .map((x) => x.trim())
+          .filter(Boolean);
+        const semRepetir = pedacos.filter((x, n) => pedacos.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === n);
+        itens[achou] = { ...itens[achou], ...linha, obs: semRepetir.join(" | ") || null };
+      } else itens.push(linha);
     }
     novo.itens = itens;
     // Sem repetir: se ele pediu "sem lactose" em três docinhos, a padaria diz
