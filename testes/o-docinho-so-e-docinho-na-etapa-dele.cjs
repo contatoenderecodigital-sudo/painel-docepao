@@ -42,7 +42,22 @@ fs.writeFileSync(
     // salgado com sabor colado no nome
     "  saborColado: leituraQueCabeNaEtapa('salgado', { itens:[{produto:'esfirra de carne',qtd:40},{produto:'brigadeiro',qtd:20}] }),",
     "  vocab: { salgado: vocabularioDaEtapa('salgado').length, docinho: vocabularioDaEtapa('docinho').length, bolo: vocabularioDaEtapa('bolo').length },",
-    "  instrucoes: ['bolo','docinho','salgado','dados','pecas_do_bolo'].map((e) => ({ e, n: instrucaoDaEtapa(e as never, vazio as never).length })),",
+    "  // A instrucao tem DUAS partes, e so uma delas e minha:",
+    "  //",
+    "  //   REGRA     o que a IA tem que obedecer. Escrita por mim, e e ela que",
+    "  //             faz o modelo se perder quando cresce.",
+    "  //   CARDAPIO  a lista de produtos da etapa. Cresce quando a DONA cadastra",
+    "  //             coisa nova na tela, e nao quando eu escrevo mais regra.",
+    "  //",
+    "  // O limite tem que ser da regra. Medindo o total, o teste reprovava por",
+    "  // motivo que nao e defeito: em 27/08/2026 o vocabulario do bolo passou a",
+    "  // incluir os quinze bolos CASEIROS, que estavam barrados por engano, e o",
+    "  // teste ficou vermelho por causa de um conserto.",
+    "  instrucoes: ['bolo','docinho','salgado','dados','pecas_do_bolo'].map((e) => {",
+    "    const inteira = instrucaoDaEtapa(e as never, vazio as never);",
+    "    const soRegra = inteira.split('Cardápio da etapa.')[0];",
+    "    return { e, n: inteira.length, regra: soRegra.length };",
+    "  }),",
     "};",
     "console.log(JSON.stringify(r));",
   ].join("\n"),
@@ -105,12 +120,32 @@ if (r.vocab.bolo < 5) falhas.push("o vocabulario do bolo sumiu: " + r.vocab.bolo
 // A carta de trinta paginas da versao antiga ia em TODA mensagem e era parte do
 // problema: a IA precisava saber tudo porque decidia tudo. Aqui ela decide uma
 // coisa so, entao a instrucao cabe em um paragrafo.
-for (const { e, n } of r.instrucoes) {
-  if (n > 1500) falhas.push("a instrucao da etapa " + e + " ja tem " + n + " caracteres; esta virando carta");
+for (const { e, n, regra } of r.instrucoes) {
+  // A REGRA e o que nao pode inchar: e ela que faz o modelo se perder.
+  //
+  // O TETO E 1400 PORQUE E O QUE O LIMITE ANTIGO JA PERMITIA, e nao um numero
+  // escolhido pra caber o que eu acabei de escrever. O limite era 1500 sobre o
+  // TOTAL; a etapa `pecas_do_bolo` nao tem cardapio, entao seu total sempre foi
+  // regra pura, e ela passava com 1371. Baixar pra 1200 seria reprovar uma
+  // instrucao que nunca foi problema.
+  //
+  // Ela e a maior porque decide QUATRO coisas: topo, papel de arroz, tema, e o
+  // nome com a idade do aniversariante. Cada linha ali nasceu de defeito real,
+  // e a mais cara delas veio do teste da Kemilly, que disse "nao quero topo"
+  // tres vezes e continuou sendo perguntada. Cortar ali e reintroduzir defeito
+  // conhecido pra ganhar caractere.
+  if (regra > 1400) {
+    falhas.push("a REGRA da etapa " + e + " ja tem " + regra + " caracteres; esta virando carta");
+  }
+  // E o teto do total existe so pra pegar crescimento desgovernado, e nao pra
+  // impedir a dona de cadastrar produto.
+  if (n > 2500) {
+    falhas.push("a instrucao da etapa " + e + " passou de 2500 com o cardapio junto: " + n);
+  }
 }
 
 console.log("Vocabulario: salgado " + r.vocab.salgado + ", docinho " + r.vocab.docinho + ", bolo " + r.vocab.bolo);
-console.log("Instrucoes: " + r.instrucoes.map((x) => x.e + " " + x.n).join(", ") + " caracteres");
+console.log("Instrucoes (regra + cardapio): " + r.instrucoes.map((x) => x.e + " " + x.regra + "+" + (x.n - x.regra)).join(", "));
 console.log("");
 if (falhas.length) {
   console.log("FALHOU");

@@ -38,6 +38,24 @@ export type Bancada = "padeiro" | "confeitaria" | "salgadeiro";
 export type ProdutoDaCasa = {
   /** O nome que o sistema inteiro escreve. Um só, sempre igual. */
   nome: string;
+  /**
+   * O NOME QUE O CLIENTE FALA, sem o prefixo de família.
+   *
+   *     nome        "bolo 4 leites"      o que a comanda e a tabela usam
+   *     nomeCurto   "4 leites"           o que o cliente escreve
+   *
+   * O prefixo existe porque "brigadeiro" é docinho de R$ 1,25 E bolo de
+   * R$ 46,90 o quilo, e sem ele um bolo de 2 kg virava R$ 2,50. Mas ninguém
+   * pede "bolo 4 leites": pede "4 leites".
+   *
+   * Até 27/08/2026 cada arquivo que precisava do nome curto o derivava sozinho,
+   * lendo o catálogo cru e remontando os grupos do seu jeito. Era a origem da
+   * família de defeitos mais cara deste projeto, e o dono cortou pela raiz:
+   * "nada pode ser só uma lista tua, só o cardápio e valores".
+   *
+   * Agora a lista única responde os dois nomes, e ninguém precisa derivar.
+   */
+  nomeCurto: string;
   preco: number;
   unidade: "un" | "kg";
   /** A categoria interna, usada pelo pedido e pelas guardas. */
@@ -155,7 +173,10 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
   const c = catalogo as unknown as Record<string, never>;
   const lista: ProdutoDaCasa[] = [];
 
-  const põe = (p: ProdutoDaCasa) => lista.push({ ...p, bancada: bancadaDe(p.nome) });
+  // `nomeCurto` cai no `nome` quando ninguém passa: a maioria dos produtos não
+  // tem prefixo, e repetir o nome em toda chamada seria ruído.
+  const põe = (p: Omit<ProdutoDaCasa, "nomeCurto"> & { nomeCurto?: string }) =>
+    lista.push({ ...p, nomeCurto: p.nomeCurto ?? p.nome, bancada: bancadaDe(p.nome) });
 
   // ------------------------------------------------------------- salgados
   //
@@ -216,6 +237,7 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
     for (const s of f.sabores) {
       põe({
         nome: "bolo " + s,
+        nomeCurto: s,
         preco: f.preco,
         unidade: "kg",
         categoria: "bolo_festa",
@@ -232,6 +254,7 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
     if (!b.nome) continue;
     põe({
       nome: "bolo caseiro " + b.nome,
+      nomeCurto: b.nome,
       preco: Number(b.preco),
       unidade: "un",
       categoria: "bolo_caseiro",

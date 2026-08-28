@@ -35,6 +35,7 @@
 import catalogo from "../dados/catalogo.json";
 import type { EtapaId, PedidoEmMontagem } from "./etapas";
 import { APELIDOS } from "../dados/apelidos";
+import { produtosDaCasa } from "../dados/produtos";
 
 /** O que a IA pode devolver. Nada alem disto entra no pedido. */
 export type Leitura = {
@@ -307,19 +308,35 @@ function comOsApelidos(canonicos: string[]): string[] {
  * cliente falar de outra coisa, ela devolve falouDeOutraEtapa e quem decide o
  * rumo e o codigo.
  */
+/** Os nomes CURTOS (do jeito que o cliente fala) das categorias pedidas. */
+const daLista = (...categorias: string[]) =>
+  produtosDaCasa()
+    .filter((p) => categorias.includes(p.categoria))
+    .map((p) => p.nomeCurto);
+
 export function vocabularioDaEtapa(etapa: EtapaId): string[] {
   switch (etapa) {
     case "salgado":
-      return comOsApelidos([
-        ...nomes((catalogo.salgados?.frito?.itens ?? []) as { nome: string }[]),
-        ...nomes((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[]),
-      ]);
+      return comOsApelidos(daLista("salgado_frito", "salgado_assado"));
     case "docinho":
-      return comOsApelidos(nomes((catalogo.doces?.itens ?? []) as { nome: string }[]));
+      return comOsApelidos(daLista("docinho"));
     case "bolo":
-      return ((catalogo.bolos_recheados?.faixas ?? []) as { sabores?: string[] }[])
-        .flatMap((f) => f.sabores ?? [])
-        .map(String);
+      // O BOLO CASEIRO TAMBEM E BOLO, E ISSO FALTAVA.
+      //
+      // O vocabulario saia so dos sabores de bolo de FESTA. Medido em
+      // 27/08/2026: 14 dos 15 bolos caseiros eram BARRADOS na etapa do bolo.
+      //
+      //   cliente >> bolo de cenoura
+      //   padaria >> Nao achei cenoura no cardapio com esse nome.
+      //
+      // Quinze produtos que a casa vende, de R$ 30,90 a R$ 35,90, invisiveis
+      // pra quem estava montando uma festa. O unico que passava era o
+      // "prestigio com ganache", e por acidente: "prestigio" tambem e sabor de
+      // bolo de festa.
+      //
+      // Achado migrando este arquivo pra lista unica, que e o que o dono mandou
+      // fazer. Cada migração destas achou defeito que ninguem sabia que existia.
+      return comOsApelidos(daLista("bolo_festa", "bolo_caseiro"));
     default:
       return [];
   }
