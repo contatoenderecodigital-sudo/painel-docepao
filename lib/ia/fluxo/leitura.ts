@@ -33,6 +33,7 @@
 // ============================================================================
 
 import type { EtapaId, PedidoEmMontagem } from "./etapas";
+import { semAcento } from "../texto";
 import { APELIDOS } from "../dados/apelidos";
 import { produtosDaCasa, produtoNoComeco, produtoPorNome, gruposDaCasa } from "../dados/produtos";
 
@@ -150,8 +151,7 @@ export type Leitura = {
  * lugar so fica igual enquanto ninguem mexe. Uma delas usava `?? ""` e as
  * outras `|| ""`, que ja e a divergencia comecando.
  */
-const semAc = (t: string) =>
-  String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+const semAc = semAcento;
 
 const nomes = (lista: { nome: string }[]) => lista.map((i) => String(i.nome));
 

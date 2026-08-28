@@ -36,6 +36,7 @@ import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase, afirmouOuNe
 import { identificarProduto } from "./produto";
 import { nomePeloApelido } from "../dados/apelidos";
 import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
+import { semAcento as semAc } from "../texto";
 import { calcularBase, avisoDePoucoPorSabor } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
@@ -208,8 +209,6 @@ const DO_BOTAO: Record<string, (e: Estado) => Estado> = {
  * salgado. Frito ou assado sai do cardapio, que e a mesma fonte do preco.
  */
 function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
-  const semAc = (t: string) =>
-    String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
   const nome = semAc(produto);
   if (etapa === "salgado") {
     // FRITO OU ASSADO QUEM DIZ E A LISTA UNICA, e nao uma leitura do catalogo
@@ -269,8 +268,6 @@ function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
  * sair no setor errado da cozinha.
  */
 function categoriaDoCatalogo(nome: string): string {
-  const semAc = (t: string) =>
-    String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 
   // A LISTA ÚNICA RESPONDE PRIMEIRO.
   //
@@ -424,13 +421,8 @@ function tirarMarca(itens: Estado["itens"], prefixo: string): Estado["itens"] {
  * do bolo misto escrevia "misto: bolo 4 leites e 4 leites" no cupom da cozinha.
  */
 function jaTemEsseProduto(itens: { produto: string }[], produto: string): boolean {
-  const limpo = (t: string) =>
-    String(t || "")
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .toLowerCase()
-      .replace(/^bolo +/, "")
-      .trim();
+  // O mesmo `semAc` de todo mundo, mais o prefixo do bolo.
+  const limpo = (t: string) => semAc(t).replace(/^bolo +/, "").trim();
   const alvo = limpo(produto);
   if (!alvo) return false;
   return itens.some((i) => {
@@ -804,10 +796,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
   if (esperando.length === 1) {
     const item = esperando[0];
     const opcoes = saborQueFalta(item.produto, item.obs)?.opcoes ?? [];
-    const t = String(falaDoCliente || "")
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .toLowerCase();
+    const t = semAc(String(falaDoCliente || ""));
     // O nome mais longo primeiro: "frango com catupiry" antes de "frango".
     //
     // E A NEGACAO MANDA, COMO EM TODO LUGAR DESTE SISTEMA.
@@ -823,7 +812,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
     const achado = [...opcoes]
       .sort((a, b) => b.length - a.length)
       .find((o) => {
-        const alvo = o.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+        const alvo = semAc(o);
         if (alvo.length <= 2 || !t.includes(alvo)) return false;
         // `null` quer dizer "citou e nao disse sim nem nao", que aqui e um sim:
         // ele esta respondendo a pergunta do sabor.
@@ -910,8 +899,6 @@ export async function responder(
       // `identificarProduto` resolve pelo nome completo, que e o desempate que o
       // proprio sistema ja usa. Achado lendo linha por linha em 27/08/2026.
       .map((p) => {
-        const semAc = (t: string) =>
-          String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
         const frase = semAc(String(mensagem.texto ?? ""));
         const onde = frase.indexOf(semAc(p.produto));
         // "bolo de brigadeiro" e "bolo brigadeiro": ate uma preposicao no meio.
@@ -1266,10 +1253,7 @@ export async function responder(
   // "dois bolos", "2 bolos", "3 bolos de 1 kg" contam bolos. "2,5 kg de bolo",
   // "tres quilos" dizem o peso de UM bolo. So o primeiro grupo vira dois bolos.
   function pediuVariosBolos(fala: string): boolean {
-    const t = fala
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .toLowerCase();
+    const t = semAc(fala);
     const porExtenso = "(dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez)";
     // A BARRA PRECISA SER DOBRADA DENTRO DE ASPAS, E AQUI ELA NAO ERA.
     //

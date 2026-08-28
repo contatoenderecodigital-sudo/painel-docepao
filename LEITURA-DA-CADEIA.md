@@ -372,3 +372,48 @@ um mau negócio, e medir isso exige rodar o modelo de verdade, não só o portã
 Uma coisa conferida que estava CERTA: a faixa de acentos escrita com os
 caracteres literais (`U+0300`–`U+036F`, em quinze lugares do cérebro) é a mesma
 coisa que `̀-ͯ`. Conferido nos bytes, não no olho.
+
+---
+
+## O que a leitura do arquivo 4 devolveu para os arquivos 1, 2 e 3
+
+O dono perguntou, em 28/08/2026: *"e se faltou algo nos outros arquivos avisa
+também né"*. Perguntei aos arquivos já fechados as mesmas coisas que o 4 me
+obrigou a perguntar. Achei um, e ele era meu.
+
+### O mesmo texto normalizado escrito dezesseis vezes
+
+`String(t).toLowerCase().normalize("NFD").replace(...).trim()`. Uma linha, e ela
+estava copiada dezesseis vezes no cérebro. **Sete delas no `fluxo.ts`**, que eu
+tinha declarado lido inteiro.
+
+E copiar não fica igual. Elas já divergiam: duas não chamavam `.trim()` (nome
+com espaço atrás não casava), uma usava `?? ""` onde as outras usam `|| ""`, uma
+trocava a ordem do `toLowerCase`.
+
+É o mesmo defeito do `ESPERA_MS` do webhook, que tinha 12 segundos num lugar e
+10 no outro. Nasceu `lib/ia/texto.ts`, e os arquivos 3 e 4 passaram a usá-lo:
+sete cópias e quatro cópias viraram zero.
+
+**Restam dezesseis cópias em quinze arquivos que eu ainda não li.** Não mexi
+neles de propósito: trocar às cegas num arquivo que eu não li é o jeito de
+trabalhar que o dono mandou parar. Cada um vira zero quando chegar a vez dele:
+
+    falas-do-cliente 2, produtos 2, apelidos 2, orcamento, sabor, restricao,
+    produto, pergunta, leitor-da-frase, informacao, generico, fatos,
+    departamentos, cupom-escpos, montagem
+
+### Duas coisas conferidas nos arquivos 1, 2 e 3 que estavam CERTAS
+
+**Nenhum botão órfão.** Os dezoito botões oferecidos ao cliente têm tratador:
+treze em `DO_BOTAO`, cinco lidos direto no `atender.ts`. O `fecha_sim` não está
+no `DO_BOTAO` de propósito, porque fechar pedido não é mexer no rascunho.
+
+**Nenhuma lista de etapa escrita à mão no código do fluxo.** Todas saem de
+`etapas.ts`. A única que existia estava num TESTE, e foi ela que deixou passar a
+instrução gigante da oferta.
+
+### A barra invertida foi comida pela quarta vez
+
+Três `` viraram byte de backspace ao escrever o normalizador de plural. O
+`nenhum-byte-quebrado` pegou. A defesa funciona; o que não muda é o shell.
