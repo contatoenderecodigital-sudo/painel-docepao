@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, Plus, Minus, Trash2, Check, Square, CheckSquare, Pencil, TriangleAlert } from "lucide-react";
 import { brl, unidadeDoItem } from "@/lib/tipos";
+import { avisoDeSessao } from "@/lib/buscar-do-painel";
 
 // Quantidade do jeito que a padaria escreve: 1,5 kg, nunca 1.5kg. A fila de
 // aprovacao ja mostrava com virgula e aqui saia com ponto, entao o mesmo pedido
@@ -412,7 +413,12 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
               "Fale com quem está na produção antes que ele seja montado.",
           );
         } else {
-          setErro("Não deu pra salvar agora. Tente de novo.");
+          // SESSAO EXPIRADA NAO MELHORA TENTANDO DE NOVO.
+          //
+          // O generico mandava "tente de novo" pra qualquer erro, inclusive",
+          // o 401. A pessoa clica, clica, e nao adianta: o que falta e login.
+          // O `conversas/enviar` ja tinha aprendido isso do lado do servidor.
+          setErro(avisoDeSessao(r.status) ?? "Não deu pra salvar agora. Tente de novo.");
         }
         throw new Error("falhou");
       }

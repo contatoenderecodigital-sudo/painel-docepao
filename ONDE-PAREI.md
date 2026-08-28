@@ -44,6 +44,25 @@ Todas são risco latente, não defeito vivo. Conferi uma por uma.
 | **login sem limite de tentativas** | o `bcrypt` já é lento, o que limita a força bruta, mas não há bloqueio. O hub tem limitador, o painel não tem nenhum. Precisa de um, e é peça nova |
 | **`assinar`/`verificar` duplicados** | `app/sso/route.ts` e `lib/auth.ts` têm a mesma assinatura de sessão escrita duas vezes. Hoje idênticas; se uma mudar, a outra para de validar o cookie e ninguém descobre por erro, só por gente deslogada sem motivo |
 
+### 2c. Sessão expirada nas AÇÕES: levantado, consertado só onde pesa
+
+Contei **21 chamadas de ação** (salvar, mandar, trocar) em 8 componentes, e
+**nenhuma** tratava o 401:
+
+| componente | chamadas |
+| --- | --- |
+| `Atendimentos.tsx` | 8 |
+| `AvisoDoDia`, `Clientes`, `LogoUpload`, `PainelConexao`, `PedidoMontado`, `Recuperar` | 2 cada |
+| `ToggleIA.tsx` | 1 |
+
+**Consertei o `PedidoMontado`**, que é o que edita pedido e mexe em dinheiro. O
+resto ficou, e o critério foi este: no polling a tela **mente continuamente**
+(mostra dado velho como se fosse novo); numa ação, ela diz "tente de novo", que
+é um conselho ruim mas a pessoa percebe que falhou.
+
+O helper já existe (`avisoDeSessao`), então cada um é uma linha. **Decisão sua**
+se vale passar nos 20 restantes agora ou deixar pra quando alguém reclamar.
+
 ### 3. Consertos SEM isca automatizada, que precisam de olho humano
 
 | o que | como conferir |
@@ -147,7 +166,7 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 | | |
 | --- | --- |
 | arquivos lidos inteiros | **28** do cérebro + **11** da camada de banco |
-| defeitos consertados | **216** |
+| defeitos consertados | **218** |
 | testes no portão | **67**, todos verdes |
 | `tsc` | limpo |
 | cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |

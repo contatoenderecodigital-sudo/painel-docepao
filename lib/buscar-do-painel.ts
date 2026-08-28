@@ -55,6 +55,36 @@ export async function buscarDoPainel<T>(url: string, init?: RequestInit): Promis
   }
 }
 
-/** O texto que as telas mostram quando a sessao cai. Um so, em todas. */
+/**
+ * O texto que as telas mostram quando a sessao cai.
+ *
+ * Sao dois porque as situacoes sao duas, e a pessoa esta fazendo coisas
+ * diferentes: quem esta OLHANDO uma tela que parou precisa saber que ela
+ * parou; quem acabou de CLICAR em salvar precisa saber que o que ela digitou
+ * nao foi.
+ */
 export const AVISO_SESSAO_EXPIRADA =
   "Sua sessão expirou e a tela parou de atualizar. Recarregue a página (F5) e entre de novo.";
+
+export const AVISO_SESSAO_EXPIRADA_AO_SALVAR =
+  "Sua sessão expirou e nada foi salvo. Abra outra aba, entre de novo, e volte aqui: o que você digitou continua na tela.";
+
+/**
+ * A MENSAGEM CERTA PRA UMA RESPOSTA QUE DEU ERRADO, NUMA ACAO DE SALVAR.
+ *
+ * As telas que SALVAM (editar pedido, mandar mensagem, trocar a logo) tratam
+ * os erros que elas conhecem e caem num generico pro resto:
+ *
+ *     setErro("Nao deu pra salvar agora. Tente de novo.")
+ *
+ * Pra sessao expirada isso e um conselho ruim: tentar de novo nao devolve
+ * sessao nenhuma, e a pessoa fica clicando. O `conversas/enviar` ja tinha
+ * aprendido isso do lado do servidor, e diz no proprio comentario: "token
+ * vencido nao melhora tentando de novo".
+ *
+ * Devolve `null` quando o status nao e de sessao, pra quem chama seguir com o
+ * tratamento que ja tinha.
+ */
+export function avisoDeSessao(status: number): string | null {
+  return status === 401 || status === 403 ? AVISO_SESSAO_EXPIRADA_AO_SALVAR : null;
+}

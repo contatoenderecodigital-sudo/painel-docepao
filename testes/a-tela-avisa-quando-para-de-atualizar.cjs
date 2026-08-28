@@ -94,6 +94,16 @@ for (const arquivo of ["FilaAprovacao.tsx", "PedidosDoDia.tsx"]) {
   }
 }
 
+// E a tela que EDITA O PEDIDO: la o generico era "tente de novo", que pra
+// sessao expirada e conselho ruim (tentar nao devolve sessao).
+const editor = semComentario("components", "PedidoMontado.tsx");
+if (!/avisoDeSessao\(r\.status\)/.test(editor)) {
+  falhas.push(
+    "PedidoMontado.tsx: o erro de salvar voltou a mandar 'tente de novo' pra " +
+      "sessao expirada, e tentar de novo nao devolve sessao nenhuma",
+  );
+}
+
 // -----------------------------------------------------------------------------
 // 4. A funcao unica separa os tres casos. Medida rodando, nao lida.
 // -----------------------------------------------------------------------------
@@ -101,7 +111,7 @@ const sonda = path.join(__dirname, "_sonda-buscar-painel.mjs");
 fs.writeFileSync(
   sonda,
   [
-    "import { buscarDoPainel, AVISO_SESSAO_EXPIRADA } from '../lib/buscar-do-painel.ts';",
+    "import { buscarDoPainel, AVISO_SESSAO_EXPIRADA, AVISO_SESSAO_EXPIRADA_AO_SALVAR, avisoDeSessao } from '../lib/buscar-do-painel.ts';",
     "",
     "const erros = [];",
     "const original = globalThis.fetch;",
@@ -136,6 +146,24 @@ fs.writeFileSync(
     "",
     "globalThis.fetch = original;",
     "if (!AVISO_SESSAO_EXPIRADA || AVISO_SESSAO_EXPIRADA.length < 20) erros.push('o aviso sumiu');",
+    "",
+    "// A ACAO DE SALVAR TEM O SEU PROPRIO AVISO, e ele diz outra coisa.",
+    "//",
+    "// Quem esta OLHANDO uma tela que parou precisa saber que ela parou. Quem",
+    "// acabou de CLICAR em salvar precisa saber que NADA FOI SALVO e que o que",
+    "// digitou continua na tela, senao recarrega e perde o trabalho.",
+    "for (const s of [401, 403]) {",
+    "  if (avisoDeSessao(s) !== AVISO_SESSAO_EXPIRADA_AO_SALVAR) erros.push(s + ': o aviso de salvar esta errado');",
+    "}",
+    "for (const s of [200, 400, 409, 500]) {",
+    "  if (avisoDeSessao(s) !== null) erros.push(s + ': virou aviso de sessao e nao e');",
+    "}",
+    "if (AVISO_SESSAO_EXPIRADA_AO_SALVAR === AVISO_SESSAO_EXPIRADA) {",
+    "  erros.push('os dois avisos viraram o mesmo texto: quem salvou precisa saber que nada foi salvo');",
+    "}",
+    "if (!/nada foi salvo/i.test(AVISO_SESSAO_EXPIRADA_AO_SALVAR)) {",
+    "  erros.push('o aviso de salvar nao diz mais que nada foi salvo');",
+    "}",
     "console.log(JSON.stringify({ erros, aviso: AVISO_SESSAO_EXPIRADA }));",
   ].join("\n"),
   "utf8",

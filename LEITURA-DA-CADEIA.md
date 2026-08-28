@@ -2947,3 +2947,48 @@ o texto é escrito pra pessoa ler e muda, o campo não.
 
 **Continua sendo decisão sua** pôr um campo de data ali. Dizer a verdade no aviso
 não é decisão, e não muda o fluxo de ninguém.
+
+
+## 62. E o mesmo defeito nas AÇÕES, com um levantamento e um critério
+
+O item 60 consertou o **polling**. Faltava o outro lado, que é a nona pergunta de
+novo: *eu consertei um lado dessa regra em outro lugar?*
+
+Contei **21 chamadas de ação** (salvar, mandar, trocar) em 8 componentes, e
+**nenhuma** tratava o 401. A do `PedidoMontado` é exemplar:
+
+```ts
+} else {
+  setErro("Não deu pra salvar agora. Tente de novo.");
+}
+```
+
+Pra sessão expirada isso é conselho ruim: **tentar de novo não devolve sessão
+nenhuma**, e a pessoa fica clicando. O `conversas/enviar` já tinha aprendido isso
+do lado do servidor, e diz no próprio comentário: *"token vencido não melhora
+tentando de novo"*.
+
+### O critério, porque não consertei os 21
+
+Consertei o `PedidoMontado`, que edita pedido e mexe em dinheiro. O resto ficou
+anotado com o número exato.
+
+A diferença é real: **no polling a tela mente continuamente** (mostra dado velho
+como se fosse novo, e ninguém tem como saber). **Numa ação, ela diz "tente de
+novo"** — é um conselho ruim, mas a pessoa percebe que falhou e não fica confiando
+num dado errado.
+
+Mexer em 21 lugares sem medir cada um é como eu criei três defeitos hoje de
+manhã. O helper já existe e cada um é uma linha, então a decisão de passar em
+todos fica registrada com o custo real na mão.
+
+### E os dois avisos são dois de propósito
+
+```
+olhando uma tela que parou  ->  "a tela parou de atualizar, recarregue"
+acabou de clicar em salvar  ->  "nada foi salvo, e o que você digitou continua na tela"
+```
+
+Quem clicou em salvar precisa saber que **nada foi salvo** e que **não vai perder
+o que digitou** ao resolver o login. Um texto só, genérico, faria a pessoa
+recarregar e perder o trabalho.
