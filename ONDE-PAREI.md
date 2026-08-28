@@ -53,8 +53,8 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 
 | | |
 | --- | --- |
-| arquivos lidos inteiros | **28** do cérebro + **8** da camada de banco |
-| defeitos consertados | **166** |
+| arquivos lidos inteiros | **28** do cérebro + **11** da camada de banco |
+| defeitos consertados | **169** |
 | testes no portão | **65**, todos verdes |
 | `tsc` | limpo |
 | cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |

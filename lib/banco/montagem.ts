@@ -22,7 +22,7 @@ import { query, queryUm } from "./db";
 // Caminho relativo de proposito: os testes compilam este arquivo sozinho, e o
 // atalho "@/" so existe dentro do build do Next.
 import { coresDaForminha } from "../ia/fluxo/sabor";
-import { ehNomeDeFamilia } from "../ia/fluxo/generico";
+import { ehNomeDeFamilia, familiaDaCategoria, familiaDoNome } from "../ia/fluxo/generico";
 import { produtosDaCasa, saboresDaPizzaPorTipo } from "../ia/dados/produtos";
 import { semAcento } from "../ia/texto";
 
@@ -259,6 +259,29 @@ function observacaoLimpa(obs?: string | null): string | null {
   return limpo || null;
 }
 
+/**
+ * DE QUE FAMILIA E ESTE ITEM: salgado, docinho, bolo.
+ *
+ * Serve pra achar a LINHA GENERICA de onde subtrair. O cliente pede "300
+ * assados" e depois diz quais sao; sem isto o pedido fecha com 450 salgados, e
+ * ja sobrou um "salgado 200" fantasma no pedido de verdade.
+ *
+ * Olha a categoria E o nome, porque a linha generica costuma vir com a
+ * categoria errada ("salgado" anotado como `outro`).
+ *
+ * Estava escrita aqui dentro do `anotarItem`, com regex, e e a tabela
+ * `FAMILIAS` do `generico.ts` escrita de novo e ao contrario. Foi exportada
+ * primeiro pra ganhar teste, que e a ordem certa: prende o comportamento de
+ * hoje, depois troca a implementacao.
+ */
+export function familiaDoItem(categoria: string, produto: string): string {
+  // A CATEGORIA MANDA; O NOME SO ENTRA QUANDO ELA NAO SABE.
+  //
+  // A linha generica costuma vir com a categoria errada ("salgado" anotado
+  // como `outro`), e ai quem responde e a palavra que o cliente escreveu.
+  return familiaDaCategoria(categoria) ?? familiaDoNome(produto) ?? String(categoria ?? "");
+}
+
 export async function anotarItem(
   negocioId: string,
   clienteId: string,
@@ -404,16 +427,8 @@ export async function anotarItem(
       // como outro), então o que casa é a FAMÍLIA: salgado com salgado, docinho
       // com docinho, bolo com bolo. Sem isso sobrou um "salgado 200" fantasma
       // no pedido, junto dos salgados de verdade.
-      const familia = (c: string, p: string) =>
-        /^salgado/.test(c) || /^salgado/.test(p.trim().toLowerCase())
-          ? "salgado"
-          : c === "docinho" || /^(docinho|doce)s?$/.test(p.trim().toLowerCase())
-            ? "docinho"
-            : /^bolo/.test(c) || /^bolos?$/.test(p.trim().toLowerCase())
-              ? "bolo"
-              : c;
-      const fam = familia(item.categoria, item.produto);
-      const g = m.itens.find((x) => ehGenerico(x.produto) && familia(x.categoria, x.produto) === fam);
+      const fam = familiaDoItem(item.categoria, item.produto);
+      const g = m.itens.find((x) => ehGenerico(x.produto) && familiaDoItem(x.categoria, x.produto) === fam);
       if (g) {
         g.qtd = Math.max(0, Number(g.qtd) - Number(item.qtd));
         if (g.qtd <= 0) m.itens = m.itens.filter((x) => x !== g);

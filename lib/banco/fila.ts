@@ -200,16 +200,31 @@ export async function marcarImpresso(
           .slice(0, 20000)
       : null;
   if (ok) {
-    await query(
+    // A GUARDA DE IDEMPOTENCIA VALE PRAS DUAS ESCRITAS, NAO SO PRA PRIMEIRA.
+    //
+    // O comentario acima promete que uma confirmacao repetida ou atrasada nao
+    // re-transiciona um job ja resolvido, e o `status = 'imprimindo'` garantia
+    // isso na fila. Mas o update do PEDIDO vinha solto: bastava existir a linha
+    // da fila. Um `ok=true` que chegasse atrasado, depois de o job ja ter ido
+    // pra 'erro', nao mexia na fila e mesmo assim carimbava o pedido como
+    // IMPRESSO -- pedido marcado como se tivesse saido na cozinha sem ter
+    // saido, que e o pior estado deste sistema (o `pedidoEmAberto` usa o
+    // `impresso_em` pra decidir o que ainda e trabalho pendente).
+    //
+    // Agora o segundo update so acontece se o primeiro tiver pego alguma coisa.
+    //
+    // Achado na leitura da camada de banco, 28/08/2026.
+    const pegou = await query<{ id: string }>(
       `update fila_impressao set status = 'impresso', impresso_em = now(), cupom_texto = $3
-         where id = $1 and negocio_id = $2 and status = 'imprimindo'`,
+         where id = $1 and negocio_id = $2 and status = 'imprimindo'
+       returning pedido_id as id`,
       [filaId, negocioId, cupomLimpo],
     );
+    if (!pegou.length) return;
     await query(
       `update pedidos set status = 'impresso', impresso_em = now()
-         where id = (select pedido_id from fila_impressao where id = $1 and negocio_id = $2)
-           and negocio_id = $2`,
-      [filaId, negocioId],
+         where id = $1 and negocio_id = $2`,
+      [pegou[0].id, negocioId],
     );
   } else if (aguardando) {
     // Impressora não está pronta: devolve pra fila COM o recado, sem contar

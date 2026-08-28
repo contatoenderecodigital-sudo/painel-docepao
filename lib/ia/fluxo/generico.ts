@@ -103,6 +103,59 @@ function chavesReduzidas(): Map<string, string[]> {
   return chavesCache;
 }
 
+/**
+ * A FAMILIA LARGA DESTA CATEGORIA: salgado, docinho, bolo, pizza.
+ *
+ * Sai da propria `FAMILIAS`, invertida. Nao ha lista nova aqui: cadastrar uma
+ * familia la em cima passa a valer aqui sozinho, que e o ponto.
+ *
+ * QUANDO DUAS CHAVES SERVEM, GANHA A MAIS LARGA. `salgado_frito` aparece em
+ * "salgado" (que cobre as duas) e em "salgado frito" (que cobre uma). A
+ * resposta certa e "salgado": quem procura a linha generica do salgado tem que
+ * achar a coxinha e a esfiha na mesma familia. Empate desempata pela chave que
+ * e igual a categoria ("docinho" ganha de "doce"), e depois por ordem
+ * alfabetica, pra a resposta nunca depender da ordem em que o objeto foi
+ * escrito.
+ *
+ * null quer dizer que a categoria nao pertence a familia nenhuma (`outro`,
+ * `por_quilo`, `cupcake`...), e quem chama decide o que fazer com isso.
+ */
+let famPorCategoria: Map<string, string> | null = null;
+export function familiaDaCategoria(categoria: unknown): string | null {
+  if (!famPorCategoria) {
+    const m = new Map<string, string>();
+    const cats = new Set(Object.values(FAMILIAS).flat());
+    for (const cat of cats) {
+      const chaves = Object.entries(FAMILIAS)
+        .filter(([, lista]) => lista.includes(cat))
+        .map(([chave, lista]) => ({ chave, largura: lista.length }))
+        .sort(
+          (a, b) =>
+            b.largura - a.largura ||
+            Number(b.chave === cat) - Number(a.chave === cat) ||
+            a.chave.localeCompare(b.chave),
+        );
+      if (chaves[0]) m.set(cat, chaves[0].chave);
+    }
+    famPorCategoria = m;
+  }
+  return famPorCategoria.get(String(categoria ?? "")) ?? null;
+}
+
+/**
+ * A FAMILIA LARGA DE UM NOME QUE O CLIENTE ESCREVEU ("salgados", "doce").
+ *
+ * `nomeDaFamilia` devolve a chave que casou, que pode ser estreita ("salgado
+ * frito"). Aqui ela vira a larga, que e a que serve pra juntar com a linha
+ * generica. null quando o nome nao e familia.
+ */
+export function familiaDoNome(produto: unknown): string | null {
+  const chave = nomeDaFamilia(produto);
+  if (!chave) return null;
+  const cats = FAMILIAS[chave] ?? [];
+  return (cats[0] && familiaDaCategoria(cats[0])) || chave;
+}
+
 /** Este nome é família, e não produto? */
 export function ehNomeDeFamilia(produto: unknown): boolean {
   const chaves = chavesReduzidas();

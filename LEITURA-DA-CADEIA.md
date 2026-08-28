@@ -2041,7 +2041,51 @@ regex. Ela decide de qual linha genérica subtrair ("o cliente pediu 300 assados
 agora está dizendo quais são"), e esse trecho já custou um "salgado 200" fantasma
 no pedido.
 
-**Não mexi ainda de propósito:** não existe teste cobrindo a subtração da linha
-genérica, e trocar essa regra sem rede é o oposto do que esta leitura é. A ordem
-certa é escrever o teste que prende o comportamento de hoje, depois inverter o
-`FAMILIAS` pra derivar a resposta, depois conferir que o teste continua verde.
+### Feito, na ordem certa
+
+1. a regra saiu de dentro do `anotarItem` e virou `familiaDoItem`, exportada,
+   pra o teste medir ELA e não uma reconstrução dela;
+2. os **194 pares que o sistema produz de verdade** (todo produto do catálogo
+   com a categoria que o `categoriaDoPedido` dá pra ele, mais as palavras
+   genéricas com a categoria errada, que é como a linha genérica chega) foram
+   passados pelas duas versões, uma ao lado da outra;
+3. **uma única divergência**, e ela é o conserto:
+
+```
+outro | "pizza"     velha = outro      nova = pizza
+```
+
+A pizza não existia na regra antiga. Uma linha genérica de pizza nunca era
+encontrada, então nunca era subtraída: o cliente pedia "3 pizzas" e depois
+dizia os sabores, e as três genéricas continuavam no pedido.
+
+Fora dos pares reais existem 30 divergências, todas do mesmo tipo: a categoria
+diz uma família e o NOME diz outra (categoria `pizza` com produto "docinho").
+São estados contraditórios que o sistema não produz, e está escrito no teste.
+
+E o motivo maior: agora cadastrar uma família em `FAMILIAS` vale aqui sozinho.
+Antes teria que lembrar de escrever a regex também, que é o tipo de lista minha
+que a regra da casa proíbe.
+
+
+## 43. `fila.ts` — a idempotência valia pra uma das duas escritas
+
+O comentário do `marcarImpresso` promete: *"a guarda `status = 'imprimindo'`
+garante idempotência: uma confirmação repetida/atrasada não re-transiciona um job
+que já foi resolvido"*. E garantia mesmo, **na linha da fila**. O update do
+PEDIDO vinha solto logo abaixo, e só exigia que a linha da fila existisse:
+
+```sql
+update pedidos set status = 'impresso', impresso_em = now()
+ where id = (select pedido_id from fila_impressao where id = $1 and negocio_id = $2)
+```
+
+Um `ok=true` atrasado, chegando depois de o job já ter ido pra `erro`, não mexia
+na fila e mesmo assim **carimbava o pedido como impresso**. Pedido marcado como
+se tivesse saído na cozinha sem ter saído: é o pior estado deste sistema, e o
+`pedidoEmAberto` usa exatamente o `impresso_em` pra decidir o que ainda é
+trabalho pendente.
+
+Agora o segundo update só acontece se o primeiro tiver pego alguma coisa
+(`returning pedido_id`). A promessa do comentário passou a valer para as duas
+escritas.
