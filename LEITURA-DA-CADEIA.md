@@ -1038,7 +1038,7 @@ eram 15. Sobram **27, com 5.744 linhas**, e há peça central ali.
 | 15 | `lib/ia/dados/produtos.ts` | 517 | **INTEIRO** — 6 defeitos |
 | 16 | `lib/ia/fluxo/leitor-da-frase.ts` | 516 | **INTEIRO** — 7 defeitos |
 | 17 | `lib/ia/fluxo/falas-do-cliente.ts` | 357 | **INTEIRO** — 8 defeitos |
-| 18 | `lib/ia/fluxo/informacao.ts` | 253 | não lido |
+| 18 | `lib/ia/fluxo/informacao.ts` | 253 | **INTEIRO** — 6 defeitos |
 | 19 | `lib/ia/persona.ts` | 223 | não lido |
 | 20 | `lib/ia/texto.ts` | 178 | não lido (**eu escrevi nesta sessão**) |
 | 21 | `lib/ia/fluxo/generico.ts` | 170 | não lido |
@@ -1285,3 +1285,71 @@ o bom dia da casa.
 dois sentidos: o que tem que valer e o que não pode valer. E a simetria entre pôr
 e tirar cumprimento, que é o que impede as duas listas de divergirem de novo.
 Três iscas provadas.
+
+---
+
+## 18. `lib/ia/fluxo/informacao.ts` — quando ele só quer saber
+
+253 linhas. É onde a padaria fala **número** pro cliente. **Seis defeitos.**
+
+### Trinta e seis de quarenta e três perguntas de preço ficavam sem resposta
+
+O comentário do arquivo prometia que *"a família que a dona cadastrar amanhã já é
+respondida sozinha"*. Não era: a busca passava por uma lista de nomes de família
+com **cinco entradas**. Medido perguntando o preço de cada palavra de família e
+de produto do catálogo:
+
+    "quanto é a cuca?"      ->  nada
+    "quanto é o cupcake?"   ->  nada
+    "quanto é a coxinha?"   ->  nada
+
+A padaria caía na saudação, como se não tivesse ouvido, e preço é a pergunta mais
+feita que existe. Agora ela procura pelo **grupo** e pelo **produto** da lista
+única: sobraram 3 sem resposta, e as três são pedaços de nome de grupo ("festa",
+"caseiro", "fria") que ninguém pergunta sozinho.
+
+### `/doce/` sequestrava a torta doce e o pão doce
+
+As famílias eram procuradas por **pedaço de palavra**, e pedaço pega o nome de
+outra família:
+
+    "torta doce"  custa R$ 33,90  ->  a padaria respondia R$ 1,25 a R$ 2,25
+    "pão doce"    custa R$ 22,90  ->  a mesma coisa
+    "brigadeiro com maracujá" é bolo de R$ 46,90/kg  ->  R$ 1,25
+
+Três preços errados na cara do cliente, **todos pra baixo**. A regra nova é a
+ambiguidade, e não a ordem: quando o que ele escreveu resolve pra UM grupo só, o
+grupo responde; quando resolve pra dois ("brigadeiro" é docinho **e** sabor de
+bolo), a família decide — o mesmo desempate que `identificarProduto` já usa.
+
+### Duas perguntas diferentes que eu tentei resolver com uma regra só
+
+`"empadão"` é mais **amplo** que "empadão com palmito": a resposta é a faixa dos
+dois. `"brigadeiro com maracujá"` é mais **estreito** que "brigadeiro": a resposta
+é a dele.
+
+Eu tentei "ganha o nome mais longo" e **errei os dois lados de uma vez** —
+"empadão" passou a responder só o com palmito. Ficaram separadas, e o teste pegou
+as duas.
+
+### Dois `SobreOQue`, e o segundo era meu
+
+Eu criei um no `leitura.ts` no arquivo 5, pra poder conferir em tempo de execução
+o que o modelo manda. Dois tipos com o mesmo nome pro mesmo assunto é a mesma
+doença das duas listas de cumprimento. Ficou um, e os motivos de cada caixa
+seguem escritos aqui, que é onde a resposta é redigida.
+
+### Mais dois
+
+- o galho do salgado era o **único do arquivo** que ainda lia o `catalogo.json`
+  cru, num lugar onde o docinho, o bolo e o resto já perguntavam pra lista.
+  Conferido antes de trocar: os dois caminhos dão o mesmo número
+- mais uma cópia do normalizador
+
+### Teste novo
+
+`a-pergunta-de-preco-tem-resposta.cjs`, **133 palavras de preço** e os 86
+produtos. Ele cobra três coisas, e a terceira é a que impede o conserto de virar
+defeito: **o número da resposta tem que ser o número do cardápio**. Responder
+mais não pode significar responder diferente do que a casa cobra. Duas iscas
+provadas.

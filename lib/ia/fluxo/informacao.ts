@@ -27,53 +27,69 @@
 
 import catalogo from "../dados/catalogo.json";
 import { brl } from "../orcamento";
+import { semAcento } from "../texto";
 import { DOCE_PAO } from "../persona";
-import { produtoPorNome } from "../dados/produtos";
+import { produtoPorNome, produtosDaCasa } from "../dados/produtos";
 import { opcoesDaFamilia } from "./generico";
 import { minimoPorSabor } from "./base";
 
-export type SobreOQue =
+// O TIPO MORA NUM LUGAR SO, E ELE E O QUE A IA DEVOLVE.
+//
+// Havia DOIS `SobreOQue`: este e um que eu criei no `leitura.ts` em 28/08/2026
+// pra poder CONFERIR em tempo de execucao o que o modelo manda (uniao de tipo o
+// compilador apaga; o que chega do modelo e texto). Dois tipos com o mesmo nome
+// pro mesmo assunto e como as duas listas de cumprimento: nascem iguais e
+// divergem depois.
+//
+// A lista vive la, junto do array que confere. Os motivos de cada caixa ficam
+// aqui, que e onde a resposta e escrita.
+export type { SobreOQue } from "./leitura";
+import type { SobreOQue } from "./leitura";
+
+/* As razoes de cada caixa, que nao cabem num tipo:
+
   | "preco"
   | "horario"
   | "endereco"
   | "pagamento"
   | "entrega"
   | "prazo"
-  /**
-   * DESCONTO, PREÇO BENEFICENTE, "DÁ UMA AJUDA?".
-   *
-   * Áudio da dona, 29/07/2026: *"quando a pessoa pedir um desconto, ou então
-   * falar que é beneficente, ou até pedir uma ajuda, a gente já cobra unidade.
-   * O cachorro-quente R$ 1,20 e o pão de X R$ 1,40."*
-   *
-   * Esses dois valores existem no catálogo como anotação e a IA **não pode
-   * dizer nenhum dos dois**. Quem decide desconto é quem paga a conta, e a
-   * própria dona deu a frase logo em seguida:
-   *
-   *   *"aí ela pode sempre falar assim: ah, então deixa eu ver a possibilidade
-   *   de um desconto, eu já te retorno."*
-   *
-   * Soltar o valor por unidade transforma uma negociação em tabela. Quem ouviu
-   * R$ 1,20 uma vez vai cobrar esse preço na próxima, e a padaria perde a
-   * margem sem ter decidido nada.
-   */
+  
+   DESCONTO, PREÇO BENEFICENTE, "DÁ UMA AJUDA?".
+  
+   Áudio da dona, 29/07/2026: *"quando a pessoa pedir um desconto, ou então
+   falar que é beneficente, ou até pedir uma ajuda, a gente já cobra unidade.
+   O cachorro-quente R$ 1,20 e o pão de X R$ 1,40."*
+  
+   Esses dois valores existem no catálogo como anotação e a IA **não pode
+   dizer nenhum dos dois**. Quem decide desconto é quem paga a conta, e a
+   própria dona deu a frase logo em seguida:
+  
+     *"aí ela pode sempre falar assim: ah, então deixa eu ver a possibilidade
+     de um desconto, eu já te retorno."*
+  
+   Soltar o valor por unidade transforma uma negociação em tabela. Quem ouviu
+   R$ 1,20 uma vez vai cobrar esse preço na próxima, e a padaria perde a
+   margem sem ter decidido nada.
+   
   | "desconto"
-  /**
-   * ALGUMA COISA QUE A PADARIA NAO GUARDA AQUI.
-   *
-   * Teste da Kemilly, 23/08/2026: ela pediu o CNPJ e recebeu o ENDERECO. O
-   * modelo empurrou a pergunta pra caixa mais parecida que existia, porque nao
-   * havia uma caixa pra "nao sei".
-   *
-   * CNPJ, nota fiscal, dados bancarios, cardapio de coisa que a casa nao faz:
-   * quem responde e a equipe. Responder perto e pior que nao responder.
-   */
+  
+   ALGUMA COISA QUE A PADARIA NAO GUARDA AQUI.
+  
+   Teste da Kemilly, 23/08/2026: ela pediu o CNPJ e recebeu o ENDERECO. O
+   modelo empurrou a pergunta pra caixa mais parecida que existia, porque nao
+   havia uma caixa pra "nao sei".
+  
+   CNPJ, nota fiscal, dados bancarios, cardapio de coisa que a casa nao faz:
+   quem responde e a equipe. Responder perto e pior que nao responder.
+   
   | "outro";
+*/
 
 export type Pergunta = { sobre: SobreOQue; familia?: string };
 
-const semAc = (t: string) =>
-  String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+// O mesmo normalizador de todo mundo.
+const semAc = semAcento;
 
 /**
  * O PRECO DE UMA FAMILIA, PELO CARDAPIO.
@@ -84,14 +100,78 @@ const semAc = (t: string) =>
 function precoDaFamilia(familia: string): string | null {
   const f = semAc(familia);
 
+  // O SALGADO TAMBEM SAI DA LISTA UNICA.
+  //
+  // Ele era o unico galho aqui que ainda lia o `catalogo.json` cru, num arquivo
+  // onde o docinho, o bolo e todo o resto ja perguntavam pra lista. E e a
+  // pergunta mais feita da padaria: "quanto e o cento de salgado?".
+  //
+  // Conferido em 28/08/2026 antes de trocar: os dois caminhos dao o mesmo
+  // numero, R$ 1,00 o frito e R$ 1,25 o assado, e o cento e o preco vezes cem
+  // nos dois. Trocar nao mexe em nenhum valor.
+  // O NOME EXATO GANHA DA FAMILIA, QUANDO ELE NAO E AMBIGUO.
+  //
+  // As familias abaixo sao procuradas por PEDACO de palavra
+  // (`/docinh|doce|brigadeir|trufa/`), e pedaco sequestra nome de outra
+  // familia. Medido em 28/08/2026:
+  //
+  //   "torta doce"  custa R$ 33,90  ->  a padaria respondia R$ 1,25 a R$ 2,25
+  //   "pao doce"    custa R$ 22,90  ->  a mesma coisa
+  //   "brigadeiro com maracuja" e bolo de R$ 46,90 o quilo  ->  R$ 1,25
+  //
+  // Tres precos errados na cara do cliente, e todos pra baixo: ele ouve R$ 1,25
+  // por um bolo de quarenta e sete reais.
+  //
+  // A REGRA E A AMBIGUIDADE, E NAO A ORDEM. Quando o que ele escreveu resolve
+  // pra UM grupo so do catalogo, esse grupo responde. Quando resolve pra dois
+  // ("brigadeiro" e docinho E sabor de bolo), a familia decide, que e o mesmo
+  // desempate que `identificarProduto` ja usa em todo lugar.
+  const doGrupo = (): ReturnType<typeof produtosDaCasa> => {
+    const alvo = semAc(f);
+    if (!alvo) return [];
+    const nomes = (x: ReturnType<typeof produtosDaCasa>[number]) =>
+      [x.grupo.replace(/[-_]/g, " "), x.nome, x.nomeCurto].map(semAc).filter(Boolean);
+
+    // SAO DUAS PERGUNTAS DIFERENTES, E MISTURAR AS DUAS ERRA NOS DOIS SENTIDOS.
+    //
+    // "empadao" e mais AMPLO que "empadao com palmito": ele quer saber da
+    // familia, e a resposta e a faixa dos dois (R$ 34,90 a R$ 39,90).
+    //
+    // "brigadeiro com maracuja" e mais ESTREITO que "brigadeiro": ele nomeou uma
+    // coisa so, e a resposta e a dela (R$ 46,90 o quilo, que e bolo).
+    //
+    // Eu tentei resolver as duas com "ganha o nome mais longo" e errei os dois
+    // lados de uma vez: "empadao" passou a responder so o com palmito, e antes
+    // "brigadeiro com maracuja" respondia o docinho de R$ 1,25.
+    const amplos = produtosDaCasa().filter((x) => nomes(x).some((n) => n.startsWith(alvo)));
+    if (amplos.length) return amplos;
+
+    // Ele escreveu mais do que o nome: vale o produto que cobre mais da frase.
+    const contidos = produtosDaCasa()
+      .map((x) => ({ x, nota: Math.max(0, ...nomes(x).filter((n) => alvo.startsWith(n)).map((n) => n.length)) }))
+      .filter((c) => c.nota > 0);
+    if (!contidos.length) return [];
+    const melhor = Math.max(...contidos.map((c) => c.nota));
+    return contidos.filter((c) => c.nota === melhor).map((c) => c.x);
+  };
+
+  const exato = doGrupo();
+  if (exato.length && new Set(exato.map((x) => x.grupo)).size === 1) {
+    return fraseDaLista(exato, familia);
+  }
+
   if (/salgad/.test(f)) {
-    const frito = catalogo.salgados?.frito as { preco?: number; preco_cento?: number } | undefined;
-    const assado = catalogo.salgados?.assado as { preco?: number; preco_cento?: number } | undefined;
-    if (!frito?.preco) return null;
+    const doTipo = (cat: string) =>
+      opcoesDaFamilia("salgado").map(produtoPorNome).filter((x) => x?.categoria === cat);
+    const fritos = doTipo("salgado_frito");
+    const assados = doTipo("salgado_assado");
+    if (!fritos.length) return null;
+    const unidade = (lista: typeof fritos) => Math.min(...lista.map((x) => x!.preco));
+    const frase = (rotulo: string, lista: typeof fritos) =>
+      rotulo + " sai " + brl(unidade(lista)) + " a unidade, " + brl(unidade(lista) * 100) + " o cento.";
     return (
-      "Salgado frito sai " + brl(frito.preco) + " a unidade, " + brl(frito.preco_cento ?? frito.preco * 100) +
-      " o cento. O assado sai " + brl(assado?.preco ?? 0) + " a unidade, " +
-      brl(assado?.preco_cento ?? (assado?.preco ?? 0) * 100) + " o cento."
+      frase("Salgado frito", fritos) +
+      (assados.length ? " O assado" + frase("", assados).replace(" sai", " sai") : "")
     );
   }
 
@@ -145,27 +225,47 @@ function precoDaFamilia(familia: string): string | null {
   //
   // Aqui nao ha lista: `opcoesDaFamilia` sai da lista unica, entao a familia que
   // a dona cadastrar amanha ja e respondida sozinha.
+  // E QUALQUER PRODUTO OU GRUPO QUE O CARDAPIO CONHECA.
+  //
+  // O comentario acima prometia que "a familia que a dona cadastrar amanha ja e
+  // respondida sozinha", e nao era verdade: `opcoesDaFamilia` le a lista de
+  // nomes de familia do `generico.ts`, que tem cinco entradas. Medido em
+  // 28/08/2026, perguntando o preco de cada palavra de familia e de produto do
+  // catalogo: 36 de 43 nao tinham resposta nenhuma.
+  //
+  //   "quanto e a cuca?"        ->  nada
+  //   "quanto e o cupcake?"     ->  nada
+  //   "quanto e a coxinha?"     ->  nada
+  //
+  // A padaria caia na saudacao, e a pergunta de preco e a mais feita que existe.
+  //
+  // Agora ela procura pelo GRUPO do catalogo e pelo PRODUTO, o que ja aconteceu
+  // la em cima (`doGrupo`). Os dois saem da lista unica, entao o que a dona
+  // cadastrar amanha responde sozinho de verdade.
   const daFamilia = opcoesDaFamilia(f).map(produtoPorNome).filter(Boolean);
-  if (daFamilia.length) {
-    // A unidade muda a frase, e um mesmo grupo pode ter as duas: a pizza redonda
-    // e por quilo e a de forma e por peca.
-    const porUnidade = (u: "kg" | "un") => daFamilia.filter((x) => x!.unidade === u);
-    const faixa = (lista: typeof daFamilia) => {
-      const precos = lista.map((x) => x!.preco);
-      const menor = Math.min(...precos);
-      const maior = Math.max(...precos);
-      return menor === maior ? brl(menor) : "de " + brl(menor) + " a " + brl(maior);
-    };
-    const partes: string[] = [];
-    if (porUnidade("kg").length) partes.push(faixa(porUnidade("kg")) + " o quilo");
-    if (porUnidade("un").length) partes.push(faixa(porUnidade("un")) + " a unidade");
-    if (partes.length) {
-      const nome = String(familia).trim();
-      return nome.charAt(0).toUpperCase() + nome.slice(1) + " sai " + partes.join(", e ") + ".";
-    }
-  }
+  const lista = (daFamilia.length ? daFamilia : exato).filter(Boolean) as ReturnType<typeof produtosDaCasa>;
+  if (lista.length) return fraseDaLista(lista, familia);
 
   return null;
+}
+
+/** "Cuca sai de R$ 22,90 a R$ 26,90 o quilo." Sai da lista, com o preco dela. */
+function fraseDaLista(lista: { preco: number; unidade: "un" | "kg" }[], familia: string): string | null {
+  // A unidade muda a frase, e um mesmo grupo pode ter as duas: a pizza redonda
+  // e por quilo e a de forma e por peca.
+  const porUnidade = (u: "kg" | "un") => lista.filter((x) => x.unidade === u);
+  const faixa = (quais: typeof lista) => {
+    const precos = quais.map((x) => x.preco);
+    const menor = Math.min(...precos);
+    const maior = Math.max(...precos);
+    return menor === maior ? brl(menor) : "de " + brl(menor) + " a " + brl(maior);
+  };
+  const partes: string[] = [];
+  if (porUnidade("kg").length) partes.push(faixa(porUnidade("kg")) + " o quilo");
+  if (porUnidade("un").length) partes.push(faixa(porUnidade("un")) + " a unidade");
+  if (!partes.length) return null;
+  const nome = String(familia).trim();
+  return nome.charAt(0).toUpperCase() + nome.slice(1) + " sai " + partes.join(", e ") + ".";
 }
 
 /**

@@ -8,7 +8,7 @@ defeito, está no `LEITURA-DA-CADEIA.md`; aqui fica só o estado e o rumo.
 
 ## O QUE ESTÁ NO AR AGORA
 
-Produção roda o commit **`bbac518`**, confirmado pela imagem do container (nunca
+Produção roda o commit **`a7cc1d1`**, confirmado pela imagem do container (nunca
 pelo status do Coolify, que trava em `running:unknown`):
 
 ```
@@ -16,9 +16,8 @@ ssh -i ~/.ssh/id_ed25519_hub root@179.198.126.197 \
   "docker ps --format '{{.Image}}' | grep uyyqf7"
 ```
 
-O que está no ar são **os catorze arquivos da cadeia, 78 defeitos consertados**.
-O que veio depois disso (a partir do `produtos.ts`) está commitado aqui e **não
-subiu ainda**.
+No ar estão **os dezoito primeiros arquivos, 105 defeitos**. O `informacao.ts`
+(mais 6) está commitado aqui e ainda não subiu.
 
 ---
 
@@ -50,11 +49,11 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 
 | | |
 | --- | --- |
-| arquivos lidos inteiros | **18** |
-| defeitos consertados | **105** |
-| testes no portão | **58**, todos verdes |
+| arquivos lidos inteiros | **19** |
+| defeitos consertados | **111** |
+| testes no portão | **59**, todos verdes |
 | `tsc` | limpo |
-| cópias do normalizador de texto | de **16** para **1** |
+| cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |
 | arquivos lendo o `catalogo.json` cru | de **17** para **9**, e nenhum do fluxo |
 
 ---
@@ -66,7 +65,6 @@ ordem de importância, está na tabela do `LEITURA-DA-CADEIA.md`. Os próximos:
 
 | arquivo | linhas | por que importa |
 | --- | --- | --- |
-| `lib/ia/fluxo/informacao.ts` | 253 | onde a padaria fala número pro cliente. 5 leituras cruas do catálogo |
 | `lib/ia/persona.ts` | 223 | o jeito de falar |
 | `lib/ia/texto.ts` | 178 | **eu escrevi nesta sessão e nunca reli.** Foi lá que eu introduzi o diminutivo que comia "docinho" |
 | os menores do fluxo | ~900 | `generico`, `restricao`, `dizer`, `base`, `situacao`, `cotar`, `apelidos`, `catalogo-em-texto` |
@@ -76,7 +74,7 @@ ordem de importância, está na tabela do `LEITURA-DA-CADEIA.md`. Os próximos:
 
 ## O QUE EU RECOMENDO QUANDO VOCÊ ACORDAR
 
-**Medir uma conversa de verdade contra o banco.** Os 58 testes provam que 105
+**Medir uma conversa de verdade contra o banco.** Os 59 testes provam que 111
 defeitos velhos não voltam. **Nenhum prova que a conversa melhorou.** Isso só
 aparece rodando.
 
