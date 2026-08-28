@@ -31,6 +31,7 @@ fs.writeFileSync(
   sonda,
   [
     'import { leituraQueCabeNaEtapa, vocabularioDaEtapa, instrucaoDaEtapa } from "../lib/ia/fluxo/leitura.ts";',
+    'import { ETAPAS_DA_FESTA } from "../lib/ia/fluxo/etapas.ts";',
     "const vazio = { ehFesta:true, pessoas:20, base:null, baseAceita:true, itens:[], naoQuer:[], dados:{nome:null,data:null,hora:null,pagamento:null}, pecas:null };",
     "const r = {",
     // o caso da kemilly, na etapa do bolo
@@ -53,7 +54,14 @@ fs.writeFileSync(
     "  // motivo que nao e defeito: em 27/08/2026 o vocabulario do bolo passou a",
     "  // incluir os quinze bolos CASEIROS, que estavam barrados por engano, e o",
     "  // teste ficou vermelho por causa de um conserto.",
-    "  instrucoes: ['bolo','docinho','salgado','dados','pecas_do_bolo'].map((e) => {",
+    "  // TODAS as etapas, tiradas de `etapas.ts`. Aqui havia uma lista de cinco",
+    "  // escrita a mao, e ela deixou passar o defeito que ela existe pra pegar:",
+    "  // em 28/08/2026 a instrucao da OFERTA nasceu com 1788 caracteres, a maior",
+    "  // do sistema, e o teste ficou verde porque a oferta nao estava na lista.",
+    "  //",
+    "  // Etapa nova em `etapas.ts` passa a ser medida sozinha, sem ninguem",
+    "  // lembrar de vir aqui acrescentar.",
+    "  instrucoes: ETAPAS_DA_FESTA.map((x) => x.id).map((e) => {",
     "    const inteira = instrucaoDaEtapa(e as never, vazio as never);",
     "    const soRegra = inteira.split('Cardápio da etapa.')[0];",
     "    return { e, n: inteira.length, regra: soRegra.length };",

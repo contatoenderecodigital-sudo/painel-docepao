@@ -34,7 +34,7 @@
 
 import type { EtapaId, PedidoEmMontagem } from "./etapas";
 import { APELIDOS } from "../dados/apelidos";
-import { produtosDaCasa, produtoNoComeco, produtoPorNome } from "../dados/produtos";
+import { produtosDaCasa, produtoNoComeco, produtoPorNome, gruposDaCasa } from "../dados/produtos";
 
 /** O que a IA pode devolver. Nada alem disto entra no pedido. */
 export type Leitura = {
@@ -142,6 +142,17 @@ export type Leitura = {
   confirmou?: boolean;
 };
 
+/**
+ * O TEXTO SEM ACENTO, MINUSCULO E APARADO.
+ *
+ * Estava escrito QUATRO vezes dentro deste arquivo, identico nas quatro. E o
+ * mesmo defeito que o `ESPERA_MS` do arquivo 1: valor decidido em mais de um
+ * lugar so fica igual enquanto ninguem mexe. Uma delas usava `?? ""` e as
+ * outras `|| ""`, que ja e a divergencia comecando.
+ */
+const semAc = (t: string) =>
+  String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+
 const nomes = (lista: { nome: string }[]) => lista.map((i) => String(i.nome));
 
 /**
@@ -234,8 +245,6 @@ function distancia(a: string, b: string): number {
  * a duas letras um do outro, e TODOS os 21 sao apelidos do mesmo produto.
  */
 function canonicoDaGrafia(nome: string): string {
-  const semAc = (t: string) =>
-    String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
   const alvo = semAc(nome);
   for (const [canonico, lista] of Object.entries(APELIDOS)) {
     if (lista.some((a) => semAc(a) === alvo)) return semAc(canonico);
@@ -290,8 +299,6 @@ function quaseIgual(nome: string, vocab: string[]): string | null {
  * diferentes, uma aceitaria o que a outra recusa, e isso ja aconteceu".
  */
 function comOsApelidos(canonicos: string[]): string[] {
-  const semAc = (t: string) =>
-    String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
   const tem = new Set(canonicos.map(semAc));
   const extras: string[] = [];
   for (const [canonico, lista] of Object.entries(APELIDOS)) {
@@ -381,8 +388,30 @@ function hojeEmSaoPaulo(): string {
  * Curta de proposito. A carta de trinta paginas da versao antiga existia porque
  * a IA precisava saber tudo pra decidir tudo; aqui ela decide uma coisa so.
  */
+/**
+ * O CARDAPIO QUE A INSTRUCAO MOSTRA, QUE NAO E O MESMO QUE O PORTAO COBRA.
+ *
+ * Nas tres etapas de produto os dois coincidem, e por isso durante muito tempo
+ * pareceram a mesma coisa. Na OFERTA eles divergem, e a diferenca importa:
+ *
+ *   mostrar   docinho e bolo, que e o que a padaria acabou de oferecer
+ *   cobrar    nada, porque na oferta o cliente tambem manda dado da retirada,
+ *             corrige quantidade e pede salgado de novo
+ *
+ * Se a oferta cobrasse o que mostra, um salgado dito ali seria guardado pra uma
+ * etapa que ja passou, e etapa que ja passou nao volta sozinha: o item ficaria
+ * parado pra sempre. Mostrar sem cobrar da ao modelo o vocabulario e nao tira
+ * nada do cliente.
+ */
+function cardapioDaInstrucao(etapa: EtapaId): string[] {
+  if (etapa === "oferta") {
+    return comOsApelidos(daLista(...CATEGORIAS_DA_ETAPA.docinho, ...CATEGORIAS_DA_ETAPA.bolo));
+  }
+  return vocabularioDaEtapa(etapa);
+}
+
 export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
-  const vocab = vocabularioDaEtapa(etapa);
+  const vocab = cardapioDaInstrucao(etapa);
   // QUEM ENTENDE ERRO DE DIGITAÇÃO É QUEM TEM CONTEXTO, E ISSO É A IA.
   //
   // O cardápio já ia na instrução, mas nada mandava ela RESPONDER com o nome
@@ -565,10 +594,14 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "devolva naoQuer com \"docinho\" e \"bolo\". Se ele falou de outra coisa " +
       "(dados da retirada, mudar o pedido), leia normalmente: a oferta é " +
       "opcional e não trava a conversa." + String.fromCharCode(10) +
+      // O CARDAPIO SAI PELO MESMO CANO DAS OUTRAS ETAPAS, e nao despejado aqui
+      // dentro. A primeira versao colava os 42 nomes no meio da regra, e o
+      // teste que mede o tamanho conta como REGRA tudo que vem antes do marcador
+      // "Cardápio da etapa.". A instrucao da oferta virou a maior do sistema
+      // (1788) e passou despercebida porque o teste media uma lista de cinco
+      // etapas escrita a mao, e a oferta nao estava nela.
       "Aqui valem docinho E bolo ao mesmo tempo. Quantidade em unidades é " +
-      "docinho; peso em quilos é bolo." + String.fromCharCode(10) +
-      "Docinhos: " + daLista("docinho").join(", ") + "." + String.fromCharCode(10) +
-      "Bolos: " + daLista("bolo_festa", "bolo_caseiro").join(", ") + ".",
+      "docinho; peso em quilos é bolo." + lista,
     dados:
       "A etapa é PEGAR OS DADOS DA RETIRADA: nome de quem retira, dia, hora e " +
       "forma de pagamento. Devolva só o que ele falou nesta mensagem. " +
@@ -617,8 +650,6 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
  * honesta e o cliente precisa ser avisado.
  */
 export function etapaDesteProduto(produto: string): EtapaId | null {
-  const semAc = (t: string) =>
-    String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
   // O PREFIXO "bolo" PRECISA SAIR ANTES DE COMPARAR.
   //
   // O vocabulario da etapa do bolo lista os sabores como o cardapio escreve,
@@ -674,6 +705,80 @@ export function etapaDesteProduto(produto: string): EtapaId | null {
 }
 
 /**
+ * O JEITO QUE O CLIENTE ESCREVE, REDUZIDO AO JEITO DO CARDAPIO.
+ *
+ * Tres transformacoes do portugues, e nenhuma delas e lista de palavra:
+ *
+ *   artigo      "um bolo", "uns bolos"       -> bolo
+ *   plural      "salgados", "paes", "pizzas" -> salgado, pao, pizza
+ *   diminutivo  "salgadinho", "bolinho"      -> salgado, bolo
+ *
+ * Medido em 28/08/2026 antes de existir: sem elas o portao barrava "salgados",
+ * "doces", "um bolo" e "paes". Sao as palavras que o cliente mais usa na
+ * primeira mensagem, e barrar qualquer uma trava a conversa na entrada.
+ *
+ * O diminutivo entra porque "salgadinho" nao cabe em `apelidos.ts`: aquela
+ * lista mapeia apelido pra PRODUTO, e salgadinho nao e produto, e familia.
+ */
+const semArtigo = (t: string) => semAc(t).replace(/^(uns |umas |um |uma |os |as |o |a )+/, "");
+
+const comoOCardapioEscreve = (t: string) =>
+  semArtigo(t)
+    // "pães" e "pãozinho" viram "pao"; sem isto o pao frances era negado.
+    .replace(/(aes|oes|aos)\b/g, "ao")
+    .replace(/inh([oa])s?\b/g, "$1")
+    .replace(/s\b/g, "")
+    .trim();
+
+/**
+ * AS FAMILIAS QUE A CASA VENDE, TIRADAS DO CATALOGO.
+ *
+ * Nenhum nome escrito aqui. Sao a primeira palavra do nome de cada produto e os
+ * pedacos dos grupos que a dona cadastra. Se ela criar a familia "salgado
+ * vegano" amanha, "vegano" entra aqui sozinho.
+ */
+let familiasCache: Set<string> | null = null;
+function familiasDaCasa(): Set<string> {
+  if (familiasCache) return familiasCache;
+  const f = new Set<string>();
+  for (const p of produtosDaCasa()) f.add(comoOCardapioEscreve(String(p.nome).split(" ")[0]));
+  for (const g of gruposDaCasa()) {
+    for (const parte of semAc(g).split(/[-_]/)) {
+      if (parte.length >= 4) f.add(comoOCardapioEscreve(parte));
+    }
+  }
+  f.delete("");
+  familiasCache = f;
+  return f;
+}
+
+/**
+ * A CASA VENDE ALGO PARECIDO COM ISTO?
+ *
+ * Usado onde a etapa nao tem cardapio proprio (abertura, dados, oferta,
+ * confirmacao): oito das onze etapas. Ali o portao desistia na primeira linha e
+ * QUALQUER COISA que o modelo devolvesse entrava no pedido.
+ *
+ * Isso nao e hipotese. Medido contra o modelo de verdade em 27/08/2026, com a
+ * instrucao antiga: "50 xilofone" virou 50 BRIGADEIROS, "50 macarons" virou
+ * brigadeiro, "daquele docinho preto" virou brigadeiro. A instrucao foi
+ * corrigida pra ele devolver o que nao conhece do jeito que o cliente escreveu,
+ * e nas tres etapas de produto o portao pega. Nas outras oito nao pegava
+ * ninguem, e a abertura e onde a maioria dos pedidos nasce.
+ *
+ * A regua e generosa de proposito: familia basta. Negar "quero um bolo" pra
+ * ganhar uma negativa de xilofone seria um pessimo negocio.
+ */
+export function daFamiliaDaCasa(produto: string): boolean {
+  const t = comoOCardapioEscreve(produto);
+  if (!t) return false;
+  for (const f of familiasDaCasa()) {
+    if (t === f || t.startsWith(f + " ")) return true;
+  }
+  return false;
+}
+
+/**
  * EXISTE NO CARDAPIO, MESMO QUE NENHUMA ETAPA PERGUNTE POR ELE.
  *
  * `etapaDesteProduto` devolve null para duas coisas MUITO diferentes: o que a
@@ -691,9 +796,16 @@ export function existeNoCardapio(produto: string): boolean {
 /**
  * A LEITURA CABE NA ETAPA?
  *
- * Ultima trava antes de virar pedido: item que nao esta no vocabulario da etapa
- * nao entra, por mais que a IA tenha devolvido. E o que impede o docinho de
- * virar recheio de bolo mesmo se o modelo insistir.
+ * Ultima trava antes de virar pedido. Ela tem DUAS reguas, e por muito tempo o
+ * comentario aqui so descrevia uma:
+ *
+ *   etapa COM cardapio (salgado, docinho, bolo)
+ *     so entra o que esta no vocabulario dela. E o que impede o docinho de
+ *     virar recheio de bolo mesmo se o modelo insistir.
+ *
+ *   etapa SEM cardapio (as outras oito, incluindo a abertura)
+ *     entra o que a casa vende ou o que e da familia dela. Antes desta segunda
+ *     regua a funcao devolvia tudo intocado, e o comentario dizia que nao.
  *
  * Devolve a leitura limpa e a lista do que foi barrado, pra ficar no rastro.
  */
@@ -721,11 +833,47 @@ export function leituraQueCabeNaEtapa(
   paraDepois: NonNullable<Leitura["itens"]>;
 } {
   const vocab = vocabularioDaEtapa(etapa);
-  if (!vocab.length || !leitura.itens?.length)
+  if (!leitura.itens?.length)
     return { limpa: leitura, barrados: [], naoExistem: [], paraDepois: [] };
 
-  const semAc = (t: string) =>
-    String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+  // A ETAPA SEM CARDAPIO PROPRIO TAMBEM TEM PORTAO, SO QUE MAIS LARGO.
+  //
+  // Aqui a funcao devolvia tudo intocado, e o comentario dela jurava ser "a
+  // ultima trava antes de virar pedido". Era, em tres das onze etapas. Nas
+  // outras oito, incluindo a ABERTURA (onde a maioria dos pedidos nasce),
+  // qualquer coisa que o modelo devolvesse entrava sem ninguem conferir.
+  //
+  // O que passa aqui: produto do catalogo, apelido que alcanca uma etapa, e
+  // palavra de familia que a casa vende ("bolo", "torta", "salgados", "paes").
+  // O que nao passa: o que nao tem nada a ver com o que ela faz.
+  if (!vocab.length) {
+    const naoExistem: string[] = [];
+    const itens = leitura.itens.filter((i) => {
+      // O NOME REDUZIDO TAMBEM E PERGUNTADO AO CATALOGO.
+      //
+      // "um laka" e "uns brigadeiros" nao existem em lugar nenhum escritos
+      // assim, e as duas primeiras perguntas comparam letra por letra. Reduzir
+      // antes faz o artigo e o plural pararem de esconder o produto.
+      // OS TRES JEITOS SAO PERGUNTADOS, E NAO SO O MAIS REDUZIDO.
+      //
+      // A reducao tira o "s" de toda palavra, e ha produto cujo nome TERMINA em
+      // "s": "4 leites" reduzido vira "4 leite", que nao existe no cardapio.
+      // Medido: "um 4 leites", "um churros" e "um ingles" eram negados, e os
+      // tres sao bolo que a casa vende.
+      //
+      //   cru        o que o modelo devolveu
+      //   sem artigo "um 4 leites"    -> "4 leites"
+      //   reduzido   "uns salgadinhos" -> "salgado"
+      const jeitos = [String(i.produto), semArtigo(i.produto), comoOCardapioEscreve(i.produto)];
+      if (jeitos.some((j) => existeNoCardapio(j) || etapaDesteProduto(j)) || daFamiliaDaCasa(i.produto)) {
+        return true;
+      }
+      naoExistem.push(i.produto);
+      return false;
+    });
+    return { limpa: { ...leitura, itens }, barrados: [...naoExistem], naoExistem, paraDepois: [] };
+  }
+
   const permitido = new Set(vocab.map(semAc));
 
   const barrados: string[] = [];
