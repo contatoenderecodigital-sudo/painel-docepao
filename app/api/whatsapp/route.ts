@@ -441,13 +441,34 @@ async function processar(corpo: WebhookPayload) {
       // 250?', ela ficava sem o pedido na mao e recomecava do zero, perguntando
       // o que ele ja tinha respondido. Enquanto nao imprimiu, o pedido gravado
       // volta a ser editavel e ela mexe em cima dele.
+      // AQUI HAVIA UMA LISTA DE DEZESSEIS VERBOS MINHA.
+      //
+      //   mudar|muda|trocar|troca|alterar|altera|aumentar|aumenta|diminuir|
+      //   diminui|acrescentar|acrescenta|tirar|tira|incluir|inclui|adicionar
+      //
+      // Ela tentava adivinhar, ANTES de chamar a IA, se o cliente queria mexer
+      // no pedido. Errava em "coloca mais 50", "em vez de 200", "deixa 100" e em
+      // qualquer jeito de falar que nao estivesse escrito ali. Quando errava, o
+      // pedido nao voltava pro rascunho e a padaria recomecava do zero,
+      // perguntando o que o cliente ja tinha respondido.
+      //
+      // Regra do dono: nada pode ser lista minha. E ele fez a pergunta certa:
+      // "a IA nao tem capacidade de entender o que o cliente fala?".
+      //
+      // Tem. O problema era de ORDEM, e nao de capacidade: a IA so consegue
+      // mexer no que ela ve, e quem decide o que ela ve roda antes dela. Entao a
+      // saida nao e adivinhar melhor, e parar de adivinhar: o pedido em aberto
+      // vai SEMPRE pro rascunho, e a IA decide o que fazer com ele.
+      //
+      // O QUE SEGURAVA ISSO ERA O MEDO DE REGISTRAR DUAS VEZES, e fui conferir
+      // antes de mexer: `registrarPedido` e um pedido POR CONVERSA. Se ja existe
+      // um esperando aprovacao, ele e ATUALIZADO, e nao duplicado. So depois que
+      // a equipe aprova e que um novo nasce separado. A trava existe, entao
+      // restaurar sempre nao cria pedido fantasma.
       try {
-        const querMudar = /\b(mudar|muda|trocar|troca|alterar|altera|aumentar|aumenta|diminuir|diminui|acrescentar|acrescenta|tirar|tira|incluir|inclui|adicionar|adiciona)\b/i.test(
-          String(texto || ""),
-        );
         const naoImpresso = emAberto && !emAberto.impresso && emAberto.status !== "aprovado";
         const rascunhoVazio = (montado?.itens?.length ?? 0) === 0;
-        if (querMudar && naoImpresso && rascunhoVazio && emAberto) {
+        if (naoImpresso && rascunhoVazio && emAberto) {
           console.log("[whatsapp] cliente quer mudar pedido ainda nao impresso; devolvendo pro rascunho");
           for (const it of emAberto.itens) {
             await anotarItem(negocioId, clienteId, {
