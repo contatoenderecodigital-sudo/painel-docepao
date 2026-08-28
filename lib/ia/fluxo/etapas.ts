@@ -542,8 +542,19 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       const faltaPapel = p.pecas?.papelDeArroz == null;
       const faltaTopo = p.pecas?.topo == null;
       if (faltaPapel || faltaTopo) {
-        // A pergunta juntada cobre as duas de uma vez.
-        if (jaPerguntouEEleNaoRespondeu(p, "bolo:tres")) return true;
+        // A PERGUNTA JUNTADA COBRE AS DUAS DE UMA VEZ.
+        //
+        // A marca e `pecas_do_bolo:tres` porque a juntada sai POR ESTA ETAPA (o
+        // `falaDasPecas` chama ela na primeira linha). Eu escrevi `bolo:tres`
+        // aqui, que era a etapa de onde ela saia ANTES de a pergunta do prato
+        // ser removida, e essa marca deixou de existir.
+        //
+        // O efeito foi o pior defeito que eu criei neste dia: a juntada saia,
+        // ninguem marcava nada que esta funcao reconhecesse, a etapa nunca
+        // fechava, e a padaria repetia a mesma pergunta PARA SEMPRE. O pedido
+        // deixou de ser registrado. Medido na quarta conversa do mesmo cenario,
+        // ja no ar.
+        if (jaPerguntouEEleNaoRespondeu(p, "pecas_do_bolo:tres")) return true;
         if (faltaPapel && !jaPerguntouEEleNaoRespondeu(p, "pecas_do_bolo:papel")) return false;
         if (faltaTopo && !jaPerguntouEEleNaoRespondeu(p, "pecas_do_bolo:topo")) return false;
         return true;

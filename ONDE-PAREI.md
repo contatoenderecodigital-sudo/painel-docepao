@@ -6,6 +6,69 @@ defeito, está no `LEITURA-DA-CADEIA.md`; aqui fica só o estado e o rumo.
 
 ---
 
+## TUDO QUE FICOU PENDENTE, NUMA LISTA SÓ
+
+Esta seção existe porque você perguntou, e a pergunta estava certa: *"quando tu
+não corrige tu esquece, não sei se tu tá deixando algo pendente"*.
+
+Estava tudo anotado, e estava **espalhado em doze lugares** de dois documentos
+com 2.300 linhas. Espalhado assim, some. Agora está aqui, e o resto dos dois
+documentos é o detalhe de cada um.
+
+### 1. Decisões que são suas, não minhas
+
+| o que | o problema | onde está o detalhe |
+| --- | --- | --- |
+| **Aviso do dia** | a dona escreve "sem pão após as 18h" e a IA nunca fica sabendo. No cérebro novo a fala é escrita em código, então não existe prompt onde enfiar o aviso | `LEITURA` item 39 |
+| **Dispensar orçamento** | o banco sabe dispensar (`dispensarOrcamento`), e não existe botão em tela nenhuma. O filtro roda em toda carga da tela de Recuperar lendo uma lista que nunca enche | `LEITURA` item 45, e a lista do `nada-de-codigo-fantasma` |
+| **Pedido sem dia de retirada** | a equipe resolve a pendência e não tem onde preencher a data, então o pedido entra na fila com um tracinho no lugar do dia | `LEITURA`, seção do `pedidos.ts` |
+| **CRM: pedidos e dinheiro** | conta pedido `confirmado+aprovado+impresso` e soma dinheiro só de `aprovado+impresso`. Defensável, mas não está escrito, e a ficha mostra "3 pedidos, R$ 0,00" | `LEITURA` item pós-38 |
+| **`middleware.ts` no painel** | hoje cada rota se defende sozinha, e foi por isso que dezesseis se defenderam errado do mesmo jeito. Um middleware faria o defeito deixar de ser possível, em vez de proibido por teste | `LEITURA` item 44 |
+
+### 2. Coisas que eu vi, medi, e decidi NÃO mexer
+
+Todas são risco latente, não defeito vivo. Conferi uma por uma.
+
+| o que | por que não mexi |
+| --- | --- |
+| cinco `SELECT` quase iguais em `pedidos.ts` | conferi coluna por coluna: **hoje são idênticos**. Mexer sem defeito vivo é risco sem prêmio |
+| sete cópias de "esta mensagem é do cliente" em SQL | idem: as sete são idênticas hoje |
+| dezesseis cópias do normalizador de texto | estão nos quinze arquivos que eu **ainda não li**. Vão junto com a leitura |
+| "TODA query filtra por `negocio_id`" é falso | varri as 29 que não filtram: nenhuma vaza entre tenants. O que existe é a frase dizendo mais que o código |
+
+### 3. Consertos SEM isca automatizada, que precisam de olho humano
+
+| o que | como conferir |
+| --- | --- |
+| **idempotência da impressão** | comportamento de banco com a ponte no meio. Vale conferir na próxima impressão de verdade |
+| **fuso do card de recuperado do mês** | não consegui rodar `psql` contra a produção na hora (acesso negado). Consertei na forma certa nos dois cenários, mas vale olhar o número |
+
+### 4. O que eu recomendo que VOCÊ faça, e leva minutos
+
+1. **Abrir a tela de Resultados.** Os números mudaram hoje: as conversas de teste saíram do faturamento e da contagem de atendimento.
+2. **Trocar `SESSION_SECRET` e `PONTE_TOKEN`** se algum dia foram commitados ou compartilhados. Não achei nenhum vazado, mas depois de dezesseis rotas abertas é barato fechar o assunto.
+
+### 5. O que falta LER, que é a missão principal
+
+| | linhas | estado |
+| --- | --- | --- |
+| `components/` (telas) | 8.129 | **não lido** |
+| `app/` (rotas e páginas) | 3.922 | **não lido** |
+
+Metade do repositório. E o pior defeito do dia estava justamente aí.
+
+---
+
+`:
+sem a flag `m`, o `$` quer dizer fim da string, e o `.` do JavaScript não casa
+com ``. **O comentário segue inteiro e o detector lê comentário como código.**
+Estava assim até no `barra-comida-dentro-de-aspas`, o detector que pegou o
+"shell come a barra" cinco vezes nesta sessão. Mesma família: caractere
+invisível que desliga a regra sem dar erro.
+
+---
+
+
 ## O QUE ESTÁ NO AR AGORA
 
 Produção roda o commit **`a7cc1d1`**, confirmado pela imagem do container (nunca
@@ -196,14 +259,8 @@ um parâmetro que a função jogava fora com um `void` — parâmetro que não f
 ### O `` do Windows desligava CINCO detectores
 
 `linha.replace(/\/\/.*$/, "")` não tira nada quando a linha termina em `
-`:
-sem a flag `m`, o `$` quer dizer fim da string, e o `.` do JavaScript não casa
-com ``. **O comentário segue inteiro e o detector lê comentário como código.**
-Estava assim até no `barra-comida-dentro-de-aspas`, o detector que pegou o
-"shell come a barra" cinco vezes nesta sessão. Mesma família: caractere
-invisível que desliga a regra sem dar erro.
 
----
+
 
 ## MAIS DUAS COISAS QUE EU ERREI HOJE
 

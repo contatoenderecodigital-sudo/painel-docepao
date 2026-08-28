@@ -288,8 +288,13 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
   // Sem isto, dar chave pra cada pergunta desta etapa deixava a fala presa no
   // papel pra sempre, que e o beco de 25/08/2026 por outra porta. Medido aqui
   // mesmo, em 28/08/2026, antes de ir pro ar.
-  const jaPerguntou = (chave: string) =>
-    (p.etapasJaPerguntadas ?? []).includes("pecas_do_bolo:" + chave);
+  //
+  // E a pergunta JUNTADA vale pelas duas: ela pergunta o papel e o topo na
+  // mesma frase, entao quem a ouviu ja ouviu as duas.
+  const jaPerguntou = (chave: string) => {
+    const marcas = p.etapasJaPerguntadas ?? [];
+    return marcas.includes("pecas_do_bolo:" + chave) || marcas.includes("pecas_do_bolo:tres");
+  };
 
   const topo = p.pecas?.topo ?? null;
   const papel = p.pecas?.papelDeArroz ?? null;
