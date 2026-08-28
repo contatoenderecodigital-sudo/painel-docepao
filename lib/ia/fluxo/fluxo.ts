@@ -483,7 +483,30 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
     // O CARIMBO NOS ITENS ACONTECE NO FIM DESTA FUNCAO, de proposito: ver o
     // comentario la embaixo.
     const cores = coresDaForminha(String(l.forminha));
-    if (cores.length) novo.forminha = cores.join(" e ");
+    if (cores.length) {
+      // LEMBRAR DE UMA COR NAO APAGA A OUTRA, E ESTE E O LADO DA MEMORIA.
+      //
+      // A mesma regra foi escrita na montagem, que e o lado do BANCO, e eu
+      // parei ali. Medido na conversa seguinte, em 28/08/2026:
+      //
+      //     cliente  >> sim, mas nao esquece da forminha rosa
+      //     no banco >> forminha rosa          (o pedido fechado)
+      //     na tela  >> forminha rosa e azul   (a montagem)
+      //
+      // A comanda da cozinha saia com uma cor e a tela da dona com duas. E o
+      // fechamento usa o estado da MEMORIA, entao consertar so a gravacao nao
+      // alcancava o pedido de verdade.
+      //
+      // Sexta vez nesta sessao que eu conserto um lado e o outro fica, e a
+      // primeira em que o outro lado era meu, escrito dez minutos antes.
+      const jaTem = String(novo.forminha ?? "")
+        .split(/\s+e\s+|,/)
+        .map((x) => x.trim().toLowerCase())
+        .filter(Boolean);
+      const agora = cores.map((x) => x.trim().toLowerCase());
+      const soLembrou = jaTem.length > 0 && agora.every((c) => jaTem.includes(c));
+      novo.forminha = soLembrou ? jaTem.join(" e ") : agora.join(" e ");
+    }
   }
 
   // (o tema ja foi aplicado la em cima; a linha repetida saiu em 27/08/2026)
