@@ -54,7 +54,17 @@ fs.writeFileSync(
     "    respondeuOsDois: cumpre('pecas_do_bolo', { pecas:{topo:false,papelDeArroz:false} }),",
     "    respondeuSoPapel:cumpre('pecas_do_bolo', { pecas:{topo:null,papelDeArroz:true} }),",
     "    respondeuSoTopo: cumpre('pecas_do_bolo', { pecas:{topo:true,papelDeArroz:null} }),",
-    "    ignorouDuasVezes:cumpre('pecas_do_bolo', { etapasJaPerguntadas:['pecas_do_bolo'] }),",
+    "    // A ETAPA DAS PECAS TEM DUAS PERGUNTAS: o papel e o topo. Ela so segue",
+    "    // depois de as DUAS terem saido, e a marca de cada uma prova a sua.",
+    "    //",
+    "    // Aqui estava so ['pecas_do_bolo'], que era como o fluxo marcava antes",
+    "    // de a marca virar por pergunta. Com ela, a marca deixada pelo PAPEL",
+    "    // fechava a etapa e o topo nunca era perguntado: medido em 28/08/2026,",
+    "    // na terceira conversa do mesmo cenario.",
+    "    ignorouDuasVezes:cumpre('pecas_do_bolo', { etapasJaPerguntadas:['pecas_do_bolo','pecas_do_bolo:papel','pecas_do_bolo:topo'] }),",
+    "    // E o caso que ela deixava passar: so o papel perguntado, o topo ainda",
+    "    // nao. A etapa continua aberta.",
+    "    soOPapel:        cumpre('pecas_do_bolo', { etapasJaPerguntadas:['pecas_do_bolo','pecas_do_bolo:papel'] }),",
     "  },",
     "  // A PERGUNTA DO PRATO SAIU EM 28/08/2026, POR DECISAO DO DONO.",
     "  //",
@@ -168,7 +178,10 @@ cobra("respondeu o prato: a etapa fecha", r.prato.respondeu, true);
 // ------------------------------------------------------------------ 3. SEGUE
 console.log("");
 console.log("== 3. ja perguntou e ele falou outra coisa: SEGUE, sem insistir ==");
-cobra("as pecas seguem depois de uma pergunta ignorada", r.pecas.ignorouDuasVezes, true);
+cobra("as pecas seguem depois das DUAS perguntas ignoradas", r.pecas.ignorouDuasVezes, true);
+// E o defeito de 28/08/2026: perguntar o PAPEL nao pode valer como perguntar o
+// topo. Sao duas perguntas da mesma etapa, e o topo a equipe precisa orcar.
+cobra("perguntar so o papel NAO fecha a etapa das pecas", r.pecas.soOPapel, false);
 cobra("a etapa do bolo segue depois de uma pergunta ignorada", r.prato.ignorouDuasVezes, true);
 // O caso do "so o sabor" saiu junto com a pergunta do prato: hoje a etapa do
 // bolo TEM so a pergunta do sabor, entao responder o sabor fecha ela mesmo.

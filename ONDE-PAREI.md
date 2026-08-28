@@ -54,7 +54,7 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 | | |
 | --- | --- |
 | arquivos lidos inteiros | **28** do cérebro + **11** da camada de banco |
-| defeitos consertados | **192** |
+| defeitos consertados | **194** |
 | testes no portão | **67**, todos verdes |
 | `tsc` | limpo |
 | cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |
@@ -421,3 +421,36 @@ o "fechou sem nada e sem aviso" quase passou: os itens ficam bonitos, e a
 pergunta que importa (foi pra fila ou pra pendência? com data? com hora?) não
 tinha como ser respondida sem abrir o banco na mão. Agora ele mostra, e isso
 paga em toda medição daqui pra frente.
+
+
+---
+
+## EU DISSE QUE ESTAVA RESOLVIDO E NÃO ESTAVA
+
+Preciso registrar isso porque é o tipo de coisa que some da memória e não devia.
+
+Consertei a etapa do bolo, medi, e **te disse que estava resolvido**. Rodei a
+mesma conversa uma terceira vez e o **topo continuava sem ser perguntado**: a
+etapa vizinha (a das peças) tinha o defeito idêntico, e eu não olhei.
+
+É a nona pergunta da minha própria lista, *"eu consertei um lado dessa regra em
+outro arquivo?"*, que eu escrevi ser a mais cara de ignorar. Ignorei no mesmo dia.
+
+E ao consertar quase criei um terceiro defeito: a fala ficou presa repetindo o
+papel de arroz. Peguei antes de subir porque medi de novo em vez de confiar.
+
+### O que eu mudo daqui pra frente
+
+**Conserto medido uma vez não é conserto verificado.** As três medições da mesma
+conversa acharam três coisas diferentes:
+
+| medição | o que ela achou |
+| --- | --- |
+| 1ª | o bolo fechava sem prato, topo e papel |
+| 2ª | consertado o bolo, o pedido fechava sem aviso nenhum pra equipe |
+| 3ª | consertado o bolo, a etapa vizinha tinha o mesmo defeito |
+
+**E defeito de forma quase nunca está num lugar só.** Depois de achar, a pergunta
+não é "consertei?", é **"onde mais isso está escrito assim?"**. Foi o que achou
+as treze cópias da unidade e as cinco da hora, e teria achado essa etapa vizinha
+na hora.

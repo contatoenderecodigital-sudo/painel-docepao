@@ -279,8 +279,22 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
   const juntas = falaDosDetalhesDoBolo(p);
   if (juntas) return juntas;
 
+  // PERGUNTA IGNORADA NAO SE REPETE: ELA DA LUGAR A PROXIMA.
+  //
+  // A regra do dono e "se ele ignorou, segue". Seguir quer dizer ir pra
+  // PROXIMA pergunta, e nao repetir a mesma: ele ignorou o papel de arroz, e o
+  // topo ele ainda nem ouviu.
+  //
+  // Sem isto, dar chave pra cada pergunta desta etapa deixava a fala presa no
+  // papel pra sempre, que e o beco de 25/08/2026 por outra porta. Medido aqui
+  // mesmo, em 28/08/2026, antes de ir pro ar.
+  const jaPerguntou = (chave: string) =>
+    (p.etapasJaPerguntadas ?? []).includes("pecas_do_bolo:" + chave);
+
   const topo = p.pecas?.topo ?? null;
   const papel = p.pecas?.papelDeArroz ?? null;
+  const faltaPapel = papel === null && !jaPerguntou("papel");
+  const faltaTopo = topo === null && !jaPerguntou("topo");
 
   // PAPEL DE ARROZ ANTES DO TOPO.
   //
@@ -290,7 +304,7 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
   // esconde as escolhas atras de um toque, e a clientela da padaria enxerga
   // melhor o botao na tela.
 
-  if (papel === null) {
+  if (faltaPapel) {
     // O VALOR SAI DO MOTOR, NAO DA MINHA MEMORIA.
     //
     // Papel de arroz e o unico adicional do bolo com preco de tabela. Escrever
@@ -301,6 +315,7 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
       texto:
         "E papel de arroz, com a foto impressa no bolo?" +
         (preco > 0 ? " Fica " + brl(preco) + "." : ""),
+      chave: "papel",
       botoes: [
         { id: "papel_sim", titulo: "Sim" },
         { id: "papel_nao", titulo: "Não" },
@@ -310,9 +325,10 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
     };
   }
 
-  if (topo === null) {
+  if (faltaTopo) {
     return {
       texto: "O bolo vai com topo?",
+      chave: "topo",
       botoes: [
         { id: "topo_sim", titulo: "Sim" },
         { id: "topo_nao", titulo: "Não" },
@@ -337,6 +353,7 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
       texto:
         "Qual vai ser o tema d" + (oQue.startsWith("o topo e") ? "essas peças" : "esse " + oQue.replace("o ", "")) +
         "? Se você quiser, me manda uma imagem pra gente fazer parecido.",
+      chave: "tema",
       botoes: [],
       cardapio: null,
       podeReescrever: true,
@@ -360,6 +377,7 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
       texto:
         "O que você quer escrito " + peca + "? Pode ser o nome e a idade, uma frase, " +
         "ou nada se for só o desenho.",
+      chave: "escrito",
       botoes: [],
       cardapio: null,
       podeReescrever: true,

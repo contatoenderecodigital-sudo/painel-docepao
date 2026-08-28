@@ -518,28 +518,38 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       // dois, entao responder por texto vale igual a tocar no botao.
       //
       // E quem ignorou duas vezes ja respondeu: nao quer. Segue.
-      if (p.pecas?.topo == null || p.pecas?.papelDeArroz == null) {
-        // A PERGUNTA DO BOLO NAO E A PERGUNTA DAS PECAS.
-        //
-        // Aqui estava `jaPerguntouEEleNaoRespondeu(p, "bolo")`, e num pedido
-        // com bolo a etapa do bolo SEMPRE e perguntada. Entao esta etapa
-        // nascia cumprida e o cliente nunca era perguntado do topo nem do papel
-        // de arroz -- o topo, que a equipe orca e que tem prazo de dois dias
-        // com a fornecedora, e o papel, que custa R$ 12 e a padaria vende.
-        //
-        // A padaria chegava a AVISAR que existe papel de arroz, no cardapio de
-        // bolos, e nunca perguntava se ele queria.
-        //
-        // A `bolo:tres` fica porque ela e a pergunta juntada, que cobre o
-        // prato, o papel e o topo de uma vez so: quem responde ela ja respondeu
-        // esta etapa.
-        return (
-          jaPerguntouEEleNaoRespondeu(p, "pecas_do_bolo") ||
-          jaPerguntouEEleNaoRespondeu(p, "bolo:tres")
-        );
+      // CADA PERGUNTA VALE POR SI, E ESTA ETAPA TEM DUAS.
+      //
+      // Aqui bastava a ETAPA ter sido perguntada uma vez. Como ela pergunta o
+      // papel primeiro e o topo depois, a marca deixada pela pergunta do PAPEL
+      // fechava a etapa e o topo nunca saia.
+      //
+      // Medido em 28/08/2026, na terceira conversa do mesmo cenario, DEPOIS de
+      // eu ja ter consertado o mesmo defeito na etapa vizinha (a do bolo) e ter
+      // achado que estava resolvido:
+      //
+      //   CUMPRIDA  <- a pergunta do PAPEL saiu e ele ignorou
+      //   CUMPRIDA  <- ele respondeu SO o papel   [a fala pronta era "O bolo
+      //                                            vai com topo?"]
+      //
+      // A etapa se dava por cumprida COM A PERGUNTA DO TOPO PRONTA PRA SAIR.
+      //
+      // E a nona pergunta da lista, a que eu mesmo escrevi que e a mais cara de
+      // ignorar: eu consertei um lado dessa regra em outro arquivo.
+      //
+      // Agora cada falta cobra a SUA pergunta: quem nao respondeu o topo so
+      // segue depois de o topo ter sido perguntado.
+      const faltaPapel = p.pecas?.papelDeArroz == null;
+      const faltaTopo = p.pecas?.topo == null;
+      if (faltaPapel || faltaTopo) {
+        // A pergunta juntada cobre as duas de uma vez.
+        if (jaPerguntouEEleNaoRespondeu(p, "bolo:tres")) return true;
+        if (faltaPapel && !jaPerguntouEEleNaoRespondeu(p, "pecas_do_bolo:papel")) return false;
+        if (faltaTopo && !jaPerguntouEEleNaoRespondeu(p, "pecas_do_bolo:topo")) return false;
+        return true;
       }
       // Sem topo e sem papel nao ha peca personalizada: acabou aqui.
-      if (p.pecas.topo === false && p.pecas.papelDeArroz === false) return true;
+      if (p.pecas?.topo === false && p.pecas?.papelDeArroz === false) return true;
       // Com qualquer uma das duas, a fabrica precisa do TEMA (que pode ter
       // vindo por foto) e de saber o que vai ESCRITO, sendo "nada" uma resposta
       // valida: tem topo que e so o desenho.

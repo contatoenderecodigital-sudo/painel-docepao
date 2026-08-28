@@ -2436,3 +2436,62 @@ hora? com pendência?* — não tinha como ser respondida sem abrir o banco na m
 Medição que não mostra o cabeçalho deixa passar o pedido que fecha faltando
 coisa, que é exatamente o que ela existe pra pegar. Acrescentado, e paga em toda
 medição daqui pra frente.
+
+
+## 50. Eu consertei um lado e disse que estava resolvido
+
+Terceira medição da mesma conversa, depois de eu ter consertado a etapa do bolo,
+medido, e **dito ao dono que estava resolvido**:
+
+```
+cliente >> o bolo é de brigadeiro, 2 kg
+padaria >> E papel de arroz, com a foto impressa no bolo? Fica R$ 12,00.   <-- funcionou
+cliente >> dia 12/09 as 10h, nome Ana Paula, pix
+padaria >> Fechando o pedido: ...                                          <-- o TOPO sumiu
+```
+
+O papel passou a ser perguntado. O **topo, não**. A etapa das peças tem as duas
+perguntas (papel primeiro, topo depois) e a marca dela continuava sendo por
+etapa: **o defeito idêntico, na etapa vizinha, que eu não olhei.**
+
+```
+CUMPRIDA  <- a pergunta do PAPEL saiu e ele ignorou
+CUMPRIDA  <- ele respondeu SO o papel   [a fala pronta era "O bolo vai com topo?"]
+```
+
+O segundo caso é o mais feio: a etapa se dava por cumprida **com a pergunta do
+topo pronta pra sair**.
+
+É a nona pergunta da lista, a que eu mesmo escrevi que é *"a mais cara de
+ignorar"*, e eu ignorei no mesmo dia em que a escrevi.
+
+### E o conserto quase criou um terceiro defeito
+
+Dar chave a cada pergunta fez a fala ficar **presa repetindo o papel de arroz**:
+ignorar a pergunta mantinha ela como "a que falta", então ela saía de novo. É o
+beco de 25/08/2026 voltando por outra porta.
+
+A regra do dono é *"se ele ignorou, segue"*, e seguir quer dizer ir pra **próxima
+pergunta**, não repetir a mesma: ele ignorou o papel, e o topo ele ainda nem
+ouviu. Peguei antes de subir porque medi de novo em vez de confiar no conserto.
+
+## As duas lições, que valem mais que os defeitos
+
+**1. Conserto medido uma vez não é conserto verificado.** Três medições da mesma
+conversa acharam três coisas diferentes:
+
+| medição | o que ela achou |
+| --- | --- |
+| 1ª | o bolo fechava sem prato, topo e papel |
+| 2ª | consertado o bolo, o pedido fecha sem aviso nenhum pra equipe |
+| 3ª | consertado o bolo, a etapa vizinha tinha o mesmo defeito |
+
+**2. Defeito de forma quase nunca está num lugar só.** Quando o defeito é uma
+regra escrita de um jeito que engana (a marca por etapa, o `??` no lugar do `||`,
+o comentário que descreve outra versão), a pergunta certa depois de achar não é
+*"consertei?"*. É:
+
+> **onde mais isso está escrito assim?**
+
+Foi o que achou as treze cópias da unidade, as cinco da hora, e teria achado esta
+etapa vizinha na hora, se eu tivesse perguntado.
