@@ -102,3 +102,54 @@ export function afirmouOuNegou(t: string, termo: RegExp): boolean | null {
  */
 export const cercaDaPalavra = (termo: string) =>
   new RegExp("(^|[^a-z])(" + termo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")($|[^a-z])", "i");
+
+/** Sem o artigo na frente: "um bolo" e "bolo". */
+export const semArtigo = (t: string) =>
+  semAcento(t).replace(/^(uns |umas |um |uma |os |as |o |a )+/, "");
+
+/**
+ * OS JEITOS EM QUE O CLIENTE PODE TER ESCRITO ESTA PALAVRA.
+ *
+ * Devolve as formas, da mais fiel a mais reduzida, e quem chama tenta todas.
+ *
+ *   "uns salgadinhos"  ->  salgadinhos, salgadinho, salgado
+ *   "paes"             ->  paes, pao
+ *   "bolos"            ->  bolos, bolo
+ *
+ * TRES TRANSFORMACOES DO PORTUGUES, E NENHUMA DELAS E LISTA DE PALAVRA: artigo,
+ * plural (com -aes/-oes/-aos) e diminutivo.
+ *
+ * POR QUE LISTA DE FORMAS, E NAO UMA REDUCAO SO
+ *
+ * A primeira versao devolvia UMA string, a mais reduzida. E o diminutivo comia
+ * palavra de verdade, porque meia padaria se chama no diminutivo:
+ *
+ *   "docinho"  ->  "doco"
+ *   "coxinha"  ->  "coxa"
+ *   "beijinho" ->  "beijo"
+ *
+ * Funcionava enquanto os DOIS lados passassem pela mesma reducao, e escondia o
+ * estrago. Quebrou na hora em que um lado era uma expressao fixa: a recusa da
+ * familia comparava "doco" com "docinho|doce" e o cliente que dizia "nao quero
+ * docinho" continuava sendo perguntado.
+ *
+ * Com a lista, a forma fiel vem primeiro e a reducao so entra se a fiel nao
+ * achou nada. Nenhuma palavra e destruida no caminho.
+ */
+export function formasDoCliente(t: string): string[] {
+  const fiel = semArtigo(t);
+  const semPlural = fiel.replace(/(aes|oes|aos)\b/g, "ao").replace(/s\b/g, "");
+  const semDiminutivo = semPlural.replace(/inh([oa])\b/g, "$1");
+  return [...new Set([semAcento(t), fiel, semPlural, semDiminutivo])].filter(Boolean);
+}
+
+/**
+ * A forma mais reduzida, pra quando quem chama precisa de UMA chave.
+ *
+ * Prefira `formasDoCliente`: esta aqui destroi palavra que nasce no diminutivo
+ * ("docinho" vira "doco"), e so serve quando os dois lados da comparacao passam
+ * por ela.
+ */
+export const comoOCardapioEscreve = (t: string) => formasDoCliente(t).slice(-1)[0] ?? "";
+
+

@@ -34,7 +34,7 @@ Isto sobrevive à compactação. A minha memória de ter lido, não.
 | 5 | `lib/ia/fluxo/pensar-openai.ts` | 1-195, sem buraco | **INTEIRO** — 7 defeitos |
 | 6 | `lib/ia/fluxo/produto.ts` | 1-227, sem buraco | **INTEIRO** — 3 defeitos |
 | 7 | `lib/ia/fluxo/sabor.ts` | 1-295, sem buraco | **INTEIRO** — 6 defeitos |
-| 8 | `lib/ia/fluxo/etapas.ts` | nada | não lido |
+| 8 | `lib/ia/fluxo/etapas.ts` | 1-626, sem buraco | **INTEIRO** — 5 defeitos |
 | 9 | `lib/ia/fluxo/pergunta.ts` | 538-660 | falta quase tudo |
 | 10 | `lib/ia/fluxo/fechar.ts` | 60-152 | falta o resto |
 | 11 | `lib/ia/orcamento.ts` | 450-510 | falta quase tudo |
@@ -610,3 +610,65 @@ módulo, e aí o erro é `undefined is not a function` em produção, longe daqu
 de escrever (nome do cardápio e apelidos da casa), cobrados nas três direções
 (sem sabor pergunta, com sabor não pergunta, negando pergunta). Duas iscas
 provadas.
+
+---
+
+## 8. `lib/ia/fluxo/etapas.ts` — a peça central, e só dados
+
+626 linhas. **Cinco defeitos.** Por ser dado e não lógica, tudo aqui passa calado
+pelo compilador.
+
+### O cliente recusava e a padaria continuava perguntando
+
+    naoQuer ["salgado"]      ->  a etapa do salgado é pulada
+    naoQuer ["salgadinho"]   ->  NÃO é pulada
+    naoQuer ["salgadinhos"]  ->  NÃO é pulada
+
+A comparação era com a palavra crua que o modelo devolveu. Ele dizia que não
+queria e a padaria seguia perguntando quais salgados ele queria.
+
+### "bolos" fechava a etapa do bolo sem sabor nenhum
+
+A etapa do bolo conferia `produto.toLowerCase() !== "bolo"`, escrito à mão,
+enquanto salgado e docinho já usavam `temGenerico`. **O comentário do próprio
+`temGenerico`, dez linhas acima, aponta isso**: *"o bolo já tinha esta regra,
+escrita à mão na própria etapa dele"*. A versão à mão só reconhecia a palavra
+exata, então "bolos" passava como sabor escolhido e a festa fechava com a
+cozinha sem saber o que assar.
+
+### O diminutivo estava comendo palavra de verdade
+
+Este eu introduzi no arquivo 4 e só apareceu aqui. `comoOCardapioEscreve`
+reduzia "-inho" pra achar "salgadinho", e meia padaria se chama no diminutivo:
+
+    "docinho"   ->  "doco"
+    "coxinha"   ->  "coxa"
+    "beijinho"  ->  "beijo"
+
+Funcionava **enquanto os dois lados passassem pela mesma redução**, e isso
+escondia o estrago. Quebrou na hora em que um lado era uma expressão fixa: a
+recusa comparava "doco" com `docinho|doce`.
+
+Virou `formasDoCliente`, que devolve as formas da mais fiel à mais reduzida, e
+quem chama tenta todas. Nenhuma palavra é destruída no caminho. Os três
+consumidores (o portão da etapa, os nomes de família e a recusa) passaram a usar
+a mesma.
+
+### Dois comentários órfãos, e um descrevia função apagada
+
+O doc da forminha estava colado noutra função. E havia o doc de um atalho que
+**não existe mais**: ele foi apagado em 26/08/2026 porque fazia quem mandava
+tudo de uma vez nunca ser perguntado do papel de arroz, que custa R$ 12 e a
+padaria vende. O comentário ficou, descrevendo código que sumiu.
+
+### O que o teste novo passou a cobrar
+
+`as-etapas-estao-inteiras.cjs`, e as três coisas que nenhum compilador vê:
+
+- **`SO()` engole id que não existe.** Ele monta cada roteiro com um `!` que
+  mente pro compilador e um `.filter(Boolean)` atrás. Uma etapa some do fluxo
+  sem erro nenhum, e o cliente nunca é perguntado daquilo.
+- **Título de botão passando de 20 caracteres.** A Meta recusa a mensagem
+  inteira: não é o botão que fica feio, é o cliente que não recebe nada. Os 9
+  botões estão dentro, e agora ficam cobrados.
+- **A recusa e o genérico**, com as duas iscas provadas.

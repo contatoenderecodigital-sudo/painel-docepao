@@ -44,13 +44,23 @@
 // ============================================================================
 
 import { produtosDaCasa } from "../dados/produtos";
+import { formasDoCliente, semAcento } from "../texto";
 
-const limpo = (t: unknown) =>
-  String(t ?? "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
+// O NOME CHEGA DO JEITO QUE O CLIENTE FALOU, E "bolos" E "bolo".
+//
+// Aqui era a setima copia do normalizador de texto, e ela so tirava acento:
+// a busca depois e por chave exata, entao qualquer plural, artigo ou
+// diminutivo errava. Medido em 28/08/2026:
+//
+//   ehNomeDeFamilia("bolo")   ->  true
+//   ehNomeDeFamilia("bolos")  ->  false
+//
+// E o efeito era a etapa do bolo se dar por cumprida com "bolos" no lugar do
+// sabor: a festa fechava e a cozinha recebia um bolo sem saber o que assar.
+//
+// `comoOCardapioEscreve` e a mesma reducao que o portao da etapa e a recusa da
+// familia ja usam.
+const limpo = (t: unknown) => semAcento(String(t ?? ""));
 
 /**
  * Os nomes de família, e de que categoria são os produtos de cada uma.
@@ -91,9 +101,23 @@ const FAMILIAS: Record<string, string[]> = {
   "bolo recheado": ["bolo_festa"],
 };
 
+/**
+ * As chaves de `FAMILIAS` reduzidas do mesmo jeito que a entrada, pra os dois
+ * lados se encontrarem. Sem isto, reduzir so a entrada faria "salgado frito"
+ * deixar de casar no dia em que a chave ganhasse um plural.
+ */
+let chavesCache: Map<string, string[]> | null = null;
+function chavesReduzidas(): Map<string, string[]> {
+  if (chavesCache) return chavesCache;
+  // A chave entra fiel: ela ja e a forma canonica da familia.
+  chavesCache = new Map(Object.entries(FAMILIAS).map(([k, v]) => [semAcento(k), v]));
+  return chavesCache;
+}
+
 /** Este nome é família, e não produto? */
 export function ehNomeDeFamilia(produto: unknown): boolean {
-  return Object.prototype.hasOwnProperty.call(FAMILIAS, limpo(produto));
+  const chaves = chavesReduzidas();
+  return formasDoCliente(String(produto ?? "")).some((f) => chaves.has(f));
 }
 
 /**
@@ -105,7 +129,8 @@ export function ehNomeDeFamilia(produto: unknown): boolean {
  * Vazio quer dizer que o nome não é família, e quem chama trata isso.
  */
 export function opcoesDaFamilia(produto: unknown): string[] {
-  const cats = FAMILIAS[limpo(produto)];
+  const chaves = chavesReduzidas();
+  const cats = formasDoCliente(String(produto ?? "")).map((f) => chaves.get(f)).find(Boolean);
   if (!cats) return [];
   return produtosDaCasa()
     .filter((p) => cats.includes(p.categoria))

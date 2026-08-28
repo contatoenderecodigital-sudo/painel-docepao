@@ -33,7 +33,7 @@
 // ============================================================================
 
 import type { EtapaId, PedidoEmMontagem } from "./etapas";
-import { semAcento } from "../texto";
+import { semAcento, semArtigo, formasDoCliente } from "../texto";
 import { APELIDOS } from "../dados/apelidos";
 import {
   produtosDaCasa, produtoNoComeco, produtoPorNome, gruposDaCasa, CATEGORIAS_DE_BOLO,
@@ -719,32 +719,6 @@ export function etapaDesteProduto(produto: string): EtapaId | null {
 }
 
 /**
- * O JEITO QUE O CLIENTE ESCREVE, REDUZIDO AO JEITO DO CARDAPIO.
- *
- * Tres transformacoes do portugues, e nenhuma delas e lista de palavra:
- *
- *   artigo      "um bolo", "uns bolos"       -> bolo
- *   plural      "salgados", "paes", "pizzas" -> salgado, pao, pizza
- *   diminutivo  "salgadinho", "bolinho"      -> salgado, bolo
- *
- * Medido em 28/08/2026 antes de existir: sem elas o portao barrava "salgados",
- * "doces", "um bolo" e "paes". Sao as palavras que o cliente mais usa na
- * primeira mensagem, e barrar qualquer uma trava a conversa na entrada.
- *
- * O diminutivo entra porque "salgadinho" nao cabe em `apelidos.ts`: aquela
- * lista mapeia apelido pra PRODUTO, e salgadinho nao e produto, e familia.
- */
-const semArtigo = (t: string) => semAc(t).replace(/^(uns |umas |um |uma |os |as |o |a )+/, "");
-
-const comoOCardapioEscreve = (t: string) =>
-  semArtigo(t)
-    // "pães" e "pãozinho" viram "pao"; sem isto o pao frances era negado.
-    .replace(/(aes|oes|aos)\b/g, "ao")
-    .replace(/inh([oa])s?\b/g, "$1")
-    .replace(/s\b/g, "")
-    .trim();
-
-/**
  * AS FAMILIAS QUE A CASA VENDE, TIRADAS DO CATALOGO.
  *
  * Nenhum nome escrito aqui. Sao a primeira palavra do nome de cada produto e os
@@ -755,10 +729,11 @@ let familiasCache: Set<string> | null = null;
 function familiasDaCasa(): Set<string> {
   if (familiasCache) return familiasCache;
   const f = new Set<string>();
-  for (const p of produtosDaCasa()) f.add(comoOCardapioEscreve(String(p.nome).split(" ")[0]));
+  // A familia entra com o nome do catalogo, sem reducao: e ele que e canonico.
+  for (const p of produtosDaCasa()) f.add(semAcento(String(p.nome).split(" ")[0]));
   for (const g of gruposDaCasa()) {
     for (const parte of semAc(g).split(/[-_]/)) {
-      if (parte.length >= 4) f.add(comoOCardapioEscreve(parte));
+      if (parte.length >= 4) f.add(semAcento(parte));
     }
   }
   f.delete("");
@@ -784,10 +759,13 @@ function familiasDaCasa(): Set<string> {
  * ganhar uma negativa de xilofone seria um pessimo negocio.
  */
 export function daFamiliaDaCasa(produto: string): boolean {
-  const t = comoOCardapioEscreve(produto);
-  if (!t) return false;
-  for (const f of familiasDaCasa()) {
-    if (t === f || t.startsWith(f + " ")) return true;
+  const familias = familiasDaCasa();
+  // Todos os jeitos em que ele pode ter escrito, do mais fiel ao mais reduzido.
+  for (const t of formasDoCliente(produto)) {
+    if (!t) continue;
+    for (const f of familias) {
+      if (t === f || t.startsWith(f + " ")) return true;
+    }
   }
   return false;
 }
@@ -878,7 +856,7 @@ export function leituraQueCabeNaEtapa(
       //   cru        o que o modelo devolveu
       //   sem artigo "um 4 leites"    -> "4 leites"
       //   reduzido   "uns salgadinhos" -> "salgado"
-      const jeitos = [String(i.produto), semArtigo(i.produto), comoOCardapioEscreve(i.produto)];
+      const jeitos = formasDoCliente(i.produto);
       if (jeitos.some((j) => existeNoCardapio(j) || etapaDesteProduto(j)) || daFamiliaDaCasa(i.produto)) {
         return true;
       }

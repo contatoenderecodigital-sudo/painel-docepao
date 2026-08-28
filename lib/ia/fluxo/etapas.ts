@@ -85,6 +85,7 @@ export type Etapa = {
 
 import { saboresQueFaltam } from "./sabor";
 import { ehNomeDeFamilia } from "./generico";
+import { formasDoCliente } from "../texto";
 
 /** O que a conversa ja acumulou. E o unico estado que existe. */
 export type PedidoEmMontagem = {
@@ -212,25 +213,17 @@ export type PedidoEmMontagem = {
   ofereceu: boolean;
 };
 
-/**
- * A COR DA FORMINHA JA FOI PERGUNTADA?
- *
- * UMA PERGUNTA SO, PRO PEDIDO INTEIRO.
- *
- * Regra do dono, 24/08/2026: "voce pode aceitar uma ou mais cor e NAO quero que
- * peca o cliente qual cor de forminha usar para X docinho".
- *
- * Eu tinha feito ela cobrar item por item quando faltasse cor, e isso vira
- * interrogatorio: a cliente escolhe as cores da festa dela, nao a cor de cada
- * docinho. As cores que ele falar valem pro pedido todo, e a comanda dos
- * docinhos leva todas elas.
- */
-/**
- * O cliente ja informou data, hora, nome e pagamento?
- *
- * Serve para nao segurar o pedido por um detalhe quando ele ja disse tudo o que
- * a padaria precisa para produzir e entregar.
- */
+// AQUI HAVIA O DOC DE UM ATALHO QUE NAO EXISTE MAIS.
+//
+// Ele dizia: "o cliente ja informou data, hora, nome e pagamento? serve para
+// nao segurar o pedido por um detalhe". A funcao foi apagada em 26/08/2026,
+// porque fazia demais -- quem mandava tudo de uma vez nunca era perguntado do
+// papel de arroz, que custa R$ 12 e a padaria vende. O comentario ficou,
+// descrevendo codigo que sumiu, colado na funcao seguinte.
+//
+// O motivo inteiro esta escrito onde o atalho foi retirado, na etapa
+// `pecas_do_bolo`.
+
 /**
  * A PADARIA JA PERGUNTOU ISSO E ELE NAO RESPONDEU.
  *
@@ -252,6 +245,19 @@ export type PedidoEmMontagem = {
 const jaPerguntouEEleNaoRespondeu = (p: PedidoEmMontagem, etapa: EtapaId) =>
   (p.etapasJaPerguntadas ?? []).includes(etapa);
 
+/**
+ * A COR DA FORMINHA JA FOI PERGUNTADA?
+ *
+ * UMA PERGUNTA SO, PRO PEDIDO INTEIRO.
+ *
+ * Regra do dono, 24/08/2026: "voce pode aceitar uma ou mais cor e NAO quero que
+ * peca o cliente qual cor de forminha usar para X docinho".
+ *
+ * Eu tinha feito ela cobrar item por item quando faltasse cor, e isso vira
+ * interrogatorio: a cliente escolhe as cores da festa dela, nao a cor de cada
+ * docinho. As cores que ele falar valem pro pedido todo, e a comanda dos
+ * docinhos leva todas elas.
+ */
 const semForminha = (p: PedidoEmMontagem) => !p.forminha;
 
 /** Falta escolher recheio ou sabor em algum item desta familia? */
@@ -296,8 +302,23 @@ const temGenerico = (p: PedidoEmMontagem, pref: string) =>
       ehNomeDeFamilia(i.produto),
   );
 
+/**
+ * ELE RECUSOU ESTA FAMILIA?
+ *
+ * A comparacao era com a palavra CRUA que o modelo devolveu, e por isso o
+ * diminutivo nao chegava. Medido em 28/08/2026, com um salgado ja no pedido:
+ *
+ *   naoQuer ["salgado"]       ->  a etapa do salgado e pulada
+ *   naoQuer ["salgadinho"]    ->  NAO e pulada
+ *   naoQuer ["salgadinhos"]   ->  NAO e pulada
+ *
+ * O cliente dizia que nao queria e a padaria continuava perguntando quais
+ * salgados ele queria. `comoOCardapioEscreve` ja resolve artigo, plural e
+ * diminutivo, e ja e usada no portao da etapa: usar a mesma aqui e o que impede
+ * as duas de discordarem sobre a mesma palavra.
+ */
 const recusou = (p: PedidoEmMontagem, o: string) =>
-  p.naoQuer.some((x) => new RegExp(o, "i").test(x));
+  p.naoQuer.some((x) => formasDoCliente(x).some((f) => new RegExp(o, "i").test(f)));
 
 /**
  * AS ETAPAS DA FESTA, NA ORDEM.
@@ -409,9 +430,17 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // Agora vale a regra de `PERGUNTA-E-BOTAO.md`: pergunta uma vez, aceita a
     // resposta escrita igual ao botao, e segue quando ele ignora duas vezes.
     cumprida: (p) =>
-      p.itens.some(
-        (i) => String(i.categoria || "").startsWith("bolo") && String(i.produto).trim().toLowerCase() !== "bolo",
-      ) &&
+      // O GENERICO E A MESMA PERGUNTA DAS OUTRAS DUAS FAMILIAS.
+      //
+      // Aqui estava escrito `produto.toLowerCase() !== "bolo"`, uma comparacao
+      // a mao, enquanto o salgado e o docinho ja usavam `temGenerico`. O
+      // comentario do proprio `temGenerico`, dez linhas acima, aponta isto: "o
+      // bolo ja tinha esta regra, escrita a mao na propria etapa dele".
+      //
+      // A versao a mao so reconhecia a palavra exata: "bolos" ou "Bolo " ja
+      // passavam como se fossem sabor escolhido, e a festa fechava com um bolo
+      // sem sabor nenhum pra cozinha assar.
+      temCategoria(p, "bolo") && !temGenerico(p, "bolo") &&
       // A pergunta juntada cobre o prato E as pecas, e sai de uma etapa so.
       // Quem ignorou ela ignorou as duas.
       (p.prato !== null ||
