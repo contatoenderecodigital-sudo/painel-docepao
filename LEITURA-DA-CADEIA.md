@@ -1083,13 +1083,13 @@ eram 15. Sobram **27, com 5.744 linhas**, e há peça central ali.
 | 17 | `lib/ia/fluxo/falas-do-cliente.ts` | 357 | **INTEIRO** — 8 defeitos |
 | 18 | `lib/ia/fluxo/informacao.ts` | 253 | **INTEIRO** — 6 defeitos |
 | 19 | `lib/ia/persona.ts` | 223 → 52 | **INTEIRO** — 170 linhas mortas |
-| 20 | `lib/ia/texto.ts` | 178 | não lido (**eu escrevi nesta sessão**) |
+| 20 | `lib/ia/texto.ts` | 178 | **INTEIRO** — 2 defeitos meus |
 | 21 | `lib/ia/fluxo/generico.ts` | 170 | **INTEIRO** |
 | 22 | `lib/ia/fluxo/restricao.ts` | 161 | **INTEIRO** |
 | 23 | `lib/ia/fluxo/dizer.ts` | 147 | **INTEIRO** |
 | 24 | `lib/ia/fluxo/base.ts` | 140 | **INTEIRO** |
 | 25 | `lib/ia/catalogo-em-texto.ts` | 120 | **APAGADO** — morto inteiro |
-| 26 | `lib/ia/dados/apelidos.ts` | 112 | não lido |
+| 26 | `lib/ia/dados/apelidos.ts` | 112 | **INTEIRO** — 3 defeitos |
 | 27 | `lib/ia/fluxo/situacao.ts` | 87 | **INTEIRO** |
 | 28 | `lib/ia/fluxo/cotar.ts` | 49 | **INTEIRO** |
 | — | banco e infra (9 arquivos) | 2.281 | não lidos |
@@ -1527,3 +1527,49 @@ vocabulário de cada etapa sai do catálogo; as 21 cores saem de `coresDoCardapi
 E ganhou uma cobrança que não existia: **todo produto do catálogo chega na lista
 única, e a lista não inventa produto**. É a guarda que teria pego o defeito da
 pizza meses atrás.
+
+---
+
+## 26 e 27. `apelidos.ts` e `texto.ts` — o cérebro fecha aqui
+
+### O preço dependia da ORDEM DAS CHAVES de um objeto
+
+`nomePeloApelido` percorria o objeto na ordem em que ele está escrito e devolvia
+**o primeiro** que casasse. Por isso o comentário do `mini bolha doce` diz que
+ele *"tem que vir ANTES do salgado"*:
+
+    "pastel doce de banana"  casa "pastel doce" (R$ 1,25) E "pastel" (R$ 1,00)
+
+Mover uma linha daquele arquivo trocaria o produto e o preço, sem erro nenhum.
+Virou "ganha o mais longo", que é a mesma regra que o leitor da frase e a
+resposta de preço já usam. **Provado com isca:** com as duas chaves invertidas o
+resultado continua certo, e antes não continuaria.
+
+### E aí descobri que a função estava morta
+
+O `fluxo.ts` importava `nomePeloApelido` e **nunca chamava**. Eu melhorei uma
+função morta antes de conferir quem a chamava. **Conferir o chamador vem
+primeiro** — e é uma das cinco perguntas da lista, que eu pulei.
+
+Apagada, depois de medir que os dois resolvedores vivos (`identificarProduto` e o
+leitor da frase) acertam os cinco casos que importam.
+
+### No `texto.ts`, que eu escrevi nesta sessão e nunca tinha relido
+
+`comoOCardapioEscreve` estava **exportada e sem chamador**. Era a primeira
+tentativa de entender "salgadinho", substituída por `formasDoCliente` no arquivo
+8. E ela é a função que **destrói palavra**: "docinho" vira "doco". Deixar de pé
+uma coisa dessas exportada é convite pra alguém usar sem saber.
+
+`semArtigo` estava importada no `leitura.ts` sem ser chamada no corpo.
+
+### O detector tinha um terceiro buraco: import contava como uso
+
+Os dois achados acima passavam porque `nada-de-codigo-fantasma` lia o arquivo
+inteiro, e uma importação que ninguém chama parecia uso. Agora as linhas de
+import saem antes da conta — e foi assim que o `nomePeloApelido` apareceu.
+
+**Três buracos no mesmo detector nesta sessão:** varria uma pasta escrita à mão,
+procurava uso em três lugares escritos à mão, e contava import como uso. O
+detector de código fantasma era, ele próprio, o lugar com mais lista minha do
+repositório.

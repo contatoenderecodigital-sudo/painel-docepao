@@ -53,8 +53,8 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 
 | | |
 | --- | --- |
-| arquivos lidos inteiros | **26**, e um apagado inteiro |
-| defeitos consertados | **120** |
+| arquivos lidos inteiros | **28** — o cérebro inteiro |
+| defeitos consertados | **125** |
 | testes no portão | **59**, todos verdes |
 | `tsc` | limpo |
 | cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |
@@ -64,11 +64,21 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 
 ## O QUE FALTA LER
 
-A partir do webhook a IA alcança **42 arquivos**. Li 16. A lista completa, em
-ordem de importância, está na tabela do `LEITURA-DA-CADEIA.md`. Os próximos:
+**O cérebro da conversa está lido inteiro.** Sobra a camada de banco e infra,
+2.281 linhas em nove arquivos, que gravam e leem o que a conversa já decidiu:
 
-| arquivo | linhas | por que importa |
-| --- | --- | --- |
+    pedidos 575, conversas 512, negocios 335, atendimentos 212,
+    tipos 176, db 122, alertas 84, uso 74, tipos-da-conversa 51
+
+E quatro órfãos já achados nesses arquivos, anotados no
+`nada-de-codigo-fantasma` numa lista que só pode encolher:
+`RECADO_DA_EQUIPE`, `anexarFotoAoPedido`, `dispensarOrcamento`,
+`reativarOrcamento`.
+
+**A decisão combinada:** o cérebro fecha, mede-se uma conversa de verdade, e só
+depois a infra. A infra não muda o que o cliente ouve.
+
+--- | --- | --- |
 | `lib/ia/persona.ts` | 223 | o jeito de falar |
 | `lib/ia/texto.ts` | 178 | **eu escrevi nesta sessão e nunca reli.** Foi lá que eu introduzi o diminutivo que comia "docinho" |
 | `lib/ia/dados/apelidos.ts` | 112 | como o cliente escreve o nome |

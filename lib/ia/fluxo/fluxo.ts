@@ -34,7 +34,6 @@ import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitur
 import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase } from "./leitor-da-frase";
 import { afirmouOuNegou, cercaDaPalavra } from "../texto";
 import { identificarProduto } from "./produto";
-import { nomePeloApelido } from "../dados/apelidos";
 import { produtoNoComeco, produtoPorNome, produtosDaCasa } from "../dados/produtos";
 import { semAcento as semAc } from "../texto";
 import { calcularBase, avisoDePoucoPorSabor } from "./base";

@@ -32,6 +32,8 @@
 // Decisao do dono: nesses casos a IA PERGUNTA qual dos dois. Saiu daqui.
 //
 // O criterio pra entrar: mesmo produto, mesmo preco, so escrito de outro jeito.
+import { semAcento } from "../texto";
+
 export const APELIDOS: Record<string, string[]> = {
   "pizza inteira": [
     "pizza de forma",
@@ -80,33 +82,20 @@ export const APELIDOS: Record<string, string[]> = {
   quiche: ["chique", "chiques", "quiches", "kiche", "kishe"],
 };
 
-/** O nome do catálogo para o que o cliente escreveu, ou null. */
-export function nomePeloApelido(escrito: string): string | null {
-  const t = String(escrito || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-  if (!t) return null;
-  for (const [nome, lista] of Object.entries(APELIDOS)) {
-    for (const apelido of lista) {
-      const a = apelido
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase();
-      if (!a) continue;
-      if (t === a) return nome;
-      // O APELIDO COSTUMA VIR COM O RECHEIO COLADO.
-      //
-      // Comparar a string inteira pegava "chique" e deixava passar "chique de
-      // frango", que é como o cliente escreve de verdade. Aí o nome errado
-      // chegava no motor de preço: medido em 25/08/2026, um pedido de R$ 381,30
-      // fechou por R$ 12.256,30 só nesse cenário.
-      //
-      // Vale quando o apelido ABRE a frase. No meio não: "torta de chique" não
-      // é quiche, e casar no meio inventa produto.
-      if (t.startsWith(a + " ")) return nome;
-    }
-  }
-  return null;
-}
+// AQUI FICAVA `nomePeloApelido`, IMPORTADA PELO `fluxo.ts` E NUNCA CHAMADA.
+//
+// Era o resolvedor canônico de apelido, e o fluxo importava sem usar. Quem
+// resolve apelido de verdade hoje são dois: `identificarProduto`, que monta os
+// candidatos com os apelidos junto, e o leitor da frase, que procura o apelido
+// dentro do texto. Os dois já fazem o nome mais longo ganhar, e isso foi
+// conferido nos cinco casos que importam antes de apagar:
+//
+//     "pastel doce de banana"  ->  mini bolha doce   nos dois
+//     "pastel de carne"        ->  mini bolha        nos dois
+//     "meia pizza"             ->  pizza meia        nos dois
+//
+// E VALE REGISTRAR O ERRO DE METODO: eu melhorei esta função (troquei "o
+// primeiro da lista" por "o mais longo") ANTES de conferir quem a chamava, e ela
+// não era chamada por ninguém. Conferir o chamador vem primeiro.
+//
+// A lista `APELIDOS` acima continua viva e é usada pelos dois resolvedores.

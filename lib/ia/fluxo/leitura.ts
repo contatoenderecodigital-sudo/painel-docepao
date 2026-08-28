@@ -33,7 +33,7 @@
 // ============================================================================
 
 import type { EtapaId, PedidoEmMontagem } from "./etapas";
-import { semAcento, semArtigo, formasDoCliente } from "../texto";
+import { semAcento, formasDoCliente } from "../texto";
 // A lista das tres situacoes mora com quem RESPONDE cada uma. Havia tres
 // declaracoes dela: aqui, no `situacao.ts` e conferida a mao no limpador da IA.
 import { SITUACOES, type SituacaoDaConversa } from "./situacao";

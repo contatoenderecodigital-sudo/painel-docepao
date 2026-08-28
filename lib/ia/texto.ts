@@ -126,8 +126,8 @@ export function afirmouOuNegou(t: string, termo: RegExp): boolean | null {
 export const cercaDaPalavra = (termo: string) =>
   new RegExp("(^|[^a-z])(" + termo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")($|[^a-z])", "i");
 
-/** Sem o artigo na frente: "um bolo" e "bolo". */
-export const semArtigo = (t: string) =>
+/** Sem o artigo na frente: "um bolo" e "bolo". Usado por `formasDoCliente`. */
+const semArtigo = (t: string) =>
   semAcento(t).replace(/^(uns |umas |um |uma |os |as |o |a )+/, "");
 
 /**
@@ -166,13 +166,21 @@ export function formasDoCliente(t: string): string[] {
   return [...new Set([semAcento(t), fiel, semPlural, semDiminutivo])].filter(Boolean);
 }
 
-/**
- * A forma mais reduzida, pra quando quem chama precisa de UMA chave.
- *
- * Prefira `formasDoCliente`: esta aqui destroi palavra que nasce no diminutivo
- * ("docinho" vira "doco"), e so serve quando os dois lados da comparacao passam
- * por ela.
- */
-export const comoOCardapioEscreve = (t: string) => formasDoCliente(t).slice(-1)[0] ?? "";
+// AQUI FICAVA `comoOCardapioEscreve`, EXPORTADA E SEM NENHUM CHAMADOR.
+//
+// Ela devolvia a forma MAIS REDUZIDA de uma palavra, e foi a primeira tentativa
+// de entender "salgadinho". Deu errado do jeito que esta escrito no
+// `formasDoCliente` logo acima: a reducao de diminutivo destroi palavra que
+// nasce no diminutivo, e "docinho" virava "doco".
+//
+// Foi substituida pela lista de formas, e ficou exportada. Deixar de pe uma
+// funcao que destroi palavra e um convite pra alguem usar ela sem saber disso.
+//
+// Achada lendo este arquivo em 28/08/2026, que eu mesmo escrevi nesta sessao e
+// nunca tinha relido.
+//
+// O DETECTOR DE CODIGO FANTASMA NAO PEGOU, e o motivo virou conserto la:
+// a linha de `import` contava como USO. `semArtigo` estava importada no
+// `leitura.ts` sem ser chamada em lugar nenhum do corpo, e passava.
 
 

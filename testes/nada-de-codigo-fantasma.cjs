@@ -80,8 +80,24 @@ const varrer = (dir, saida = []) => {
 // linha eles passariam a ter "duas aparicoes" e sairiam da conta: o detector
 // cegava a si mesmo com a propria anotacao. Aconteceu na primeira tentativa.
 const ondeProcurar = varrer(raiz).filter((f) => !f.endsWith("nada-de-codigo-fantasma.cjs"));
+// LINHA DE IMPORT NAO E USO.
+//
+// Isto lia os arquivos inteiros, e uma importacao que ninguem chama contava como
+// se alguem chamasse. Achado em 28/08/2026: `semArtigo` estava importada no
+// `leitura.ts` e nao aparecia no corpo dele em lugar nenhum, e o detector dava
+// ok. Junto dela passava `comoOCardapioEscreve`, exportada e sem chamador -- e
+// ela e uma funcao que DESTROI palavra ("docinho" vira "doco"), do tipo que nao
+// pode ficar de pe convidando alguem a usar.
+//
+// Fora as linhas de import, sobra o que de fato chama.
+const semImports = (texto) =>
+  texto
+    .split(String.fromCharCode(10))
+    .filter((l) => !/^\s*import\s/.test(l) && !/^\s*}\s*from\s+["']/.test(l))
+    .join(String.fromCharCode(10));
+
 const tudo = ondeProcurar.map((f) => {
-  try { return fs.readFileSync(f, "utf8"); } catch { return ""; }
+  try { return semImports(fs.readFileSync(f, "utf8")); } catch { return ""; }
 }).join(String.fromCharCode(10));
 
 // O QUE JA ESTA ACHADO E AINDA NAO FOI DECIDIDO.
