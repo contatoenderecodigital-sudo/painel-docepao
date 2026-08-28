@@ -38,7 +38,7 @@ Isto sobrevive à compactação. A minha memória de ter lido, não.
 | 9 | `lib/ia/fluxo/pergunta.ts` | 1-786, sem buraco | **INTEIRO** — 6 defeitos |
 | 10 | `lib/ia/fluxo/fechar.ts` | 1-240, sem buraco | **INTEIRO** — 4 defeitos |
 | 11 | `lib/ia/orcamento.ts` | 1-521, sem buraco | **INTEIRO** — 4 defeitos |
-| 12 | `lib/banco/montagem.ts` | 114-155, 368-392 | falta quase tudo |
+| 12 | `lib/banco/montagem.ts` | 1-440, sem buraco | **INTEIRO** — 3 defeitos |
 | 13 | `lib/ia/fluxo/gravar.ts` | nada | não lido |
 | 14 | `lib/banco/fila.ts` + `lib/cupom-escpos.ts` | fila 100-140, cupom 200-260 | falta quase tudo |
 
@@ -844,3 +844,65 @@ E com uma diferença de verdade: a local fazia `String(t)` sem o `|| ""`, então
 pelo nome curto, os 12 docinhos, e as onze maneiras de aceitar ou recusar o papel
 de arroz. Cobra a classe inteira, e não os três exemplos que eu tinha na mão.
 Duas iscas provadas, e cada uma reproduziu o defeito exato.
+
+---
+
+## 12. `lib/banco/montagem.ts` — o pedido enquanto a conversa acontece
+
+440 linhas. **Três defeitos**, e o principal trocava produto e preço por uma
+palavra na observação.
+
+### O segundo sabor do bolo saía de uma regex, não do cardápio
+
+O nome do item precisa dizer os dois sabores de um bolo misto: é ele que a
+cozinha lê e que o motor cota. A montagem achava o segundo com uma regex que
+pega **qualquer** par de palavras ligado por "e" ou "com". Medido:
+
+    "pão de ló branco e tema Frozen"  ->  b = "tema frozen"
+    "prato aberto e papel de arroz"   ->  b = "papel de arroz"
+
+O caso caro é o que casa. Item `bolo prestígio`, observação `prestígio com
+ganache`: o nome virava `bolo prestígio com ganache`, **que existe no cardápio
+como bolo CASEIRO** — R$ 33,90 a unidade no lugar de R$ 46,90 o quilo.
+
+E ela barrava **sete dos trinta sabores da casa**, porque o formato não cabia
+neles: "4 leites" e "0% lactose" têm dígito, "frutas (pêssego e abacaxi)" tem
+parêntese, e "fubá com goiabada", "chocolate preto com leite ninho", "brigadeiro
+com maracujá" e "prestígio com ganache" já têm "com" dentro do próprio nome.
+Quem pedisse bolo brigadeiro com 4 leites levava só o brigadeiro.
+
+Agora procura o NOME do sabor no catálogo, do mais longo pro mais curto, e exige
+o conector na frente. O conector é o que separa "brigadeiro com morango" (dois
+sabores) de "tema morango" (decoração).
+
+### O filtro de três letras derrubava o "biz"
+
+Ele existia pra barrar lixo, e quem barra lixo passou a ser o cardápio. Mantido,
+derrubava exatamente um sabor: **"biz", de R$ 49,90**. É o mesmo defeito que o
+motor de preço já tinha registrado no comentário dele: *"todo bolo misto com biz
+saía cobrado pelo OUTRO sabor"*.
+
+### A nona cópia do normalizador
+
+Inline dentro de `observacaoLimpa`.
+
+### Duas coisas conferidas que estavam CERTAS
+
+**A hora fora do expediente não é gravada, e isso não é defeito.** Ela é apagada
+só na memória do turno: `dadosQueMudaram` ignora valor nulo e `anotarDados`
+também. Mas a guarda refaz a conta a cada mensagem, então na volta do banco a
+hora velha cai de novo no mesmo filtro. E o `fecharPedido` recebe o estado **já
+corrigido**, então o pedido não fecha com a padaria fechada. Segui em frente sem
+mexer.
+
+**O terceiro vocabulário de categoria é deliberado.** `CategoriaItem` não é o do
+catálogo nem o do orçamento, e a tradução mora num lugar só
+(`categoriaDoPedido`), documentada. O que está errado ali é o comentário: diz
+"estas cinco" e lista sete.
+
+### Teste novo
+
+`o-segundo-sabor-do-bolo-e-do-cardapio.cjs`: os **30 sabores da casa** como
+segundo sabor, e oito coisas que não são sabor. Ele importa a função de verdade,
+depois de eu tentar extrair o corpo dela da fonte e executar com `new Function`,
+que quebra no primeiro tipo de TypeScript que sobra dentro. Isca provada.

@@ -19,6 +19,8 @@ import { query, queryUm } from "./db";
 import catalogo from "../ia/dados/catalogo.json";
 import { coresDaForminha } from "../ia/fluxo/sabor";
 import { ehNomeDeFamilia } from "../ia/fluxo/generico";
+import { produtosDaCasa } from "../ia/dados/produtos";
+import { semAcento } from "../ia/texto";
 
 export type CategoriaItem =
   | "bolo_festa"
@@ -154,21 +156,78 @@ const ehGenerico = (produto: string) => ehNomeDeFamilia(produto);
 
 // Bolo com dois sabores: o nome do item precisa dizer os dois, senao a cozinha
 // produz so o primeiro. A observacao ja traz o segundo sabor.
-function nomeComOsDoisSabores(item: ItemMontagem): ItemMontagem {
-  if (!String(item.categoria ?? "").startsWith("bolo")) return item;
-  const nome = String(item.produto ?? "").toLowerCase();
-  const obs = String(item.obs ?? "").toLowerCase();
-  // "brigadeiro e morango" / "brigadeiro com morango" na observacao
-  const par = obs.match(/([a-zà-ú ]{3,20})\s+(?:e|com)\s+([a-zà-ú ]{3,20})/);
-  if (!par) return item;
-  const a = par[1].trim();
-  const b = par[2].trim();
-  const temA = nome.includes(a);
-  const temB = nome.includes(b);
-  if (temA && !temB && b.length > 3) {
-    return { ...item, produto: item.produto + " com " + b };
+/**
+ * O SEGUNDO SABOR TEM QUE SER UM SABOR DO CARDAPIO.
+ *
+ * A regex pega QUALQUER par de palavras ligado por "e" ou "com", e o que ela
+ * pega vai parar no NOME DO PRODUTO, que e o que a cozinha le e o que o motor
+ * cota. Medido em 28/08/2026, com o que ela devolve de verdade:
+ *
+ *   "pao de lo branco e tema Frozen"  ->  a="pao de lo branco"  b="tema frozen"
+ *   "prato aberto e papel de arroz"   ->  a="prato aberto"      b="papel de arroz"
+ *   "massa branca com recheio ninho"  ->  a="massa branca"      b="recheio ninho"
+ *
+ * O caso caro e o que casa: item "bolo prestigio", observacao "prestigio com
+ * ganache". O nome vira "bolo prestigio com ganache", que EXISTE no cardapio
+ * como bolo CASEIRO -- R$ 33,90 a unidade no lugar de R$ 46,90 o quilo. Uma
+ * palavra na observacao trocava o produto e o preco.
+ *
+ * A regex fica: ela e o jeito de achar o par na frase. O que muda e que o
+ * segundo so vale quando o CARDAPIO diz que ele e sabor de bolo.
+ */
+const saboresDeBolo = (): Set<string> => {
+  if (!saboresCache) {
+    saboresCache = new Set(
+      produtosDaCasa()
+        .filter((p) => p.categoria === "bolo_festa" || p.categoria === "bolo_caseiro")
+        .map((p) => semAcento(p.nomeCurto)),
+    );
   }
-  return item;
+  return saboresCache;
+};
+let saboresCache: Set<string> | null = null;
+
+// Exportada pra o teste rodar ESTA funcao, e nao uma reconstrucao dela. A
+// primeira versao do teste extraia o corpo da fonte e executava com `new
+// Function`, o que quebra no primeiro tipo de TypeScript que sobrar dentro.
+export function nomeComOsDoisSabores(item: ItemMontagem): ItemMontagem {
+  if (!String(item.categoria ?? "").startsWith("bolo")) return item;
+  const nome = semAcento(item.produto);
+  const obs = semAcento(item.obs ?? "");
+  if (!obs) return item;
+
+  // QUEM ACHA O SABOR E O CARDAPIO, E NAO O FORMATO DA FRASE.
+  //
+  // Aqui havia uma regex que pegava qualquer par de palavras ligado por "e" ou
+  // "com" -- `([a-za-u ]{3,20}) (e|com) ([a-za-u ]{3,20})` -- e o segundo pedaco
+  // ia direto pro NOME DO PRODUTO. Ela errava dos dois lados.
+  //
+  // Deixava passar o que nao e sabor:
+  //
+  //   "prestigio com ganache" no bolo prestigio  ->  "bolo prestigio com
+  //   ganache", que existe no cardapio como bolo CASEIRO: R$ 33,90 a unidade no
+  //   lugar de R$ 46,90 o quilo. Uma palavra na observacao trocava o produto.
+  //
+  // E barrava SETE dos trinta sabores da casa, medidos em 28/08/2026, porque o
+  // formato da regex nao cabia neles: "4 leites" e "0% lactose" tem digito,
+  // "frutas (pessego e abacaxi)" tem parentese, e "fuba com goiabada",
+  // "chocolate preto com leite ninho", "brigadeiro com maracuja" e "prestigio
+  // com ganache" ja tem "com" dentro do proprio nome. Quem pedisse bolo
+  // brigadeiro com 4 leites levava so o brigadeiro.
+  //
+  // Agora procura pelo NOME do sabor, do mais longo pro mais curto, e exige o
+  // conector na frente: "com <sabor>" ou "e <sabor>". O conector e o que separa
+  // "brigadeiro com morango" (dois sabores) de "tema morango" (decoracao).
+  const conector = (sabor: string) =>
+    new RegExp("(^|[^a-z])(e|com)[ ]+" + sabor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "($|[^a-z])", "i");
+
+  const outro = [...saboresDeBolo()]
+    // O mais longo primeiro: "prestigio com ganache" tem que ganhar de
+    // "prestigio", senao o nome fica pela metade.
+    .sort((a, b) => b.length - a.length)
+    .find((sabor) => !nome.includes(sabor) && conector(sabor).test(obs));
+
+  return outro ? { ...item, produto: item.produto + " com " + outro } : item;
 }
 
 // A observacao do jeito que a cozinha precisa ler: sem pedaco repetido e sem
@@ -185,7 +244,7 @@ function observacaoLimpa(obs?: string | null): string | null {
   const vistos = new Set<string>();
   const unicos: string[] = [];
   for (const t of pedacos) {
-    const chave = t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const chave = semAcento(t);
     if (vistos.has(chave)) continue;
     // Pedaco que ja esta contido em outro maior tambem e repeticao.
     if ([...vistos].some((v) => v.includes(chave) || chave.includes(v))) continue;
