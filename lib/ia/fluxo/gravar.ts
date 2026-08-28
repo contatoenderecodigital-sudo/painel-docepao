@@ -21,7 +21,7 @@
 //  E POR ISSO O PAINEL E A IMPRESSAO NAO PRECISAM DE UMA LINHA NOVA.
 // ============================================================================
 
-import { anotarItem, anotarDados, lerMontagem, limparMontagem } from "@/lib/banco/montagem";
+import { anotarItem, anotarDados, lerMontagem, limparMontagem, removerItem } from "@/lib/banco/montagem";
 import { unidadeDoPedido as unidadeDoProduto } from "@/lib/ia/dados/produtos";
 import type { Estado } from "./fluxo";
 import type { EtapaId } from "./etapas";
@@ -148,6 +148,25 @@ function lerPecas(
  * reescrita sem necessidade, e a dona perderia o que tivesse editado na tela
  * entre uma mensagem e outra do cliente.
  */
+/**
+ * O QUE ESTAVA NO PEDIDO E NAO ESTA MAIS.
+ *
+ * Funcao pura e exportada pelo mesmo motivo do `estadoDosDados`: da pra provar
+ * sem banco nenhum. Compara pela mesma chave que a gravacao usa, produto mais
+ * categoria, porque "brigadeiro" docinho e "bolo brigadeiro" convivem.
+ */
+export function itensQueSairam(
+  antes: Estado,
+  depois: Estado,
+): { produto: string; categoria: string }[] {
+  const chave = (i: { produto: string; categoria: string }) =>
+    String(i.produto).toLowerCase().trim() + "|" + String(i.categoria);
+  const aindaTem = new Set(depois.itens.map(chave));
+  return antes.itens
+    .filter((i) => !aindaTem.has(chave(i)))
+    .map((i) => ({ produto: i.produto, categoria: i.categoria }));
+}
+
 export async function gravarEstado(
   negocioId: string,
   clienteId: string,
@@ -158,6 +177,33 @@ export async function gravarEstado(
   const chave = (i: { produto: string; categoria: string }) =>
     String(i.produto).toLowerCase().trim() + "|" + String(i.categoria);
   const jaEra = new Map(antes.itens.map((i) => [chave(i), i]));
+
+  // ITEM QUE SAIU DO PEDIDO TEM QUE SAIR DO BANCO TAMBEM.
+  //
+  // Este laco so sabia ACRESCENTAR e CORRIGIR. O que desaparecia do estado
+  // ficava gravado pra sempre, e o fluxo tem tres caminhos que tiram item:
+  //
+  //   1. "nao quero mais docinho" apaga os docinhos ja escolhidos
+  //   2. recusar o papel de arroz tira a linha dele
+  //   3. dois bolos viram UM bolo misto, e o outro some da lista
+  //
+  // Nos dois primeiros a conversa se cura sozinha, porque a recusa fica gravada
+  // e o filtro roda de novo a cada mensagem. Na FUSAO DOS BOLOS nao: o bolo que
+  // sumiu do estado continua na tela da dona, e ela ve dois bolos onde o cliente
+  // pediu um misto.
+  //
+  // E cura o renomear tambem: quando o nome vira canonico ("cenoura" ->
+  // "bolo caseiro cenoura"), antes ficavam as DUAS linhas.
+  //
+  // Apaga ANTES de gravar: `anotarItem` junta bolo com bolo pelo nome, entao
+  // gravar primeiro faria o item novo cair dentro da linha velha e a remocao
+  // depois levaria os dois.
+  //
+  // So sai o que estava no `antes`, que e o que este turno leu do banco. O que a
+  // dona acrescentar na tela nao esta ali e nao e tocado.
+  for (const i of itensQueSairam(antes, depois)) {
+    await removerItem(negocioId, clienteId, i.produto, i.categoria as never);
+  }
 
   for (const i of depois.itens) {
     const velho = jaEra.get(chave(i));

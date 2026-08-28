@@ -39,7 +39,7 @@ Isto sobrevive à compactação. A minha memória de ter lido, não.
 | 10 | `lib/ia/fluxo/fechar.ts` | 1-240, sem buraco | **INTEIRO** — 4 defeitos |
 | 11 | `lib/ia/orcamento.ts` | 1-521, sem buraco | **INTEIRO** — 4 defeitos |
 | 12 | `lib/banco/montagem.ts` | 1-440, sem buraco | **INTEIRO** — 3 defeitos |
-| 13 | `lib/ia/fluxo/gravar.ts` | nada | não lido |
+| 13 | `lib/ia/fluxo/gravar.ts` | 1-267, sem buraco | **INTEIRO** — 1 defeito |
 | 14 | `lib/banco/fila.ts` + `lib/cupom-escpos.ts` | fila 100-140, cupom 200-260 | falta quase tudo |
 
 **O arquivo 1 quase entrou aqui como "inteiro" com dois buracos**: as linhas
@@ -906,3 +906,48 @@ catálogo nem o do orçamento, e a tradução mora num lugar só
 segundo sabor, e oito coisas que não são sabor. Ele importa a função de verdade,
 depois de eu tentar extrair o corpo dela da fonte e executar com `new Function`,
 que quebra no primeiro tipo de TypeScript que sobra dentro. Isca provada.
+
+---
+
+## 13. `lib/ia/fluxo/gravar.ts` — a ponte pro banco
+
+267 linhas. **Um defeito, e ele é da família "nada some do pedido".**
+
+### O que saía do pedido nunca saía do banco
+
+`gravarEstado` só sabia ACRESCENTAR e CORRIGIR item. O que desaparecia do estado
+ficava gravado pra sempre na tela da dona. O fluxo tem **três caminhos que tiram
+item**, todos no `fluxo.ts`:
+
+    1. recusar uma família   apaga o que já estava anotado dela
+    2. recusar o papel       tira a linha do papel de arroz
+    3. fundir dois bolos     dois viram UM misto, e o outro some da lista
+
+Nos dois primeiros a conversa se cura sozinha: a recusa fica gravada e o filtro
+roda de novo a cada mensagem. **Na fusão dos bolos não há flag pra refazer**, e o
+bolo que sumiu do estado continuava na tela: a dona via dois bolos onde o cliente
+pediu um misto.
+
+E há um quarto caso, que é consequência e não caminho: quando o nome vira
+canônico (`"cenoura"` → `"bolo caseiro cenoura"`), ficavam **as duas linhas**.
+
+A remoção vai ANTES da gravação, e isso é parte do conserto: `anotarItem` junta
+bolo com bolo pelo nome, então gravar primeiro faria o item novo cair dentro da
+linha velha e a remoção depois levaria os dois. O teste cobra a ordem.
+
+### O que o teste NÃO prova, e está escrito nele
+
+`itensQueSairam` é pura e exportada pra poder ser provada sem banco, do mesmo
+jeito que o `estadoDosDados` já era. Mas os estados do teste foram escritos a
+partir da **leitura** dos três caminhos, e não de rodar o fluxo. Se um daqueles
+caminhos mudar de forma, o teste continua verde e não devia. Quem cobre isso de
+verdade é medir uma conversa contra o banco.
+
+### Três coisas conferidas que estavam CERTAS
+
+- `fluxo_perguntei` é gravado com `join(",")` sem espaço e lido com
+  `split(",")`: os dois lados combinam
+- o `slice(0, 20)` dos guardados é teto, não perda silenciosa de item do pedido
+- a assimetria entre "só grava valor cheio" (nos dados do cliente) e "vazio vira
+  a palavra `nenhum`" (na memória da conversa) é deliberada e está documentada:
+  o único caminho que limpa de verdade é o recomeçar, e ele apaga a linha toda
