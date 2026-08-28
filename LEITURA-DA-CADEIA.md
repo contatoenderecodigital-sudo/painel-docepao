@@ -1082,13 +1082,13 @@ eram 15. Sobram **27, com 5.744 linhas**, e há peça central ali.
 | 16 | `lib/ia/fluxo/leitor-da-frase.ts` | 516 | **INTEIRO** — 7 defeitos |
 | 17 | `lib/ia/fluxo/falas-do-cliente.ts` | 357 | **INTEIRO** — 8 defeitos |
 | 18 | `lib/ia/fluxo/informacao.ts` | 253 | **INTEIRO** — 6 defeitos |
-| 19 | `lib/ia/persona.ts` | 223 | não lido |
+| 19 | `lib/ia/persona.ts` | 223 → 52 | **INTEIRO** — 170 linhas mortas |
 | 20 | `lib/ia/texto.ts` | 178 | não lido (**eu escrevi nesta sessão**) |
 | 21 | `lib/ia/fluxo/generico.ts` | 170 | **INTEIRO** |
 | 22 | `lib/ia/fluxo/restricao.ts` | 161 | **INTEIRO** |
 | 23 | `lib/ia/fluxo/dizer.ts` | 147 | **INTEIRO** |
 | 24 | `lib/ia/fluxo/base.ts` | 140 | **INTEIRO** |
-| 25 | `lib/ia/catalogo-em-texto.ts` | 120 | não lido |
+| 25 | `lib/ia/catalogo-em-texto.ts` | 120 | **APAGADO** — morto inteiro |
 | 26 | `lib/ia/dados/apelidos.ts` | 112 | não lido |
 | 27 | `lib/ia/fluxo/situacao.ts` | 87 | **INTEIRO** |
 | 28 | `lib/ia/fluxo/cotar.ts` | 49 | **INTEIRO** |
@@ -1460,3 +1460,70 @@ uma defesa escrita antes segurou.
 `restricao.ts` (só a cópia do normalizador; o comportamento está certo nos onze
 casos medidos, inclusive o `0% lactose` que a casa faz de verdade) e `cotar.ts`
 e `situacao.ts`, sem defeito nenhum.
+
+---
+
+## 25. `lib/ia/persona.ts` — e um arquivo inteiro que morreu junto
+
+223 linhas, das quais **170 eram uma função sem chamador nenhum**.
+
+### O system prompt do cérebro antigo continuava aqui
+
+`montarSystemPrompt` era a carta de trinta páginas: persona, cardápio inteiro,
+quarenta regras e doze ferramentas, que ia em TODA mensagem. O cérebro foi
+apagado em 26/08/2026 e o prompt ficou.
+
+Conferido antes de apagar: `montarSystemPrompt` não aparecia em lugar nenhum do
+repositório além da própria declaração — nem em código, nem em teste, nem em
+documento.
+
+Sobraram 52 linhas, e são as duas coisas vivas: o tipo `ConfigNegocio` e a
+configuração `DOCE_PAO`, que o `informacao.ts` usa pra responder horário e
+endereço.
+
+### E `catalogo-em-texto.ts` inteiro caiu junto
+
+120 linhas que só existiam pra alimentar aquele prompt. Ficaram sem chamador no
+instante em que ele saiu.
+
+### O detector de código fantasma tinha o próprio ponto cego
+
+`nada-de-codigo-fantasma` varria **uma pasta escrita à mão** (`lib/ia/fluxo`), e
+a persona mora um nível acima. **Mais uma lista minha, e desta vez dentro de um
+teste.**
+
+Ao alargar, errei duas vezes seguidas, e as duas ficaram escritas no teste:
+
+1. **Alarguei a varredura de declaração e esqueci a de uso.** Ele acusou doze
+   funções de `lib/banco` como mortas, e elas são usadas pelo painel. Falso
+   positivo em detector é pior que buraco: quem vê doze acusações erradas para de
+   acreditar na décima terceira, que é verdadeira.
+2. **A minha lista de pendências cegou o detector.** Escrever os nomes dos órfãos
+   dentro do arquivo fez eles passarem a ter "duas aparições" e saírem da conta.
+
+### Quatro órfãos achados e NÃO apagados
+
+`RECADO_DA_EQUIPE`, `anexarFotoAoPedido`, `dispensarOrcamento`,
+`reativarOrcamento`. São órfãos de verdade, conferidos um por um no repositório
+inteiro. Mas moram em arquivos da camada de banco que **eu ainda não li linha por
+linha**, e apagar código de arquivo não lido é o oposto do que esta leitura é.
+
+Ficaram anotados no teste, numa lista que **só pode encolher**: ele reprova se
+aparecer órfão novo fora dela, e também se um daqui deixar de ser órfão sem sair
+da lista.
+
+### O teste que cobrava o prompt morto
+
+`nada-pode-divergir` lia o TEXTO da persona e procurava frase proibida dentro
+dele. Seguia verde cobrando um texto que ninguém mais lia. **Teste que cobra
+código morto é pior que teste nenhum: dá a sensação de que a regra está
+protegida.**
+
+As três coisas que ele protegia foram medidas e continuam de pé no código vivo,
+e agora são cobradas de quem faz o trabalho hoje: o apelido "pizza de metro"
+chega em `pizza inteira` pelo `identificarProduto` e pelo leitor da frase; o
+vocabulário de cada etapa sai do catálogo; as 21 cores saem de `coresDoCardapio`.
+
+E ganhou uma cobrança que não existia: **todo produto do catálogo chega na lista
+única, e a lista não inventa produto**. É a guarda que teria pego o defeito da
+pizza meses atrás.

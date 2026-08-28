@@ -23,12 +23,17 @@ const { tmpdir } = require("node:os");
 const pasta = mkdtempSync(join(tmpdir(), "divergir-"));
 execFileSync(
   "npx",
-  ["tsc", "lib/ia/catalogo-em-texto.ts", "lib/departamentos.ts", "lib/tipos.ts",
+  ["tsc", "lib/ia/dados/produtos.ts", "lib/ia/fluxo/produto.ts", "lib/ia/fluxo/leitor-da-frase.ts",
+   "lib/ia/fluxo/leitura.ts", "lib/ia/fluxo/sabor.ts", "lib/departamentos.ts", "lib/tipos.ts",
    "--outDir", pasta, "--module", "commonjs", "--target", "es2020",
    "--skipLibCheck", "--esModuleInterop", "--resolveJsonModule"],
   { stdio: "pipe", shell: true },
 );
-const { catalogoEmTexto, coresDaForminha } = require(join(pasta, "ia", "catalogo-em-texto.js"));
+const { produtosDaCasa } = require(join(pasta, "ia", "dados", "produtos.js"));
+const { identificarProduto } = require(join(pasta, "ia", "fluxo", "produto.js"));
+const { produtosNaFrase } = require(join(pasta, "ia", "fluxo", "leitor-da-frase.js"));
+const { vocabularioDaEtapa } = require(join(pasta, "ia", "fluxo", "leitura.js"));
+const { coresDoCardapio } = require(join(pasta, "ia", "fluxo", "sabor.js"));
 const { deptoDe, DEPARTAMENTOS } = require(join(pasta, "departamentos.js"));
 const catalogo = require("../lib/ia/dados/catalogo.json");
 
@@ -41,73 +46,96 @@ function conferir(ok, oque) {
 const semAcento = (t) => String(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 // ---------------------------------------------------------------------------
-// 1. O PROMPT NAO PODE INVENTAR SABOR.
+// 1. A IA SO OFERECE O QUE EXISTE, E ENTENDE COMO A REGIAO FALA.
 //
-// Junta todo sabor que existe no catalogo e procura, no texto do prompt, a
-// combinacao "produto de sabor" que nao exista. E o erro do chodo de calabresa.
-// ---------------------------------------------------------------------------
-console.log("== o prompt so fala do que existe ==");
-const persona = readFileSync("lib/ia/persona.ts", "utf8");
+// ESTA SECAO MUDOU DE ALVO EM 28/08/2026, E O MOTIVO IMPORTA.
+//
+// Ela lia o TEXTO do system prompt em `persona.ts` e procurava frase proibida
+// dentro dele ("chodó é o de calabresa"). Esse prompt era do cerebro antigo,
+// apagado em 26/08/2026, e a funcao que o montava ficou 170 linhas sem chamador
+// nenhum. O teste seguiu verde cobrando um texto que ninguem mais lia.
+//
+// Teste que cobra codigo morto e pior que teste nenhum: ele da a sensacao de
+// que a regra esta protegida.
+//
+// As tres coisas que ele protegia continuam valendo, e agora sao cobradas de
+// quem faz o trabalho hoje:
+//
+//   o sabor inventado   ->  o catalogo e a unica fonte de sabor, e quem le e
+//                           `saborQueFalta`; o prompt da etapa mostra a lista
+//                           que sai de `vocabularioDaEtapa`
+//   "pizza de metro"    ->  `identificarProduto` e o leitor da frase, pela
+//                           lista de apelidos da casa
+//   as cores            ->  `coresDoCardapio`, que le o catalogo
+console.log("== a IA so oferece o que existe ==");
 
-// Frases que ja nos custaram venda ou contradicao, uma por linha.
-const proibidas = [
-  ['"Chodó" é o de calabresa', "chodó de calabresa (a casa faz presunto e queijo)"],
-  ["bolo salgado (frango, calabresa", "bolo salgado de calabresa (a casa faz frango, presunto ou legumes)"],
-  ["o empadão com palmito é mais caro e só de palmito", "empadão com palmito só de palmito (existe frango com palmito)"],
-  // "pizza de metro" pode e deve aparecer, mas so como APELIDO que ela entende.
-  // O que nao pode e virar produto oferecido: a casa faz de forma 60x40 e
-  // redonda de 30 cm.
-  ["docinho, bolo, pizza de metro", "pizza de metro na lista do que a casa oferece"],
-];
-for (const [frase, oque] of proibidas) {
-  conferir(!persona.includes(frase), "o prompt nao diz: " + oque);
+// O apelido da regiao tem que chegar no produto certo: quem pede "duas pizzas
+// de metro" esta pedindo a de forma, e sem isso a Dora trata como produto que
+// nao existe.
+conferir(
+  identificarProduto("pizza de metro").produto === "pizza inteira",
+  "a Dora entende 'pizza de metro', que e como a regiao chama a de forma",
+);
+conferir(
+  produtosNaFrase("quero uma pizza de metro").includes("pizza inteira"),
+  "e entende dentro de uma frase, nao so quando vem sozinho",
+);
+
+// O vocabulario que a IA recebe em cada etapa sai do catalogo, e nao de lista
+// escrita a mao. Vazio aqui quer dizer que alguem cortou a ligacao.
+for (const etapa of ["salgado", "docinho", "bolo"]) {
+  conferir(
+    vocabularioDaEtapa(etapa).length > 5,
+    "o vocabulario da etapa do " + etapa + " vem do catalogo (" +
+      vocabularioDaEtapa(etapa).length + " nomes)",
+  );
 }
 
-// A lista de produtos no prompt tem que ser a GERADA, nao escrita a mao.
-// O apelido da regiao tem que estar ensinado: quem pede 'duas pizzas de
-// metro' esta pedindo a de forma, e sem isso a Dora trata como produto que
-// nao existe.
-conferir(/pizza de metro/i.test(persona), "a Dora entende 'pizza de metro', que e como a regiao chama a de forma");
-
+// As cores da forminha saem do catalogo, todas.
 conferir(
-  persona.includes("${catalogoEmTexto()}"),
-  "a lista de produtos do prompt vem do catalogo, nao escrita a mao",
-);
-conferir(
-  persona.includes("${coresDaForminha()}"),
-  "as cores da forminha vem do catalogo",
+  coresDoCardapio().length === catalogo.forminhas_docinho.cores.length,
+  "todas as " + catalogo.forminhas_docinho.cores.length + " cores de forminha chegam na IA",
 );
 
 // ---------------------------------------------------------------------------
-// 2. O TEXTO GERADO TEM QUE TRAZER TODO PRODUTO DO CATALOGO.
+// 2. TODO PRODUTO DO CATALOGO CHEGA NA LISTA UNICA.
 //
-// Produto que existe na tabela de preco e nao aparece pra IA e produto que ela
-// nunca vai oferecer: dinheiro parado.
+// Produto que existe na tabela de preco e nao chega na lista e produto que a IA
+// nunca vai oferecer: dinheiro parado. Antes esta secao conferia isso contra o
+// TEXTO do prompt; hoje confere contra `produtosDaCasa()`, que e por onde todo
+// o sistema pergunta.
+//
+// E esta e a guarda que teria pego o defeito da pizza: o `produto.ts` montava a
+// lista dele com quatro baldes escritos a mao e a chave `pizza` ficou de fora
+// por meses.
 // ---------------------------------------------------------------------------
 console.log("");
-console.log("== todo produto do catalogo chega na IA ==");
-const texto = semAcento(catalogoEmTexto());
+console.log("== todo produto do catalogo chega na lista unica ==");
+const naLista = new Set(produtosDaCasa().map((p) => semAcento(p.nome)));
+const naListaCurto = new Set(produtosDaCasa().map((p) => semAcento(p.nomeCurto)));
 const todos = [
   ...catalogo.salgados.frito.itens.map((i) => i.nome),
   ...catalogo.salgados.assado.itens.map((i) => i.nome),
   ...catalogo.doces.itens.map((i) => i.nome),
   ...catalogo.bolos_caseiros.itens.map((i) => i.nome),
   ...catalogo.outros_produtos.map((i) => i.nome),
-];
-const faltando = todos.filter((n) => !texto.includes(semAcento(n)));
-conferir(faltando.length === 0, "nenhum produto fica de fora" + (faltando.length ? ": " + faltando.join(", ") : ""));
-
-const sabores = [
   ...catalogo.bolos_recheados.faixas.flatMap((f) => f.sabores),
-  ...catalogo.pizza.sabores_salgados,
-  ...catalogo.pizza.sabores_doces,
+  "pizza inteira",
+  "pizza meia",
 ];
-const saborFaltando = sabores.filter((n) => !texto.includes(semAcento(n)));
-conferir(saborFaltando.length === 0, "nenhum sabor de bolo ou pizza fica de fora" + (saborFaltando.length ? ": " + saborFaltando.join(", ") : ""));
+const faltando = todos.filter((n) => {
+  const x = semAcento(n);
+  return !naLista.has(x) && !naListaCurto.has(x);
+});
+conferir(faltando.length === 0, "nenhum produto do catalogo fica de fora da lista unica" + (faltando.length ? ": " + faltando.join(", ") : ""));
 
-conferir(coresDaForminha().split(",").length === catalogo.forminhas_docinho.cores.length, "todas as cores de forminha chegam na IA");
+// E o contrario: a lista nao pode inventar produto que o catalogo nao tem.
+const nomesDoCatalogo = new Set(todos.map(semAcento));
+const inventados = produtosDaCasa()
+  .map((p) => semAcento(p.nomeCurto))
+  .filter((n) => !nomesDoCatalogo.has(n) && !semAcento("papel de arroz").includes(n));
+conferir(inventados.length === 0, "a lista unica nao inventa produto" + (inventados.length ? ": " + inventados.join(", ") : ""));
 
-// ---------------------------------------------------------------------------
 // 3. TODO PRODUTO TEM UMA COMANDA, E E A CERTA.
 //
 // Produto sem comanda cai numa generica e a cozinha nao acha. Foi o que

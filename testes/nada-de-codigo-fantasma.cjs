@@ -37,18 +37,74 @@ const fs = require("node:fs");
 const path = require("node:path");
 const raiz = path.join(__dirname, "..");
 
-const pasta = path.join(raiz, "lib/ia/fluxo");
-const arquivos = fs.readdirSync(pasta).filter((f) => f.endsWith(".ts"));
+// O CEREBRO INTEIRO, E NAO UMA PASTA ESCRITA A MAO.
+//
+// Isto varria so `lib/ia/fluxo`, e por isso deixou passar 170 linhas de codigo
+// morto em `lib/ia/persona.ts`: o system prompt do cerebro antigo, apagado em
+// 26/08/2026, que ficou sem chamador nenhum e levou junto um arquivo inteiro
+// (`catalogo-em-texto.ts`, 120 linhas) que so existia pra ele.
+//
+// Achado lendo a persona em 28/08/2026. Mais uma lista minha, e desta vez
+// dentro de um teste: o detector de codigo fantasma tinha o seu proprio ponto
+// cego escrito a mao.
+const PASTAS = ["lib/ia/fluxo", "lib/ia", "lib/ia/dados", "lib/banco"];
+const arquivos = PASTAS.flatMap((rel) => {
+  const dir = path.join(raiz, rel);
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith(".ts"))
+    .map((e) => path.join(rel, e.name));
+});
+const pasta = raiz;
 
-// Onde vale procurar por uso: o proprio fluxo, quem chama ele, e os testes.
-const ondeProcurar = [
-  ...arquivos.map((f) => path.join(pasta, f)),
-  path.join(raiz, "app/api/whatsapp/route.ts"),
-  ...fs.readdirSync(__dirname).filter((f) => f.endsWith(".cjs")).map((f) => path.join(__dirname, f)),
-];
+// ONDE VALE PROCURAR POR USO: O REPOSITORIO INTEIRO.
+//
+// Isto era uma lista de tres lugares, e ao alargar a varredura de DECLARACAO eu
+// esqueci de alargar a de USO. Na primeira execucao ele acusou doze funcoes de
+// `lib/banco` como mortas, e elas sao usadas pelo PAINEL, em `components/`.
+//
+// Falso positivo em detector e pior que buraco: quem ve doze acusacoes erradas
+// para de acreditar na decima terceira, que e verdadeira.
+const varrer = (dir, saida = []) => {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (/^(node_modules|\.next|\.git|public)$/.test(e.name)) continue;
+    const cheio = path.join(dir, e.name);
+    if (e.isDirectory()) varrer(cheio, saida);
+    else if (/\.(ts|tsx|cjs|mjs)$/.test(e.name)) saida.push(cheio);
+  }
+  return saida;
+};
+// ESTE ARQUIVO NAO CONTA COMO USO.
+//
+// A lista de pendentes logo abaixo escreve os nomes dos orfaos, e sem esta
+// linha eles passariam a ter "duas aparicoes" e sairiam da conta: o detector
+// cegava a si mesmo com a propria anotacao. Aconteceu na primeira tentativa.
+const ondeProcurar = varrer(raiz).filter((f) => !f.endsWith("nada-de-codigo-fantasma.cjs"));
 const tudo = ondeProcurar.map((f) => {
   try { return fs.readFileSync(f, "utf8"); } catch { return ""; }
 }).join(String.fromCharCode(10));
+
+// O QUE JA ESTA ACHADO E AINDA NAO FOI DECIDIDO.
+//
+// Estes quatro sao orfaos de verdade: conferidos um por um no repositorio
+// inteiro em 28/08/2026, nenhum tem uma segunda aparicao. Mas os tres arquivos
+// onde eles moram (`fatos.ts`, `conversas.ts`, `parados.ts`) sao da camada de
+// banco e AINDA NAO FORAM LIDOS linha por linha.
+//
+// Apagar codigo de arquivo que eu nao li e o oposto do que esta leitura e. Entao
+// eles ficam anotados aqui, onde nao somem de vista, ate a vez daqueles arquivos
+// chegar.
+//
+// ESTA LISTA SO PODE ENCOLHER. O teste reprova quando aparece orfao NOVO fora
+// dela, e tambem quando um daqui deixa de ser orfao sem ser tirado da lista: nos
+// dois casos alguem mexeu e a anotacao ficou pra tras.
+const PENDENTES = [
+  "RECADO_DA_EQUIPE",     // lib/ia/fatos.ts
+  "anexarFotoAoPedido",   // lib/banco/conversas.ts
+  "dispensarOrcamento",   // lib/banco/parados.ts
+  "reativarOrcamento",    // lib/banco/parados.ts
+];
+const orfaosAchados = [];
 
 const falhas = [];
 const conferidos = [];
@@ -67,11 +123,14 @@ for (const arquivo of arquivos) {
     // usa: outro arquivo, um teste, ou o proprio arquivo mais adiante.
     const vezes = (tudo.match(new RegExp("\\b" + nome + "\\b", "g")) ?? []).length;
     if (vezes <= 1) {
-      falhas.push(
-        "'" + nome + "' (" + arquivo + ") e exportado e ninguem usa: ou liga no " +
-          "fluxo, ou apaga. Codigo que nao roda nao da erro, e por isso ninguem " +
-          "descobre que ele esta errado.",
-      );
+      orfaosAchados.push(nome);
+      if (!PENDENTES.includes(nome)) {
+        falhas.push(
+          "'" + nome + "' (" + arquivo + ") e exportado e ninguem usa: ou liga no " +
+            "fluxo, ou apaga. Codigo que nao roda nao da erro, e por isso ninguem " +
+            "descobre que ele esta errado.",
+        );
+      }
     }
   }
 }
@@ -94,6 +153,16 @@ const jaCortados = ["EtapaSimplesId", "salgado_sim", "salgado_nao", "mais_sim", 
 for (const morto of jaCortados) {
   if (new RegExp("\\b" + morto + "\\b").test(codigoVivo)) {
     falhas.push("'" + morto + "' voltou ao codigo: era andaime, foi cortado em 23/08/2026");
+  }
+}
+
+// A lista de pendentes so encolhe: quem saiu de orfao tem que sair daqui junto.
+for (const p of PENDENTES) {
+  if (!orfaosAchados.includes(p)) {
+    falhas.push(
+      "'" + p + "' esta na lista de pendentes e nao e mais orfao: tire da lista, " +
+        "senao o teste passa a proteger uma anotacao velha em vez do codigo.",
+    );
   }
 }
 
