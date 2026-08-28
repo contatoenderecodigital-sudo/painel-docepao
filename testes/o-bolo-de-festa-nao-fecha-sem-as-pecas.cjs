@@ -1,11 +1,11 @@
-// O BOLO DE FESTA NAO FECHA SEM PERGUNTAR O PRATO, O TOPO E O PAPEL DE ARROZ.
+// O BOLO DE FESTA NAO FECHA SEM PERGUNTAR O TOPO E O PAPEL DE ARROZ.
 //
 // POR QUE ISTO EXISTE
 //
 // Medido em 28/08/2026, numa conversa de verdade contra a producao, sem eu
-// falar dessas tres coisas em nenhum momento:
+// falar dessas coisas em nenhum momento:
 //
-//     cliente >> boa noite, quero encomendar pra uma festa de 20 pessoas
+//     cliente >> quero encomendar pra uma festa de 20 pessoas
 //     cliente >> nao quero salgadinho, so docinho e bolo
 //     cliente >> pode ser assim
 //     cliente >> 100 brigadeiro, forminha azul
@@ -15,38 +15,49 @@
 //     padaria >> Fechando o pedido: ...
 //
 // O pedido foi pra fila com um bolo de festa de 2 kg e a cozinha sem saber se
-// leva topo, se leva papel de arroz, e em que prato vai.
+// leva topo e se leva papel de arroz.
 //
 // O topo e o item que a EQUIPE precisa orcar (o valor muda com o tema) e que
-// tem prazo de dois dias com a fornecedora. O papel de arroz custa R$ 12,00 e a
-// padaria vende. E ela chegava a AVISAR que existe, no cardapio de bolos, e
-// nunca perguntava se ele queria.
+// tem prazo de dois dias com a fornecedora. O papel custa R$ 12,00 e a padaria
+// vende. E ela chegava a AVISAR que existe, no cardapio de bolos, e nunca
+// perguntava se ele queria.
 //
 // A CAUSA: UMA ETAPA COM DUAS PERGUNTAS SE AUTO-CUMPRIA
 //
-// A conversa marca "ja perguntei" por ETAPA. A etapa do bolo faz DUAS
-// perguntas -- o sabor, e depois o prato -- entao a marca deixada pela pergunta
-// do SABOR fazia a etapa se dar por cumprida antes de o prato sair.
-//
-// E a etapa das pecas confiava na mesma marca (`jaPerguntou(p, "bolo")`), entao
-// morria junto: num pedido com bolo, a etapa do bolo SEMPRE e perguntada, logo
-// as pecas nasciam cumpridas.
+// A conversa marca "ja perguntei" por ETAPA. A etapa do bolo fazia DUAS
+// perguntas, o sabor e depois o prato, entao a marca deixada pela pergunta do
+// SABOR fazia a etapa se dar por cumprida antes de a segunda sair. E a etapa
+// das pecas confiava na mesma marca, entao morria junto: num pedido com bolo a
+// etapa do bolo SEMPRE e perguntada, logo as pecas nasciam cumpridas.
 //
 // Medido com a regra de ontem, direto na funcao:
 //
 //     em aberto  <- ninguem perguntou nada ainda
 //     CUMPRIDA   <- a padaria perguntou SO o sabor do bolo
 //
-// O conserto: a marca passa a guardar a PERGUNTA junto com a etapa ("bolo" e
-// "bolo:prato"), e cada etapa olha a marca que prova a SUA pergunta.
+// O conserto: a marca guarda a PERGUNTA junto com a etapa ("bolo" e
+// "bolo:tres"), e cada etapa olha a marca que prova a SUA pergunta.
+//
+// E DEPOIS A PERGUNTA DO PRATO SAIU, POR DECISAO DO DONO
+//
+// No mesmo dia, com a medicao na mao: o cliente ignorou as tres perguntas e
+// mandou "pode confirmar", e o pedido fechou com o prato em branco e sem aviso
+// nenhum pra equipe. A pergunta do prato nao existe no fluxograma da Kemilly e
+// ja estava anotada como decisao em aberto no ARQUITETURA.md. Entre perguntar e
+// aceitar ficar sem resposta, ou nao perguntar, ele escolheu nao perguntar: a
+// equipe decide o prato na producao, como sempre fez.
+//
+// A LEITURA DO PRATO FICOU. Quem falar "prato aberto" por conta continua sendo
+// entendido, gravado, e o prato continua saindo na comanda. Tirar a pergunta
+// nao e jogar fora o que o cliente disser.
 //
 // O QUE ELE COBRA
 //
-//   1. so o sabor perguntado -> as duas etapas continuam abertas
-//   2. o prato perguntado -> a do bolo fecha, a das pecas continua aberta
-//   3. a pergunta JUNTADA (pra quem manda tudo de uma vez) cobre as tres
-//   4. cada pergunta do bolo tem a sua chave, senao a marca volta a ser so da
-//      etapa e o defeito volta calado
+//   1. ninguem perguntou, a etapa das pecas continua aberta
+//   2. so o sabor perguntado, a do bolo fecha e a das PECAS continua aberta
+//   3. a pergunta juntada (pra quem manda tudo de uma vez) cobre as pecas
+//   4. quem ja respondeu nao e perguntado de novo
+//   5. a padaria NAO pergunta mais o prato, e AINDA le o prato que ele falar
 //
 // Roda com: node testes/o-bolo-de-festa-nao-fecha-sem-as-pecas.cjs
 const path = require("node:path");
@@ -54,74 +65,71 @@ const fs = require("node:fs");
 const { execFileSync } = require("node:child_process");
 
 const sonda = path.join(__dirname, "_sonda-pecas-do-bolo.mjs");
-fs.writeFileSync(
-  sonda,
-  [
-    "import { ROTEIRO_DA_FESTA } from '../lib/ia/fluxo/etapas.ts';",
-    "import { falaDaEtapa } from '../lib/ia/fluxo/pergunta.ts';",
-    "",
-    "const bolo = ROTEIRO_DA_FESTA.find((e) => e.id === 'bolo');",
-    "const pecas = ROTEIRO_DA_FESTA.find((e) => e.id === 'pecas_do_bolo');",
-    "",
-    "const BASE = {",
-    "  ehFesta: true, pessoas: 20, base: null, baseAceita: true, naoQuer: [], forminha: 'azul',",
-    "  dados: {}, pecas: { topo: null, papelDeArroz: null }, topoNome: null, topoIdade: null,",
-    "  escrito: null, tema: null, prato: null, ofereceu: false,",
-    "  itens: [{ produto: 'bolo brigadeiro', categoria: 'bolo_festa', qtd: 2, obs: null }],",
-    "};",
-    "",
-    "const erros = [];",
-    "const cobra = (rotulo, deu, esperado) => {",
-    "  if (deu !== esperado) erros.push(rotulo + ': deu ' + (deu ? 'CUMPRIDA' : 'em aberto') + ', esperado ' + (esperado ? 'CUMPRIDA' : 'em aberto'));",
-    "};",
-    "const com = (extra, marcas) => ({ ...BASE, ...extra, etapasJaPerguntadas: marcas });",
-    "",
-    "// 1. so o sabor: as duas continuam abertas",
-    "let p = com({}, ['bolo', 'bolo:sabor']);",
-    "cobra('so o sabor perguntado, a etapa do bolo', bolo.cumprida(p), false);",
-    "cobra('so o sabor perguntado, a etapa das pecas', pecas.cumprida(p), false);",
-    "",
-    "// 2. o prato perguntado: a do bolo fecha, a das pecas nao",
-    "p = com({}, ['bolo', 'bolo:sabor', 'bolo:prato']);",
-    "cobra('prato perguntado, a etapa do bolo', bolo.cumprida(p), true);",
-    "cobra('prato perguntado, a etapa das pecas', pecas.cumprida(p), false);",
-    "",
-    "// 3. a pergunta juntada cobre as tres",
-    "p = com({}, ['bolo', 'bolo:tres']);",
-    "cobra('pergunta juntada, a etapa do bolo', bolo.cumprida(p), true);",
-    "cobra('pergunta juntada, a etapa das pecas', pecas.cumprida(p), true);",
-    "",
-    "// 4. quem RESPONDEU nao e perguntado de novo",
-    "p = com({ prato: 'aberto', pecas: { topo: false, papelDeArroz: false } }, []);",
-    "cobra('ele ja respondeu tudo, a etapa do bolo', bolo.cumprida(p), true);",
-    "cobra('ele ja respondeu tudo, a etapa das pecas', pecas.cumprida(p), true);",
-    "",
-    "// 5. CADA PERGUNTA DO BOLO TEM A SUA CHAVE.",
-    "//",
-    "// Sem chave a marca volta a ser so da etapa, e o defeito volta calado.",
-    "const semChave = [];",
-    "// SEM SABOR o item e o generico 'bolo'; COM sabor ele ja tem nome proprio.",
-    "// E o nome do item que diz se o sabor foi escolhido, nao a marca da",
-    "// pergunta: a primeira versao deste teste usou 'bolo brigadeiro' pros dois",
-    "// e a fala ja veio a do prato, porque o sabor ja estava resolvido.",
-    "const semSabor = { ...BASE, itens: [{ produto: 'bolo', categoria: 'bolo_festa', qtd: 2, obs: null }], etapasJaPerguntadas: [] };",
-    "const falaSabor = falaDaEtapa(bolo, semSabor, 21880);",
-    "if (!/qual sabor/i.test(falaSabor.texto)) semChave.push('a primeira fala do bolo nao e a do sabor: ' + JSON.stringify(falaSabor.texto.slice(0, 60)));",
-    "else if (falaSabor.chave !== 'sabor') semChave.push('a pergunta do sabor: ' + JSON.stringify(falaSabor.chave));",
-    "",
-    "// com o sabor ja escolhido, a proxima fala da MESMA etapa e a do prato",
-    "const comSabor = { ...BASE, etapasJaPerguntadas: ['bolo', 'bolo:sabor'] };",
-    "const falaPrato = falaDaEtapa(bolo, comSabor, 21880);",
-    "if (!/prato/i.test(falaPrato.texto)) semChave.push('a segunda fala do bolo nao e a do prato: ' + JSON.stringify(falaPrato.texto.slice(0, 60)));",
-    "else if (falaPrato.chave !== 'prato') semChave.push('a pergunta do prato: ' + JSON.stringify(falaPrato.chave));",
-    "",
-    "const falaPecas = falaDaEtapa(pecas, BASE, 21880);",
-    "if (!/papel de arroz|topo/i.test(falaPecas.texto)) semChave.push('a fala das pecas nao fala de papel nem de topo: ' + JSON.stringify(falaPecas.texto.slice(0, 60)));",
-    "",
-    "console.log(JSON.stringify({ erros, semChave, falaPecas: falaPecas.texto.slice(0, 80) }));",
-  ].join("\n"),
-  "utf8",
-);
+
+const SONDA = [
+  "import { ROTEIRO_DA_FESTA } from '../lib/ia/fluxo/etapas.ts';",
+  "import { falaDaEtapa } from '../lib/ia/fluxo/pergunta.ts';",
+  "import { lerAFrase } from '../lib/ia/fluxo/leitor-da-frase.ts';",
+  "",
+  "const bolo = ROTEIRO_DA_FESTA.find((e) => e.id === 'bolo');",
+  "const pecas = ROTEIRO_DA_FESTA.find((e) => e.id === 'pecas_do_bolo');",
+  "",
+  "const BASE = {",
+  "  ehFesta: true, pessoas: 20, base: null, baseAceita: true, naoQuer: [], forminha: 'azul',",
+  "  dados: {}, pecas: { topo: null, papelDeArroz: null }, topoNome: null, topoIdade: null,",
+  "  escrito: null, tema: null, prato: null, ofereceu: false,",
+  "  itens: [{ produto: 'bolo brigadeiro', categoria: 'bolo_festa', qtd: 2, obs: null }],",
+  "};",
+  "",
+  "const erros = [];",
+  "const cobra = (rotulo, deu, esperado) => {",
+  "  if (deu !== esperado) erros.push(rotulo + ': deu ' + (deu ? 'CUMPRIDA' : 'em aberto') + ', esperado ' + (esperado ? 'CUMPRIDA' : 'em aberto'));",
+  "};",
+  "const com = (extra, marcas) => ({ ...BASE, ...extra, etapasJaPerguntadas: marcas });",
+  "",
+  "// 1. ninguem perguntou nada: as pecas ficam em aberto",
+  "cobra('ninguem perguntou, a etapa das pecas', pecas.cumprida(com({}, [])), false);",
+  "",
+  "// 2. O CORACAO DO CONSERTO: perguntar o sabor nao responde pelas pecas.",
+  "let p = com({}, ['bolo', 'bolo:sabor']);",
+  "cobra('so o sabor perguntado, a etapa do bolo', bolo.cumprida(p), true);",
+  "cobra('so o sabor perguntado, a etapa das pecas', pecas.cumprida(p), false);",
+  "",
+  "// 3. a pergunta juntada cobre as pecas",
+  "p = com({}, ['bolo', 'bolo:tres']);",
+  "cobra('pergunta juntada, a etapa das pecas', pecas.cumprida(p), true);",
+  "",
+  "// 4. quem RESPONDEU nao e perguntado de novo",
+  "p = com({ pecas: { topo: false, papelDeArroz: false } }, []);",
+  "cobra('ele ja respondeu os dois, a etapa das pecas', pecas.cumprida(p), true);",
+  "",
+  "// 5. A PERGUNTA DO PRATO SAIU, MAS A LEITURA DELE FICOU.",
+  "const problemas = [];",
+  "const PERGUNTA_O_PRATO = /prato de MDF|com tampa/i;",
+  "",
+  "for (const par of [['bolo', bolo], ['pecas_do_bolo', pecas]]) {",
+  "  for (const estado of [BASE, { ...BASE, pecas: { topo: null, papelDeArroz: false } }]) {",
+  "    const t = String(falaDaEtapa(par[1], estado, 21880).texto ?? '');",
+  "    if (PERGUNTA_O_PRATO.test(t)) problemas.push('a etapa ' + par[0] + ' ainda pergunta o prato: ' + JSON.stringify(t.slice(0, 70)));",
+  "  }",
+  "}",
+  "",
+  "// e a pergunta JUNTADA (pra quem mandou tudo de uma vez) tambem nao",
+  "const tudoDeUmaVez = { ...BASE, dados: { nome: 'Ana', data: '12/09/2026', hora: '10:00', pagamento: 'pix' } };",
+  "const juntada = String(falaDaEtapa(pecas, tudoDeUmaVez, 21880).texto ?? '');",
+  "if (PERGUNTA_O_PRATO.test(juntada)) problemas.push('a pergunta juntada ainda pede o prato: ' + JSON.stringify(juntada.slice(0, 90)));",
+  "if (!/papel de arroz/i.test(juntada) || !/topo/i.test(juntada)) problemas.push('a pergunta juntada perdeu o papel ou o topo: ' + JSON.stringify(juntada.slice(0, 90)));",
+  "",
+  "// A LEITURA continua: quem falar o prato tem o prato anotado.",
+  "for (const caso of [['pode ser no prato aberto', 'aberto'], ['manda com tampa', 'tampa']]) {",
+  "  const lido = lerAFrase(caso[0])?.prato ?? null;",
+  "  if (lido !== caso[1]) problemas.push('a leitura do prato se perdeu em ' + JSON.stringify(caso[0]) + ': ' + JSON.stringify(lido));",
+  "}",
+  "",
+  "console.log(JSON.stringify({ erros, problemas, juntada: juntada.slice(0, 110) }));",
+];
+
+fs.writeFileSync(sonda, SONDA.join("\n"), "utf8");
 
 let bruto;
 try {
@@ -133,7 +141,7 @@ try {
 }
 const r = JSON.parse(bruto.trim().split("\n").pop());
 
-console.log("A fala das pecas: " + JSON.stringify(r.falaPecas));
+console.log("A pergunta juntada: " + JSON.stringify(r.juntada));
 console.log("");
 
 const falhas = [];
@@ -146,13 +154,13 @@ const cobra = (rotulo, lista) => {
 };
 
 cobra("a etapa se deu por cumprida na hora errada", r.erros);
-cobra("a pergunta perdeu a chave que a identifica", r.semChave);
+cobra("a pergunta do prato voltou, ou a leitura dele se perdeu", r.problemas);
 
 if (falhas.length) {
   console.log("REPROVOU");
   process.exit(1);
 }
 
-console.log("ok    o prato, o topo e o papel de arroz sao perguntados antes de fechar");
+console.log("ok    o topo e o papel sao perguntados, o prato nao, e o prato dito e lido");
 console.log("");
 console.log("PASSOU");

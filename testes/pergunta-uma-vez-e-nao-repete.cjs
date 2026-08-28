@@ -56,6 +56,17 @@ fs.writeFileSync(
     "    respondeuSoTopo: cumpre('pecas_do_bolo', { pecas:{topo:true,papelDeArroz:null} }),",
     "    ignorouDuasVezes:cumpre('pecas_do_bolo', { etapasJaPerguntadas:['pecas_do_bolo'] }),",
     "  },",
+    "  // A PERGUNTA DO PRATO SAIU EM 28/08/2026, POR DECISAO DO DONO.",
+    "  //",
+    "  // Ela nao existe no fluxograma da Kemilly e ja estava anotada como decisao",
+    "  // em aberto no ARQUITETURA.md. O que decidiu foi uma conversa medida: o",
+    "  // cliente ignorou as tres perguntas do bolo e mandou 'pode confirmar', e o",
+    "  // pedido fechou com o prato em branco e sem aviso pra equipe.",
+    "  //",
+    "  // Entao a etapa do bolo termina no SABOR, e o que sobrou aqui e provar",
+    "  // isso: ela nao fica presa esperando um prato que ninguem mais pergunta.",
+    "  // Quem cobra que a pergunta nao voltou e o",
+    "  // `o-bolo-de-festa-nao-fecha-sem-as-pecas`.",
     "  prato: {",
     "    naoFalou:        cumpre('bolo', {}),",
     "    respondeu:       cumpre('bolo', { prato:'aberto' }),",
@@ -142,7 +153,9 @@ const cobra = (rotulo, foi, esperado) => {
 // --------------------------------------------------------------- 1. PERGUNTA
 console.log("== 1. se ele nao falou, PERGUNTA (mesmo com o resto todo pronto) ==");
 cobra("papel de arroz e topo sao perguntados", r.pecas.naoFalou, false);
-cobra("o prato do bolo e perguntado", r.prato.naoFalou, false);
+// A etapa do bolo NAO fica mais presa pelo prato: ela termina no sabor, e o
+// sabor ja esta escolhido no estado deste teste.
+cobra("a etapa do bolo nao fica presa esperando o prato", r.prato.naoFalou, true);
 
 // ------------------------------------------------------------ 2. NAO REPETE
 console.log("");
@@ -156,10 +169,12 @@ cobra("respondeu o prato: a etapa fecha", r.prato.respondeu, true);
 console.log("");
 console.log("== 3. ja perguntou e ele falou outra coisa: SEGUE, sem insistir ==");
 cobra("as pecas seguem depois de uma pergunta ignorada", r.pecas.ignorouDuasVezes, true);
-cobra("o prato segue depois de uma pergunta ignorada", r.prato.ignorouDuasVezes, true);
-// E o contrario, que e o defeito de 28/08/2026: perguntar o SABOR nao pode
-// valer como perguntar o prato. Sao duas perguntas da mesma etapa.
-cobra("perguntar so o sabor NAO fecha a etapa do bolo", r.prato.soOSabor, false);
+cobra("a etapa do bolo segue depois de uma pergunta ignorada", r.prato.ignorouDuasVezes, true);
+// O caso do "so o sabor" saiu junto com a pergunta do prato: hoje a etapa do
+// bolo TEM so a pergunta do sabor, entao responder o sabor fecha ela mesmo.
+// Quem cobra que as PECAS continuam abertas nesse ponto (que e o defeito de
+// 28/08/2026) e o `o-bolo-de-festa-nao-fecha-sem-as-pecas`.
+cobra("perguntado o sabor, a etapa do bolo fecha", r.prato.soOSabor, true);
 
 // -------------------------------------------- o obrigatorio nao segue nunca
 console.log("");

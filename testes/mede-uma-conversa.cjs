@@ -92,6 +92,26 @@ const FONE = process.env.FONE || "5511977770077";
     ),
   );
 
+  // O CABECALHO DO PEDIDO, E NAO SO OS ITENS.
+  //
+  // Faltava, e faltou justo quando importava: numa medicao de 28/08/2026 o
+  // cliente ignorou as tres perguntas do bolo e mandou "pode confirmar". Os
+  // itens mostravam o pedido bonito, e a pergunta que decidia se aquilo estava
+  // certo -- foi pra fila da equipe ou pra aprovacao direto? com data? com
+  // hora? -- nao tinha como ser respondida sem abrir o banco na mao.
+  //
+  // Medicao que nao mostra o cabecalho deixa passar o pedido que fecha faltando
+  // coisa, que e exatamente o que ela existe pra pegar.
+  console.log("=== O CABECALHO DO PEDIDO ===");
+  const cab = await olhar(
+    "select 'status=' || coalesce(p.status::text,'?') || '  data=' || coalesce(to_char(p.retirada_data,'DD/MM/YYYY'),'SEM DATA') " +
+      "|| '  hora=' || coalesce(p.retirada_hora::text,'SEM HORA') || '  total=R$ ' || round(coalesce(p.total_centavos,0)/100.0, 2) " +
+      "|| '  pendencia=' || case when coalesce(p.precisa_confirmacao,false) then 'SIM (' || coalesce(p.motivo_humano,'sem motivo') || ')' else 'nao' end " +
+      "|| '  esperando o cliente=' || case when coalesce(p.aguardando_cliente,false) then 'SIM' else 'nao' end " +
+      "from docepao.pedidos p join docepao.clientes c on c.id=p.cliente_id where c.telefone='" + FONE + "' order by p.criado_em desc limit 1",
+  );
+  console.log(cab.trim() || "(NADA, o pedido nao foi registrado)");
+
   console.log("=== O PEDIDO NO BANCO (pedido_itens) ===");
   // A coluna do preco e `subtotal_centavos`, e nao `preco`: escrever o nome
   // errado aqui derrubou a medicao DEPOIS da conversa inteira ter rodado, o que

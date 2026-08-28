@@ -199,14 +199,18 @@ function pediuTudoDeUmaVez(p: PedidoEmMontagem): boolean {
 /**
  * QUEM MANDOU TUDO NUMA MENSAGEM SÓ OUVE UMA PERGUNTA SÓ.
  *
- * Os três detalhes do bolo (prato, papel de arroz e topo) são perguntas
- * separadas de propósito, com botão em cada, porque a clientela da padaria
- * enxerga melhor o botão na tela. Decisão do dono em 23/08/2026.
+ * Os detalhes do bolo (papel de arroz e topo) são perguntas separadas de
+ * propósito, com botão em cada, porque a clientela da padaria enxerga melhor o
+ * botão na tela. Decisão do dono em 23/08/2026.
  *
- * Mas isso custa três turnos, e para quem escreveu o pedido inteiro numa
- * mensagem os três viram interrogatório. Medido em 26/08/2026: o cliente que
- * mandou item, data, hora, nome e pagamento de uma vez levava quatro mensagens
- * para fechar, respondendo uma pergunta de cada vez.
+ * ERAM TRÊS ATÉ 28/08/2026: o prato saiu, por decisão do dono, depois de uma
+ * conversa medida em que o cliente ignorou as três e o pedido fechou com o
+ * prato em branco. A leitura do prato ficou: se ele falar por conta, anota.
+ *
+ * Mas isso custa turnos, e para quem escreveu o pedido inteiro numa mensagem
+ * viram interrogatório. Medido em 26/08/2026: o cliente que mandou item, data,
+ * hora, nome e pagamento de uma vez levava quatro mensagens para fechar,
+ * respondendo uma pergunta de cada vez.
  *
  * Decisão do dono, no mesmo dia: *"somente nesse caso faz a opção junta as três
  * numa pergunta só"*. E ele está certo pelo motivo certo: quem escreve em bloco
@@ -218,11 +222,12 @@ function pediuTudoDeUmaVez(p: PedidoEmMontagem): boolean {
  * troca: o leitor da frase entende as três respostas escritas de uma vez, o que
  * está medido em `testes/pergunta-uma-vez-e-nao-repete.cjs`.
  */
-function falaDosTresDetalhes(p: PedidoEmMontagem): Fala | null {
+function falaDosDetalhesDoBolo(p: PedidoEmMontagem): Fala | null {
   if (!pediuTudoDeUmaVez(p)) return null;
 
+  // O PRATO SAIU DAQUI JUNTO COM A PERGUNTA DELE (28/08/2026, decisao do dono).
+  // Sobraram os dois detalhes que a padaria realmente vende.
   const falta: string[] = [];
-  if (p.prato === null) falta.push("o bolo vai no prato de MDF aberto ou na embalagem com tampa");
   if ((p.pecas?.papelDeArroz ?? null) === null) {
     // O valor sai do motor, nunca escrito à mão: é o mesmo número do cardápio.
     const preco = precoDoPapelDeArroz();
@@ -271,7 +276,7 @@ function falaDosTresDetalhes(p: PedidoEmMontagem): Fala | null {
  */
 function falaDasPecas(p: PedidoEmMontagem): Fala {
   // A pergunta juntada vem primeiro, e só existe pra quem mandou tudo de uma vez.
-  const juntas = falaDosTresDetalhes(p);
+  const juntas = falaDosDetalhesDoBolo(p);
   if (juntas) return juntas;
 
   const topo = p.pecas?.topo ?? null;
@@ -487,22 +492,24 @@ function falaDoBolo(p: PedidoEmMontagem, aviso: string): Fala {
     };
   }
 
-  // Quem mandou tudo numa mensagem ouve os três detalhes juntos, e o prato é um
-  // deles. Sem isto, ele levaria a pergunta do prato aqui e a das peças logo
-  // depois, que é o interrogatório que a pergunta juntada existe pra evitar.
-  const juntas = falaDosTresDetalhes(p);
-  if (juntas) return juntas;
-
-  return {
-    texto: "O bolo vai no prato de MDF aberto ou na embalagem com tampa?",
-    botoes: [
-      { id: "prato_aberto", titulo: "Prato aberto" },
-      { id: "prato_tampa", titulo: "Com tampa" },
-    ],
-    cardapio: null,
-    podeReescrever: true,
-    chave: "prato",
-  };
+  // A PERGUNTA DO PRATO SAIU, POR DECISAO DO DONO EM 28/08/2026.
+  //
+  // Ela nao existe no fluxograma da Kemilly, e ja estava anotada como decisao
+  // em aberto no ARQUITETURA.md. O que decidiu foi uma conversa medida contra a
+  // producao: o cliente ignorou as tres perguntas do bolo e mandou "pode
+  // confirmar", e o pedido foi pra fila com o prato em branco e sem aviso
+  // nenhum pra equipe. Entre perguntar e aceitar ficar sem resposta, ou nao
+  // perguntar, ele escolheu nao perguntar: a equipe decide o prato na producao,
+  // como sempre fez.
+  //
+  // O QUE FICOU: a LEITURA. Se o cliente falar "prato aberto" por conta dele, o
+  // leitor da frase continua entendendo, o campo continua sendo gravado e o
+  // prato continua saindo na comanda. Tirar a pergunta nao e jogar fora o que
+  // ele disser.
+  //
+  // A pergunta juntada, pra quem manda tudo de uma vez, continua existindo com
+  // os dois detalhes que sobraram: papel de arroz e topo.
+  return falaDasPecas(p);
 }
 
 /**

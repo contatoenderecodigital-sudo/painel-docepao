@@ -457,19 +457,23 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       // A versao a mao so reconhecia a palavra exata: "bolos" ou "Bolo " ja
       // passavam como se fossem sabor escolhido, e a festa fechava com um bolo
       // sem sabor nenhum pra cozinha assar.
-      temCategoria(p, "bolo") && !temGenerico(p, "bolo") &&
-      // A pergunta juntada cobre o prato E as pecas, e sai de uma etapa so.
-      // Quem ignorou ela ignorou as duas.
-      // A MARCA QUE PROVA O PRATO E A DO PRATO.
+      // A ETAPA DO BOLO TERMINA NO SABOR.
       //
-      // Aqui estava `jaPerguntouEEleNaoRespondeu(p, "bolo")`, e a etapa do bolo
-      // faz DUAS perguntas: o sabor e depois o prato. A marca deixada pela
-      // pergunta do SABOR dava a etapa por cumprida antes de o prato sair, e a
-      // pergunta do prato nunca acontecia. Medido em 28/08/2026, em conversa de
-      // verdade contra a producao.
-      (p.prato !== null ||
-        jaPerguntouEEleNaoRespondeu(p, "bolo:prato") ||
-        jaPerguntouEEleNaoRespondeu(p, "bolo:tres")),
+      // Ela tinha uma segunda pergunta, a do prato, e isso escondia um defeito:
+      // a marca de "ja perguntei" e por ETAPA, entao a marca deixada pela
+      // pergunta do SABOR dava a etapa por cumprida antes de o prato sair.
+      // Medido em 28/08/2026, em conversa de verdade contra a producao, e o
+      // efeito era o bolo de festa fechando sem prato, sem topo e sem papel de
+      // arroz.
+      //
+      // O conserto da marca por pergunta continua de pe (a `pecas_do_bolo` usa
+      // a `bolo:tres`). O que mudou depois foi a pergunta do prato SAIR, por
+      // decisao do dono no mesmo dia: ela nao existe no fluxograma da Kemilly e
+      // a equipe decide o prato na producao. A LEITURA ficou: quem falar "prato
+      // aberto" continua sendo anotado.
+      //
+      // Entao sobrou o que a etapa sempre foi de verdade: qual sabor.
+      temCategoria(p, "bolo") && !temGenerico(p, "bolo"),
     // O SABOR DO BOLO VALE FORA DA FESTA TAMBEM.
     //
     // Ate 23/08/2026 esta etapa era pulada em todo pedido que nao fosse festa,

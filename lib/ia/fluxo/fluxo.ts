@@ -171,9 +171,18 @@ const DO_BOTAO: Record<string, (e: Estado) => Estado> = {
   pag_pix: (e) => ({ ...e, dados: { ...e.dados, pagamento: "pix" } }),
   pag_cartao: (e) => ({ ...e, dados: { ...e.dados, pagamento: "cartao" } }),
   pag_dinheiro: (e) => ({ ...e, dados: { ...e.dados, pagamento: "dinheiro" } }),
-  // Como o bolo vai embalado. A dona pergunta sempre, e sao duas opcoes exatas.
-  prato_aberto: (e) => ({ ...e, prato: "aberto" }),
-  prato_tampa: (e) => ({ ...e, prato: "tampa" }),
+  // AQUI FICAVAM OS BOTOES DO PRATO, E ELES SAIRAM COM A PERGUNTA.
+  //
+  // A pergunta do prato saiu em 28/08/2026, por decisao do dono: ela nao existe
+  // no fluxograma da Kemilly, e a conversa medida mostrou o cliente ignorando as
+  // tres perguntas do bolo e o pedido fechando com o prato em branco.
+  //
+  // Botao tratado que nenhuma etapa oferece e codigo morto, e foi o
+  // `o-cliente-sempre-tem-saida` que cobrou: "ou some, ou alguem esqueceu de
+  // oferecer".
+  //
+  // A LEITURA DO PRATO CONTINUA no `leitor-da-frase`: quem escrever "prato
+  // aberto" ou "com tampa" tem o prato anotado e ele sai na comanda.
 
   // A oferta: aceitar leva pra etapa da familia, recusar segue pros dados. Nos
   // tres casos ela fica marcada como feita, porque oferta repetida vira empurra.

@@ -182,10 +182,16 @@ if (r.primeira.podeReescrever !== false) {
 // Sem isto ele levava QUATRO mensagens pra fechar, respondendo prato, papel e
 // topo um de cada vez, depois de ja ter mandado item, data, hora, nome e
 // pagamento. Medido na bateria dos cinco jeitos.
+//
+// ERAM TRES DETALHES ATE 28/08/2026: o PRATO saiu, por decisao do dono, depois
+// de uma conversa medida contra a producao em que o cliente ignorou as tres
+// perguntas e o pedido fechou com o prato em branco e sem aviso pra equipe. A
+// pergunta nao existe no fluxograma da Kemilly, e a equipe decide o prato na
+// producao. A LEITURA do prato ficou: quem falar, e anotado.
 // ---------------------------------------------------------------------------
 console.log("");
 console.log("Pergunta juntada:  " + (r.juntada.texto || "").slice(0, 96));
-for (const parte of ["prato", "papel de arroz", "topo"]) {
+for (const parte of ["papel de arroz", "topo"]) {
   if (!new RegExp(parte, "i").test(String(r.juntada.texto ?? ""))) {
     falhas.push("a pergunta juntada nao fala de " + parte + ": " + r.juntada.texto);
   }
@@ -198,12 +204,17 @@ if (!/12/.test(String(r.juntada.texto ?? ""))) {
 if (r.juntada.podeReescrever !== false) {
   falhas.push("a pergunta juntada tem valor e ainda assim pode ser reescrita pela IA");
 }
-// Com o prato ja respondido sobram DOIS, e dois ainda vale juntar.
+// O prato saiu da pergunta juntada: os dois que sobraram continuam vindo
+// juntos, e o prato nao aparece nem quando ele ja respondeu.
 if (!/papel de arroz/i.test(String(r.juntadaComPrato.texto ?? "")) || !/topo/i.test(String(r.juntadaComPrato.texto ?? ""))) {
-  falhas.push("com o prato respondido, os outros dois deviam vir juntos: " + r.juntadaComPrato.texto);
+  falhas.push("os dois detalhes deviam vir juntos: " + r.juntadaComPrato.texto);
 }
 if (/prato/i.test(String(r.juntadaComPrato.texto ?? ""))) {
-  falhas.push("a juntada esta perguntando de novo o prato que ele ja respondeu");
+  falhas.push("a pergunta do prato voltou pra juntada: " + r.juntadaComPrato.texto);
+}
+// E ela tambem nao pergunta o prato pra quem NAO falou dele.
+if (/prato de MDF|com tampa/i.test(String(r.juntada.texto ?? ""))) {
+  falhas.push("a pergunta do prato voltou: " + r.juntada.texto);
 }
 // Faltando UM so, juntar nao ajuda: a pergunta normal, com botao, e melhor.
 if (ids(r.juntadaSoUm) !== "topo_sim,topo_nao") {
