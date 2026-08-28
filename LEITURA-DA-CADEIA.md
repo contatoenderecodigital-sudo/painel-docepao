@@ -27,8 +27,8 @@ Isto sobrevive à compactação. A minha memória de ter lido, não.
 
 | # | arquivo | faixas lidas | estado |
 | --- | --- | --- | --- |
-| 1 | `app/api/whatsapp/route.ts` | 1-949, sem buraco | **INTEIRO** — 6 defeitos |
-| 2 | `lib/ia/fluxo/atender.ts` | 1-316, sem buraco | **INTEIRO** — 3 defeitos |
+| 1 | `app/api/whatsapp/route.ts` | 1-960, DUAS passadas | **INTEIRO** — 10 defeitos |
+| 2 | `lib/ia/fluxo/atender.ts` | 1-330, DUAS passadas | **INTEIRO** — 6 defeitos |
 | 3 | `lib/ia/fluxo/fluxo.ts` | 520-740 | falta o resto (~1450) |
 | 4 | `lib/ia/fluxo/leitura.ts` | os trechos que mexi | falta quase tudo |
 | 5 | `lib/ia/fluxo/pensar-openai.ts` | 28-120 | falta o resto |
@@ -46,6 +46,29 @@ Isto sobrevive à compactação. A minha memória de ter lido, não.
 631-635 e 768-789 tinham escapado, e só apareceram quando o dono perguntou pela
 terceira vez se eu tinha lido mesmo. Foram lidas antes de a linha acima ser
 escrita.
+
+---
+
+## A PRIMEIRA PASSADA NAO VALE
+
+A segunda leitura dos arquivos 1 e 2 achou SETE defeitos que a primeira tinha
+lido e nao visto, entre eles uma mensagem do cliente sendo jogada fora e um bolo
+de 2 kg virando 2 pecas.
+
+O tamanho do pedaco lido nao era o problema: a linha do defeito estava dentro do
+que eu li. O problema e a pergunta. Na primeira passada eu leio pra entender o
+que o codigo FAZ; so na segunda eu leio pra achar onde ele QUEBRA.
+
+**Um arquivo so conta como lido depois da passada com estas cinco perguntas,
+feitas em CADA linha:**
+
+```
+isso e uma lista e eu peguei so o primeiro?
+esse import e usado mesmo?
+esse comentario ainda descreve o que esta embaixo dele?
+esse valor esta decidido em outro lugar tambem?
+esse return larga alguma coisa pra tras?
+```
 
 ---
 
@@ -143,3 +166,26 @@ promessa. Ninguém ficava sabendo de nada.
 Dizia que o arquivo atendia "só os números de `FLUXO_NOVO_PARA`" e que "sem a
 variável preenchida, ninguém cai aqui". O código faz o contrário, e a função
 vinte linhas abaixo já dizia "quem cai no fluxo novo: todo mundo".
+
+
+### Segunda passada no arquivo 1
+
+- **mensagem perdida**: `messages?.[0]` pegava so a primeira do pacote; a
+  segunda nao era respondida nem salva
+- **bolo de 2 kg virando 2 pecas** ao devolver o pedido pro rascunho
+- **sete imports mortos**
+- **dois comentarios mentindo**
+
+### Segunda passada no arquivo 2
+
+- **o aceite do valor podia sumir calado** quando o registro falhava
+- **beco sem saida** na pergunta do valor: repetia pra sempre, sem chamar ninguem
+- **um import morto**
+
+### O QUE AINDA NAO FOI MEDIDO
+
+O laco das mensagens foi reestruturado (dois `return` viraram `continue`, o
+fecho do bloco mudou). O compilador NAO pega erro de logica ai, e os 43 testes
+nao cobrem o webhook: eles testam o cerebro, nao a porta de entrada.
+
+Falta mandar UMA mensagem de verdade depois do deploy e ver se ela responde.
