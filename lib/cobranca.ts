@@ -23,9 +23,15 @@ import { salvarMensagem } from "./banco/conversas";
 import { listarParados, cobrancasDoCliente, AUTOR_COBRANCA, HORAS_PARA_COBRAR } from "./banco/parados";
 import { enviarTexto } from "./whatsapp/api";
 import { brl } from "./tipos";
+import { MSG_PADRAO as MODELO_PADRAO, montarTextoDaCobranca } from "./cobranca-texto";
 
-export const MSG_PADRAO =
-  "Oi {nome}! Seu orçamento ainda está de pé. Quer confirmar? É só responder por aqui.";
+// O TEXTO MORA NO `cobranca-texto.ts`, e nao aqui.
+//
+// Este arquivo fala com o banco, entao a tela nao pode importar dele sem
+// arrastar o driver do Postgres pro bundle. E a tela PRECISA do mesmo texto:
+// ela mostra a preview do que vai ser enviado, e escrevia essa preview a mao,
+// diferente do que sai daqui.
+export const MSG_PADRAO = MODELO_PADRAO;
 
 // Mais que isso vira perseguição.
 const MAX_COBRANCAS = 2;
@@ -90,12 +96,8 @@ function agoraEmSaoPaulo(): number {
   return h * 60 + m;
 }
 
-function montarTexto(modelo: string, nome: string, totalCentavos: number): string {
-  const primeiro = (nome || "").trim().split(/\s+/)[0] || "tudo bem";
-  return (modelo || MSG_PADRAO)
-    .replaceAll("{nome}", primeiro)
-    .replaceAll("{total}", brl(totalCentavos));
-}
+// A montagem tambem: a tela usa a MESMA funcao pra mostrar a preview.
+const montarTexto = montarTextoDaCobranca;
 
 // ---------------------------------------------------------------------------
 // A RODADA.

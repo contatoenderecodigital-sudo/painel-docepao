@@ -2992,3 +2992,34 @@ acabou de clicar em salvar  ->  "nada foi salvo, e o que você digitou continua 
 Quem clicou em salvar precisa saber que **nada foi salvo** e que **não vai perder
 o que digitou** ao resolver o login. Um texto só, genérico, faria a pessoa
 recarregar e perder o trabalho.
+
+
+## 63. A prévia da cobrança mostrava uma mensagem e o cliente recebia outra
+
+O mais sério do `components/` até aqui, porque é **mensagem saindo em nome da
+dona**, com valor, pra quem parou de responder. Ela olha a prévia, aprova, e
+manda.
+
+| | texto |
+| --- | --- |
+| a dona aprovava (JSX) | *"Seu orçamento da padaria **pro dia 12/09** ainda está de pé, **no valor de R$ 218,80**"* |
+| o cliente recebia (servidor) | *"Seu orçamento ainda está de pé. Quer confirmar?"* |
+
+Três diferenças, e a do meio é a que dói: o `MSG_PADRAO` **não tem `{total}`**.
+Ela aprovava uma cobrança com o valor em destaque e saía uma sem valor nenhum.
+
+E se ela tivesse **personalizado** o texto (a tela tem o editor, e o modelo chega
+até ela como `msgCobranca`), a prévia **ignorava** e mostrava o texto fixo do
+JSX.
+
+### O padrão estava escrito em três lugares
+
+No `cobranca.ts` (o que manda), no valor default da prop do componente, e na
+prévia em JSX.
+
+Agora sai de `lib/cobranca-texto.ts`, **puro de propósito**: o `cobranca.ts` fala
+com o banco, e a tela importando dele arrastaria o driver do Postgres pro bundle
+do navegador. É o mesmo cuidado que já estava registrado no projeto do parceiro.
+
+O teste mede a montagem rodando (modelo com e sem `{total}`, primeiro nome, nome
+vazio, modelo vazio) e cobra que os dois lados usem a mesma função.

@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Pedido } from "@/lib/tipos";
 import { brl, formatarTelefoneBR, linkWhatsapp } from "@/lib/tipos";
+import { MSG_PADRAO, montarTextoDaCobranca } from "@/lib/cobranca-texto";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import AjudaInfo from "@/components/AjudaInfo";
 import PedidoDetalhe from "@/components/PedidoDetalhe";
@@ -89,7 +90,9 @@ export default function Recuperar({
   nomeNegocio = "",
   agora,
   stats,
-  msgCobranca = "Oi {nome}! Seu orçamento ainda está de pé. Quer confirmar? É só responder por aqui.",
+  // O padrao sai do modulo unico: escrever o texto aqui a mao era a terceira
+  // copia da mesma mensagem no repositorio.
+  msgCobranca = MSG_PADRAO,
   cobrancaAtiva = false,
 }: {
   parados: Pedido[];
@@ -528,11 +531,16 @@ export default function Recuperar({
           <h3 className="tracking-tight-apple text-lg font-bold text-cream mt-1 mb-4">
             Mensagem que vai pro WhatsApp de {preview.clienteNome}
           </h3>
-          <div className="bg-[#f4e8d6] border border-black/5 rounded-xl rounded-tl-sm px-4 py-3 text-sm text-[#4a1020] leading-relaxed">
-            Oi {preview.clienteNome.split(" ")[0]}! Seu orçamento da {nomeNegocio || "padaria"}
-            {dataBr(preview.retiradaData) ? ` pro dia ${dataBr(preview.retiradaData)}` : ""} ainda
-            está de pé, no valor de <b>{brl(preview.totalCentavos)}</b>. Quer confirmar? É só
-            responder por aqui.
+          {/* A PREVIEW MOSTRA O TEXTO QUE VAI DE VERDADE.
+              Aqui a mensagem era escrita a mao no JSX, e falava do nome da
+              padaria, do dia da retirada e do VALOR EM DESTAQUE. O modelo que o
+              servidor manda nao tem nenhum dos tres: a dona aprovava uma
+              mensagem com o valor e o cliente recebia uma sem valor nenhum. E se
+              ela tivesse personalizado o texto, a preview ignorava.
+              Agora sai do mesmo `montarTextoDaCobranca` do servidor, com o
+              modelo que ela salvou. */}
+          <div className="bg-[#f4e8d6] border border-black/5 rounded-xl rounded-tl-sm px-4 py-3 text-sm text-[#4a1020] leading-relaxed whitespace-pre-wrap">
+            {montarTextoDaCobranca(template, preview.clienteNome, preview.totalCentavos)}
           </div>
           <div className="text-[11px] text-cream/55 mt-2">
             Enviado como template (mensagem iniciada pela empresa fora das 24h).
