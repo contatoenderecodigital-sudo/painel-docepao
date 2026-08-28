@@ -35,7 +35,7 @@ Isto sobrevive à compactação. A minha memória de ter lido, não.
 | 6 | `lib/ia/fluxo/produto.ts` | 1-227, sem buraco | **INTEIRO** — 3 defeitos |
 | 7 | `lib/ia/fluxo/sabor.ts` | 1-295, sem buraco | **INTEIRO** — 6 defeitos |
 | 8 | `lib/ia/fluxo/etapas.ts` | 1-626, sem buraco | **INTEIRO** — 5 defeitos |
-| 9 | `lib/ia/fluxo/pergunta.ts` | 538-660 | falta quase tudo |
+| 9 | `lib/ia/fluxo/pergunta.ts` | 1-786, sem buraco | **INTEIRO** — 6 defeitos |
 | 10 | `lib/ia/fluxo/fechar.ts` | 60-152 | falta o resto |
 | 11 | `lib/ia/orcamento.ts` | 450-510 | falta quase tudo |
 | 12 | `lib/banco/montagem.ts` | 114-155, 368-392 | falta quase tudo |
@@ -672,3 +672,61 @@ padaria vende. O comentário ficou, descrevendo código que sumiu.
   inteira: não é o botão que fica feio, é o cliente que não recebe nada. Os 9
   botões estão dentro, e agora ficam cobrados.
 - **A recusa e o genérico**, com as duas iscas provadas.
+
+---
+
+## 9. `lib/ia/fluxo/pergunta.ts` — o que a padaria fala
+
+786 linhas. **Seis defeitos**, e o primeiro eu tinha acabado de criar.
+
+### A fala discordava da etapa, e a conversa travava
+
+Uma hora depois de eu trocar o genérico da etapa do bolo por `ehNomeDeFamilia`,
+li este arquivo e encontrei a **mesma comparação à mão** que eu tinha tirado de
+lá, viva aqui:
+
+    pedido com "bolos"
+    a etapa diz  >> ainda falta o sabor
+    a fala diz   >> "O bolo vai no prato de MDF aberto ou com tampa?"
+
+O cliente responde o prato, a etapa continua aberta, e a padaria pergunta o
+prato de novo. Beco sem saída.
+
+E não dava pra consertar só um lado: **antes das duas mudarem**, "bolos" fechava
+a etapa e a cozinha recebia bolo sem sabor. Trocar um pelo outro seria trocar de
+defeito. É o argumento mais concreto que eu tenho pra ler a cadeia inteira antes
+de dar qualquer coisa por pronta.
+
+### A peça de cardápio era uma lista minha, e incompleta
+
+`pecaDoCardapio` comparava o começo do nome do produto. Por isso precisava de
+`"empadao"` **e** `"empadão"` como dois casos (não tirava acento), deixava
+`bolos-caseiros.jpg` sem chamador nenhum, e não alcançava o docinho, que tem
+produto de nove sabores.
+
+Agora a chave é o **grupo** que a dona já usa no catálogo. O teste cobra que
+todo grupo com produto de mais de seis sabores tenha peça, senão a padaria
+despeja 31 sabores numa mensagem de WhatsApp e ninguém lê.
+
+### O nome do papel de arroz, escrito à mão em dois lugares
+
+Ele é o único adicional do bolo com preço de tabela, e o nome ia solto nas duas
+chamadas ao motor. Se a dona renomear o item, os dois param de achar e **o preço
+some da pergunta sem erro nenhum**: `preco > 0` vira falso e a frase sai sem
+valor.
+
+### Mais três
+
+- **três blocos de comentário órfãos** empilhados, cada um descrevendo uma
+  função que estava mais abaixo
+- **oitava cópia do normalizador**, inline dentro de `valorDe`
+- o `default:` do `switch` devolve fala vazia: etapa nova entra **muda** e
+  ninguém percebe. Hoje as onze estão cobertas, e agora ficam cobradas
+
+### Teste novo
+
+`a-pergunta-nao-discorda-da-etapa.cjs`, 114 falas medidas nos dois roteiros. Ele
+cobra quatro coisas que nenhum compilador vê: etapa aberta sem fala, a fala
+contradizendo a etapa, botão acima de 20 caracteres ou mais de três por mensagem
+(a Meta recusa a mensagem inteira e o cliente não recebe nada), e peça de
+cardápio citada que não existe em disco. Duas iscas provadas.

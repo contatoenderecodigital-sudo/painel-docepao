@@ -24,6 +24,24 @@ import { saudacaoDaHora, prazoDoTopoAperta } from "./falas-do-cliente";
 import { saboresQueFaltam, saboresAlemDoLimite, coresDoCardapio } from "./sabor";
 import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia } from "./generico";
 import { paraOMotor } from "./cotar";
+import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
+import { semAcento } from "../texto";
+
+/**
+ * O NOME DO PAPEL DE ARROZ, NUMA LINHA SO.
+ *
+ * Ele e o unico adicional do bolo com preco de tabela, e o nome estava escrito
+ * a mao em DOIS lugares pra pedir o preco ao motor. Se a dona renomear o item
+ * no cardapio, os dois param de achar e o preco simplesmente SOME da pergunta,
+ * sem erro nenhum: `preco > 0` vira falso e a frase sai sem o valor.
+ */
+const PAPEL_DE_ARROZ = "papel de arroz";
+
+/** Quanto custa o papel de arroz hoje, pelo motor. Zero quer dizer nao achei. */
+function precoDoPapelDeArroz(): number {
+  const cot = motorPadrao.cotarPorItens([{ item: PAPEL_DE_ARROZ, qtd: 1 }]);
+  return Number(cot.linhas?.[0]?.subtotal ?? 0);
+}
 
 export type Fala = {
   /** O que a padaria diz. Uma pergunta so, sempre. */
@@ -89,7 +107,106 @@ function falaDosDados(p: PedidoEmMontagem): { texto: string; botoes: Fala["botoe
   };
 }
 
-/** O resumo que vai antes de confirmar: item por item, com a conta fechada. */
+/**
+ * A PEÇA DE CARDÁPIO DESTE PRODUTO, quando a lista de sabor é longa demais
+ * para caber numa frase.
+ *
+ * As peças são as que existem em `public/cardapios/`. Só as famílias com lista
+ * longa precisam disso: quem tem dois ou três sabores cabe no texto, e ler a
+ * resposta escrita é mais rápido para o cliente do que abrir uma imagem.
+ */
+/**
+ * A PECA DE CADA GRUPO DA CASA.
+ *
+ * Isto e fiacao de verdade: os arquivos de `public/cardapios/` sao oito imagens
+ * fisicas e nao tem como sair do catalogo. O que da pra fazer, e o que foi
+ * feito, e a chave ser o GRUPO que a dona ja usa, e nao um pedaco do nome do
+ * produto.
+ *
+ * A versao anterior comparava o comeco do nome, e por isso:
+ *
+ *   - precisava de "empadao" E "empadão" como dois casos, porque nao tirava
+ *     acento;
+ *   - deixava `bolos-caseiros.jpg` sem chamador nenhum;
+ *   - nao alcancava o docinho, que tem produto de nove sabores.
+ *
+ * Grupo que nao esta aqui e grupo cujo cardapio nao existe em imagem, e o teste
+ * cobra que todo grupo com produto de mais de seis sabores esteja.
+ */
+const CARDAPIO_DO_GRUPO: Record<string, string> = {
+  "salgado-festa": "salgados",
+  "docinho-festa": "docinhos",
+  "bolo-festa": "bolos-festa",
+  "bolo-caseiro": "bolos-caseiros",
+  pizza: "pizza",
+  // Calzone e pizza fechada, e mora na mesma peca.
+  calzone: "pizza",
+  "torta-fria": "tortas-empadao",
+  empadao: "tortas-empadao",
+  "torta-doce": "tortas-empadao",
+  cupcake: "cupcakes-franciscano",
+  franciscano: "cupcakes-franciscano",
+  pao: "cucas-paes",
+  cuca: "cucas-paes",
+};
+
+function pecaDoCardapio(produto: string): string | null {
+  const p = produtoNoComeco(produto) ?? produtoPorNome(produto);
+  if (!p) return null;
+  return CARDAPIO_DO_GRUPO[p.grupo] ?? null;
+}
+
+function pediuTudoDeUmaVez(p: PedidoEmMontagem): boolean {
+  return Boolean(p.dados?.data && p.dados?.hora && p.dados?.nome && p.dados?.pagamento);
+}
+
+/**
+ * QUEM MANDOU TUDO NUMA MENSAGEM SÓ OUVE UMA PERGUNTA SÓ.
+ *
+ * Os três detalhes do bolo (prato, papel de arroz e topo) são perguntas
+ * separadas de propósito, com botão em cada, porque a clientela da padaria
+ * enxerga melhor o botão na tela. Decisão do dono em 23/08/2026.
+ *
+ * Mas isso custa três turnos, e para quem escreveu o pedido inteiro numa
+ * mensagem os três viram interrogatório. Medido em 26/08/2026: o cliente que
+ * mandou item, data, hora, nome e pagamento de uma vez levava quatro mensagens
+ * para fechar, respondendo uma pergunta de cada vez.
+ *
+ * Decisão do dono, no mesmo dia: *"somente nesse caso faz a opção junta as três
+ * numa pergunta só"*. E ele está certo pelo motivo certo: quem escreve em bloco
+ * está mostrando que não quer pingue-pongue, e quem responde picado já está no
+ * ritmo de troca curta, onde o botão ajuda.
+ *
+ * O sinal é o mesmo `jaTemOsDados` que existia antes, usado ao contrário: ele
+ * pulava as perguntas, e agora junta. Perde o botão nesse caminho, e vale a
+ * troca: o leitor da frase entende as três respostas escritas de uma vez, o que
+ * está medido em `testes/pergunta-uma-vez-e-nao-repete.cjs`.
+ */
+function falaDosTresDetalhes(p: PedidoEmMontagem): Fala | null {
+  if (!pediuTudoDeUmaVez(p)) return null;
+
+  const falta: string[] = [];
+  if (p.prato === null) falta.push("o bolo vai no prato de MDF aberto ou na embalagem com tampa");
+  if ((p.pecas?.papelDeArroz ?? null) === null) {
+    // O valor sai do motor, nunca escrito à mão: é o mesmo número do cardápio.
+    const preco = precoDoPapelDeArroz();
+    falta.push("quer papel de arroz com a foto impressa" + (preco > 0 ? " (" + brl(preco) + ")" : ""));
+  }
+  if ((p.pecas?.topo ?? null) === null) falta.push("e quer topo de bolo");
+
+  // Um só faltando não precisa de pergunta juntada: a pergunta normal, com
+  // botão, é melhor.
+  if (falta.length < 2) return null;
+
+  return {
+    texto: "Só faltam os detalhes do bolo: " + falta.join(", ") + "?",
+    botoes: [],
+    cardapio: null,
+    // Tem valor de tabela dentro, então a IA não reescreve.
+    podeReescrever: false,
+  };
+}
+
 /**
  * TOPO E PAPEL DE ARROZ, UMA PERGUNTA DE CADA VEZ.
  *
@@ -113,76 +230,6 @@ function falaDosDados(p: PedidoEmMontagem): { texto: string; botoes: Fala["botoe
  * Foi o medo do dono que desenhou isso: "numa pergunta so e mais real, mas meu
  * medo e ela errar". Perguntar junto e cobrar no codigo resolve os dois lados.
  */
-/**
- * QUEM MANDOU TUDO NUMA MENSAGEM SÓ OUVE UMA PERGUNTA SÓ.
- *
- * Os três detalhes do bolo (prato, papel de arroz e topo) são perguntas
- * separadas de propósito, com botão em cada, porque a clientela da padaria
- * enxerga melhor o botão na tela. Decisão do dono em 23/08/2026.
- *
- * Mas isso custa três turnos, e para quem escreveu o pedido inteiro numa
- * mensagem os três viram interrogatório. Medido em 26/08/2026: o cliente que
- * mandou item, data, hora, nome e pagamento de uma vez levava quatro mensagens
- * para fechar, respondendo uma pergunta de cada vez.
- *
- * Decisão do dono, no mesmo dia: *"somente nesse caso faz a opção junta as três
- * numa pergunta só"*. E ele está certo pelo motivo certo: quem escreve em bloco
- * está mostrando que não quer pingue-pongue, e quem responde picado já está no
- * ritmo de troca curta, onde o botão ajuda.
- *
- * O sinal é o mesmo `jaTemOsDados` que existia antes, usado ao contrário: ele
- * pulava as perguntas, e agora junta. Perde o botão nesse caminho, e vale a
- * troca: o leitor da frase entende as três respostas escritas de uma vez, o que
- * está medido em `testes/pergunta-uma-vez-e-nao-repete.cjs`.
- */
-/**
- * A PEÇA DE CARDÁPIO DESTE PRODUTO, quando a lista de sabor é longa demais
- * para caber numa frase.
- *
- * As peças são as que existem em `public/cardapios/`. Só as famílias com lista
- * longa precisam disso: quem tem dois ou três sabores cabe no texto, e ler a
- * resposta escrita é mais rápido para o cliente do que abrir uma imagem.
- */
-function pecaDoCardapio(produto: string): string | null {
-  const t = String(produto || "").toLowerCase();
-  if (t.startsWith("pizza") || t.startsWith("calzone")) return "pizza";
-  if (t.startsWith("cupcake") || t.startsWith("franciscano")) return "cupcakes-franciscano";
-  if (t.startsWith("torta") || t.startsWith("empadao") || t.startsWith("empadão")) return "tortas-empadao";
-  if (t.startsWith("cuca")) return "cucas-paes";
-  return null;
-}
-
-function pediuTudoDeUmaVez(p: PedidoEmMontagem): boolean {
-  return Boolean(p.dados?.data && p.dados?.hora && p.dados?.nome && p.dados?.pagamento);
-}
-
-/** Os três detalhes do bolo numa pergunta só, para quem já mandou o resto. */
-function falaDosTresDetalhes(p: PedidoEmMontagem): Fala | null {
-  if (!pediuTudoDeUmaVez(p)) return null;
-
-  const falta: string[] = [];
-  if (p.prato === null) falta.push("o bolo vai no prato de MDF aberto ou na embalagem com tampa");
-  if ((p.pecas?.papelDeArroz ?? null) === null) {
-    // O valor sai do motor, nunca escrito à mão: é o mesmo número do cardápio.
-    const cot = motorPadrao.cotarPorItens([{ item: "papel de arroz", qtd: 1 }]);
-    const preco = Number(cot.linhas?.[0]?.subtotal ?? 0);
-    falta.push("quer papel de arroz com a foto impressa" + (preco > 0 ? " (" + brl(preco) + ")" : ""));
-  }
-  if ((p.pecas?.topo ?? null) === null) falta.push("e quer topo de bolo");
-
-  // Um só faltando não precisa de pergunta juntada: a pergunta normal, com
-  // botão, é melhor.
-  if (falta.length < 2) return null;
-
-  return {
-    texto: "Só faltam os detalhes do bolo: " + falta.join(", ") + "?",
-    botoes: [],
-    cardapio: null,
-    // Tem valor de tabela dentro, então a IA não reescreve.
-    podeReescrever: false,
-  };
-}
-
 function falaDasPecas(p: PedidoEmMontagem): Fala {
   // A pergunta juntada vem primeiro, e só existe pra quem mandou tudo de uma vez.
   const juntas = falaDosTresDetalhes(p);
@@ -205,8 +252,7 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
     // Papel de arroz e o unico adicional do bolo com preco de tabela. Escrever
     // "R$ 12" aqui na mao seria mais um numero pra divergir do cardapio no dia
     // em que a dona mudar. Por ter valor, esta fala nao passa pela reescrita.
-    const cot = motorPadrao.cotarPorItens([{ item: "papel de arroz", qtd: 1 }]);
-    const preco = Number(cot.linhas?.[0]?.subtotal ?? 0);
+    const preco = precoDoPapelDeArroz();
     return {
       texto:
         "E papel de arroz, com a foto impressa no bolo?" +
@@ -361,8 +407,24 @@ function falaDoDocinho(p: PedidoEmMontagem, aviso: string): Fala {
  * as opcoes sao exatamente duas e a resposta e fechada.
  */
 function falaDoBolo(p: PedidoEmMontagem, aviso: string): Fala {
+  // O GENERICO E O MESMO GENERICO DA ETAPA. AS DUAS CAMADAS TEM QUE CONCORDAR.
+  //
+  // Aqui estava `produto.toLowerCase() !== "bolo"`, a mesma comparacao a mao que
+  // a etapa do bolo tinha. Quando a etapa passou a usar `ehNomeDeFamilia`, em
+  // 28/08/2026, esta ficou pra tras e as duas discordaram. Medido:
+  //
+  //   pedido com "bolos"
+  //   a etapa diz  >> ainda falta o sabor
+  //   a fala diz   >> "O bolo vai no prato de MDF aberto ou com tampa?"
+  //
+  // O cliente responde o prato, a etapa continua aberta, e a padaria pergunta o
+  // prato de novo. Beco sem saida, e ele so aparece quando as duas camadas sao
+  // lidas juntas.
+  //
+  // Antes das duas mudarem, "bolos" fechava a etapa e a cozinha recebia bolo sem
+  // sabor. Trocar um pelo outro seria trocar de defeito.
   const temSabor = p.itens.some(
-    (i) => String(i.categoria || "").startsWith("bolo") && String(i.produto).trim().toLowerCase() !== "bolo",
+    (i) => String(i.categoria || "").startsWith("bolo") && !ehNomeDeFamilia(i.produto),
   );
 
   if (!temSabor) {
@@ -457,6 +519,7 @@ function falaDaOferta(p: PedidoEmMontagem): Fala {
   };
 }
 
+/** O resumo que vai antes de confirmar: item por item, com a conta fechada. */
 function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
   // CADA LINHA COM O SEU VALOR, IGUAL A COMANDA.
   //
@@ -480,12 +543,10 @@ function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
   // nome quando o motor pular algum item que ele nao conhece.
   const linhasDoMotor = cot.linhas ?? [];
   const valorDe = (produto: string, posicao: number) => {
-    const semAc = (t: string) =>
-      String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
     if (linhasDoMotor.length === p.itens.length) return linhasDoMotor[posicao];
-    const alvo = semAc(produto);
+    const alvo = semAcento(produto);
     return linhasDoMotor.find((l) => {
-      const nome = semAc(String(l.item));
+      const nome = semAcento(String(l.item));
       return nome === alvo || nome.endsWith(" " + alvo) || nome.startsWith(alvo + " ");
     });
   };
