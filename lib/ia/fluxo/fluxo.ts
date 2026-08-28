@@ -472,7 +472,20 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
   if (l.aniversariante?.nome) novo.topoNome = String(l.aniversariante.nome).trim();
   if (l.aniversariante?.idade) novo.topoIdade = String(l.aniversariante.idade).trim();
   if (l.tema) novo.tema = String(l.tema).trim();
-  if (l.forminha) novo.forminha = String(l.forminha).trim();
+  // AQUI HAVIA `novo.forminha = l.forminha` CRU, E ELE APAGAVA O QUE VINHA ANTES.
+  //
+  // Esta linha rodava vinte antes do bloco que decide a cor de verdade, e o
+  // bloco compara a cor nova com A QUE JA ESTAVA. So que a que ja estava tinha
+  // acabado de ser sobrescrita aqui, entao a comparacao era sempre com ela
+  // mesma e a regra "lembrar nao e trocar" nunca disparava.
+  //
+  // Medido em 28/08/2026, na terceira conversa seguida: a montagem guardava
+  // "rosa e azul" e o pedido fechado gravava "rosa". Era a MESMA regra que eu ja
+  // tinha escrito duas vezes, derrubada por uma atribuicao esquecida acima dela.
+  //
+  // A atribuicao era redundante desde sempre: o bloco abaixo faz o mesmo
+  // trabalho, e melhor.
+
   // AS CORES VALEM PRO PEDIDO TODO, E TODAS ELAS.
   //
   // Regra do dono, 24/08/2026: uma ou mais cores, e nunca perguntar cor por
