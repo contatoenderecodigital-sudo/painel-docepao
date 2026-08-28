@@ -48,13 +48,10 @@
 // ============================================================================
 
 import { produtosDaCasa } from "../dados/produtos";
+import { semAcento } from "../texto";
 
-const semAcMin = (t: unknown) =>
-  String(t ?? "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
+// O mesmo normalizador de todo mundo.
+const semAcMin = (t: unknown) => semAcento(String(t ?? ""));
 
 /**
  * O que a Doce Pão não faz, e como o cliente escreve cada coisa.

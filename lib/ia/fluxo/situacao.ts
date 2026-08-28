@@ -33,7 +33,18 @@
 //  equipe em vez de inventar.
 // ============================================================================
 
-export type SituacaoDaConversa = "reclamacao" | "cancelar" | "status";
+/**
+ * AS TRES SITUACOES, EM ARRAY E NAO SO EM TIPO.
+ *
+ * O array existe porque quem recebe a resposta do modelo precisa CONFERIR em
+ * tempo de execucao: uniao de tipo o compilador apaga, e o que chega do modelo e
+ * texto. Mesmo motivo do `SOBRE_O_QUE`.
+ *
+ * Havia tres declaracoes desta lista: aqui, no tipo `Leitura` e escrita a mao no
+ * limpador do `pensar-openai.ts`.
+ */
+export const SITUACOES = ["reclamacao", "cancelar", "status"] as const;
+export type SituacaoDaConversa = (typeof SITUACOES)[number];
 
 export type RespostaDaSituacao = { texto: string; precisaHumano: boolean };
 

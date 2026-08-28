@@ -49,8 +49,8 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 
 | | |
 | --- | --- |
-| arquivos lidos inteiros | **19** |
-| defeitos consertados | **111** |
+| arquivos lidos inteiros | **25** |
+| defeitos consertados | **116** |
 | testes no portão | **59**, todos verdes |
 | `tsc` | limpo |
 | cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |
@@ -67,7 +67,7 @@ ordem de importância, está na tabela do `LEITURA-DA-CADEIA.md`. Os próximos:
 | --- | --- | --- |
 | `lib/ia/persona.ts` | 223 | o jeito de falar |
 | `lib/ia/texto.ts` | 178 | **eu escrevi nesta sessão e nunca reli.** Foi lá que eu introduzi o diminutivo que comia "docinho" |
-| os menores do fluxo | ~900 | `generico`, `restricao`, `dizer`, `base`, `situacao`, `cotar`, `apelidos`, `catalogo-em-texto` |
+| `lib/ia/persona.ts` + `catalogo-em-texto.ts` + `apelidos.ts` | 456 | o jeito de falar, o catálogo virando texto, e os apelidos |
 | banco e infra | 2.281 | `pedidos`, `conversas`, `negocios`, `atendimentos`, `db`, `tipos` |
 
 ---

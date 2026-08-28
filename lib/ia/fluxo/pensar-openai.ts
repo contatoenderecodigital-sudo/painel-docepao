@@ -29,7 +29,7 @@
 // ============================================================================
 
 import OpenAI from "openai";
-import { SOBRE_O_QUE, type Leitura } from "./leitura";
+import { SOBRE_O_QUE, SITUACOES, type Leitura } from "./leitura";
 import { ETAPAS_DA_FESTA } from "./etapas";
 import type { Pensar } from "./fluxo";
 
@@ -210,7 +210,7 @@ export function pensarComOpenAI(
         if (typeof lido.pecas.papelDeArroz === "boolean") pec.papelDeArroz = lido.pecas.papelDeArroz;
         if (Object.keys(pec).length) limpo.pecas = pec;
       }
-      if (lido.situacao === "reclamacao" || lido.situacao === "cancelar" || lido.situacao === "status") {
+      if ((SITUACOES as readonly string[]).includes(String(lido.situacao))) {
         limpo.situacao = lido.situacao;
       }
       // O QUE VEM DE FORA E CONFERIDO CONTRA A LISTA, E NAO SO TIPADO.

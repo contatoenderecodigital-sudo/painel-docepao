@@ -35,6 +35,7 @@
 
 import type OpenAI from "openai";
 import type { Fala } from "./pergunta";
+import { COMO_VAI } from "./falas-do-cliente";
 
 const MODELO = process.env.OPENAI_MODEL_FALA || "gpt-4.1-mini";
 
@@ -102,6 +103,20 @@ export async function dizerComJeito(
             "A mensagem a reescrever: " + JSON.stringify(texto),
         },
       ],
+    }, {
+      // O TURNO TEM 60 SEGUNDOS, E ESTA E A SEGUNDA CHAMADA DE IA DELE.
+      //
+      // O SDK da OpenAI vem com 10 minutos de timeout e 2 tentativas, e nada
+      // aqui dizia o contrario. A primeira chamada (a leitura, no
+      // `pensar-openai.ts`) ja foi corrigida em 28/08/2026 pelo mesmo motivo, e
+      // esta ficou pra tras: uma reescrita travada mata o turno DEPOIS de a IA
+      // ja ter sido cobrada duas vezes, e o cliente nao recebe nada.
+      //
+      // Aqui o prazo e mais curto que o da leitura: reescrever e enfeite, e o
+      // texto do codigo ja esta pronto e correto. Estourar aqui nao perde
+      // resposta nenhuma, so o jeito de falar.
+      timeout: 8000,
+      maxRetries: 0,
     });
 
     registrar?.({
@@ -127,7 +142,12 @@ export async function dizerComJeito(
     // quer?" e UMA pergunta com um cumprimento na frente, e a guarda estava
     // barrando isso: sobrava sempre a mesma frase do codigo, que e justamente o
     // robotismo que a reescrita existe pra evitar.
-    const semSaudacao = saiu.replace(/(tudo bem|tudo bom|como vai|como voc[êe] est[áa])\s*\?/gi, "");
+    // A lista de saudacao mora com quem cumprimenta. Esta era a terceira copia
+    // dela, e ja tinha uma entrada a mais que as outras duas ("como voce esta").
+    const semSaudacao = COMO_VAI.reduce(
+      (t, c) => t.replace(new RegExp(c + "\\s*\\?", "gi"), ""),
+      saiu.replace(/como voc[êe] est[áa]\s*\?/gi, ""),
+    );
     if ((semSaudacao.match(/\?/g) ?? []).length > 1) {
       console.warn("[fala] a reescrita fez duas perguntas; mandei o texto do codigo:", saiu.slice(0, 80));
       return texto;

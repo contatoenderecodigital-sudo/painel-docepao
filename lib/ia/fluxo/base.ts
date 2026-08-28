@@ -33,6 +33,7 @@
 import { motorPadrao } from "../orcamento";
 import catalogo from "../dados/catalogo.json";
 import type { PedidoEmMontagem } from "./etapas";
+import { formasDoCliente } from "../texto";
 
 export type Base = {
   salgados: number;
@@ -41,9 +42,21 @@ export type Base = {
   totalCentavos: number;
 };
 
-/** O que entra na base: tudo, menos o que ele dispensou. */
+/**
+ * O que entra na base: tudo, menos o que ele dispensou.
+ *
+ * A RECUSA E LIDA DO JEITO QUE ELE ESCREVE, e esta era a segunda copia da mesma
+ * regra: a primeira, na etapa, ja tinha sido consertada em 28/08/2026 e esta
+ * ficou pra tras comparando a palavra crua. Medido, numa festa de 20 pessoas:
+ *
+ *   naoQuer ["salgado"]     ->  a base tira os 200 salgados
+ *   naoQuer ["salgadinho"]  ->  a base continua com os 200, R$ 200 a mais
+ *
+ * O cliente dizia que nao queria e recebia a proposta com aquilo dentro.
+ */
 function oQueEleQuer(p: PedidoEmMontagem): { salgado: boolean; doce: boolean; bolo: boolean } {
-  const recusou = (o: string) => p.naoQuer.some((x) => new RegExp(o, "i").test(x));
+  const recusou = (o: string) =>
+    p.naoQuer.some((x) => formasDoCliente(x).some((f) => new RegExp(o, "i").test(f)));
   return {
     salgado: !recusou("salgado"),
     doce: !recusou("docinho|doce"),

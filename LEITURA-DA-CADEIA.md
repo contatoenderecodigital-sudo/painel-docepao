@@ -1041,14 +1041,14 @@ eram 15. Sobram **27, com 5.744 linhas**, e há peça central ali.
 | 18 | `lib/ia/fluxo/informacao.ts` | 253 | **INTEIRO** — 6 defeitos |
 | 19 | `lib/ia/persona.ts` | 223 | não lido |
 | 20 | `lib/ia/texto.ts` | 178 | não lido (**eu escrevi nesta sessão**) |
-| 21 | `lib/ia/fluxo/generico.ts` | 170 | não lido |
-| 22 | `lib/ia/fluxo/restricao.ts` | 161 | não lido |
-| 23 | `lib/ia/fluxo/dizer.ts` | 147 | não lido |
-| 24 | `lib/ia/fluxo/base.ts` | 140 | não lido |
+| 21 | `lib/ia/fluxo/generico.ts` | 170 | **INTEIRO** |
+| 22 | `lib/ia/fluxo/restricao.ts` | 161 | **INTEIRO** |
+| 23 | `lib/ia/fluxo/dizer.ts` | 147 | **INTEIRO** |
+| 24 | `lib/ia/fluxo/base.ts` | 140 | **INTEIRO** |
 | 25 | `lib/ia/catalogo-em-texto.ts` | 120 | não lido |
 | 26 | `lib/ia/dados/apelidos.ts` | 112 | não lido |
-| 27 | `lib/ia/fluxo/situacao.ts` | 87 | não lido |
-| 28 | `lib/ia/fluxo/cotar.ts` | 49 | não lido |
+| 27 | `lib/ia/fluxo/situacao.ts` | 87 | **INTEIRO** |
+| 28 | `lib/ia/fluxo/cotar.ts` | 49 | **INTEIRO** |
 | — | banco e infra (9 arquivos) | 2.281 | não lidos |
 | — | fora do cérebro (3 arquivos) | 530 | não lidos |
 
@@ -1353,3 +1353,67 @@ produtos. Ele cobra três coisas, e a terceira é a que impede o conserto de vir
 defeito: **o número da resposta tem que ser o número do cardápio**. Responder
 mais não pode significar responder diferente do que a casa cobra. Duas iscas
 provadas.
+
+---
+
+## 19 a 24. Os seis pequenos do fluxo — 754 linhas
+
+`generico` 170, `restricao` 161, `dizer` 147, `base` 140, `situacao` 87,
+`cotar` 49. **Cinco defeitos**, e três deles são a segunda metade de conserto que
+eu já tinha feito noutro arquivo.
+
+### "Qual **uns bolos** você quer?"
+
+`perguntaDaFamilia` devolvia a palavra CRUA que o cliente digitou, e o portão
+aceita plural, artigo e diminutivo:
+
+    "bolos"      ->  "Qual bolos você quer?"
+    "uns bolos"  ->  "Qual uns bolos você quer?"
+    "doces"      ->  "Qual doces você quer?"
+
+O mesmo defeito já tinha sido consertado no fechamento com `nomeDaFamilia`, e
+esta é a outra porta: a pergunta da etapa da confirmação.
+
+### A recusa da base, pela segunda vez
+
+`base.ts` tinha a mesma comparação de palavra crua que a etapa tinha. Medido,
+numa festa de 20 pessoas:
+
+    naoQuer ["salgado"]     ->  a base tira os 200 salgados
+    naoQuer ["salgadinho"]  ->  a base continua com os 200, R$ 200 a mais
+
+O cliente dizia que não queria e recebia a proposta com aquilo dentro.
+
+### O timeout da IA, pela segunda vez
+
+A reescrita da fala não tinha timeout, igual à leitura antes do arquivo 5. É a
+**segunda** chamada de IA do turno: uma trava aqui mata o turno depois de a IA
+já ter sido cobrada duas vezes.
+
+Aqui o prazo ficou mais curto (8s, sem repetição): reescrever é enfeite, o texto
+do código já está pronto e correto, e estourar não perde resposta nenhuma — só o
+jeito de falar.
+
+### Três declarações da mesma lista de situações
+
+`"reclamacao" | "cancelar" | "status"` estava no tipo `Leitura`, no `situacao.ts`
+e conferida à mão no limpador da IA. Virou um array (`SITUACOES`), pelo mesmo
+motivo do `SOBRE_O_QUE`: união de tipo o compilador apaga, e o que chega do
+modelo é texto.
+
+### A terceira lista de saudação
+
+`dizer.ts` tinha a sua, com uma entrada a mais que as outras duas.
+
+### E o detector pegou uma barra minha
+
+Ao escrever o conserto acima eu montei uma regex com `"\s*"` de uma barra só
+dentro de aspas, que é exatamente o que o `barra-comida-dentro-de-aspas` existe
+pra pegar. Ele reprovou na hora. **Quinta vez nesta sessão**, e a quinta vez que
+uma defesa escrita antes segurou.
+
+### Dois arquivos conferidos e CERTOS
+
+`restricao.ts` (só a cópia do normalizador; o comportamento está certo nos onze
+casos medidos, inclusive o `0% lactose` que a casa faz de verdade) e `cotar.ts`
+e `situacao.ts`, sem defeito nenhum.

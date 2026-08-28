@@ -79,7 +79,8 @@ export function mandouRecomecar(fala: string): boolean {
  * regra do dono manda evitar.
  */
 const CUMPRIMENTOS = ["bom dia", "boa tarde", "boa noite", "ola", "oi", "opa"];
-const COMO_VAI = ["tudo bem", "tudo bom", "como vai"];
+/** Exportada porque a reescrita da fala tambem precisa saber o que e saudacao. */
+export const COMO_VAI = ["tudo bem", "tudo bom", "como vai"];
 
 /**
  * QUEM ATENDE CUMPRIMENTA PRIMEIRO.

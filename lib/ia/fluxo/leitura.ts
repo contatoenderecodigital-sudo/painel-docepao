@@ -34,6 +34,10 @@
 
 import type { EtapaId, PedidoEmMontagem } from "./etapas";
 import { semAcento, semArtigo, formasDoCliente } from "../texto";
+// A lista das tres situacoes mora com quem RESPONDE cada uma. Havia tres
+// declaracoes dela: aqui, no `situacao.ts` e conferida a mao no limpador da IA.
+import { SITUACOES, type SituacaoDaConversa } from "./situacao";
+export { SITUACOES, type SituacaoDaConversa };
 import { APELIDOS } from "../dados/apelidos";
 import {
   produtosDaCasa, produtoNoComeco, produtoPorNome, gruposDaCasa, CATEGORIAS_DE_BOLO,
@@ -117,7 +121,7 @@ export type Leitura = {
    * responde se souber. Ate 24/08/2026 quem escrevia "meu pao veio queimado"
    * caia no fluxo de pedido e recebia oferta de docinho.
    */
-  situacao?: "reclamacao" | "cancelar" | "status";
+  situacao?: SituacaoDaConversa;
   /**
    * ELE SO PERGUNTOU, NAO PEDIU.
    *

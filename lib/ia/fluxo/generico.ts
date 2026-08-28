@@ -46,27 +46,16 @@
 import { produtosDaCasa } from "../dados/produtos";
 import { formasDoCliente, semAcento } from "../texto";
 
-// O NOME CHEGA DO JEITO QUE O CLIENTE FALOU, E "bolos" E "bolo".
-//
-// Aqui era a setima copia do normalizador de texto, e ela so tirava acento:
-// a busca depois e por chave exata, entao qualquer plural, artigo ou
-// diminutivo errava. Medido em 28/08/2026:
-//
-//   ehNomeDeFamilia("bolo")   ->  true
-//   ehNomeDeFamilia("bolos")  ->  false
-//
-// E o efeito era a etapa do bolo se dar por cumprida com "bolos" no lugar do
-// sabor: a festa fechava e a cozinha recebia um bolo sem saber o que assar.
-//
-// `comoOCardapioEscreve` e a mesma reducao que o portao da etapa e a recusa da
-// familia ja usam.
+// O nome so tira acento e baixa a caixa. Quem entende plural, artigo e
+// diminutivo e `formasDoCliente`, usada nas buscas logo abaixo: aqui o texto
+// so precisa ficar comparavel.
 const limpo = (t: unknown) => semAcento(String(t ?? ""));
 
 /**
  * Os nomes de família, e de que categoria são os produtos de cada uma.
  *
- * A mesma lista que a montagem conhece em `lib/banco/montagem.ts`, mais a
- * pizza, que nunca tinha entrado em lugar nenhum.
+ * A montagem tinha uma copia disto e nao tem mais: ela pergunta pra ca. O
+ * comentario abaixo conta a historia das tres listas que existiam.
  *
  * `salgado frito` e `salgado assado` NÃO estão aqui de propósito: os dois têm
  * preço próprio de tabela (R$ 1,00 e R$ 1,25, o sabor não muda o valor) e a
@@ -163,7 +152,18 @@ export function opcoesDaFamilia(produto: unknown): string[] {
 export function perguntaDaFamilia(produto: unknown): string | null {
   const opcoes = opcoesDaFamilia(produto);
   if (!opcoes.length) return null;
-  const nome = limpo(produto);
+  // A PADARIA FALA CERTO, MESMO QUANDO O CLIENTE ESCREVE TORTO.
+  //
+  // Aqui ia a palavra CRUA que ele digitou, e o portao aceita plural, artigo e
+  // diminutivo. Medido em 28/08/2026:
+  //
+  //   "bolos"      ->  "Qual bolos voce quer?"
+  //   "uns bolos"  ->  "Qual uns bolos voce quer?"
+  //   "doces"      ->  "Qual doces voce quer?"
+  //
+  // O mesmo defeito ja tinha sido consertado no fechamento, com `nomeDaFamilia`,
+  // e esta e a outra porta: a pergunta da etapa da confirmacao.
+  const nome = nomeDaFamilia(produto) ?? limpo(produto);
   if (opcoes.length > 4) return "Qual " + nome + " você quer?";
   const lista = opcoes.slice(0, -1).join(", ") + " ou " + opcoes[opcoes.length - 1];
   return "Qual " + nome + " você quer: " + lista + "?";
