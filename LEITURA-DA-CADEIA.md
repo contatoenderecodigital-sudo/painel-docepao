@@ -3023,3 +3023,49 @@ do navegador. É o mesmo cuidado que já estava registrado no projeto do parceir
 
 O teste mede a montagem rodando (modelo com e sem `{total}`, primeiro nome, nome
 vazio, modelo vazio) e cobra que os dois lados usem a mesma função.
+
+
+## 64. Conferido e sem defeito: a tabela de unidades da tela da equipe
+
+O `PedidoMontado.tsx` tem duas tabelas escritas à mão: qual unidade cada
+categoria aceita, e o rótulo de cada uma. É lista minha, e a regra da casa é
+clara sobre isso.
+
+Medi antes de mexer:
+
+```
+86 produtos do cardapio, nenhum com unidade que a tela recusa
+nenhuma categoria do `categoriaDoPedido` que a tela nao conheca
+```
+
+**Concorda hoje.** Então não havia o que consertar, e o que faltava era alguém
+avisando no dia em que divergir.
+
+### Por que virou teste e não conserto
+
+Trocar a tabela por uma derivada do cardápio mudaria a **tela**: a ordem do
+seletor, o rótulo de cada categoria, quais aparecem. Mexer em tela sem medida é
+como eu criei três defeitos neste mesmo dia.
+
+O risco real é o de sempre: a dona cadastra um produto vendido por quilo numa
+categoria que a tela só aceita "un", a equipe não consegue reproduzir o item, e a
+unidade errada vira preço errado no papel. O teste pega isso no dia.
+
+**E ele lê a tabela do próprio arquivo**, em vez de eu copiar ela pro teste. É a
+lição do item 56: copiar é medir a cópia.
+
+## Varredura dirigida no `components/`, e o que ela NÃO achou
+
+Depois de ler os arquivos de risco, varri as 8.129 linhas atrás dos dois padrões
+que mais renderam no dia:
+
+| padrão | o que achou |
+| --- | --- |
+| mensagem pro cliente escrita na tela | **1** (a prévia da cobrança, item 63) |
+| lista de produto ou categoria escrita à mão | **1** (a tabela de unidades, e ela concorda) |
+
+O resto dos resultados eram rótulos de tela ("Retirada", "A IA pediu a equipe"),
+que não são mensagem enviada nem regra de negócio.
+
+Registrar o que a varredura **não** achou vale tanto quanto o que achou: sem
+isso, a próxima leitura repete a mesma busca sem saber que ela já foi feita.
