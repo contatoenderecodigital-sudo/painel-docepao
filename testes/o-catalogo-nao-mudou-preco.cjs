@@ -39,7 +39,26 @@ execFileSync(
    "--skipLibCheck", "--esModuleInterop", "--resolveJsonModule"],
   { stdio: "pipe", shell: true },
 );
-const { cotarPorItens } = require(join(pasta, "orcamento.js"));
+// ONDE O `tsc` LARGA O ARQUIVO DEPENDE DO QUE ELE IMPORTA.
+//
+// Isto era `join(pasta, "orcamento.js")` cravado. No dia em que o
+// `orcamento.ts` passou a importar `lib/tipos.ts`, a raiz comum virou `lib/` e
+// o compilado foi pra `pasta/ia/orcamento.js`: o teste quebrou com "Cannot find
+// module" por causa de um import em OUTRO arquivo. Procurar e o certo -- o
+// teste nao tem que adivinhar a arvore que o compilador montou.
+const acharCompilado = (dir, nome) => {
+  for (const e of require("node:fs").readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) {
+      const achado = acharCompilado(p, nome);
+      if (achado) return achado;
+    } else if (e.name === nome) return p;
+  }
+  return null;
+};
+const compilado = acharCompilado(pasta, "orcamento.js");
+if (!compilado) throw new Error("o tsc nao gerou orcamento.js em " + pasta);
+const { cotarPorItens } = require(compilado);
 const catalogo = require("../lib/ia/dados/catalogo.json");
 const foto = require("./fotos/precos-antes-da-padronizacao.json");
 

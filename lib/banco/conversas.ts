@@ -9,6 +9,7 @@
 
 import { query, queryUm, transacao } from "./db";
 import type { Mensagem, PedidoParaGravar } from "./tipos-da-conversa";
+import { unidadeDoItem } from "../tipos";
 export type { Mensagem } from "./tipos-da-conversa";
 
 const LIMITE_HISTORICO = 40; // ultimas N mensagens que a IA enxerga. 20 truncava conversa
@@ -231,7 +232,7 @@ export async function registrarPedido(
     unitCentavos: Math.round(l.unit * 100),
     subtotalCentavos: Math.round(l.subtotal * 100),
     obs: l.obs ?? null,
-    unidade: l.unidade ?? "un",
+    unidade: unidadeDoItem(l.unidade),
   }));
   const totalCentavos = itens.length
     ? itens.reduce((s, i) => s + i.subtotalCentavos, 0)
@@ -387,35 +388,6 @@ export async function salvarFotoPendente(
   );
 }
 
-// Foto já ligada a um pedido específico (ex: teste no /testar, que registra o
-// pedido e anexa a imagem na mesma requisição).
-export async function anexarFotoAoPedido(
-  negocioId: string,
-  pedidoId: string,
-  clienteId: string | null,
-  dadosBase64: string,
-  mime: string,
-): Promise<void> {
-  await query(
-    `insert into pedido_fotos (negocio_id, cliente_id, pedido_id, dados, mime)
-     values ($1, $2, $3, $4, $5)`,
-    [negocioId, clienteId, pedidoId, dadosBase64, mime || "image/jpeg"],
-  );
-}
-
-// A imagem de um pedido pra rota que serve a foto (escopada por negócio).
-// Pega a mais recente caso haja mais de uma.
-/**
- * AS FOTOS QUE O CLIENTE MANDOU PASSAM A SER DO PEDIDO.
- *
- * Toda imagem que chega no WhatsApp ja era salva, mas ficava com o pedido em
- * branco. Quando o pedido fechava, ninguem fazia essa ligacao: a foto aparecia
- * na tela do pedido em montagem e sumia das abas de aprovacao e de pedidos,
- * justamente onde a equipe confere o bolo antes de produzir.
- *
- * Gruda TODAS as pendentes, nao so a ultima: o cliente manda duas ou tres fotos
- * de referencia e todas valem pra quem vai fazer a peca.
- */
 /**
  * O QUE O CLIENTE FALOU E AINDA NAO FOI RESPONDIDO.
  *
@@ -443,6 +415,17 @@ export async function falasSemResposta(negocioId: string, clienteId: string): Pr
   return linhas.map((l) => String(l.conteudo || "").trim()).filter(Boolean);
 }
 
+/**
+ * AS FOTOS QUE O CLIENTE MANDOU PASSAM A SER DO PEDIDO.
+ *
+ * Toda imagem que chega no WhatsApp ja era salva, mas ficava com o pedido em
+ * branco. Quando o pedido fechava, ninguem fazia essa ligacao: a foto aparecia
+ * na tela do pedido em montagem e sumia das abas de aprovacao e de pedidos,
+ * justamente onde a equipe confere o bolo antes de produzir.
+ *
+ * Gruda TODAS as pendentes, nao so a ultima: o cliente manda duas ou tres fotos
+ * de referencia e todas valem pra quem vai fazer a peca.
+ */
 export async function grudarFotosNoPedido(
   negocioId: string,
   clienteId: string,
@@ -457,6 +440,8 @@ export async function grudarFotosNoPedido(
   return r.length;
 }
 
+// A imagem de um pedido pra rota que serve a foto (escopada por negócio).
+// Pega a mais recente caso haja mais de uma.
 export async function buscarFotoPedido(
   negocioId: string,
   pedidoId: string,

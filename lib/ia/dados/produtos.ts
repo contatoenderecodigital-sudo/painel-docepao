@@ -32,6 +32,7 @@
 
 import catalogo from "./catalogo.json";
 import { semAcento } from "../texto";
+import { unidadeDoItem } from "../../tipos";
 
 /** Onde o pedido é produzido. Fala da dona, áudio de 29/07/2026. */
 export type Bancada = "padeiro" | "confeitaria" | "salgadeiro";
@@ -349,7 +350,7 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
     põe({
       nome: o.nome,
       preco: Number(o.preco),
-      unidade: (o.unidade === "kg" ? "kg" : "un") as "un" | "kg",
+      unidade: unidadeDoItem(o.unidade),
       categoria: String(o.categoria ?? "outro"),
       grupo: grupoDeOutros(o),
       sabores,

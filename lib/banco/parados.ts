@@ -22,6 +22,7 @@
 import { query, queryUm } from "./db";
 import { cotarPorItens } from "@/lib/ia/orcamento";
 import type { ItemPedido, Pedido } from "@/lib/tipos";
+import { unidadeDoItem } from "../tipos";
 
 // Dois relógios, de propósito.
 //
@@ -85,7 +86,7 @@ function precificar(itens: ItemMontado[]): { linhas: ItemPedido[]; totalCentavos
         unitCentavos: 0,
         subtotalCentavos: 0,
         obs: i.obs ?? null,
-        unidade: i.unidade ?? "un",
+        unidade: unidadeDoItem(i.unidade),
       })),
       totalCentavos: 0,
     };
@@ -98,7 +99,7 @@ function precificar(itens: ItemMontado[]): { linhas: ItemPedido[]; totalCentavos
     unitCentavos: Math.round(l.unit * 100),
     subtotalCentavos: Math.round(l.subtotal * 100),
     obs: l.obs ?? itens[n]?.obs ?? null,
-    unidade: l.unidade ?? itens[n]?.unidade ?? "un",
+    unidade: unidadeDoItem(l.unidade || itens[n]?.unidade),
   }));
   // O total sai da soma das linhas em centavos, nunca do total em reais: é o
   // mesmo cuidado do pedido fechado, senão a tela diverge do cupom por um

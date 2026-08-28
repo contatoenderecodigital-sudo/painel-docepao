@@ -2,6 +2,7 @@
 // vez de deixar a equipe digitar na mão. Digitar na mão erra o nome (e nome
 // errado não casa com a tabela de preço) e esquece o sabor.
 import catalogo from "@/lib/ia/dados/catalogo.json";
+import { unidadeDoItem } from "@/lib/tipos";
 
 export const dynamic = "force-static";
 
@@ -58,7 +59,7 @@ function montar(): Opcao[] {
         : o.unidade === "kg"
           ? "por_quilo"
           : "por_unidade";
-    por(o.nome, cat, doIrmao(o.nome, o.sabores), o.unidade === "kg" ? "kg" : "un");
+    por(o.nome, cat, doIrmao(o.nome, o.sabores), unidadeDoItem(o.unidade));
   }
   // A pizza tem os sabores numa estrutura propria do cardapio. Sem eles a
   // equipe digitava o sabor na mao no campo de observacao.

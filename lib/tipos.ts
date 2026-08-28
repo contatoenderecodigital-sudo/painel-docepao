@@ -19,6 +19,31 @@ export type ItemPedido = {
   unidade?: "un" | "kg";
 };
 
+// A UNIDADE DO ITEM SO PODE SER "un" OU "kg", E QUEM DECIDE ISSO E UMA
+// FUNCAO SO.
+//
+// A mesma pergunta estava respondida de SEIS jeitos diferentes, em seis
+// arquivos, e so dois deles estavam certos:
+//
+//     produtos.ts    o.unidade === "kg" ? "kg" : "un"        certo
+//     fechar.ts      l.unidade === "kg" ? "kg" : "un"        certo
+//     conversas.ts   l.unidade ?? "un"                       grava o que vier
+//     pedidos.ts     (i.unidade as "un" | "kg") ?? "un"      o cast lava o dado
+//     parados.ts     l.unidade ?? itens[n]?.unidade ?? "un"  o "" tapa o padrao
+//     resultados.ts  x.unidade || "un"                       so metade
+//
+// Os quatro de baixo deixam passar. O `??` so troca `null` e `undefined`, entao
+// uma unidade em branco no banco continua em branco; e o `as` nao converte
+// nada, so cala o TypeScript, entao "KG" ou "kg " chegam na comanda como se
+// fossem tipo valido. A conta que decide se o item e vendido por peso le esse
+// campo: unidade errada e preco errado no papel que vai pra cozinha.
+//
+// Achado na leitura da camada de banco, 28/08/2026: o defeito nao era nenhum
+// dos seis, era existirem seis.
+export function unidadeDoItem(bruto: unknown): "un" | "kg" {
+  return String(bruto ?? "").trim().toLowerCase() === "kg" ? "kg" : "un";
+}
+
 export type FormaPagamento = "pix" | "dinheiro" | "cartao" | "pago";
 
 // Historico do cliente REGISTRADO PELO SISTEMA (a partir do inicio do uso).

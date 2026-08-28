@@ -31,6 +31,7 @@
 
 import { query, queryUm } from "./db";
 import type { Periodo, Resultados, Kpi, PontoSerie, ProdutoVenda, ClienteVenda } from "../resultados";
+import { unidadeDoItem } from "../tipos";
 
 const TZ = "America/Sao_Paulo";
 const MIN_POR_RESPOSTA = 1.5;
@@ -295,7 +296,7 @@ export async function agregar(
     produto: x.produto,
     qtd: Number(x.qtd) || 0,
     centavos: Number(x.centavos) || 0,
-    unidade: x.unidade || "un",
+    unidade: unidadeDoItem(x.unidade),
   }));
 
   // Quando chegam as mensagens (e quando a padaria precisa estar pronta).

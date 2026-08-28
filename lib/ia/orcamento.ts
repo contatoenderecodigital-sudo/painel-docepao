@@ -10,6 +10,7 @@ import catalogo from "./dados/catalogo.json";
 import { produtosDaCasa } from "./dados/produtos";
 import rendimentoJson from "./dados/rendimento.json";
 import { semAcento, afirmouOuNegou, cercaDaPalavra } from "./texto";
+import { unidadeDoItem } from "../tipos";
 
 /**
  * O TERMO FOI CITADO, E NAO NEGADO?
@@ -343,7 +344,7 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
       const q = Number(qtd) || 0;
       const subtotal = ref.preco * q;
       total += subtotal;
-      linhas.push({ item: ref.nome, categoria: ref.categoria, qtd: q, unit: ref.preco, subtotal, obs: obs || undefined, unidade: ref.unidade ?? "un" });
+      linhas.push({ item: ref.nome, categoria: ref.categoria, qtd: q, unit: ref.preco, subtotal, obs: obs || undefined, unidade: unidadeDoItem(ref.unidade) });
     }
 
     // Papel de arroz citado só na observação do bolo é papel de arroz não
@@ -457,7 +458,7 @@ export function formatarOrcamento(c: Cotacao, titulo = "Orçamento", paraOClient
   L.push(titulo);
   L.push("".padEnd(28, "."));
   for (const l of c.linhas) {
-    const q = (l.unidade ?? "un") === "kg" ? `${String(l.qtd).replace(".", ",")} kg` : `${l.qtd}x`;
+    const q = unidadeDoItem(l.unidade) === "kg" ? `${String(l.qtd).replace(".", ",")} kg` : `${l.qtd}x`;
     const detalhe = paraOCliente && l.obs ? ` (${String(l.obs).trim()})` : "";
     L.push(`${q} ${l.item}${detalhe}: ${brl(l.subtotal)}`);
   }

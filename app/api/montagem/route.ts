@@ -3,6 +3,7 @@
 import { NextRequest } from "next/server";
 import { lerSessao } from "@/lib/auth";
 import { bancoConfigurado } from "@/lib/banco/db";
+import { unidadeDoItem } from "@/lib/tipos";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
           produto: l.item,
           categoria: dela?.categoria || l.categoria,
           qtd: l.qtd,
-          unidade: dela?.unidade || l.unidade || "un",
+          unidade: unidadeDoItem(dela?.unidade || l.unidade),
           obs: dela?.obs ?? l.obs ?? null,
           unitCentavos: Math.round(l.unit * 100),
           subtotalCentavos: Math.round(l.subtotal * 100),

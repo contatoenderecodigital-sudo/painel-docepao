@@ -7,6 +7,7 @@
 
 import { query, queryUm, transacao } from "./db";
 import type { Pedido, PedidoStatus, ItemPedido } from "../tipos";
+import { unidadeDoItem } from "../tipos";
 
 type LinhaFila = {
   id: string;
@@ -61,7 +62,7 @@ function mapear(l: LinhaFila): Pedido {
         unitCentavos: i.unit_centavos,
         subtotalCentavos: i.subtotal_centavos,
         obs: i.obs,
-        unidade: (i.unidade as "un" | "kg") ?? "un",
+        unidade: unidadeDoItem(i.unidade),
       }),
     ),
   };

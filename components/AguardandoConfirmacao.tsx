@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, MessageSquare, Check, Loader2, Image as ImgIcon } from "lucide-react";
 import type { Pedido } from "@/lib/tipos";
-import { brl, formatarTelefoneBR } from "@/lib/tipos";
+import { brl, formatarTelefoneBR, unidadeDoItem } from "@/lib/tipos";
 import { resolverPendencia, liberarParaAprovacao } from "@/app/(painel)/acoes";
 
 // Mesma leitura da fila de aprovação: "sex 28/08" diz mais que "2026-08-28"
@@ -37,7 +37,7 @@ function fmtBRL(v: number) {
 }
 
 function fmtQtd(qtd: number, unidade?: string | null) {
-  const u = unidade === "kg" ? "kg" : "un";
+  const u = unidadeDoItem(unidade);
   const n = u === "kg" ? String(qtd).replace(".", ",") : String(Math.round(qtd));
   return u === "kg" ? `${n} kg` : `${n}×`;
 }

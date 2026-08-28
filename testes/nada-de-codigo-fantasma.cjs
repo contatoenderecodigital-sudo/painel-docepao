@@ -127,7 +127,6 @@ const tudo = ondeProcurar.map((f) => {
 // dois casos alguem mexeu e a anotacao ficou pra tras.
 const PENDENTES = [
   "RECADO_DA_EQUIPE",     // lib/ia/fatos.ts
-  "anexarFotoAoPedido",   // lib/banco/conversas.ts
   "dispensarOrcamento",   // lib/banco/parados.ts
   "reativarOrcamento",    // lib/banco/parados.ts
 ];

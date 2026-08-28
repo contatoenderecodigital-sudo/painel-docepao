@@ -33,6 +33,7 @@ import { prazoDoTopoAperta } from "./falas-do-cliente";
 import { saboresQueFaltam, saboresAlemDoLimite } from "./sabor";
 import { nomeDaFamilia } from "./generico";
 import { paraOMotor } from "./cotar";
+import { unidadeDoItem } from "../../tipos";
 
 /**
  * O QUE A EQUIPE PRECISA RESOLVER NESTE PEDIDO.
@@ -180,7 +181,7 @@ export async function fecharPedido(
     qtd: Number(l.qtd) || 0,
     // "un" ou "kg", nao string qualquer: a unidade decide como o cupom escreve
     // a linha e como o painel mostra o campo.
-    unidade: (l.unidade === "kg" ? "kg" : "un") as "un" | "kg",
+    unidade: unidadeDoItem(l.unidade),
     unit: Number(l.unit) || 0,
     subtotal: Number(l.subtotal) || 0,
     // undefined, nao null: e o que LinhaCotacao espera, e foi o compilador que

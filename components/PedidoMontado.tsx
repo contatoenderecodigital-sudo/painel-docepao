@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, Plus, Minus, Trash2, Check, Square, CheckSquare, Pencil, TriangleAlert } from "lucide-react";
-import { brl } from "@/lib/tipos";
+import { brl, unidadeDoItem } from "@/lib/tipos";
 
 // Quantidade do jeito que a padaria escreve: 1,5 kg, nunca 1.5kg. A fila de
 // aprovacao ja mostrava com virgula e aqui saia com ponto, entao o mesmo pedido
@@ -252,7 +252,7 @@ type ItemGravado = {
 function itemDaTela(x: ItemGravado, cardapio: OpcaoCardapio[]): Item {
   const achado = doCardapio(cardapio, x.produto);
   const categoria = categoriaDaTela(x.produto, x.categoria, cardapio);
-  const gravada: Unidade = x.unidade === "kg" ? "kg" : "un";
+  const gravada: Unidade = unidadeDoItem(x.unidade);
   const permitidas = unidadesDe(categoria);
   const unidade = achado ? achado.unidade : permitidas.includes(gravada) ? gravada : permitidas[0];
   return {
@@ -568,7 +568,7 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
             .filter(({ x }) => !ehPapelDerivado(x, itens))
             .map(({ x, i }) => (
             <li key={i} className="text-[12px] text-cream/75 leading-snug">
-              {qtdBR(x.qtd)} {x.unidade === "kg" ? "kg" : "un"} de {x.produto}
+              {qtdBR(x.qtd)} {unidadeDoItem(x.unidade)} de {x.produto}
               {x.obs ? <span className="text-cream/45"> ({x.obs})</span> : null}
             </li>
           ))}

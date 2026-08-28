@@ -1573,3 +1573,113 @@ import saem antes da conta — e foi assim que o `nomePeloApelido` apareceu.
 procurava uso em três lugares escritos à mão, e contava import como uso. O
 detector de código fantasma era, ele próprio, o lugar com mais lista minha do
 repositório.
+
+
+---
+
+# A CAMADA DE BANCO — `lib/banco/`
+
+O cérebro decide; esta camada é o que sobra depois. Ela é onde a decisão vira
+linha no Postgres, e onde a linha volta pra tela e pro papel da cozinha. Um erro
+aqui não aparece na conversa: aparece na comanda, no total, ou num pedido que
+some.
+
+## 28. `lib/banco/conversas.ts` — a conversa e o pedido gravados
+
+### `MARCA_FECHADO` casava com nada, e não tinha como casar
+
+`const MARCA_FECHADO = /^\*Pedido recebido\*/m` cortava o histórico no ponto em
+que o pedido anterior fechou. Nenhuma mensagem do sistema escreve esse texto
+desde que o cérebro antigo foi apagado — e, pior, **não teria como escrever**: a
+mensagem de fechamento passa por reescrita da IA (`podeReescrever: true`), então
+o texto dela não é estável. Uma marca fixa procurando um texto que muda.
+
+Apagada junto com `cortarNoPedidoFechado` e `resumoPedidoFechado`. O defeito que
+ela existia pra evitar não pode voltar: o fluxo novo manda ao modelo **uma
+mensagem só**, nunca o histórico.
+
+### `resumoPedidoFechado` estava morta e escondida por um comentário meu
+
+O detector de código fantasma não a viu porque eu mesmo tinha citado o nome dela
+num comentário, e comentário contava como uso. **Quarto buraco no mesmo detector
+nesta sessão.** Corrigido: comentário não conta mais.
+
+### `atender.ts` mentia quando a equipe já tinha mexido no pedido
+
+`registrarPedido` joga quando `equipe_ajustou` está marcado — que é a proteção
+certa. Mas o `catch` de cima transformava isso em *"Deu um probleminha aqui do
+meu lado"*. O cliente ouvia falha de sistema quando o que houve foi a equipe
+assumindo o pedido dele. Agora a resposta diz a verdade.
+
+## 29. A unidade do item — a mesma pergunta respondida de SEIS jeitos
+
+A unidade decide como o cupom da cozinha escreve a linha ("2 kg de bolo" ou
+"2 un de bolo") e como o painel mostra a quantidade. Ela só pode valer `un` ou
+`kg`. Estava assim:
+
+| arquivo | como decidia | passa lixo? |
+| --- | --- | --- |
+| `produtos.ts` | `o.unidade === "kg" ? "kg" : "un"` | não |
+| `fechar.ts` | `l.unidade === "kg" ? "kg" : "un"` | não |
+| `conversas.ts` | `l.unidade ?? "un"` | **grava o que vier** |
+| `pedidos.ts` | `(i.unidade as "un" \| "kg") ?? "un"` | **o cast lava o dado** |
+| `parados.ts` | `l.unidade ?? itens[n]?.unidade ?? "un"` | **o `""` tapa o padrão** |
+| `resultados.ts` | `x.unidade \|\| "un"` | só metade |
+
+O `??` só troca `null` e `undefined`: unidade em branco no banco **continua em
+branco**. E o `as` não converte nada, só cala o TypeScript, então `"KG"` ou
+`"kg "` chegam na comanda como se fossem tipo válido.
+
+E mais **seis** cópias do lado da tela (`cardapio/opcoes`, `AguardandoConfirmacao`,
+`PedidoMontado` ×2, `Resultados` ×2), onde a divergência é pior ainda: o papel da
+cozinha lia por uma regra e a tela por outra.
+
+**Doze lugares decidindo a mesma coisa.** O defeito não era nenhum dos doze: era
+existirem doze. Agora existe `unidadeDoItem` em `lib/tipos.ts`, e o teste
+`a-unidade-do-item-e-uma-decisao-so.cjs` varre os 135 arquivos de `lib`, `app` e
+`components` atrás de um décimo terceiro. Comparar o resultado pode; decidir
+sozinho não.
+
+## Achados do painel que ficaram anotados, não consertados
+
+Estes são de tela, não de cérebro. A ordem combinada é terminar o cérebro
+primeiro, então ficam aqui com o passo a passo pra não se perderem.
+
+### Um pedido SEM DIA DE RETIRADA entra na fila de aprovação
+
+`registrarPedido` segura o pedido sem data (`semData` → `precisa_confirmacao`,
+com o motivo escrito: *"O cliente não disse o dia da retirada."*). Certo.
+
+Só que `resolverPendencia(pedidoId, extra)` recebe **só um item extra opcional,
+nunca uma data**. A equipe lê o motivo na tela, clica pra resolver, e:
+
+1. `limparPendencia` tira o `precisa_confirmacao` e marca `aguardando_cliente`
+2. o cliente responde "tá certo"
+3. `registrarAceiteCliente` manda pra fila de aprovação
+4. `listarFilaAprovacao` **não filtra data nenhuma**
+
+O pedido chega na cozinha com um tracinho no lugar do dia. A cozinha produz por
+dia: é exatamente o defeito que a guarda do `registrarPedido` existe pra impedir,
+desfeito pelo botão.
+
+Conserto certo: campo de data na ação de resolver pendência, obrigatório quando
+`retirada_data` é nula. Travar o botão sem dar onde preencher seria trocar um
+defeito por outro.
+
+### A janela em que a IA pode reescrever o pedido que a equipe entregou
+
+`temPedidoAguardandoCliente` é o portão: enquanto o pedido espera o cliente, o
+fluxo nem roda. Mas ele está dentro de um `try/catch` que, em erro de banco,
+**cai pro fluxo normal** — e aí o `registrarPedido` reescreve o total que a
+equipe lançou e deixa o pedido com `aguardando_cliente` ligado, invisível nas
+duas filas.
+
+Na prática o caminho comum está coberto, porque quem mexe no pedido
+(`adicionarItemPedido`, `salvarItensDoPedido`) marca `equipe_ajustou`, e aí o
+`registrarPedido` joga. O buraco é só o `resolverPendencia(id, null)`: resolver
+sem lançar item nenhum deixa `aguardando_cliente = true` com `equipe_ajustou =
+false`.
+
+Anotado com o caminho completo. Não é um `??` trocado: é desenho de estado, e
+mexer nele sem medir é como os seis defeitos que meus próprios consertos criaram
+nesta sessão.
