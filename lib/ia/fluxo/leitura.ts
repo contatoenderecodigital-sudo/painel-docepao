@@ -404,6 +404,24 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     //   e recebia oferta de docinho.
     "SEMPRE, em qualquer etapa:" + String.fromCharCode(10) +
     "- dia, hora, nome de quem retira e forma de pagamento vão em dados." + String.fromCharCode(10) +
+    // CORRIGIR O QUE JA PEDIU VALE EM QUALQUER ETAPA, igual a data.
+    //
+    // Bateria dos cinco jeitos, cenario "mudando de ideia no meio", cinco
+    // execucoes de cinco:
+    //
+    //   cliente >> quero 200 coxinha e 100 quiche de frango
+    //   cliente >> na verdade muda a coxinha pra 100
+    //   no banco >> 200 coxinha        (a correcao se perdeu)
+    //
+    // O modelo estava na etapa da oferta, respondeu sobre a oferta e largou a
+    // correcao. O leitor da frase segurava o numero, mas o fluxo descartava:
+    // ele so guarda item que AINDA NAO esta no pedido, e coxinha ja estava.
+    //
+    // Consertar isso no codigo exigiria adivinhar INTENCAO: "muda pra 100" e
+    // troca, "mais 100" e soma, e a diferenca sao cem coxinhas. Isso e leitura,
+    // e leitura e da IA. A mesma solucao que dia, hora e pagamento ja usam: sao
+    // seguros em qualquer etapa porque nao competem com produto nenhum.
+    "- Mudou a quantidade do que já pediu? mande o item com o total NOVO." + String.fromCharCode(10) +
     "- Hoje é " + hojeEmSaoPaulo() + ", e retirada é sempre no futuro." + String.fromCharCode(10) +
     "- Perguntou em vez de pedir? perguntou.sobre = preco (com familia), " +
     "horario, endereco, pagamento, entrega, prazo, desconto ou outro." + String.fromCharCode(10) +
@@ -435,9 +453,12 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       ? " Se ele NÃO disser a quantidade, devolva qtd 0: o total já foi combinado na proposta."
       : "";
 
+  // CURTA DE PROPOSITO: ela entra em tres etapas, entao cada palavra aqui custa
+  // tres vezes. A lista de exemplos ("nao quero, sem X, pode tirar, deixa pra
+  // la") saiu em 27/08/2026 pra caber o aviso de correcao de quantidade: o
+  // modelo entende recusa sem precisar de quatro sinonimos.
   const recusa = (familia: string) =>
-    " Se ele disser que NÃO quer " + familia + " (não quero, sem " + familia +
-    ", pode tirar, deixa pra lá), devolva naoQuer com a palavra " + familia + ".";
+    " Se ele recusar " + familia + ", devolva naoQuer com essa palavra.";
 
   const daEtapa: Record<string, string> = {
     quantas_pessoas:

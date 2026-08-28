@@ -489,7 +489,34 @@ export function itensDeOutraEtapaNaFrase(
     // proposta da festa ou a pergunta da padaria.
     const nums = [...antes.matchAll(/([0-9]+(?:[.,][0-9]+)?)/g)];
     const ultimo = nums.length ? nums[nums.length - 1][1] : null;
-    const qtd = ultimo ? Number(ultimo.replace(",", ".")) : 0;
+    let qtd = ultimo ? Number(ultimo.replace(",", ".")) : 0;
+
+    // E O NUMERO QUE VEM DEPOIS DO NOME, QUE E COMO SE CORRIGE UM PEDIDO.
+    //
+    // Ninguem corrige dizendo "100 coxinha" de novo. Corrige assim:
+    //
+    //     "na verdade muda a coxinha pra 100"
+    //     "aumenta a coxinha pra 300"
+    //     "coxinha 150"
+    //
+    // Nos tres o numero vem DEPOIS, e o leitor devolvia zero. Medido em
+    // 27/08/2026, e o estrago foi medido na bateria antes disso: o cenario
+    // "mudando de ideia no meio" reprovou nas cinco execucoes, com a coxinha
+    // ficando em 200 quando o cliente tinha mandado 100. O modelo, ocupado com a
+    // pergunta da etapa, larga a correcao, e o leitor existe justamente pra
+    // segurar o que ele larga.
+    //
+    // "PIZZA DE 30 CM" NAO E TRINTA PIZZAS.
+    //
+    // O numero de depois so vale quando NAO e medida. Unidade de medida e do
+    // mundo, e nao da padaria: cm, kg, g, ml, l, litro. Esta e uma das tres
+    // listas que o CLAUDE.md permite, junto com dia da semana e mes.
+    if (!qtd) {
+      const depois = t.slice(onde + alvo.length, onde + alvo.length + 24);
+      const m = depois.match(/^[^0-9]{0,12}?([0-9]+(?:[.,][0-9]+)?)\s*([a-z]*)/);
+      const medida = /^(cm|mm|m|kg|g|gr|gramas?|ml|l|litros?|horas?|h|anos?|reais?)$/.test(m?.[2] ?? "");
+      if (m && !medida) qtd = Number(m[1].replace(",", "."));
+    }
 
     // O RECHEIO VEM COLADO NO NOME, E TEM QUE VIR JUNTO.
     //
