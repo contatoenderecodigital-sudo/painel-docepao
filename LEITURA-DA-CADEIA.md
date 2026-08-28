@@ -1025,3 +1025,84 @@ O que a leitura ensinou, e que nenhuma sonda tinha achado antes:
   gigante da oferta e o formato da IA sem `ehFesta`
 - **a mesma linha copiada dez vezes já divergia em quatro delas**, e as
   divergências eram justamente onde doía
+
+---
+
+# DEPOIS DA CADEIA: OS 27 ARQUIVOS QUE ELA ALCANÇA
+
+Medido em 28/08/2026: a partir do webhook, a IA alcança **42 arquivos**. A cadeia
+eram 15. Sobram **27, com 5.744 linhas**, e há peça central ali.
+
+| # | arquivo | linhas | estado |
+| --- | --- | --- | --- |
+| 15 | `lib/ia/dados/produtos.ts` | 517 | **INTEIRO** — 6 defeitos |
+| 16 | `lib/ia/fluxo/leitor-da-frase.ts` | 516 | não lido |
+| 17 | `lib/ia/fluxo/falas-do-cliente.ts` | 357 | não lido |
+| 18 | `lib/ia/fluxo/informacao.ts` | 253 | não lido |
+| 19 | `lib/ia/persona.ts` | 223 | não lido |
+| 20 | `lib/ia/texto.ts` | 178 | não lido (**eu escrevi nesta sessão**) |
+| 21 | `lib/ia/fluxo/generico.ts` | 170 | não lido |
+| 22 | `lib/ia/fluxo/restricao.ts` | 161 | não lido |
+| 23 | `lib/ia/fluxo/dizer.ts` | 147 | não lido |
+| 24 | `lib/ia/fluxo/base.ts` | 140 | não lido |
+| 25 | `lib/ia/catalogo-em-texto.ts` | 120 | não lido |
+| 26 | `lib/ia/dados/apelidos.ts` | 112 | não lido |
+| 27 | `lib/ia/fluxo/situacao.ts` | 87 | não lido |
+| 28 | `lib/ia/fluxo/cotar.ts` | 49 | não lido |
+| — | banco e infra (9 arquivos) | 2.281 | não lidos |
+| — | fora do cérebro (3 arquivos) | 530 | não lidos |
+
+---
+
+## 15. `lib/ia/dados/produtos.ts` — a fonte única
+
+517 linhas. O arquivo que existe pra **ninguém mais ler o catálogo cru**.
+**Seis defeitos**, e dois deles dentro da própria fonte única.
+
+### O padeiro saía de uma lista de seis nomes
+
+    /^(pao frances|pao de x|pao doce|cuca|cuca recheada|cachorro-quente)/
+
+Ela acertava os sete produtos de hoje e **quebrava no dia seguinte**: o pão de
+milho que a dona cadastrar amanhã entra na categoria `padaria`, não casa com
+nenhum dos seis padrões, e a comanda dele sai na CONFEITARIA. Ninguém descobre
+olhando código, porque o papel sai — só que no setor errado.
+
+Medido: a categoria `padaria` tem exatamente os sete que vão pro padeiro, e
+nenhuma outra vai pra lá. **A categoria responde sozinha.**
+
+O salgadeiro continua sendo lista, e de propósito: o mini xis e o mini
+sanduíche são `salgado_assado` iguais aos outros nove, e nada no cardápio os
+distingue. É regra de quem produz, não dado do cardápio.
+
+### Uma linha que parecia decidir e não decidia
+
+Toda chamada passava `bancada: "confeitaria"` à mão, e o spread jogava fora.
+Quem lesse acharia que aquela linha decide, e trocá-la pra `"padeiro"` não teria
+efeito nenhum. O tipo agora proíbe passar.
+
+### A fonte única lendo o JSON cru
+
+Dentro do arquivo que existe pra isso não acontecer, `categoriaDoPedido` relia
+`bolos_caseiros` direto do catálogo. A resposta já estava na própria lista.
+
+### Mais três
+
+- `const c` declarado, nunca usado, **mantido vivo por um `void c`**
+- a décima primeira cópia do normalizador
+- um comentário dizendo *"estas cinco"* sobre uma lista de sete
+
+### E dois que escaparam da leitura da cadeia
+
+Medindo quem ainda lê o `catalogo.json` cru, achei em arquivos que eu **já tinha
+dado por lidos**: um import morto no `pergunta.ts` e a última leitura crua no
+`fluxo.ts` (que remontava as faixas de preço pra chegar nos sabores). Os dois
+passaram pela minha leitura sem eu ver. Dezessete arquivos liam o catálogo cru
+em 26/08; hoje são dez, e nenhum deles é do fluxo da conversa.
+
+### Teste novo
+
+`a-bancada-sai-do-cardapio.cjs`. Ele cobra os 86 produtos **e a regra**: o teste
+de resultado sozinho passaria com a lista antiga, porque ela acerta os sete de
+hoje. O que a lista não faz é acertar o produto de amanhã, e isso só dá pra
+cobrar olhando como a decisão é tomada. Isca provada.

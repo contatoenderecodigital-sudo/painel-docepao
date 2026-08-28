@@ -17,7 +17,6 @@
 //  ja esta fechado quando chega nela.
 // ============================================================================
 
-import catalogo from "../dados/catalogo.json";
 import { brl, motorPadrao } from "../orcamento";
 import type { Etapa, PedidoEmMontagem } from "./etapas";
 import { saudacaoDaHora, prazoDoTopoAperta } from "./falas-do-cliente";

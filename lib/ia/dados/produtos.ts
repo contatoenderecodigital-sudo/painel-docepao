@@ -31,6 +31,7 @@
 // ============================================================================
 
 import catalogo from "./catalogo.json";
+import { semAcento } from "../texto";
 
 /** Onde o pedido é produzido. Fala da dona, áudio de 29/07/2026. */
 export type Bancada = "padeiro" | "confeitaria" | "salgadeiro";
@@ -106,16 +107,35 @@ export type ProdutoDaCasa = {
  * E a exceção que ela mesma deu: "quando é o mini xis, é o salgadeiro que faz,
  * lá na parte da confeitaria".
  */
-const DO_PADEIRO = /^(pao frances|pao de x|pao doce|cuca|cuca recheada|cachorro-quente)/;
+// A EXCECAO QUE SO A DONA SABE, e por isso ela e lista mesmo.
+//
+// "quando e o mini xis, e o salgadeiro que faz, la na parte da confeitaria".
+// Os dois sao `salgado_assado` no catalogo, igual aos outros nove daquela
+// categoria, e nada no cardapio distingue um do outro. Isto nao e derivavel: e
+// uma regra de quem produz.
 const DO_SALGADEIRO = /^(mini x|mini sandu)/;
 
-function bancadaDe(nome: string): Bancada {
-  const t = nome
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-  if (DO_SALGADEIRO.test(t)) return "salgadeiro";
-  if (DO_PADEIRO.test(t)) return "padeiro";
+/**
+ * ONDE ESTE PRODUTO E PRODUZIDO.
+ *
+ * "aqui o pedido fica de pao frances, pao de cachorro quente, fica pedido de
+ * cuca, aqui com o padeiro. E o restante vai tudo la embaixo pra confeitaria."
+ *
+ * O PADEIRO SAI DA CATEGORIA, E NAO DE UMA LISTA DE NOMES.
+ *
+ * Aqui havia seis nomes escritos a mao (pao frances, pao de x, pao doce, cuca,
+ * cuca recheada, cachorro-quente). Medido em 28/08/2026: a categoria `padaria`
+ * do catalogo tem exatamente esses sete produtos e mais nenhum, e nenhuma outra
+ * categoria vai pro padeiro.
+ *
+ * A lista funcionava HOJE e quebrava no dia seguinte: o pao de milho que a dona
+ * cadastrar amanha entra como `padaria`, nao casa com nenhum dos seis padroes,
+ * e a comanda dele sai na CONFEITARIA. Ninguem descobre olhando codigo, porque
+ * o papel sai -- so que no setor errado.
+ */
+function bancadaDe(nome: string, categoria: string): Bancada {
+  if (DO_SALGADEIRO.test(limpo(nome))) return "salgadeiro";
+  if (String(categoria) === "padaria") return "padeiro";
   return "confeitaria";
 }
 
@@ -151,13 +171,8 @@ const GRUPO_POR_CATEGORIA: Record<string, string> = {
   pizza: "pizza",
 };
 
-function limpo(t: string): string {
-  return String(t || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
+// O mesmo normalizador de todo mundo. Era a decima primeira copia, identica.
+const limpo = semAcento;
 
 type ItemBruto = {
   nome?: string;
@@ -185,13 +200,17 @@ let saboresDaPizza: string[] = [];
 /** Todo produto da casa, no mesmo formato. Calculado uma vez. */
 export function produtosDaCasa(): ProdutoDaCasa[] {
   if (cache) return cache;
-  const c = catalogo as unknown as Record<string, never>;
   const lista: ProdutoDaCasa[] = [];
 
   // `nomeCurto` cai no `nome` quando ninguém passa: a maioria dos produtos não
   // tem prefixo, e repetir o nome em toda chamada seria ruído.
-  const põe = (p: Omit<ProdutoDaCasa, "nomeCurto"> & { nomeCurto?: string }) =>
-    lista.push({ ...p, nomeCurto: p.nomeCurto ?? p.nome, bancada: bancadaDe(p.nome) });
+  const põe = (p: Omit<ProdutoDaCasa, "nomeCurto" | "bancada"> & { nomeCurto?: string }) =>
+    // A BANCADA E DECIDIDA AQUI, E SO AQUI.
+    //
+    // Cada chamada passava `bancada: "confeitaria"` na mao, e o spread jogava
+    // fora: quem lesse acharia que aquela linha decide alguma coisa, e trocar
+    // ela pra "padeiro" nao teria efeito nenhum. Sairam todas.
+    lista.push({ ...p, nomeCurto: p.nomeCurto ?? p.nome, bancada: bancadaDe(p.nome, p.categoria) });
 
   // ------------------------------------------------------------- salgados
   //
@@ -216,8 +235,7 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
         unidade: "un",
         categoria: "salgado_" + tipo,
         grupo: "salgado-festa",
-        bancada: "confeitaria",
-        // `recheio` no singular vira sabor fixo; `recheios` no plural vira
+          // `recheio` no singular vira sabor fixo; `recheios` no plural vira
         // lista para perguntar. É a mesma informação, escrita de dois jeitos.
         sabores: it.recheio ? [it.recheio] : (it.recheios ?? []),
         saborFixo: Boolean(it.recheio),
@@ -234,7 +252,6 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
       unidade: "un",
       categoria: "docinho",
       grupo: "docinho-festa",
-      bancada: "confeitaria",
       sabores: d.sabores ?? [],
       saborFixo: !d.sabores?.length,
     });
@@ -257,8 +274,7 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
         unidade: "kg",
         categoria: "bolo_festa",
         grupo: "bolo-festa",
-        bancada: "confeitaria",
-        sabores: [],
+          sabores: [],
         saborFixo: true,
       });
     }
@@ -274,7 +290,6 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
       unidade: "un",
       categoria: "bolo_caseiro",
       grupo: "bolo-caseiro",
-      bancada: "confeitaria",
       sabores: [],
       saborFixo: true,
     });
@@ -308,7 +323,6 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
       unidade: "un",
       categoria: "pizza",
       grupo: "pizza",
-      bancada: "confeitaria",
       sabores: saboresPizza,
       saborFixo: false,
       saboresAte: Number(ate) > 0 ? Number(ate) : undefined,
@@ -338,7 +352,6 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
       unidade: (o.unidade === "kg" ? "kg" : "un") as "un" | "kg",
       categoria: String(o.categoria ?? "outro"),
       grupo: grupoDeOutros(o),
-      bancada: "confeitaria",
       sabores,
       saborFixo: !sabores.length,
       saboresAte: Number((o as { sabores_ate?: number }).sabores_ate) > 0
@@ -347,7 +360,6 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
     });
   }
 
-  void c;
   cache = lista;
   return lista;
 }
@@ -427,7 +439,8 @@ export function categoriaDoPedido(nome: string): string {
 
   const p = produtoNoComeco(t);
   if (p) {
-    // Estas cinco o pedido chama pelo mesmo nome que o catálogo.
+    // Estas SETE o pedido chama pelo mesmo nome que o catálogo. O comentário
+    // dizia "cinco" e a lista abaixo tem sete: nasceu com cinco e cresceu.
     if (
       p.categoria === "salgado_frito" ||
       p.categoria === "salgado_assado" ||
@@ -456,9 +469,15 @@ export function categoriaDoPedido(nome: string): string {
   //
   // Depois do `produtoNoComeco` de propósito: "café" é docinho E bolo caseiro,
   // e o docinho ganha, que é o que o cliente quer dizer quando fala só "café".
-  const caseiros = (catalogo as unknown as { bolos_caseiros?: { itens?: { nome?: string }[] } })
-    .bolos_caseiros?.itens ?? [];
-  if (caseiros.some((i) => { const n = limpo(i?.nome ?? ""); return n && (t === n || t.startsWith(n + " ")); })) {
+  // A LISTA UNICA SE PERGUNTA, EM VEZ DE RELER O JSON.
+  //
+  // Aqui, dentro do proprio arquivo que existe pra ninguem mais ler o catalogo
+  // cru, havia uma leitura crua de `bolos_caseiros`. O `nomeCurto` do bolo
+  // caseiro E o nome do catalogo, entao a resposta ja estava na lista.
+  const caseiros = produtosDaCasa()
+    .filter((p) => p.categoria === "bolo_caseiro")
+    .map((p) => limpo(p.nomeCurto));
+  if (caseiros.some((n) => n && (t === n || t.startsWith(n + " ")))) {
     return "bolo_caseiro";
   }
 

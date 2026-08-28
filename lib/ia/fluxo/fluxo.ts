@@ -28,7 +28,6 @@
 //  com o robo de verdade.
 // ============================================================================
 
-import catalogo from "../dados/catalogo.json";
 import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitura } from "./leitura";
@@ -36,7 +35,7 @@ import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase } from "./le
 import { afirmouOuNegou, cercaDaPalavra } from "../texto";
 import { identificarProduto } from "./produto";
 import { nomePeloApelido } from "../dados/apelidos";
-import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
+import { produtoNoComeco, produtoPorNome, produtosDaCasa } from "../dados/produtos";
 import { semAcento as semAc } from "../texto";
 import { calcularBase, avisoDePoucoPorSabor } from "./base";
 import { motorPadrao, brl } from "../orcamento";
@@ -285,9 +284,18 @@ function categoriaDoCatalogo(nome: string): string {
   // Bolo de festa: o sabor E o nome do produto ("marta rocha", "4 leites"), e
   // o cliente pode dizer só o sabor. A lista única guarda com o prefixo, então
   // o sabor solto ainda precisa desta passagem.
-  const saboresDeBolo = ((catalogo.bolos_recheados?.faixas ?? []) as { sabores?: string[] }[])
-    .flatMap((f) => f.sabores ?? []);
-  if (saboresDeBolo.some((sb) => nome === semAc(sb) || nome.startsWith(semAc(sb)))) return "bolo_festa";
+  // O SABOR SAI DA LISTA UNICA, E NAO DO JSON CRU.
+  //
+  // Esta era a ultima leitura crua do `catalogo.json` neste arquivo, e ela
+  // remontava as faixas de preco pra chegar nos sabores. A lista unica ja
+  // responde: o `nomeCurto` do bolo de festa E o sabor.
+  //
+  // O import do catalogo sai daqui junto. No `pergunta.ts` ele ja estava morto,
+  // e os dois passaram pela minha leitura sem eu ver.
+  const saboresDeBolo = produtosDaCasa()
+    .filter((p) => p.categoria === "bolo_festa")
+    .map((p) => semAc(p.nomeCurto));
+  if (saboresDeBolo.some((sb) => nome === sb || nome.startsWith(sb))) return "bolo_festa";
 
   // "bolo" sozinho, ou um sabor que a casa ainda não cadastrou. É bolo de
   // festa porque o caseiro tem nome fechado e já teria casado ali em cima.
