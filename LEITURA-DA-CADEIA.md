@@ -3359,3 +3359,79 @@ pedido avisa do **segundo**, e não repete o que já estava na fila.
 A rota `/api/fila/contagem` dizia "chamado a cada 20s por aba aberta". São 7
 segundos, e só uma aba busca: as outras escutam dela. Quem fosse dimensionar
 carga por esse comentário erraria por três vezes.
+
+---
+
+## 72. A conversa ficava presa numa etapa, e o pedido nunca era registrado
+
+Achado **medindo**, não lendo. A bateria inteira contra a produção, 15 cenários,
+3 execuções cada: **10 de 15**. E quatro das cinco falhas eram o mesmo defeito.
+
+```
+cliente >> quero fazer uma festa dia 06/09, 100 coxinhas e 50 esfirras
+padaria >> Quantas pessoas vão na festa?
+cliente >> e 60 brigadeiros, forminha dourada
+padaria >> Quantas pessoas vão na festa?
+cliente >> um bolo de 3 kg de laka, pao de lo branco
+padaria >> Quantas pessoas vão SER na festa?
+cliente >> sem topo e sem papel de arroz
+padaria >> Quantas pessoas vão PARTICIPAR da festa?
+(o pedido NUNCA foi registrado)
+```
+
+A etapa `quantas_pessoas` fecha com `(p.pessoas ?? 0) > 0` e era pulável só com
+`!p.ehFesta`. Quem abre com "quero fazer uma festa" e segue ditando os itens fica
+preso entre as duas condições, para sempre.
+
+### A IA disfarçava o defeito
+
+Cada repetição saía com outra frase, porque a reescrita varia o texto: "vão na
+festa", "vão ser na festa", "vão participar da festa". Lendo o log, não parecia
+repetição. **O que denunciou foi o pedido faltando no banco.**
+
+> Ler a conversa acha o que está feio. Só o banco acha o que está faltando.
+
+### Consertar uma etapa empurrava o travamento pra próxima
+
+Sem número de pessoas, `calcularBase` devolve `null`. A etapa `base_da_festa`
+fecha com `baseAceita` e era pulável só com `!p.ehFesta`: a conversa passaria da
+primeira e pararia na segunda, esperando o cliente aceitar uma proposta que nunca
+foi feita.
+
+A isca do teste prova isso: com só o primeiro conserto, ele reprova apontando
+`base_da_festa`. É a terceira vez que **fechar uma porta muda o que acontece do
+outro lado dela** neste fluxo.
+
+### E o meu conserto do segundo estava errado
+
+Escrevi a guarda como `p.base === null`, e o `o-fluxo-sabe-onde-esta`, que já
+existia, reprovou na hora:
+
+```
+- em 'disse 20 pessoas' o fluxo foi pra salgado em vez de base_da_festa
+```
+
+**Ordem de execução.** O `calcularBase` roda depois, no `fluxo.ts`, então quando
+a etapa é avaliada a base ainda é nula mesmo com o número já dado. A guarda
+pulava a proposta justo de quem tinha acabado de pedir uma.
+
+A guarda certa é `pessoas`, que é a causa; `base` é o efeito, e chega tarde.
+
+### O teste varre o roteiro inteiro, e não as duas etapas consertadas
+
+Esta família já apareceu em três etapas diferentes. Cobrar só as conhecidas era
+escrever o teste do defeito de ontem. Ele simula o cliente que ignora tudo e
+exige que a conversa chegue ao fim.
+
+A etapa `dados` é a única parada legítima, e está escrito no teste: sem nome,
+dia, hora e pagamento a padaria não tem como registrar pedido, e insistir ali é o
+certo. A saída dela é o repasse pra equipe, que mora fora do roteiro.
+
+### Um dos cinco não era defeito, era teste ruim
+
+Dois cenários cobravam pedido registrado **sem nunca mandar o cliente
+confirmar**, e `confirmacao.cumprida` é `() => false` de propósito. Eles
+reprovavam com a mensagem `nao registrou o pedido`, que é **a mesma** do
+travamento real, e estavam escondendo ele atrás dela.
+
+> Duas causas com a mesma mensagem de erro é uma delas passando despercebida.

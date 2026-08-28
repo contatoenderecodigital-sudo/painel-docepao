@@ -234,6 +234,14 @@ const CENARIOS = [
       "um bolo de 3 kg de laka, pao de lo branco",
       "sem topo e sem papel de arroz",
       "as 15h, nome Fernanda Klein, cartao",
+      // FALTAVA O CONFIRMAR, E O CENARIO COBRAVA PEDIDO REGISTRADO.
+      //
+      // `confirmacao.cumprida` e `() => false` de proposito: so a confirmacao
+      // fecha, nunca se cumpre sozinha. Sem esta fala o cenario exigia um
+      // registro que o desenho nao faz, e reprovava com "nao registrou o
+      // pedido" -- a MESMA mensagem do travamento real do `quantas_pessoas`,
+      // que estava escondido atras dela. Achado em 28/08/2026.
+      "isso mesmo, pode confirmar",
     ],
     esperado: { itens: ["coxinha", "esfirra", "brigadeiro", "laka"], linhas: 4, fechou: true },
   },
@@ -259,6 +267,9 @@ const CENARIOS = [
       "boa tarde, voces fazem pizza de forma?",
       "quero 2 de calabresa pra sexta as 19h",
       "nome Rodrigo Zanella, pix",
+      // Mesmo motivo do cenario das quatro familias: sem confirmar, o pedido
+      // nao e registrado, e isso e o desenho e nao defeito.
+      "isso mesmo, pode confirmar",
     ],
     esperado: { itens: ["pizza"], linhas: 1, fechou: true },
   },

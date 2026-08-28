@@ -363,7 +363,31 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // Quem pede um item com a quantidade certa ja disse tudo o que a padaria
     // precisa saber sobre quantidade: perguntar de festa ali e burocracia, e foi
     // o que o dono viu no primeiro teste.
-    pulavel: (p) => !p.ehFesta,
+    //
+    // E QUEM DIZ "FESTA" MAS DITA OS ITENS TAMBEM NAO PRECISA DAR O NUMERO.
+    //
+    // Sem a segunda metade a etapa nunca fechava: `cumprida` pede numero de
+    // pessoas e `pulavel` so valia fora da festa. Quem abria com "quero fazer
+    // uma festa" e seguia ditando item ficava preso. Medido contra a producao em
+    // 28/08/2026, na bateria, e a padaria perguntou CINCO VEZES seguidas:
+    //
+    //   cliente >> quero fazer uma festa dia 06/09, 100 coxinhas e 50 esfirras
+    //   padaria >> Quantas pessoas vao na festa?
+    //   cliente >> e 60 brigadeiros, forminha dourada
+    //   padaria >> Quantas pessoas vao na festa?
+    //   cliente >> um bolo de 3 kg de laka, pao de lo branco
+    //   padaria >> Quantas pessoas vao SER na festa?
+    //   cliente >> sem topo e sem papel de arroz
+    //   padaria >> Quantas pessoas vao PARTICIPAR da festa?
+    //   (o pedido NUNCA foi registrado)
+    //
+    // A IA reescrevia a frase a cada vez, entao nem parecia repeticao no log: o
+    // que denunciou foi o pedido faltando no banco.
+    //
+    // O numero de pessoas so serve pra SUGERIR uma base. Quem ja esta dizendo o
+    // que quer nao precisa de sugestao, e e a mesma regra do resto do fluxo:
+    // perguntou, ele falou outra coisa, a padaria segue.
+    pulavel: (p) => !p.ehFesta || jaPerguntouEEleNaoRespondeu(p, "quantas_pessoas"),
   },
   {
     id: "base_da_festa",
@@ -379,7 +403,30 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     },
     cumprida: (p) => p.baseAceita,
     // So festa tem base: pedido simples nao passa por aqui.
-    pulavel: (p) => !p.ehFesta,
+    //
+    // E SEM BASE NAO HA O QUE ACEITAR.
+    //
+    // `calcularBase` devolve null quando nao ha numero de pessoas. Consertar so
+    // a etapa de cima empurrava o travamento pra ca: a conversa passava do
+    // "quantas pessoas" e parava aqui, esperando o cliente aceitar uma proposta
+    // que nunca foi feita. Fechar uma porta muda o que acontece do outro lado
+    // dela, e neste fluxo isso ja aconteceu duas vezes.
+    //
+    // A terceira metade e a mesma regra do resto: propos, ele falou outra
+    // coisa, segue. O que ele nomeou vale mais que a sugestao da casa.
+    //
+    // A GUARDA E O NUMERO DE PESSOAS, E NAO A BASE. ORDEM DE EXECUCAO.
+    //
+    // Escrevi `p.base === null` primeiro, e o teste `o-fluxo-sabe-onde-esta`
+    // pegou na hora: com o cliente dizendo "20 pessoas", o fluxo ia pro salgado
+    // em vez da proposta. O `calcularBase` roda DEPOIS, no `fluxo.ts`, entao
+    // quando esta etapa e avaliada a base ainda e nula mesmo com o numero dado,
+    // e a guarda pulava a proposta justo de quem tinha acabado de pedir uma.
+    //
+    // `pessoas` e o dado estavel: sem ele nao ha base possivel, com ele a base
+    // vem. Ler a causa em vez do efeito.
+    pulavel: (p) =>
+      !p.ehFesta || !(p.pessoas ?? 0) || jaPerguntouEEleNaoRespondeu(p, "base_da_festa"),
   },
   {
     id: "salgado",

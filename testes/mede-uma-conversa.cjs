@@ -60,6 +60,19 @@ const FALAS = JSON.parse(fs.readFileSync(arq, "utf8"));
 const olhar = (sql) => psql(sql).catch((e) => "(a consulta falhou: " + String(e).split("\n")[0].slice(0, 120) + ")");
 // Faixa de teste propria, pra nao brigar com a conversa do outro script nem com
 // a bateria, que usam telefones vizinhos.
+// NAO RODE ISTO JUNTO COM O `medidor.cjs`.
+//
+// Este numero cai DENTRO da faixa `55119777700%` que o medidor apaga antes de
+// cada bateria (medidor.cjs, "A FAIXA DO MEDIDOR E LIMPA ANTES"). Rodando os
+// dois ao mesmo tempo contra a mesma producao, o medidor apaga a conversa DESTA
+// medicao no meio dela.
+//
+// Aconteceu em 28/08/2026: a primeira mensagem sumiu do historico, a festa nunca
+// foi montada, e o pedido fechou sem o bolo, por R$ 125,00 em vez de R$ 218,80.
+// Parecia regressao grave e era medicao contaminada. Meia hora atras de um
+// defeito que nao existia.
+//
+// Uma medicao de cada vez, sempre.
 const FONE = process.env.FONE || "5511977770077";
 
 (async () => {
