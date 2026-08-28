@@ -57,8 +57,18 @@ const cerca = (miolo: string) => new RegExp("(^|[^a-z])(" + miolo + ")($|[^a-z])
  *
  * Olha o pedaço da frase ANTES do termo, curto de propósito: um "sem" lá no
  * começo não pode negar uma coisa citada no fim.
+ *
+ * EXPORTADA EM 27/08/2026 porque o fluxo precisava da mesma pergunta.
+ *
+ * Lá o sabor solto era grudado no item que estava esperando sabor, e a checagem
+ * era só "a palavra está na frase?". Quem dissesse "sem calabresa" ganhava
+ * calabresa na comanda: a palavra estava lá, e ninguém olhava o "sem" na frente
+ * dela.
+ *
+ * Escrever uma segunda negação lá seria repetir o erro que este projeto mais
+ * cometeu: duas listas do mesmo assunto, que nascem iguais e divergem depois.
  */
-function afirmouOuNegou(t: string, termo: RegExp): boolean | null {
+export function afirmouOuNegou(t: string, termo: RegExp): boolean | null {
   const m = termo.exec(t);
   if (m == null) return null;
 

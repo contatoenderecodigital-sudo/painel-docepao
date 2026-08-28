@@ -32,10 +32,10 @@ import catalogo from "../dados/catalogo.json";
 import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitura } from "./leitura";
-import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase } from "./leitor-da-frase";
+import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase, afirmouOuNegou } from "./leitor-da-frase";
 import { identificarProduto } from "./produto";
 import { nomePeloApelido } from "../dados/apelidos";
-import { produtoNoComeco } from "../dados/produtos";
+import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
 import { calcularBase, avisoDePoucoPorSabor } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
@@ -212,8 +212,23 @@ function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
     String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
   const nome = semAc(produto);
   if (etapa === "salgado") {
-    const assados = ((catalogo.salgados?.assado?.itens ?? []) as { nome: string }[]).map((i) => semAc(i.nome));
-    return assados.some((a) => nome === a || nome.startsWith(a + " ")) ? "salgado_assado" : "salgado_frito";
+    // FRITO OU ASSADO QUEM DIZ E A LISTA UNICA, e nao uma leitura do catalogo
+    // cru feita aqui.
+    //
+    // Este trecho remontava `catalogo.salgados.assado.itens` na mao pra decidir,
+    // e o galho do BOLO, cinco linhas abaixo, ja fazia do jeito certo desde que
+    // aquele defeito apareceu. O mesmo arquivo tinha os dois jeitos lado a lado.
+    //
+    // Nao ha divergencia hoje, mas o dia em que a dona mover um salgado de frito
+    // pra assado na tela, a comanda continuaria mandando ele pra bancada antiga:
+    // o preco vem da lista unica e a bancada viria daqui.
+    const daCasa = produtoNoComeco(nome);
+    if (daCasa?.categoria === "salgado_assado" || daCasa?.categoria === "salgado_frito") {
+      return daCasa.categoria;
+    }
+    // O cardapio nao conhece o nome: frito e o padrao da casa, e e o que a
+    // leitura anterior fazia quando nao achava na lista dos assados.
+    return "salgado_frito";
   }
   if (etapa === "docinho") return "docinho";
   if (etapa === "bolo") {
@@ -318,9 +333,19 @@ function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado 
     ["bolo", e.base.boloKg],
   ];
 
-  let itens = [...e.itens];
+  const itens = [...e.itens];
   // As quantidades que ESTE trecho decidiu, pra saber se ficou pouco por sabor.
   const porSabor: number[] = [];
+  // MUDOU DE VERDADE?
+  //
+  // A guarda de saida era `if (itens === e.itens) return e`, e ela NUNCA era
+  // verdadeira: `itens` nasce de `[...e.itens]`, que e um array novo. Comparar
+  // por referencia ali era comparar a copia com o original, e copia nunca e o
+  // original.
+  //
+  // Entao a funcao sempre devolvia um estado novo, mesmo sem repartir nada.
+  // Achado lendo linha por linha em 27/08/2026.
+  let mudou = false;
   for (const [familia, total] of alvos) {
     if (!total) continue;
     const daFamilia = itens
@@ -343,7 +368,11 @@ function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado 
     const cada = Math.floor(sobra / semQtd.length);
     const resto = sobra - cada * semQtd.length;
     semQtd.forEach(({ idx }, ordem) => {
-      itens[idx] = { ...itens[idx], qtd: cada + (ordem === 0 ? resto : 0) };
+      const novaQtd = cada + (ordem === 0 ? resto : 0);
+      // So conta como mudanca se o numero for outro: repartir 100 numa linha que
+      // ja tinha 100 nao mudou nada.
+      if (Number(itens[idx].qtd) !== novaQtd) mudou = true;
+      itens[idx] = { ...itens[idx], qtd: novaQtd };
     });
     rastro.push("reparti " + sobra + " de " + familia + " entre " + semQtd.length + " escolha(s)");
 
@@ -358,12 +387,24 @@ function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado 
     }
   }
 
-  if (itens === e.itens) return e;
+  if (!mudou) return e;
   // O aviso vive um turno: quem divide e este trecho, e a fala sai na proxima
   // resposta. Guardar no estado seria a padaria repetindo a sugestao pra sempre.
   const aviso = avisoDePoucoPorSabor(porSabor);
   return { ...e, itens, ...(aviso ? { poucoPorSabor: aviso } : {}) };
 }
+
+/**
+ * A CERCA DO SABOR, pra perguntar se ele afirmou ou negou aquilo.
+ *
+ * Mesma fronteira de palavra que o leitor da frase usa: sem ela, "bacon" acharia
+ * "bacon com milho" e a pergunta seria sobre o pedaco errado da frase.
+ *
+ * O sabor sai do catalogo, entao o escape aqui e higiene de regex, e nao
+ * desconfianca do dado: um sabor com parentese no nome quebraria a expressao.
+ */
+const cercaDoSabor = (sabor: string) =>
+  new RegExp("(^|[^a-z])(" + sabor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")($|[^a-z])", "i");
 
 /** Tira uma marca da observacao dos itens ("Topo: tema Minnie, Arthur, 5 anos"). */
 function tirarMarca(itens: Estado["itens"], prefixo: string): Estado["itens"] {
@@ -446,7 +487,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
     if (cores.length) novo.forminha = cores.join(" e ");
   }
 
-  if (l.tema) novo.tema = String(l.tema).trim();
+  // (o tema ja foi aplicado la em cima; a linha repetida saiu em 27/08/2026)
   if (l.prato) novo.prato = l.prato;
   // ------------------------------------------------- "NAO QUERO" DESFAZ
   //
@@ -768,11 +809,25 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       .replace(/[̀-ͯ]/g, "")
       .toLowerCase();
     // O nome mais longo primeiro: "frango com catupiry" antes de "frango".
+    //
+    // E A NEGACAO MANDA, COMO EM TODO LUGAR DESTE SISTEMA.
+    //
+    // A checagem era so "a palavra esta na frase?". Entao quem dissesse "sem
+    // calabresa" ou "nao quero calabresa" ganhava CALABRESA na comanda: a
+    // palavra estava la, e ninguem olhava o que vinha na frente dela.
+    //
+    // A pergunta "ele afirmou ou negou isto?" ja existia no leitor da frase, com
+    // o sim e o nao valendo antes E depois da palavra. Escrever uma segunda aqui
+    // seria repetir o erro que este projeto mais cometeu. Achado lendo linha por
+    // linha em 27/08/2026.
     const achado = [...opcoes]
       .sort((a, b) => b.length - a.length)
       .find((o) => {
         const alvo = o.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-        return alvo.length > 2 && t.includes(alvo);
+        if (alvo.length <= 2 || !t.includes(alvo)) return false;
+        // `null` quer dizer "citou e nao disse sim nem nao", que aqui e um sim:
+        // ele esta respondendo a pergunta do sabor.
+        return afirmouOuNegou(t, cercaDoSabor(alvo)) !== false;
       });
     if (achado) {
       novo.itens = novo.itens.map((i) =>
@@ -836,7 +891,46 @@ export async function responder(
       .filter((p) => !jaTemEsseProduto(estado.itens, p.produto))
       // Guarda ja com o nome canonico. Estacionar "4 leites" e aplicar como
       // "bolo 4 leites" era a origem do mesmo bolo com dois nomes.
-      .map((p) => ({ ...p, produto: identificarProduto(p.produto).produto }));
+      //
+      // O "BOLO" DA FRASE TEM QUE VIR JUNTO, SENAO O BOLO VIRA DOCINHO.
+      //
+      // `identificarProduto` era chamado sem dica nenhuma, e o comentario logo
+      // abaixo afirmava que a ambiguidade "ja foi resolvida". Nao foi: sem dica,
+      // "brigadeiro" resolve pro DOCINHO, que e R$ 1,25 a unidade, e o bolo de
+      // brigadeiro e R$ 46,90 o quilo.
+      //
+      // O caminho e estreito e existe: quem acha o produto aqui e o leitor da
+      // frase, e ele so procura nome de produto avulso, sem o prefixo. Entao "um
+      // bolo de brigadeiro" chega aqui como "brigadeiro" puro. Quando o modelo
+      // tambem le o item, o filtro logo acima mata a duplicata e ninguem ve;
+      // quando ele se distrai (que e a razao deste bloco existir), entra um
+      // docinho no lugar do bolo.
+      //
+      // A frase sabe: se o cliente escreveu "bolo" na frente, o prefixo volta e
+      // `identificarProduto` resolve pelo nome completo, que e o desempate que o
+      // proprio sistema ja usa. Achado lendo linha por linha em 27/08/2026.
+      .map((p) => {
+        const semAc = (t: string) =>
+          String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+        const frase = semAc(String(mensagem.texto ?? ""));
+        const onde = frase.indexOf(semAc(p.produto));
+        // "bolo de brigadeiro" e "bolo brigadeiro": ate uma preposicao no meio.
+        const antes = onde > 0 ? frase.slice(Math.max(0, onde - 12), onde) : "";
+        const ehBolo = /\bbolo\s+(de\s+|da\s+|do\s+)?$/.test(antes);
+        // E SO SE O BOLO EXISTIR DE VERDADE.
+        //
+        // "bolo de leite ninho" nao e produto da casa: leite ninho e docinho, e
+        // o caseiro parecido chama "chocolate preto com leite ninho". Com o
+        // prefixo colado sem conferir, entrava um "bolo leite ninho" que o
+        // cardapio nao conhece e que ficaria sem preco no pedido.
+        //
+        // Trocar um erro de R$ 1,25 por uma linha sem preco nao e conserto. Se o
+        // bolo existe, vale o bolo; se nao existe, vale o que o cliente falou, e
+        // a padaria pergunta o sabor como ja faz pro que ela nao acha.
+        const comBolo = ehBolo ? identificarProduto("bolo " + p.produto).produto : null;
+        const boloDeVerdade = comBolo && produtoPorNome(comBolo) ? comBolo : null;
+        return { ...p, produto: boloDeVerdade ?? identificarProduto(p.produto).produto };
+      });
     if (doTextoParaDepois.length) {
       // ENTRA AGORA, NAO DEPOIS.
       //
@@ -945,6 +1039,33 @@ export async function responder(
       rastro.push("confirmou escrevendo, sem tocar no botao");
     }
 
+    // O CODIGO LE A FRASE, NAO SO O MODELO.
+    //
+    // Aqui a leitura do modelo e completada pelo que esta escrito com todas as
+    // letras na mensagem. E a regra unica que substituiu os resgates avulsos de
+    // cor, de topo e de papel de arroz, cada um deles nascido de um defeito ja
+    // entregue ao cliente.
+    //
+    // ISTO SUBIU EM 27/08/2026, E O MOTIVO E QUE COISA SUMIA DO PEDIDO.
+    //
+    // Ele rodava DEPOIS dos dois blocos abaixo, e os dois saem da funcao com
+    // `return`. Entao quem perguntasse e pedisse na mesma mensagem perdia o
+    // pedido:
+    //
+    //     cliente >> quanto e o cento de coxinha? quero 200
+    //     padaria >> Salgado frito sai R$ 1,00 a unidade, R$ 100,00 o cento.
+    //     no pedido >> nada
+    //
+    // E nao eram so os itens: data, hora, nome, cor da forminha, tudo o que
+    // viesse junto ia embora com o `return`.
+    //
+    // "Perguntar nao e pedir" continua valendo, e continua sendo o modelo quem
+    // separa: a instrucao dele diz, com todas as letras, que pergunta e
+    // reclamacao NAO viram item. O que muda e que agora, quando ele devolve os
+    // dois, os dois valem.
+    const lida = juntarComAFrase(limpa, String(mensagem.texto ?? ""));
+    estado = aplicar(estado, lida, etapaAgora.id, String(mensagem.texto ?? ""));
+
     // ---------------------------------------- A CONVERSA NAO E UM PEDIDO
     //
     // A ROTA C, e ela vem ANTES de tudo: reclamacao, cancelamento e pergunta
@@ -1015,14 +1136,6 @@ export async function responder(
       }
     }
 
-    // O CODIGO LE A FRASE, NAO SO O MODELO.
-    //
-    // Aqui a leitura do modelo e completada pelo que esta escrito com todas as
-    // letras na mensagem. E a regra unica que substituiu os resgates avulsos de
-    // cor, de topo e de papel de arroz, cada um deles nascido de um defeito ja
-    // entregue ao cliente.
-    const lida = juntarComAFrase(limpa, String(mensagem.texto ?? ""));
-    estado = aplicar(estado, lida, etapaAgora.id, String(mensagem.texto ?? ""));
 
     // A FOTO QUE ELE MANDOU JA E O TEMA.
     //
@@ -1147,8 +1260,27 @@ export async function responder(
       .replace(/[̀-ͯ]/g, "")
       .toLowerCase();
     const porExtenso = "(dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez)";
-    // numero colado em "bolo(s)", sem kg/quilo no meio
-    const contagem = new RegExp("(?:[2-9][0-9]*|" + porExtenso + ")\s+bolos?\b");
+    // A BARRA PRECISA SER DOBRADA DENTRO DE ASPAS, E AQUI ELA NAO ERA.
+    //
+    // Estava assim:
+    //
+    //     new RegExp("(?:[2-9][0-9]*|" + porExtenso + ")\s+bolos?\b")
+    //
+    // Dentro de uma string, `\s` vira a LETRA "s" e `\b` vira o byte de
+    // backspace. A expressao que nascia era:
+    //
+    //     (?:[2-9][0-9]*|(dois|duas|tres|...))s+bolos?
+    //
+    // e ela nao casa com nada: "dois bolos", "2 bolos" e "tres bolos de 1 kg"
+    // davam todos FALSO. Quem pedia dois bolos levava um.
+    //
+    // Os dois detectores do repositorio nao pegam este caso, e vale registrar
+    // por que: eles procuram byte de controle no ARQUIVO, e aqui o arquivo tem
+    // dois caracteres normais (barra e "s"). O estrago so existe em tempo de
+    // execucao, quando o JavaScript monta a string.
+    //
+    // Achado lendo linha por linha em 27/08/2026.
+    const contagem = new RegExp("(?:[2-9][0-9]*|" + porExtenso + ")\\s+bolos?\\b");
     if (!contagem.test(t)) return false;
     // "2 bolos de 1 kg" e contagem. "2 kg de bolo" nao casa acima, entao ok.
     return true;
