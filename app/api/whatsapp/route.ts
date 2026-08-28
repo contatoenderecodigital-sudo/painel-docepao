@@ -26,7 +26,6 @@ import {
   acharOuCriarCliente,
   carregarHistorico,
   salvarMensagem,
-  registrarPedido,
   marcarWebhookNovo,
   salvarFotoPendente,
   falasSemResposta,
@@ -35,12 +34,11 @@ import {
   guardarOrigemAnuncio,
 } from "@/lib/banco/conversas";
 import { definirHandoff, iaPausada, ultimaMsgClienteMs } from "@/lib/banco/atendimentos";
-import { registrarAceiteCliente, temPedidoAguardandoCliente, devolverPedidoParaEquipe, pedidoEmAberto } from "@/lib/banco/pedidos";
-import { anotarItem, removerItem, anotarDados, limparMontagem, lerMontagem } from "@/lib/banco/montagem";
+import { temPedidoAguardandoCliente, pedidoEmAberto } from "@/lib/banco/pedidos";
+import { anotarItem, anotarDados, lerMontagem } from "@/lib/banco/montagem";
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
 import crypto from "node:crypto";
-import { avisoDeProblema } from "@/lib/padaria-aberta";
 
 const pausa = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -71,22 +69,19 @@ function recadoDoMeta(msg: WhatsAppMessage): boolean {
 // responde em 700ms e isso sozinho denuncia que não é gente. Base de leitura +
 // ritmo de digitação, entre 1,5s e 4s.
 //
-// O teto era 7s e não cabe mais no turno: a espera de 12s entrou depois dele, e
-// o turno inteiro roda dentro do maxDuration de 60s (12s de espera + até 30s de
-// IA + cardápio + envio). Com 7s aqui, o turno pesado passava de 60s e o Vercel
-// matava a função DEPOIS da IA ter rodado e cobrado, sem o cliente receber nada.
+// O teto era 7s e não cabe no turno inteiro: o turno roda dentro do maxDuration
+// de 60s (a espera + até 30s de IA + cardápio + envio). Com 7s aqui, o turno
+// pesado passava de 60s e o Vercel matava a função DEPOIS da IA ter rodado e
+// cobrado, sem o cliente receber nada.
+//
+// A conta ficou folgada em 27/08/2026, quando a espera duplicada saiu: eram 22
+// segundos parados, hoje são 10. O número aqui embaixo não mudou por isso; o
+// que mudou foi a margem.
 function tempoDeDigitar(texto: string): number {
   const ms = 1500 + texto.length * 28;
   return Math.min(4000, Math.max(1500, ms));
 }
 
-// O cliente falou de novo depois deste marco?
-//
-// REAÇÃO NÃO CONTA. Ela entra no histórico como mensagem do cliente e, sozinha,
-// bastava pra a resposta pronta ser descartada: o cliente perguntava o preço e
-// mandava um joinha na mensagem anterior enquanto esperava. A execução da
-// pergunta desistia por causa do joinha, a execução do joinha não responde nada
-// por natureza, e a pergunta ficava sem resposta nenhuma.
 /**
  * QUANTO ELA ESPERA ANTES DE RESPONDER.
  *
@@ -126,6 +121,19 @@ function tempoDeDigitar(texto: string): number {
  */
 const ESPERA_ANTES_DE_RESPONDER = Math.max(0, Number(process.env.ESPERA_SEGUNDOS ?? 10) * 1000);
 
+/**
+ * O CLIENTE FALOU DE NOVO DEPOIS DESTE MARCO?
+ *
+ * REAÇÃO NÃO CONTA. Ela entra no histórico como mensagem do cliente e, sozinha,
+ * bastava pra a resposta pronta ser descartada: o cliente perguntava o preço e
+ * mandava um joinha na mensagem anterior enquanto esperava. A execução da
+ * pergunta desistia por causa do joinha, a execução do joinha não responde nada
+ * por natureza, e a pergunta ficava sem resposta nenhuma.
+ *
+ * Este texto estava ÓRFÃO: ele descrevia esta função e alguém encaixou a
+ * constante da espera entre os dois. Quem lia o comentário achava que estava
+ * lendo sobre a espera, e quem lia a função não achava explicação nenhuma.
+ */
 async function clienteFalouDepois(
   negocioId: string,
   clienteId: string,
@@ -205,10 +213,9 @@ async function processar(corpo: WebhookPayload) {
   for (const entry of corpo.entry ?? []) {
     for (const ch of entry.changes ?? []) {
       const valor = ch.value;
-      const msg = valor?.messages?.[0];
       // STATUS DE ENVIO: entregue, lida ou falhou. Antes isso era descartado,
       // e falha de entrega (janela de 24h fechada, numero errado) passava batido.
-      if (!msg) {
+      if (!valor?.messages?.length) {
         for (const st of valor?.statuses ?? []) {
           const id = st.id;
           const situacao = st.status;
@@ -231,8 +238,37 @@ async function processar(corpo: WebhookPayload) {
         continue;
       }
 
-      // Idempotência: se o Meta reenviou a MESMA mensagem, ignora (não responde 2x).
-      if (msg.id && !(await marcarWebhookNovo(msg.id))) continue;
+      // TODA MENSAGEM DO PACOTE, E NAO SO A PRIMEIRA.
+      //
+      // Aqui estava `const msg = valor?.messages?.[0]`, e o resto do pacote era
+      // jogado fora. O Meta entrega `messages` como LISTA e junta o que chega
+      // perto: e exatamente o caso de quem escreve picado, que e a razao de
+      // existir metade deste arquivo.
+      //
+      //     cliente >> quero 100 coxinha
+      //     cliente >> e 50 brigadeiro
+      //
+      // Se as duas viessem no mesmo pacote, a segunda nao era respondida NEM
+      // SALVA: sumia antes de existir, entao nem a juncao das falas pendentes
+      // podia recupera-la. O cliente via metade do pedido anotado e nao tinha
+      // como saber por que.
+      //
+      // Achado na releitura de 27/08/2026, na segunda passada pelo arquivo. Na
+      // primeira eu li esta linha e nao vi.
+      for (const msg of valor.messages) {
+        // SO A ULTIMA DO PACOTE RESPONDE. AS OUTRAS SAO SALVAS.
+        //
+        // E a mesma regra que o arquivo ja aplica pra mensagens que chegam em
+        // chamadas separadas: "so a ultima responde, e responde tudo". Sem isto,
+        // um pacote com tres mensagens faria TRES esperas de dez segundos e TRES
+        // respostas, que e o oposto do que este arquivo inteiro tenta fazer.
+        //
+        // As anteriores ficam gravadas e entram na juncao das falas pendentes,
+        // entao a resposta da ultima ja leva o que elas disseram.
+        const ehUltimaDoPacote = msg === valor.messages[valor.messages.length - 1];
+
+        // Idempotência: se o Meta reenviou a MESMA mensagem, ignora (não responde 2x).
+        if (msg.id && !(await marcarWebhookNovo(msg.id))) continue;
 
       const phoneNumberId = valor.metadata?.phone_number_id;
       const negocioId = await resolverNegocio(phoneNumberId);
@@ -339,8 +375,15 @@ async function processar(corpo: WebhookPayload) {
       // "digitar" um retorno pro joinha dele.
       if (entrada.semResposta) continue;
 
-      // Tique azul e 'digitando...' na hora: do lado dele, silencio de 12
-      // segundos com tique cinza parece atendimento que nao viu a mensagem.
+      // A mensagem ja esta salva e aparece no painel. Quem responde e a ultima
+      // do pacote, com a juncao das falas pendentes levando esta junto.
+      if (!ehUltimaDoPacote) {
+        console.log("[whatsapp] mensagem do meio do pacote: salvei, quem responde e a ultima");
+        continue;
+      }
+
+      // Tique azul e 'digitando...' na hora: do lado dele, silencio com tique
+      // cinza parece atendimento que nao viu a mensagem.
       if (msg.id && credsTenant.iaAtiva) {
         marcarLidaEDigitando(msg.id, creds).catch((e) =>
           console.error("[whatsapp] falha ao confirmar leitura:", e),
@@ -469,15 +512,29 @@ async function processar(corpo: WebhookPayload) {
         const naoImpresso = emAberto && !emAberto.impresso && emAberto.status !== "aprovado";
         const rascunhoVazio = (montado?.itens?.length ?? 0) === 0;
         if (naoImpresso && rascunhoVazio && emAberto) {
-          console.log("[whatsapp] cliente quer mudar pedido ainda nao impresso; devolvendo pro rascunho");
+          console.log("[whatsapp] pedido em aberto ainda nao impresso; devolvendo pro rascunho");
           for (const it of emAberto.itens) {
+            // A UNIDADE VAZIA VIRAVA PECA, E BOLO SE VENDE POR QUILO.
+            //
+            // Estava `it.unidade === "kg" ? "kg" : "un"`: qualquer coisa que
+            // nao fosse exatamente "kg" virava unidade, INCLUSIVE vazio e nulo.
+            // Uma linha antiga sem unidade trazia o bolo de 2 kg de volta como
+            // 2 PECAS, e o motor cobrava R$ 46,90 no lugar de R$ 93,80.
+            //
+            // O comentario que estava aqui ja dizia o certo, e o codigo nao
+            // fazia: "o cardapio decide, que e a mesma fonte do preco e da
+            // unidade". A funcao que responde isso estava importada neste
+            // arquivo e nunca era chamada, entao eu a apaguei como morta na
+            // primeira releitura de 27/08/2026. Ela nao estava morta: estava
+            // esperando ser ligada nesta linha.
+            const doCardapio = unidadeDoProduto(it.produto, categoriaDoProduto(it.produto));
             await anotarItem(negocioId, clienteId, {
               produto: it.produto,
               // O pedido em aberto nao guarda a categoria do item; o cardapio
               // decide, que e a mesma fonte do preco e da unidade.
               categoria: (categoriaDoProduto(it.produto) || "outro") as never,
               qtd: Number(it.qtd) || 0,
-              unidade: (it.unidade === "kg" ? "kg" : "un") as "kg" | "un",
+              unidade: (it.unidade === "kg" || it.unidade === "un" ? it.unidade : doCardapio) as "kg" | "un",
               obs: it.obs ?? null,
             }).catch(() => {});
           }
@@ -677,7 +734,10 @@ async function processar(corpo: WebhookPayload) {
               await salvarMensagem(negocioId, clienteId, "assistant", recado).catch(() => {});
             }
           }
-          return;
+          // CONTINUE, E NAO RETURN: com o laco das mensagens, `return` sairia do
+          // `processar` inteiro e as outras mensagens do mesmo pacote ficariam
+          // sem resposta. Era invisivel enquanto so a primeira era lida.
+          continue;
         } catch (e) {
           // O FLUXO CAINDO NAO PODE DEIXAR O CLIENTE SEM RESPOSTA.
           //
@@ -705,7 +765,7 @@ async function processar(corpo: WebhookPayload) {
             "eles te respondem por aqui daqui a pouco.";
           await enviarTexto(telefone, desculpa, creds).catch(() => {});
           await salvarMensagem(negocioId, clienteId, "assistant", desculpa).catch(() => {});
-          return;
+          continue;
         }
       }
 
@@ -733,6 +793,7 @@ async function processar(corpo: WebhookPayload) {
         "Ja avisei eles, e daqui a pouco te falam por aqui.";
       await enviarTexto(telefone, semIA, creds).catch(() => {});
       await salvarMensagem(negocioId, clienteId, "assistant", semIA).catch(() => {});
+      } // fim do laco das mensagens deste pacote
     }
   }
 }

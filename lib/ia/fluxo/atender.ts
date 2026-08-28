@@ -28,7 +28,7 @@ import { dizerComJeito } from "./dizer";
 import { lerEstadoDoBanco, gravarEstado, zerar } from "./gravar";
 import { fecharPedido } from "./fechar";
 import { falaDaEtapa } from "./pergunta";
-import { ROTEIRO_DA_FESTA, roteiroDoPedido } from "./etapas";
+import { roteiroDoPedido } from "./etapas";
 import { mandouRecomecar, comCumprimento, tirarCumprimento, semEmoji, respostaAoValor } from "./falas-do-cliente";
 import {
   temPedidoAguardandoCliente,
@@ -192,20 +192,47 @@ export async function atenderComFluxoNovo(
   // ================================================================
   try {
     if (await temPedidoAguardandoCliente(negocioId, clienteId)) {
-      const resposta = respostaAoValor(mensagem.texto);
+      // O TOQUE NO BOTAO VALE COMO RESPOSTA, E VALE ANTES DA PALAVRA.
+      //
+      // Sem isto o botao que a padaria manda logo abaixo seria enfeite: o
+      // cliente tocaria em "Ta certo" e a leitura por texto tentaria adivinhar
+      // "Ta certo" de novo. Regra do dono, 23/08/2026, sobre outro botao que
+      // fazia isso: "os botoes tem uns que ta la pra bonito".
+      const resposta =
+        mensagem.botaoId === "valor_sim"
+          ? "aceitou"
+          : mensagem.botaoId === "valor_nao"
+            ? "recusou"
+            : respostaAoValor(mensagem.texto);
 
       if (resposta === "aceitou") {
         const foi = await registrarAceiteCliente(negocioId, clienteId);
+        // O "NAO CONSEGUI ANOTAR" PRECISA CHAMAR ALGUEM.
+        //
+        // `registrarAceiteCliente` devolve se conseguiu. Quando NAO conseguia, a
+        // padaria dizia "Anotei aqui, obrigado. Assim que a equipe confirmar eu
+        // te aviso" e ninguem era avisado de nada: o pedido nao andava, o painel
+        // nao acendia, e o cliente ficava esperando uma confirmacao que nunca ia
+        // chegar.
+        //
+        // E o aceite de um VALOR: o cliente ja disse sim pro dinheiro. Perder
+        // isso em silencio e o pior tipo de falha que este sistema tem.
+        //
+        // Achado na segunda leitura de 27/08/2026. Na primeira eu li estas
+        // linhas e nao vi.
         return {
           texto: semEmoji(
             foi
               ? "Perfeito, obrigado. Seu pedido foi pra fila de aprovação da equipe e eu te aviso assim que confirmarem."
-              : "Anotei aqui, obrigado. Assim que a equipe confirmar eu te aviso.",
+              : "Perfeito, obrigado. Já avisei a equipe da padaria e eles confirmam com você por aqui.",
           ),
           botoes: [],
           cardapio: null,
           etapa: "registrado",
-          rastro: ["ele aceitou o valor da equipe; o pedido foi pra fila de aprovacao"],
+          precisaHumano: !foi,
+          rastro: foi
+            ? ["ele aceitou o valor da equipe; o pedido foi pra fila de aprovacao"]
+            : ["ele aceitou o valor mas o registro do aceite falhou; chamei a equipe"],
           uso,
         };
       }
@@ -230,12 +257,28 @@ export async function atenderComFluxoNovo(
 
       // Nao deu pra entender se foi sim ou nao. Perguntar de novo e melhor que
       // decidir por ele: e dinheiro, e a resposta muda o que vai pra producao.
+      //
+      // MAS PERGUNTAR IGUAL PRA SEMPRE E UM BECO, E ESTE TRECHO NAO TINHA SAIDA.
+      //
+      // Ele roda ANTES do fluxo, entao o contador de insistencia do fluxo nunca
+      // chega aqui: quem respondesse qualquer coisa que nao fosse um sim ou um
+      // nao claro ouvia exatamente esta frase em TODA mensagem, sem fim e sem
+      // ninguem ser chamado.
+      //
+      // A resposta aqui so tem duas saidas, entao ela e caso de BOTAO: o cliente
+      // toca em vez de escrever e nao ha o que interpretar. E a mesma decisao do
+      // dono pro resto do sistema, e ela vale mais ainda onde tem dinheiro.
+      //
+      // Achado na segunda leitura de 27/08/2026.
       return {
-        texto: "Só pra eu não errar: esse valor tá certo pra você, posso passar pra confirmação?",
-        botoes: [],
+        texto: "Só pra eu não errar: esse valor tá certo pra você?",
+        botoes: [
+          { id: "valor_sim", titulo: "Tá certo" },
+          { id: "valor_nao", titulo: "Quero falar" },
+        ],
         cardapio: null,
         etapa: "registrado",
-        rastro: ["nao entendi se ele aceitou o valor; perguntei de novo"],
+        rastro: ["nao entendi se ele aceitou o valor; perguntei com botao"],
         uso,
       };
     }
