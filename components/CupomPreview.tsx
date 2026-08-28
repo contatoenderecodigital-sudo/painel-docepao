@@ -60,13 +60,28 @@ type Badge = { nome: string; cor: string; id: DeptoId | "caixa" };
 function esc(s: string) {
   return s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] as string);
 }
-// Remove acento e c-cedilha. IMPRESSAO fica ASCII ate a impressora termica ser
-// testada (acento/ç em bobina depende do codepage e pode sair como lixo).
-function semAcento(s: string) {
-  return s; // acentos mantidos (navegador rasteriza; ESC-POS usa CP850 na ponte)
-}
-// pra impressao: sem acento + escapado
-const pr = (s: string) => esc(semAcento(s));
+// AQUI HAVIA UM `semAcento` QUE NAO TIRAVA ACENTO.
+//
+// O comentario dizia "remove acento e c-cedilha" e o corpo era `return s`. A
+// decisao de manter o acento e certa e esta explicada abaixo, mas o nome
+// prometia o contrario, e ja existem DUAS funcoes com esse nome no
+// repositorio: a de `lib/ia/texto.ts` (que baixa a caixa e apara, pra
+// COMPARAR) e o apelido do `cupom-escpos.ts` (que tira acento de verdade, pro
+// papel). Uma terceira, que nao faz nada, e a armadilha completa.
+//
+// POR QUE A TELA MANTEM O ACENTO E O PAPEL NAO:
+//
+// Sao duas impressoras. Esta preview sai pelo NAVEGADOR (A4 ou bobina, o
+// navegador rasteriza a fonte e o acento sai certo). O cupom de verdade sai
+// pela PONTE, em ESC/POS, onde acento depende de codepage e vira ruido no meio
+// da palavra: la o `cupom-escpos.ts` tira, de proposito, e diz por que
+// ("melhor PAES E CUCAS legivel do que PAES virando ruido").
+//
+// Entao a diferenca e real e escolhida: a tela mostra "Prestigio" com acento e
+// o papel termico imprime sem. O conteudo e o mesmo.
+//
+// Achado na leitura do `components/`, 28/08/2026.
+const pr = (s: string) => esc(s);
 
 function htmlDoTicket(
   t: { badge: Badge; itens: Pedido["itens"]; master?: boolean },

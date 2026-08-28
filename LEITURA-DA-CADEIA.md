@@ -2827,3 +2827,45 @@ login/banco. Apagar depois."*
 
 Não apaguei porque pode estar em uso pra ajustar design. **Decisão sua:** apagar,
 ou pôr atrás do login como o resto.
+
+
+---
+
+# A LEITURA DO `components/` (as telas)
+
+8.129 linhas, a maior pasta. O risco aqui muda de forma: menos autenticação,
+mais **"o que a dona vê não é o que está no banco"**.
+
+## 59. `CupomPreview.tsx` — o terceiro `semAcento`, e este não tirava acento
+
+```ts
+// Remove acento e c-cedilha. IMPRESSAO fica ASCII ...
+function semAcento(s: string) {
+  return s; // acentos mantidos
+}
+```
+
+O comentário prometia uma coisa e o corpo fazia outra. E já existiam **duas**
+funções com esse nome no repositório: a de `lib/ia/texto.ts` (baixa a caixa e
+apara, pra COMPARAR) e o apelido do `cupom-escpos.ts` (tira acento de verdade,
+pro papel, e tem o aviso escrito lá: *"nome igual e comportamento diferente é a
+armadilha que já apareceu no motor de preço"*). Uma terceira, que não faz nada,
+fecha a armadilha.
+
+### E a diferença entre a tela e o papel é real, mas escolhida
+
+São **duas impressoras**. A preview sai pelo navegador, que rasteriza a fonte e
+imprime o acento certo. O cupom de verdade sai pela ponte, em ESC/POS, onde
+acento depende de codepage e vira ruído no meio da palavra: lá o
+`cupom-escpos.ts` tira, de propósito.
+
+Então a tela mostra "Prestígio" e o papel térmico imprime "Prestigio". O conteúdo
+é o mesmo. Deixei a decisão e apaguei a função que mentia.
+
+### Conferido e sem defeito: a divisão por estação
+
+A preview agrupa com `deptoDe` e ordena por `DEPARTAMENTOS`; o cupom real usa
+`deptosDoPedido`, que faz exatamente o mesmo (`deptoDe` + ordem de
+`DEPARTAMENTOS`). Os dois caminhos concordam **por construção**, e a quantidade
+sai do mesmo `qtdDoTicket` nos dois. Era o candidato mais forte a divergência
+tela/papel neste arquivo, e não é uma.

@@ -75,10 +75,17 @@ exemplo no `LEITURA-DA-CADEIA.md`, item 55.
 
 | | linhas | estado |
 | --- | --- | --- |
-| `components/` (telas) | 8.129 | **não lido** |
-| `app/` (rotas e páginas) | 3.922 | **não lido** |
+| `lib/ia/` (cérebro) | ~7.600 | **lido**, 28 arquivos |
+| `lib/banco/` | ~4.700 | **lido**, 11 arquivos |
+| `app/` (rotas e páginas) | 3.922 | **lido**, 8 defeitos |
+| `components/` (telas) | 8.129 | **falta** |
 
-Metade do repositório. E o pior defeito do dia estava justamente aí.
+**Só falta `components/`.** São as telas, e é a maior pasta: 8.129 linhas.
+
+O `app/` rendeu 8 defeitos em 3.922 linhas, e três deles eram de autenticação
+(as dezesseis rotas, o SSO e o painel mostrando mock sem login). A pasta que
+falta é de tela, então o risco muda de forma: menos segurança, mais "o que a
+dona vê não é o que está no banco".
 
 ---
 
