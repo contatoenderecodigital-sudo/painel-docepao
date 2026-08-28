@@ -432,8 +432,31 @@ export async function anotarItem(
   if (item.categoria === "docinho") {
     const ditas = coresDaForminha(String(item.obs ?? ""));
     if (ditas.length) {
-      // "azul e amarelo" continua "azul e amarelo", nao vira so "azul".
-      const cores = [...new Set(ditas.map((x) => x.trim().toLowerCase()))].join(" e ");
+      // LEMBRAR DE UMA COR NAO APAGA A OUTRA.
+      //
+      // Medido numa conversa de verdade em 28/08/2026, com o pedido ja montado
+      // com duas cores:
+      //
+      //     cliente >> sim, mas nao esquece da forminha rosa
+      //     antes   >> forminha rosa e azul
+      //     depois  >> forminha rosa          (o azul sumiu)
+      //
+      // Ele estava LEMBRANDO de uma cor que ja tinha escolhido, e o codigo leu
+      // como troca. E o mesmo defeito que ja tinha custado o amarelo da Kemilly,
+      // por outra porta.
+      //
+      // A regra separa os dois sem adivinhar intencao: cor que JA ESTA na lista
+      // e lembranca, e lembranca nao muda nada. Cor NOVA e troca, e ai a lista
+      // passa a ser a que ele acabou de dizer.
+      const jaEscolhidas = String(m.dados.fluxo_forminha ?? "")
+        .split(/\s+e\s+|,/)
+        .map((x) => x.trim().toLowerCase())
+        .filter(Boolean);
+      const novas = ditas.map((x) => x.trim().toLowerCase());
+      const soLembrou = jaEscolhidas.length > 0 && novas.every((c) => jaEscolhidas.includes(c));
+      const cores = soLembrou
+        ? jaEscolhidas.join(" e ")
+        : [...new Set(novas)].join(" e ");
       m.dados.fluxo_forminha = cores;
       for (const x of m.itens) {
         if (x.categoria !== "docinho") continue;

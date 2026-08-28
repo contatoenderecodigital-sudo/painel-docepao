@@ -1068,7 +1068,39 @@ export async function responder(
     // separa: a instrucao dele diz, com todas as letras, que pergunta e
     // reclamacao NAO viram item. O que muda e que agora, quando ele devolve os
     // dois, os dois valem.
+    // PERGUNTA SEM NUMERO NAO VIRA ITEM. PROMPT PEDE, CODIGO GARANTE.
+    //
+    // O paragrafo acima apostava que o modelo separaria pergunta de pedido,
+    // porque a instrucao dele manda. MEDIDO CONTRA ELE DE VERDADE em
+    // 28/08/2026, na primeira mensagem de uma conversa:
+    //
+    //     cliente >> boa tarde, quanto e a cuca?
+    //     no pedido >> 0 cuca, R$ 0,00
+    //
+    // E o item de quantidade zero travou o fechamento ate o fim da conversa: o
+    // pedido inteiro, R$ 218,80 ja combinado, NAO FOI REGISTRADO, porque falta
+    // dizer "quantos cuca voce quer".
+    //
+    // Perguntar virou pedir, que e exatamente o defeito que o bloco logo abaixo
+    // existe pra impedir, e o comentario dele diz isso com todas as letras.
+    //
+    // A regra do numero e o que separa os dois casos sem adivinhar intencao:
+    //
+    //     "quanto e a cuca?"                   pergunta, sem numero  -> nao entra
+    //     "quanto e o cento de coxinha? quero 200"  pergunta COM numero -> entra
+    //
+    // O segundo e o caso que fez o `aplicar` subir pra ca, e ele continua de pe.
     const lida = juntarComAFrase(limpa, String(mensagem.texto ?? ""));
+    if (lida.perguntou?.sobre && lida.itens?.length) {
+      const comNumero = lida.itens.filter((i) => Number(i.qtd) > 0);
+      if (comNumero.length !== lida.itens.length) {
+        rastro.push(
+          "pergunta sem numero nao virou item: " +
+            lida.itens.filter((i) => !(Number(i.qtd) > 0)).map((i) => i.produto).join(", "),
+        );
+      }
+      lida.itens = comNumero.length ? comNumero : undefined;
+    }
     estado = aplicar(estado, lida, etapaAgora.id, String(mensagem.texto ?? ""));
 
     // ---------------------------------------- A CONVERSA NAO E UM PEDIDO
