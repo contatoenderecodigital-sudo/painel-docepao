@@ -2756,3 +2756,34 @@ função inteira antes de afirmar.
 função da fonte e rodava com `new Function`, e quebrava no primeiro tipo de
 TypeScript. Por isso a montagem saiu pra `lib/cardapio-opcoes.ts`: agora dá pra
 importar a lista de verdade, e o teste mede **ela**.
+
+
+## 57. O botão "limpar" da tela de teste zerava só a tela
+
+O `/testar` não guarda a conversa (o histórico vive no navegador), mas o **pedido
+em montagem vive no banco**, e o cérebro lê do banco. Então zerar só a tela deixa
+o pedido da conversa anterior de pé.
+
+O botão fazia `setMensagens([])` e mais três `setState`. O dono via a tela vazia
+e a IA continuava com o pedido velho montado, respondendo em cima dele.
+
+### E a rota já sabia limpar
+
+O `testar-ia/route.ts` tem o trecho que apaga a montagem e o pedido da rodada
+anterior, com o motivo escrito:
+
+> *"Cada cenário do teste começa do zero: sem isso o pedido de um vaza no outro e
+> o resultado não quer dizer nada."*
+
+Ele só roda com `reiniciar: true` no corpo. Medido: quem mandava esse sinal eram
+**apenas as baterias automatizadas** (`qa-painel.cjs` e `qa-conversa.cjs`). A tela
+nunca mandou.
+
+É a pergunta *"alguém LÊ este campo?"* ao contrário: **alguém ESCREVE este
+campo?** Sobe pra 4 achados, e é a mesma família dos outros três.
+
+### E a ordem importava
+
+A rota recusa corpo sem mensagem **antes** de chegar no trecho que limpa. Mandar
+só `{ reiniciar: true }` devolveria erro e não limparia nada. Por isso o botão
+marca, e o sinal viaja com a próxima mensagem, que é como as baterias já fazem.

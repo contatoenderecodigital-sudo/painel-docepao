@@ -19,6 +19,21 @@ export default function TestarIA() {
   const [erro, setErro] = useState<string | null>(null);
   // Foto de referência anexada à PRÓXIMA mensagem (data URL pra preview + envio).
   const [anexo, setAnexo] = useState<{ dataUrl: string; mime: string } | null>(null);
+  // LIMPAR A TELA TEM QUE LIMPAR O BANCO TAMBEM.
+  //
+  // O botao zerava so o React. A montagem e o pedido da conversa anterior
+  // ficavam no banco, e o cerebro LE do banco: o dono via a tela vazia e a IA
+  // continuava com o pedido velho montado.
+  //
+  // A rota ja sabe limpar (`reiniciar: true`), e so as baterias automatizadas
+  // mandavam esse sinal. A tela nunca mandou.
+  //
+  // O sinal viaja com a PROXIMA mensagem porque a rota recusa corpo sem
+  // mensagem antes de chegar no trecho que limpa. E o mesmo jeito que o
+  // `qa-painel.cjs` e o `qa-conversa.cjs` ja usam.
+  //
+  // Achado na leitura do `app/`, 28/08/2026.
+  const [precisaReiniciar, setPrecisaReiniciar] = useState(false);
   const fim = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -65,6 +80,9 @@ export default function TestarIA() {
     const anexoEnviar = anexo;
     setAnexo(null);
     setDigitando(true);
+    // O sinal vale por uma mensagem so: depois dela a conversa e a de agora.
+    const reiniciarAgora = precisaReiniciar;
+    setPrecisaReiniciar(false);
 
     try {
       const r = await fetch("/api/testar-ia", {
@@ -74,6 +92,7 @@ export default function TestarIA() {
           mensagens: conversa.map((m) => ({ de: m.de, texto: m.texto })),
           imagem: anexoEnviar?.dataUrl,
           imagemMime: anexoEnviar?.mime,
+          reiniciar: reiniciarAgora,
         }),
       });
       const dados = await r.json().catch(() => ({}));
@@ -106,6 +125,9 @@ export default function TestarIA() {
     setErro(null);
     setTexto("");
     setAnexo(null);
+    // E o banco tambem, na proxima mensagem: sem isto o pedido da conversa
+    // anterior continua montado e a IA responde em cima dele.
+    setPrecisaReiniciar(true);
   }
 
   return (
