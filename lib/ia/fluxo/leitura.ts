@@ -37,6 +37,18 @@ import { semAcento } from "../texto";
 import { APELIDOS } from "../dados/apelidos";
 import { produtosDaCasa, produtoNoComeco, produtoPorNome, gruposDaCasa } from "../dados/produtos";
 
+/**
+ * SOBRE O QUE ELE PODE TER PERGUNTADO.
+ *
+ * Array e nao so uniao de tipo porque QUEM RECEBE a resposta do modelo precisa
+ * conferir em tempo de execucao. Uniao de tipo o compilador apaga; o modelo
+ * devolve texto, e texto nao passa por compilador nenhum.
+ */
+export const SOBRE_O_QUE = [
+  "preco", "horario", "endereco", "pagamento", "entrega", "prazo", "desconto", "outro",
+] as const;
+export type SobreOQue = (typeof SOBRE_O_QUE)[number];
+
 /** O que a IA pode devolver. Nada alem disto entra no pedido. */
 export type Leitura = {
   /** Itens que ele pediu, do vocabulario DESTA etapa. */
@@ -114,7 +126,7 @@ export type Leitura = {
    * A resposta sai do codigo, com o dado da casa, e nada e anotado.
    */
   perguntou?: {
-    sobre: "preco" | "horario" | "endereco" | "pagamento" | "entrega" | "prazo" | "desconto" | "outro";
+    sobre: SobreOQue;
     familia?: string;
   };
   /** Como o bolo vai embalado: prato de MDF aberto ou embalagem com tampa. */

@@ -31,7 +31,7 @@ Isto sobrevive à compactação. A minha memória de ter lido, não.
 | 2 | `lib/ia/fluxo/atender.ts` | 1-330, DUAS passadas | **INTEIRO** — 6 defeitos |
 | 3 | `lib/ia/fluxo/fluxo.ts` | 1-1690, sem buraco | **INTEIRO** — 9 defeitos |
 | 4 | `lib/ia/fluxo/leitura.ts` | 1-681, sem buraco | **INTEIRO** — 10 defeitos |
-| 5 | `lib/ia/fluxo/pensar-openai.ts` | 28-120 | falta o resto |
+| 5 | `lib/ia/fluxo/pensar-openai.ts` | 1-195, sem buraco | **INTEIRO** — 7 defeitos |
 | 6 | `lib/ia/fluxo/produto.ts` | 1-200 | falta o fim |
 | 7 | `lib/ia/fluxo/sabor.ts` | 1-196 e os trechos novos | falta conferir o meio |
 | 8 | `lib/ia/fluxo/etapas.ts` | nada | não lido |
@@ -417,3 +417,70 @@ instrução gigante da oferta.
 
 Três `` viraram byte de backspace ao escrever o normalizador de plural. O
 `nenhum-byte-quebrado` pegou. A defesa funciona; o que não muda é o shell.
+
+---
+
+## 5. `lib/ia/fluxo/pensar-openai.ts` — a chamada da IA
+
+195 linhas. A única parte do fluxo que gasta dinheiro. **Sete defeitos.**
+
+### Dois campos que o código lê e o formato nunca pediu
+
+O arquivo tem duas metades escritas em lugares diferentes dele mesmo: o
+`FORMATO`, que vai no prompt dizendo "responda NESTE formato", e o limpador, que
+lê a resposta campo por campo. As duas discordavam:
+
+    ehFesta        lido na linha 132, e a instrução da abertura manda devolver.
+                   O formato mostrava um objeto completo sem ele.
+    papelDeArroz   lido na linha 154. O formato mostrava só { "topo": true }.
+
+Sem `ehFesta` a conversa pula a proposta da festa inteira, e papel de arroz é
+item cobrado. É o mesmo defeito que o comentário do `ehFesta` descreve, pelo
+outro lado: lá a resposta certa morria na entrada, aqui ela nunca era pedida na
+saída.
+
+Nenhum teste podia ver isso, e vale entender por quê: o cérebro roda com modelo
+de mentira nos testes, e modelo de mentira devolve o que a gente mandar. Só o
+modelo de verdade obedece ao formato. Por isso o teste novo compara as duas
+metades **na fonte**, e não pela resposta.
+
+### Item sem quantidade era jogado fora
+
+    {"produto":"coxinha"}   ->  sumia
+
+A conferida era `Number(i.qtd) >= 0`, e `Number(undefined)` é NaN, que não é
+maior nem igual a nada. Duas linhas abaixo, `Number(i.qtd) || 0` já sabia virar
+zero, e zero é resposta legítima: na festa o total foi combinado na proposta e o
+cliente só escolhe o sabor.
+
+### O turno tem 60 segundos e esta chamada esperava dez minutos
+
+O SDK da OpenAI vem com 10 min de timeout e 2 tentativas, e nada aqui dizia o
+contrário. Chamada travada consumia o turno inteiro: o Vercel mata a função, **a
+IA já foi cobrada e o cliente não recebe nada.** É o mesmo perigo que as duas
+esperas do webhook criavam antes de virarem uma. Ficou 15s com uma repetição:
+pior caso 30s, sobram 20 pro resto do turno.
+
+### O que vem de fora entrava sem ser conferido
+
+`situacao` e `prato` eram conferidos valor por valor ali do lado. `perguntou.sobre`
+e `falouDeOutraEtapa` não: qualquer texto virava um `SobreOQue` ou um `EtapaId`,
+e o tipo passou a mentir a partir dali. Uma etapa inexistente fazia o fluxo
+gravar `assunto` e `retomarEm` apontando pro nada. A conversa se cura sozinha na
+mensagem seguinte, mas gasta uma mensagem do cliente pra isso.
+
+A união de tipo virou array (`SOBRE_O_QUE`), porque união o compilador apaga e o
+que chega aqui é texto que o modelo escreveu. A lista de etapas sai de
+`etapas.ts`.
+
+### Mais dois
+
+- `obs` entrava sem `String()`, sozinho entre os campos de texto. Objeto que o
+  modelo devolvesse chegava na comanda como `[object Object]`
+- o cabeçalho dizia que a instrução tem "374 a 704 caracteres". Medido: **791 a
+  1874**, número de uma versão que não existe mais
+
+### Testes novos
+
+`o-formato-pede-tudo-que-o-codigo-le.cjs` e `o-limpador-nao-come-a-resposta.cjs`.
+As duas iscas reproduzem os defeitos exatos que foram achados.

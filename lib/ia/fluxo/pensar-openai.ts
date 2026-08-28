@@ -11,8 +11,15 @@
 //  quarenta guardas que corrigiam depois.
 //
 //  Aqui ele recebe uma pergunta so: "estando NESTA etapa, o que esta frase
-//  muda no pedido?". A instrucao cabe num paragrafo (374 a 704 caracteres),
-//  nao ha ferramenta, nao ha laco, e a resposta e um JSON pequeno.
+//  muda no pedido?". Nao ha ferramenta, nao ha laco, e a resposta e um JSON
+//  pequeno.
+//
+//  A instrucao vai de 791 a 1874 caracteres, medidos em 28/08/2026 nas onze
+//  etapas. Este comentario dizia "374 a 704", numero de uma versao que nao
+//  existe mais, e ninguem tinha medido de novo desde entao. Quem cobra o
+//  tamanho e o teste `o-docinho-so-e-docinho-na-etapa-dele`, que separa a REGRA
+//  (minha, teto de 1400) do CARDAPIO (da dona, sem teto): o cardapio crescer
+//  quando ela cadastra produto novo nao e defeito.
 //
 //  RESPOSTA EM FORMATO FIXO
 //
@@ -22,21 +29,39 @@
 // ============================================================================
 
 import OpenAI from "openai";
-import type { Leitura } from "./leitura";
+import { SOBRE_O_QUE, type Leitura } from "./leitura";
+import { ETAPAS_DA_FESTA } from "./etapas";
 import type { Pensar } from "./fluxo";
 
 const MODELO = process.env.OPENAI_MODEL_FLUXO || "gpt-4.1-mini";
 
-/** O formato que o modelo tem que devolver. Nada alem disto e lido. */
+/**
+ * O formato que o modelo tem que devolver. Nada alem disto e lido.
+ *
+ * E NADA QUE O CODIGO LE PODE FALTAR AQUI. Faltavam dois, achados lendo o
+ * arquivo em 28/08/2026:
+ *
+ *   ehFesta        o limpador le na linha 132, e a instrucao da abertura manda
+ *                  devolver. Mas este texto diz "responda NESTE formato" e
+ *                  mostra um objeto completo sem o campo. Modelo que segue o
+ *                  formato a risca nunca devolve, e sem `ehFesta` a conversa
+ *                  pula a proposta da festa inteira.
+ *   papelDeArroz   idem, linha 154. E papel de arroz e item cobrado.
+ *
+ * E o mesmo defeito que o comentario do `ehFesta` la embaixo descreve, so que
+ * pelo outro lado: la a resposta certa morria na ENTRADA, aqui ela nunca era
+ * pedida na SAIDA.
+ */
 const FORMATO = `Responda SÓ com um JSON, sem texto em volta, neste formato:
 
 {
   "itens": [{ "produto": "nome do cardápio", "qtd": 0, "sabor": "só o recheio, uma palavra ou duas", "obs": "recado pra cozinha: o que NÃO é sabor" }],
   "pessoas": 0,
+  "ehFesta": true,
   "aceitouBase": false,
   "naoQuer": ["salgado"],
   "confirmou": true,
-  "pecas": { "topo": true },
+  "pecas": { "topo": true, "papelDeArroz": true },
   "aniversariante": { "nome": "Arthur", "idade": "5 anos" },
   "tema": "Minnie",
   "escrito": "Arthur, 5 anos",
@@ -72,6 +97,21 @@ export function pensarComOpenAI(
         { role: "system", content: instrucao + "\n\n" + FORMATO },
         { role: "user", content: mensagem },
       ],
+    }, {
+      // O TURNO INTEIRO TEM 60 SEGUNDOS, E ESTA CHAMADA ESPERAVA DEZ MINUTOS.
+      //
+      // O SDK da OpenAI vem com 10 min de timeout e 2 tentativas. Nada aqui
+      // dizia o contrario, entao uma chamada travada consumia o turno todo: o
+      // Vercel mata a funcao, A IA JA FOI COBRADA e o cliente nao recebe nada.
+      //
+      // E o mesmo perigo que as duas esperas do webhook criavam antes de virarem
+      // uma, e o arquivo 1 fez a conta: 22 parado + 30 de IA + 4 de "digitando"
+      // dava 56 de 60.
+      //
+      // Com 15s e uma repeticao, o pior caso desta chamada e 30s. Sobram 20 pro
+      // resto do turno, que e o que o resto do turno usa.
+      timeout: 15000,
+      maxRetries: 1,
     });
 
     const u = r.usage;
@@ -96,8 +136,22 @@ export function pensarComOpenAI(
         // reparte o total da proposta entre eles e o fluxo, depois.
         //
         // Numero negativo continua fora: isso nao e resposta de ninguem.
+        // ITEM SEM QUANTIDADE NAO E LIXO, E ITEM SEM QUANTIDADE.
+        //
+        // A conferida era `Number(i.qtd) >= 0`, e `Number(undefined)` e NaN, que
+        // nao e maior nem igual a nada. Item que o modelo devolvesse sem o campo
+        // `qtd` era JOGADO FORA em silencio:
+        //
+        //   {"produto":"coxinha"}   ->  sumia
+        //
+        // Duas linhas abaixo, `Number(i.qtd) || 0` ja sabia tratar isso e virava
+        // zero. E zero e resposta legitima: na festa o total ja foi combinado na
+        // proposta e o cliente so escolhe o sabor, que e o que o comentario
+        // aqui em cima explica.
+        //
+        // Negativo continua fora. Isso nao e resposta de ninguem.
         limpo.itens = lido.itens
-          .filter((i) => i && String(i.produto ?? "").trim() && Number(i.qtd) >= 0)
+          .filter((i) => i && String(i.produto ?? "").trim() && !(Number(i.qtd) < 0))
           .map((i) => ({
             produto: String(i.produto).trim(),
             qtd: Number(i.qtd) || 0,
@@ -115,7 +169,9 @@ export function pensarComOpenAI(
             // sozinha. O codigo confere SO o sabor, contra o catalogo, e o
             // recado passa intocado.
             sabor: i.sabor ? String(i.sabor).trim() : null,
-            obs: i.obs ?? null,
+            // O mesmo tratamento do sabor. Sem `String()`, um objeto que o
+            // modelo devolvesse aqui chegava na comanda como "[object Object]".
+            obs: i.obs ? String(i.obs).trim() || null : null,
           }));
         if (!limpo.itens.length) delete limpo.itens;
       }
@@ -157,7 +213,13 @@ export function pensarComOpenAI(
       if (lido.situacao === "reclamacao" || lido.situacao === "cancelar" || lido.situacao === "status") {
         limpo.situacao = lido.situacao;
       }
-      if (lido.perguntou?.sobre) {
+      // O QUE VEM DE FORA E CONFERIDO CONTRA A LISTA, E NAO SO TIPADO.
+      //
+      // `situacao` e `prato` logo aqui em volta ja eram conferidos valor por
+      // valor. `perguntou.sobre` nao: qualquer texto virava um `SobreOQue`, e o
+      // tipo passou a mentir a partir dali. Uniao de tipo o compilador apaga; o
+      // que chega aqui e texto que o modelo escreveu.
+      if (lido.perguntou?.sobre && (SOBRE_O_QUE as readonly string[]).includes(lido.perguntou.sobre)) {
         limpo.perguntou = {
           sobre: lido.perguntou.sobre,
           ...(lido.perguntou.familia ? { familia: String(lido.perguntou.familia) } : {}),
@@ -183,7 +245,18 @@ export function pensarComOpenAI(
         }
         if (Object.keys(d).length) limpo.dados = d;
       }
-      if (lido.falouDeOutraEtapa) limpo.falouDeOutraEtapa = lido.falouDeOutraEtapa;
+      // A ETAPA CITADA TEM QUE EXISTIR.
+      //
+      // Isto aceitava qualquer texto como `EtapaId`. O fluxo entao gravava
+      // `assunto` e `retomarEm` apontando pra uma etapa que nao existe. A
+      // conversa se cura sozinha na mensagem seguinte (o fluxo nao acha a etapa
+      // e limpa o assunto), mas gasta uma mensagem do cliente pra isso, e
+      // `retomarEm` fica apontando pra um lugar de onde ninguem saiu.
+      //
+      // A lista sai de `etapas.ts`, que e onde etapa se cadastra.
+      if (lido.falouDeOutraEtapa && ETAPAS_DA_FESTA.some((x) => x.id === lido.falouDeOutraEtapa)) {
+        limpo.falouDeOutraEtapa = lido.falouDeOutraEtapa;
+      }
       return limpo;
     } catch {
       // JSON quebrado nao trava a conversa: o fluxo segue perguntando o mesmo,
