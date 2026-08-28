@@ -20,7 +20,6 @@ const APP_SECRET = process.env.WHATSAPP_APP_SECRET;
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const PIN = process.env.WHATSAPP_REGISTER_PIN ?? "";
 const WEBHOOK_URL = process.env.WHATSAPP_WEBHOOK_URL ?? "https://app.enderecodigital.com/api/whatsapp";
-const NEGOCIO_PADRAO = process.env.NEGOCIO_PADRAO_ID ?? "";
 
 export async function POST(req: NextRequest) {
   if (!APP_SECRET || !VERIFY_TOKEN) {
@@ -80,11 +79,20 @@ export async function POST(req: NextRequest) {
       /* nao bloqueia a conexao se o fetch do numero falhar */
     }
 
-    // 5) mapeia pro tenant do dono logado (ou o padrao)
+    // 5) mapeia pro tenant DO DONO LOGADO. So dele.
+    //
+    // Era "do dono logado (ou o padrao)", e o padrao vinha do ambiente. Esta
+    // escrita grava o phone_id, o waba_id e o TOKEN do WhatsApp no tenant: e a
+    // mesma escrita do `provisionar/route.ts`, que tem o motivo no proprio
+    // cabecalho -- "senao qualquer um poderia apontar o atendimento da padaria
+    // para um numero dele" -- e se protege com segredo compartilhado.
+    //
+    // Sem sessao nao ha dono, e sem dono nao se grava.
     const sessao = await lerSessao();
-    const negocioId = sessao?.negocioId ?? NEGOCIO_PADRAO;
-    if (negocioId)
-      await salvarWhatsappTenant(negocioId, { phoneId: phone_number_id, wabaId: waba_id, token, numero, perfil });
+    if (!sessao?.negocioId) {
+      return Response.json({ ok: false, erro: "sem sessao" }, { status: 401 });
+    }
+    await salvarWhatsappTenant(sessao.negocioId, { phoneId: phone_number_id, wabaId: waba_id, token, numero, perfil });
 
     return Response.json({ ok: true, phone_number_id, waba_id, numero, perfil });
   } catch (e) {

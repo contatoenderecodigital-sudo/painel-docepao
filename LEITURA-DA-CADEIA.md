@@ -2140,3 +2140,87 @@ trabalho pendente.
 Agora o segundo update só acontece se o primeiro tiver pego alguma coisa
 (`returning pedido_id`). A promessa do comentário passou a valer para as duas
 escritas.
+
+
+---
+
+# A RELEITURA: O PIOR DEFEITO ESTAVA FORA DA CADEIA
+
+A cadeia da IA e a camada de banco estavam lidas. A releitura começou por uma
+varredura mecânica atrás da pergunta que mais achou coisa nesta sessão (*esse
+valor está decidido em outro lugar também?*): linhas **idênticas** aparecendo em
+três ou mais arquivos.
+
+A maior parte era rotina (o `export const dynamic`, o `const sessao = await
+lerSessao()`). Uma não era:
+
+```
+[13] const negocioId = sessao?.negocioId ?? process.env.NEGOCIO_PADRAO_ID;
+```
+
+## 44. Dezesseis rotas do painel rodavam SEM LOGIN
+
+O padrão inteiro era este:
+
+```ts
+const negocioId = sessao?.negocioId ?? process.env.NEGOCIO_PADRAO_ID;
+if (!negocioId) return Response.json({ erro: "sem sessao" }, { status: 401 });
+```
+
+Parece uma guarda. Não é. Enquanto o `NEGOCIO_PADRAO_ID` estiver no ambiente — e
+está, o próprio `.env.example` manda pôr — a variável **nunca** é vazia, então o
+401 nunca acontece e a rota roda sem sessão nenhuma, no tenant da padaria.
+
+Este projeto não tem `middleware.ts`: cada rota se defende sozinha. Essa linha
+era a defesa inteira.
+
+### Medido contra a produção, sem escrever nada
+
+Um POST sem cookie nenhum, com corpo inválido de propósito, só para a resposta
+dizer até onde a requisição chegou:
+
+```
+POST /api/cliente/nota   (sem cookie, corpo invalido)  ->  400
+GET  /api/conversas      (sem cookie)                  ->  401
+```
+
+O **400** é "corpo invalido": a requisição passou da checagem de sessão. Com um
+corpo válido, teria escrito na ficha do cliente da padaria. O 401 do lado é uma
+rota que faz a checagem certa (`if (!sessao) return 401`), e serve de controle.
+
+### O que estava aberto
+
+`whatsapp/desconectar` (derruba o WhatsApp da padaria), `whatsapp/ia`
+(liga e desliga a Dora), `conversas/enviar` (manda mensagem em nome dela),
+`conversas/assumir`, `conversas/anexo`, `conversas/template`,
+`conversas/templates`, `conversas/ler`, `cobranca` e `cobranca/ativa`
+(a cobrança automática), `marca/logo`, `midia/[id]` (a mídia de qualquer
+mensagem), `cliente/nota`, `aviso` (×2) e `testar-ia`.
+
+E a `whatsapp/embedded`, que grava o **token do WhatsApp** no tenant: ela lia a
+sessão e caía no ambiente do mesmo jeito. É a mesma escrita do
+`provisionar/route.ts`, que tem o motivo escrito no próprio cabeçalho — *"senão
+qualquer um poderia apontar o atendimento da padaria para um número dele"* — e se
+protege com segredo compartilhado.
+
+### As quatro que podem dispensar a sessão, e por quê
+
+| rota | o que a protege |
+| --- | --- |
+| `api/fila` | `Bearer PONTE_TOKEN` (a ponte da impressora não tem login) |
+| `api/whatsapp` | assinatura HMAC da Meta |
+| `api/whatsapp/provisionar` | `x-provision-secret` (vem do hub) |
+| `api/cobranca/rodar` | exige sessão **ou** o token do relógio, na mesma linha |
+
+O teste `rota-do-painel-exige-sessao.cjs` guarda essa lista: tirar uma dali é
+dizer que ela passou a ter login, pôr uma nova é afirmar que ela tem outro
+guarda. Isca provada: com o código de ontem, ele nomeia as dezesseis.
+
+### O que isso ensina sobre a leitura
+
+O defeito mais grave da sessão inteira não estava no cérebro nem no banco: estava
+numa linha repetida em dezesseis arquivos que eu ainda não tinha aberto, e
+apareceu numa varredura de **linhas idênticas**, não numa leitura linha a linha.
+
+As duas coisas são necessárias. Ler acha o que está errado dentro de um arquivo;
+varrer acha o que está errado por existir em muitos.

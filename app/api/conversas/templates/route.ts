@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const sessao = await lerSessao();
-  const negocioId = sessao?.negocioId ?? process.env.NEGOCIO_PADRAO_ID;
+  const negocioId = sessao?.negocioId;
   if (!negocioId) return Response.json({ ok: false, erro: "sem_sessao" }, { status: 401 });
 
   const creds = await carregarCredsWhatsapp(negocioId);

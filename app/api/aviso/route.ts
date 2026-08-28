@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const sessao = await lerSessao();
-  const negocioId = sessao?.negocioId ?? process.env.NEGOCIO_PADRAO_ID;
+  const negocioId = sessao?.negocioId;
   if (!negocioId) return Response.json({ ok: false, erro: "sem sessao" }, { status: 401 });
 
   let body: { texto?: string };
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE() {
   const sessao = await lerSessao();
-  const negocioId = sessao?.negocioId ?? process.env.NEGOCIO_PADRAO_ID;
+  const negocioId = sessao?.negocioId;
   if (!negocioId) return Response.json({ ok: false, erro: "sem sessao" }, { status: 401 });
   await limparAvisoDoDia(negocioId);
   return Response.json({ ok: true });

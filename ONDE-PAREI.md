@@ -54,8 +54,8 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 | | |
 | --- | --- |
 | arquivos lidos inteiros | **28** do cérebro + **11** da camada de banco |
-| defeitos consertados | **169** |
-| testes no portão | **65**, todos verdes |
+| defeitos consertados | **186** |
+| testes no portão | **66**, todos verdes |
 | `tsc` | limpo |
 | cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |
 | arquivos lendo o `catalogo.json` cru | de **17** para **9**, e nenhum do fluxo |
@@ -284,3 +284,50 @@ puxaram junto (`departamentos.ts`, `cupom-escpos.ts`, `mock.ts`, `fila.ts`,
 
 **Falta:** `montagem.ts` (522 linhas), e o restinho de `resultados.ts` e
 `fila.ts` que eu li por cima ao seguir a unidade e a hora.
+
+
+---
+
+## 28/08/2026, FIM DA TARDE — O PIOR DEFEITO DA SESSÃO
+
+**Dezesseis rotas do painel rodavam sem login.** Não é exagero e não é teoria:
+medi contra a produção, sem escrever nada.
+
+```
+POST /api/cliente/nota   (sem cookie, corpo invalido)  ->  400
+GET  /api/conversas      (sem cookie)                  ->  401
+```
+
+O 400 quer dizer "corpo invalido": a requisição **passou** da checagem de sessão.
+Com um corpo válido teria escrito na ficha do cliente da padaria.
+
+A causa é uma linha só, repetida em dezesseis arquivos:
+
+```ts
+const negocioId = sessao?.negocioId ?? process.env.NEGOCIO_PADRAO_ID;
+if (!negocioId) return 401;
+```
+
+Parece guarda e não é: com o `NEGOCIO_PADRAO_ID` no ambiente (e ele está, o
+`.env.example` manda pôr), a variável nunca é vazia, o 401 nunca acontece, e a
+rota roda no tenant da padaria sem sessão nenhuma. Este projeto não tem
+`middleware.ts`, então essa linha era a defesa inteira.
+
+**Estava aberto:** desconectar o WhatsApp da padaria, ligar e desligar a Dora,
+mandar mensagem em nome dela, disparar a cobrança automática, trocar a logo, ler
+a mídia de qualquer mensagem, escrever na ficha de qualquer cliente, e gravar o
+token do WhatsApp no tenant.
+
+**Consertado e no ar.** Quatro rotas continuam podendo dispensar sessão, cada uma
+com o segredo que a protege (a ponte da impressora, o webhook da Meta, o repasse
+do hub, e o relógio da cobrança), e um teste guarda essa lista.
+
+### O que eu recomendo que você faça
+
+1. **Troque o `SESSION_SECRET` e o `PONTE_TOKEN`** se eles alguma vez foram
+   commitados ou compartilhados. Não achei nenhum vazado, mas rodar isso agora é
+   barato e fecha o assunto.
+2. **Olhe a tela de Resultados.** Os números mudaram hoje: as conversas de teste
+   saíram do faturamento e da contagem de atendimento.
+3. Nada mais precisa de você pra isso funcionar: a correção já está no ar e o
+   painel logado continua igual.

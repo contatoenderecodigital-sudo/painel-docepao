@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   const sessao = await lerSessao();
   if (!sessao) return new Response("nao autorizado", { status: 401 });
 
-  const negocioId = sessao.negocioId ?? process.env.NEGOCIO_PADRAO_ID;
+  const negocioId = sessao.negocioId;
   if (!negocioId) return Response.json({ erro: "sem_negocio" }, { status: 400 });
 
   let corpo: { clienteId?: string; assumir?: boolean };

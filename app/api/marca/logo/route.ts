@@ -14,7 +14,7 @@ const MAX = 600 * 1024;
 
 export async function POST(req: NextRequest) {
   const sessao = await lerSessao();
-  const negocioId = sessao?.negocioId ?? process.env.NEGOCIO_PADRAO_ID;
+  const negocioId = sessao?.negocioId;
   if (!negocioId) return Response.json({ ok: false, erro: "sem sessao" }, { status: 401 });
 
   let body: { logo?: string | null };

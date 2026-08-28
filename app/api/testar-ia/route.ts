@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   // Normaliza a imagem (tira o prefixo "data:...;base64," se veio do FileReader).
   const foto = normalizarImagem(corpo.imagem, corpo.imagemMime);
 
-  const negocioId = sessao.negocioId ?? process.env.NEGOCIO_PADRAO_ID;
+  const negocioId = sessao.negocioId;
   if (!negocioId) {
     return Response.json({ erro: "Nenhum negócio associado à sua sessão." });
   }

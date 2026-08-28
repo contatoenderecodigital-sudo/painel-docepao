@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const sessao = await lerSessao();
-  const negocioId = sessao?.negocioId ?? process.env.NEGOCIO_PADRAO_ID;
+  const negocioId = sessao?.negocioId;
   if (!negocioId) return new Response("nao autorizado", { status: 401 });
 
   const { id } = await ctx.params;
