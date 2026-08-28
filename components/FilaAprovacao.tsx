@@ -7,6 +7,7 @@
 // Anima otimista (some na hora) e grava no banco por trás via Server Action.
 
 import { useEffect, useRef, useState } from "react";
+import { buscarDoPainel, AVISO_SESSAO_EXPIRADA } from "@/lib/buscar-do-painel";
 import Link from "next/link";
 import type { Pedido, FormaPagamento, HistoricoCliente } from "@/lib/tipos";
 import { brl, formatarTelefoneBR, linkWhatsapp, mesAno } from "@/lib/tipos";
@@ -302,10 +303,19 @@ export default function FilaAprovacao({
   useEffect(() => {
     const t = setInterval(async () => {
       try {
-        const r = await fetch("/api/aprovacao");
-        if (!r.ok) return;
-        const nova = (await r.json()) as Pedido[];
-        setFila(nova.filter((p) => !resolvidosRef.current.has(p.id)));
+        // SESSAO EXPIRADA NAO PODE VIRAR TELA CONGELADA.
+        //
+        // Aqui era `if (!r.ok) return`, e o 401 caia nesse return: a fila
+        // parava de atualizar e continuava mostrando os pedidos de meia hora
+        // atras, com cara de tela viva. Numa fila de pedido isso e pior que um
+        // erro na cara, porque a dona confia no que esta vendo.
+        const r = await buscarDoPainel<Pedido[]>("/api/aprovacao");
+        if (r.estado === "sessao_expirada") {
+          setFalha(AVISO_SESSAO_EXPIRADA);
+          return;
+        }
+        if (r.estado !== "ok") return;
+        setFila(r.dados.filter((p) => !resolvidosRef.current.has(p.id)));
       } catch {
         /* silencioso */
       }

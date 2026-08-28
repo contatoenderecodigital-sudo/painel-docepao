@@ -2869,3 +2869,50 @@ A preview agrupa com `deptoDe` e ordena por `DEPARTAMENTOS`; o cupom real usa
 `DEPARTAMENTOS`). Os dois caminhos concordam **por construção**, e a quantidade
 sai do mesmo `qtdDoTicket` nos dois. Era o candidato mais forte a divergência
 tela/papel neste arquivo, e não é uma.
+
+
+## 60. Seis telas congelavam em silêncio quando a sessão caía
+
+As telas do painel ficam perguntando ao servidor de tempos em tempos: a fila de
+aprovação (5s), a produção do dia (8s), os atendimentos (6s), o sino, o status da
+impressora (20s) e a de aguardando. **Todas** faziam a mesma coisa com o erro:
+
+```ts
+const r = await fetch("/api/...");
+if (!r.ok) return;          // e pronto
+```
+
+Sessão expirada vira 401, o `return` engole, e a tela **congela mostrando os
+últimos dados**. Continua bonita, com o pedido de meia hora atrás na frente da
+equipe, e ninguém descobre que parou.
+
+Numa fila de pedido isso é pior que um erro na cara: a dona confia no que está
+vendo, e o que ela está vendo não existe mais.
+
+### E foi um conserto meu, do mesmo dia, que criou a condição
+
+Até 28/08 as rotas do painel caíam no `NEGOCIO_PADRAO_ID` quando não havia
+sessão, então **nunca respondiam 401**: respondiam com os dados da padaria. Era o
+defeito do item 44.
+
+Consertando aquilo, o 401 passou a existir de verdade. **O segundo defeito nasceu
+do conserto do primeiro.** Vale como aviso pro resto da leitura: fechar uma porta
+muda o que acontece do outro lado dela, e o outro lado precisa ser olhado no
+mesmo dia.
+
+### O conserto
+
+`lib/buscar-do-painel.ts`, um lugar só, separando três casos que as telas
+confundiam num `!r.ok`:
+
+| resposta | o que a tela faz |
+| --- | --- |
+| 200 | usa os dados |
+| **401 / 403** | avisa que a sessão caiu e que a tela parou |
+| 500, rede caída, aba dormindo | tenta de novo no próximo ciclo |
+
+A última linha importa: **aba que dorme não pode expulsar a pessoa da tela.** Por
+isso a função não redireciona sozinha — quem decide é a tela.
+
+A de aguardando fica de fora de propósito: ela usa `router.refresh()`, e quem
+trata o caso dela é o redirect do layout (item 58).

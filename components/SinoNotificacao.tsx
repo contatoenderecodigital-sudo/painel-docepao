@@ -19,6 +19,7 @@
 // ============================================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { buscarDoPainel } from "@/lib/buscar-do-painel";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Bell, BellOff, ChevronRight, AlertTriangle } from "lucide-react";
@@ -114,9 +115,11 @@ export default function SinoNotificacao({ nome = "Painel" }: { nome?: string }) 
     liderAtivo = true;
     const checar = async () => {
       try {
-        const r = await fetch("/api/fila/contagem", { cache: "no-store" });
-        if (!r.ok || !vivo) return;
-        const nova = (await r.json()) as Contagem;
+        // O sino para de piscar quando a sessao cai, em vez de repetir pra
+        // sempre a ultima contagem que ele conseguiu ler.
+        const r = await buscarDoPainel<Contagem>("/api/fila/contagem");
+        if (!vivo || r.estado !== "ok") return;
+        const nova = r.dados;
         const antes = anterior.current;
         anterior.current = nova;
         setContagem(nova);

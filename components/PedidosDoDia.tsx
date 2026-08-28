@@ -6,6 +6,7 @@
 // mini-calendario do mes com os dias mais cheios.
 
 import { useEffect, useMemo, useState } from "react";
+import { buscarDoPainel, AVISO_SESSAO_EXPIRADA } from "@/lib/buscar-do-painel";
 import type { Pedido } from "@/lib/tipos";
 import { brl } from "@/lib/tipos";
 import {
@@ -79,6 +80,8 @@ export default function PedidosDoDia({
   reimprimir?: (id: string) => Promise<{ ok: boolean }>;
 }) {
   const [pedidos, setPedidos] = useState(pedidosIniciais);
+  // Sessao caiu no meio: a tela avisa em vez de congelar mostrando o dia velho.
+  const [sessaoCaiu, setSessaoCaiu] = useState(false);
   // Estado por pedido do botão Reimprimir: enviando -> enviado (some sozinho) / erro.
   const [reimp, setReimp] = useState<Record<string, "enviando" | "enviado" | "erro">>({});
 
@@ -103,9 +106,15 @@ export default function PedidosDoDia({
   useEffect(() => {
     const t = setInterval(async () => {
       try {
-        const r = await fetch("/api/dia");
-        if (!r.ok) return;
-        setPedidos((await r.json()) as Pedido[]);
+        // Sessao expirada nao pode virar tela congelada: a producao do dia
+        // continuaria mostrando o que valia meia hora atras.
+        const r = await buscarDoPainel<Pedido[]>("/api/dia");
+        if (r.estado === "sessao_expirada") {
+          setSessaoCaiu(true);
+          return;
+        }
+        if (r.estado !== "ok") return;
+        setPedidos(r.dados);
       } catch {
         /* silencioso */
       }
@@ -210,6 +219,14 @@ export default function PedidosDoDia({
       <p className="text-sm text-cream/60 mt-1 mb-6 max-w-2xl">
         Cada equipe vê só o que precisa produzir. A soma de todos os pedidos do dia, separada por estação.
       </p>
+      {/* A TELA DIZ QUANDO PAROU DE ATUALIZAR.
+          Sem isto ela ficava com a produção de meia hora atrás na frente da
+          equipe, com cara de tela viva, e ninguém tinha como saber. */}
+      {sessaoCaiu ? (
+        <div className="mb-5 rounded-xl border border-dourado/40 bg-dourado/10 px-4 py-3 text-sm text-cream">
+          {AVISO_SESSAO_EXPIRADA}
+        </div>
+      ) : null}
 
       {/* barra de controle */}
       <div className="glass rounded-[18px] p-4 flex flex-wrap items-center gap-3 mb-5">

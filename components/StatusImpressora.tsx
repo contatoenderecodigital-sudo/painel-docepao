@@ -13,6 +13,7 @@
 // ============================================================================
 
 import { useEffect, useState } from "react";
+import { buscarDoPainel } from "@/lib/buscar-do-painel";
 import { Printer, PrinterCheck } from "lucide-react";
 
 type Estado = { online: boolean; segundosDesde: number | null };
@@ -33,9 +34,11 @@ export default function StatusImpressora() {
     let vivo = true;
     const checar = async () => {
       try {
-        const r = await fetch("/api/impressora", { cache: "no-store" });
-        if (!r.ok || !vivo) return;
-        setEstado((await r.json()) as Estado);
+        // Sem sessao o status da ponte para de valer: melhor nao mostrar
+        // "impressora online" lido meia hora atras.
+        const r = await buscarDoPainel<Estado>("/api/impressora");
+        if (!vivo || r.estado !== "ok") return;
+        setEstado(r.dados);
       } catch {
         /* rede caiu: tenta no proximo ciclo */
       }
