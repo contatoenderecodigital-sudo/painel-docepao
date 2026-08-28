@@ -2268,3 +2268,107 @@ caminho.
 Não mexi no código porque não há o que consertar. Fica registrado que a garantia
 real é **"o escopo vem do chamador, e todo caminho de escrita confere o dono
 antes"**, que é uma promessa mais fraca e verdadeira.
+
+
+---
+
+# A MEDIÇÃO DEPOIS DE TUDO, E O QUE ELA ACHOU
+
+Com o cérebro e a camada de banco lidos, medi duas conversas de verdade contra a
+produção. **Os consertos do dia passaram**, e a medição achou um defeito que a
+leitura não tinha achado.
+
+## O que a medição confirmou
+
+| o que o cliente falou | o que a padaria anotou | com o código de ontem |
+| --- | --- | --- |
+| `dia 05/01` | **05/01/2027** | 05/01/2026, oito meses no passado |
+| `as 3h da tarde` | **15:00** | 03:00, doze horas antes |
+| `forminha rosa e azul`, e depois `não esquece da rosa` | rosa e azul nos dois docinhos | o azul sumia |
+
+Total R$ 218,80 batendo com a soma das linhas no banco. E as categorias gravadas
+(`doce`, `bolo_recheado`) caem na bancada certa do cupom — **conferi antes de
+chamar de defeito, e não era.**
+
+## 46. O bolo de festa fechava sem prato, sem topo e sem papel de arroz
+
+A segunda conversa, sem eu falar dessas três coisas em momento nenhum:
+
+```
+cliente >> quero encomendar pra uma festa de 20 pessoas
+cliente >> não quero salgadinho, só docinho e bolo
+cliente >> pode ser assim
+cliente >> 100 brigadeiro, forminha azul
+cliente >> o bolo é de brigadeiro, 2 kg
+padaria >> Para qual dia você quer buscar?          <-- pulou tudo
+cliente >> dia 12/09 as 10h, nome Ana Paula, pix
+padaria >> Fechando o pedido: ...
+```
+
+O topo é o item que a **equipe precisa orçar** (o valor muda com o tema) e que
+tem **prazo de dois dias** com a fornecedora. O papel custa R$ 12,00 e a padaria
+vende — e ela chegava a **avisar que existe**, no cardápio de bolos, e nunca
+perguntava se ele queria.
+
+### A causa: uma etapa com duas perguntas se auto-cumpria
+
+A conversa marca "já perguntei" por **etapa**. A etapa do bolo faz **duas**
+perguntas: o sabor, e depois o prato. A marca deixada pela pergunta do sabor
+dava a etapa por cumprida antes de o prato sair.
+
+E a etapa das peças confiava na mesma marca. Num pedido com bolo a etapa do bolo
+**sempre** é perguntada, então as peças nasciam cumpridas:
+
+```
+em aberto  <- ninguem perguntou nada ainda
+CUMPRIDA   <- a padaria perguntou SO o sabor do bolo
+```
+
+O comentário que sustentava o atalho dizia *"a pergunta juntada cobre o prato E
+as peças, e sai de uma etapa só"*. Medi a fala: a etapa do bolo diz só **"E o
+bolo, qual sabor?"**. A pergunta juntada existe, mas só para quem manda o pedido
+inteiro numa mensagem.
+
+### O conserto
+
+A marca passa a guardar a **pergunta** junto com a etapa (`bolo` e `bolo:prato`),
+e cada etapa olha a marca que prova a *sua* pergunta. Guarda as duas de
+propósito: quem pergunta pela etapa continua igual.
+
+```
+bolo=pergunta  pecas=pergunta  <- so o SABOR foi perguntado
+bolo=ok        pecas=pergunta  <- o PRATO tambem foi perguntado
+bolo=ok        pecas=ok        <- a pergunta JUNTADA saiu
+bolo=ok        pecas=ok        <- ele ja respondeu tudo
+```
+
+A proteção de 25/08 fica intacta: perguntou uma vez e foi ignorado, segue.
+
+## 47. E o teste que existia pra proteger isso estava VERDE com o defeito no ar
+
+O `pergunta-uma-vez-e-nao-repete` montava a marca à mão:
+
+```js
+ignorouDuasVezes: cumpre('bolo', { etapasJaPerguntadas: ['bolo'] })
+```
+
+`['bolo']` é ambígua: serve para a pergunta do sabor e para a do prato. **Ele
+cobria o formato da anotação, não o comportamento**, e o defeito passou por
+baixo dele.
+
+Agora usa a marca que o fluxo grava de verdade e ganhou o caso que faltava:
+*perguntar só o sabor NÃO fecha a etapa do bolo*.
+
+É a oitava pergunta da lista de novo, e ela sobe pra 8: **o teste que jura cobrir
+isso consegue falhar?**
+
+## O que isso ensina, junto com o item 44
+
+Em um dia, os dois piores defeitos vieram de fora da leitura linha a linha:
+
+- o **login aberto** apareceu numa varredura de linhas idênticas;
+- o **bolo sem as peças** apareceu numa conversa medida.
+
+Ler acha o que está errado dentro de um arquivo. Varrer acha o que está errado
+por existir em muitos. **Medir acha o que está errado entre os arquivos** — o
+lugar onde nenhum dos dois olha, e onde o cliente vive.

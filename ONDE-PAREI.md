@@ -54,8 +54,8 @@ E três regras que a própria leitura ensinou, e que valem mais que as cinco:
 | | |
 | --- | --- |
 | arquivos lidos inteiros | **28** do cérebro + **11** da camada de banco |
-| defeitos consertados | **186** |
-| testes no portão | **66**, todos verdes |
+| defeitos consertados | **188** |
+| testes no portão | **67**, todos verdes |
 | `tsc` | limpo |
 | cópias do normalizador de texto | de **16** para **6**, e nenhuma no fluxo da conversa |
 | arquivos lendo o `catalogo.json` cru | de **17** para **9**, e nenhum do fluxo |
@@ -354,3 +354,38 @@ E nos outros dois repositórios: o `enderecodigital-hub` tem `middleware.ts` e n
 usa esse padrão; o `site-enderecodigital` não usa `NEGOCIO_PADRAO_ID` em rota
 nenhuma. O buraco era só do painel, que é justamente o repositório **sem
 middleware**.
+
+
+---
+
+## A MEDIÇÃO DEPOIS DE TUDO
+
+Duas conversas de verdade contra a produção, com o cérebro e o banco já lidos.
+
+**Os consertos do dia passaram:** `dia 05/01` virou 05/01/**2027** (era 2026, no
+passado), `as 3h da tarde` virou **15:00** (era 03:00), e as duas cores da
+forminha sobreviveram ao "não esquece da rosa". Total batendo com o banco.
+
+**E ela achou o que a leitura não achou.** Na segunda conversa eu não falei do
+topo, do papel de arroz nem do prato — e a padaria fechou o pedido sem perguntar
+nenhum dos três. Bolo de festa de 2 kg indo pra cozinha sem ninguém saber se
+leva topo (que a equipe orça e tem prazo de dois dias) e sem saber o prato.
+
+Consertado, com teste e isca. E o teste que existia pra proteger justamente isso
+estava **verde com o defeito no ar**: ele cobria o formato da anotação, não o
+comportamento.
+
+### O que isso ensina
+
+Em um dia, os dois piores defeitos vieram de fora da leitura linha a linha:
+
+- o **login aberto** apareceu numa varredura de linhas idênticas;
+- o **bolo sem as peças** apareceu numa conversa medida.
+
+Ler acha o que está errado dentro de um arquivo. Varrer acha o que está errado
+por existir em muitos. Medir acha o que está errado **entre** os arquivos, que é
+onde o cliente vive.
+
+**Recomendação pra continuar:** alternar os três. A metade que falta ler
+(telas e rotas, ~12.000 linhas) merece a leitura, mas depois de cada bloco vale
+uma varredura e uma conversa medida.
