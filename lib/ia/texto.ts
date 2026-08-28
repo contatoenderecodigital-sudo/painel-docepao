@@ -82,7 +82,20 @@ export function afirmouOuNegou(t: string, termo: RegExp): boolean | null {
   if (/^ *(sim|pode|quero)([^a-z]|$)/.test(depois)) return true;
 
   const antes = t.slice(Math.max(0, m.index - 22), m.index);
-  if (/(^|[^a-z])(sem|nao|nem)([^a-z][^.,;]*)?$/.test(antes)) return false;
+  // TIRAR TAMBEM E NEGAR, e isto veio da outra implementacao.
+  //
+  // O motor de orcamento tinha a SUA propria leitura de negacao, com a sua
+  // propria lista, e as duas discordavam em quatro de nove frases medidas em
+  // 28/08/2026. Tres discordancias cobravam R$ 12 de quem tinha recusado:
+  //
+  //   "nao quero papel de arroz"      o motor cobrava
+  //   "topo sim, papel de arroz nao"  o motor cobrava
+  //   "papel de arroz nao"            o motor cobrava
+  //
+  // E uma ia pro outro lado: "tirar o papel de arroz" o motor entendia e esta
+  // aqui nao. Juntar as duas listas numa so e o conserto: cada uma sabia uma
+  // parte do portugues que a outra nao sabia.
+  if (/(^|[^a-z])(sem|nao|nem|nada de|tirar?( o| a)?|retirar?( o| a)?)([^a-z][^.,;]*)?$/.test(antes)) return false;
   if (/(^|[^a-z])(com|quero|vai com|pode por|poe|bota|sim|so o|so a|apenas o|apenas a)([^a-z][^.,;]*)?$/.test(antes)) return true;
   return null;
 }

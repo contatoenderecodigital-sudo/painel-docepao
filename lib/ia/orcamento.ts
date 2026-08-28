@@ -9,20 +9,28 @@
 import catalogo from "./dados/catalogo.json";
 import { produtosDaCasa } from "./dados/produtos";
 import rendimentoJson from "./dados/rendimento.json";
+import { semAcento, afirmouOuNegou, cercaDaPalavra } from "./texto";
 
-// O termo so conta quando nao esta negado: "sem topo", "nao quer papel de
-// arroz" e "sem papel" nao sao pedido de topo nem de papel.
+/**
+ * O TERMO FOI CITADO, E NAO NEGADO?
+ *
+ * Isto era uma leitura de negacao PROPRIA deste arquivo, com a sua propria
+ * lista de palavras, e ela discordava do leitor da frase em quatro de nove
+ * casos medidos em 28/08/2026. Tres cobravam R$ 12 do cliente que tinha
+ * recusado o papel de arroz com todas as letras:
+ *
+ *   "nao quero papel de arroz"      cobrava
+ *   "topo sim, papel de arroz nao"  cobrava
+ *   "papel de arroz nao"            cobrava
+ *
+ * Duas leituras da mesma pergunta sempre divergem. Agora e uma so, e o que esta
+ * lista sabia de portugues ("tirar o", "nada de") foi junto pra la.
+ */
 export function citadoDeVerdade(texto: string, termo: string): boolean {
-  const t = String(texto || "").toLowerCase();
-  const alvo = termo.toLowerCase();
-  let de = t.indexOf(alvo);
-  while (de >= 0) {
-    const antes = t.slice(Math.max(0, de - 22), de);
-    if (!/(sem|nao quer|não quer|nada de|tirar o|tira o|nem)\s+[a-zà-ú ]{0,12}$/.test(antes)) return true;
-    de = t.indexOf(alvo, de + alvo.length);
-  }
-  return false;
+  return afirmouOuNegou(semAcento(texto), cercaDaPalavra(semAcento(termo))) !== false
+    && semAcento(texto).includes(semAcento(termo));
 }
+
 export const brl = (n: number) =>
   "R$ " +
   n.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d)(?=,))/g, ".");
@@ -77,11 +85,16 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
     }
     return linha[b.length];
   };
-  // Sem acento dos dois lados: o cliente escreve "prestigio" e o cardapio tem
-  // "prestígio". Com a chave acentuada o produto nao era achado, a linha saia do
-  // orcamento e o pedido travava dizendo que faltava o bolo.
-  const semAcento = (t: string) =>
-    String(t).trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  // O NORMALIZADOR AQUI ERA LOCAL, E SOMBREAVA O DE TODO MUNDO.
+  //
+  // Um `const semAcento` dentro desta funcao escondia o `semAcento` importado no
+  // topo do arquivo: quem lesse o codigo veria o nome conhecido e estaria lendo
+  // outra funcao. As duas quase iguais, com uma diferenca de verdade: a local
+  // fazia `String(t)` sem o `|| ""`, entao `undefined` virava a palavra
+  // "undefined" e podia virar chave de preco.
+  //
+  // Sem acento dos dois lados continua valendo pelo mesmo motivo de sempre: o
+  // cliente escreve "prestigio" e o cardapio tem "prestígio".
   const PRECOS: Record<string, Produto> = {};
   for (const p of produtos) PRECOS[semAcento(p.nome)] = p;
 
@@ -183,9 +196,26 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
         : semArrumar.replace(/ recheado$| de festa$| de anivers[áa]rio$/, "");
       // Bolo disfarçado de docinho: tenta o mesmo sabor na família dos bolos.
       if (obs && MARCA_DE_BOLO.test(obs) && !chave.startsWith("bolo")) {
+        // A CATEGORIA "bolo" NAO EXISTE NESTE MOTOR, E ESTE GALHO NUNCA DISPAROU.
+        //
+        // As categorias que ele enxerga sao `bolo_recheado`, `bolo_caseiro` e
+        // `bolo_salgado`; "bolo" seco nao e nenhuma delas. Medido em
+        // 28/08/2026, com marca de bolo na observacao:
+        //
+        //   "cafe"  ->  cotava o DOCINHO de cafe, R$ 1,25
+        //   o certo ->  bolo caseiro cafe
+        //
+        // Um bolo de 2 kg saindo por R$ 2,50. E o mesmo defeito que o
+        // `produto.ts` diz ter consertado no fluxo, sobrevivendo aqui: o motor
+        // e chamado de outros lugares (o painel da dona, o pedido corrigido na
+        // mao) e nesses o nome chega curto.
+        //
+        // O caseiro entra pelo nome exato antes do casamento por pedaco, senao
+        // "cafe" alcanca qualquer nome que contenha essas letras.
         const comoBolo =
           PRECOS[norm("bolo " + item)] ??
-          produtos.find((p) => p.categoria === "bolo" && norm(p.nome).includes(chave));
+          PRECOS[norm("bolo caseiro " + item)] ??
+          produtos.find((p) => /^bolo/.test(p.categoria) && norm(p.nome).includes(chave));
         if (comoBolo) {
           const q0 = Number(qtd) || 0;
           const sub0 = comoBolo.preco * q0;
@@ -362,7 +392,18 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
       }
     }
     if (quer.bolo && rend.boloServe) {
-      const prod = primeiroDaCategoria("bolo");
+      // BOLO DE FESTA, E NAO QUALQUER COISA QUE COMECE COM "bolo".
+      //
+      // `primeiroDaCategoria` casa pelo comeco, e ha tres categorias de bolo no
+      // motor: `bolo_recheado` (o de festa), `bolo_caseiro` e `bolo_salgado`.
+      // Pedir "bolo" devolvia o primeiro da ORDEM DO CATALOGO, e hoje isso da
+      // certo por acidente. No dia em que a dona reordenar a tela, a proposta
+      // da festa passa a sugerir BOLO SALGADO de R$ 29,90, e ninguem descobre
+      // olhando codigo: o numero simplesmente muda.
+      //
+      // Pedir o mais barato tambem nao serve, e foi medido: o mais barato entre
+      // os tres e justamente o bolo salgado.
+      const prod = primeiroDaCategoria("bolo_recheado");
       if (prod) {
         // Bolo por quilo: qtd = PESO (kg), 1 casa decimal. Por unidade: nº de bolos.
         const qtd =

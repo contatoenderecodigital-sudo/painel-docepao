@@ -37,7 +37,7 @@ Isto sobrevive à compactação. A minha memória de ter lido, não.
 | 8 | `lib/ia/fluxo/etapas.ts` | 1-626, sem buraco | **INTEIRO** — 5 defeitos |
 | 9 | `lib/ia/fluxo/pergunta.ts` | 1-786, sem buraco | **INTEIRO** — 6 defeitos |
 | 10 | `lib/ia/fluxo/fechar.ts` | 1-240, sem buraco | **INTEIRO** — 4 defeitos |
-| 11 | `lib/ia/orcamento.ts` | 450-510 | falta quase tudo |
+| 11 | `lib/ia/orcamento.ts` | 1-521, sem buraco | **INTEIRO** — 4 defeitos |
 | 12 | `lib/banco/montagem.ts` | 114-155, 368-392 | falta quase tudo |
 | 13 | `lib/ia/fluxo/gravar.ts` | nada | não lido |
 | 14 | `lib/banco/fila.ts` + `lib/cupom-escpos.ts` | fila 100-140, cupom 200-260 | falta quase tudo |
@@ -784,3 +784,63 @@ função pura. Desfiz.
 conserto acima o motivo passou a ser *"qual bolo você quer"* — mesmo efeito, e
 sem a duplicata. **Teste que cobra a frase quebra quando a frase melhora.**
 Agora ele cobra que o bolo sem sabor não feche e que o motivo fale do bolo.
+
+---
+
+## 11. `lib/ia/orcamento.ts` — o motor de preço
+
+521 linhas. A única peça que escreve dinheiro. **Quatro defeitos, e dois deles
+custavam dinheiro de verdade.**
+
+### Uma leitura de negação só dele
+
+Havia um `citadoDeVerdade` com a própria lista de palavras. Medido contra o
+leitor da frase, em nove frases, **quatro discordavam**, e três cobravam R$ 12
+de quem tinha recusado com todas as letras:
+
+    "nao quero papel de arroz"      o motor cobrava
+    "topo sim, papel de arroz nao"  o motor cobrava
+    "papel de arroz nao"            o motor cobrava
+
+E uma ia pro outro lado: *"tirar o papel de arroz"* o motor entendia e o leitor
+da frase não. **Cada lista sabia um pedaço do português que a outra não sabia.**
+Juntar as duas foi o conserto, e agora é uma só.
+
+### Um galho que nunca disparou, e o bolo virava docinho
+
+Quando a observação tem marca de bolo (topo, prato aberto, aniversariante), o
+nome curto é sabor de BOLO e não o docinho de mesmo nome. O galho que fazia isso
+procurava a categoria `"bolo"`, **que não existe neste motor**: elas são
+`bolo_recheado`, `bolo_caseiro` e `bolo_salgado`.
+
+    "café" com topo de bolo  ->  cotava o DOCINHO, R$ 1,25
+    o certo                  ->  bolo caseiro café, R$ 35,90
+
+Um bolo de 2 kg saindo por R$ 2,50. É o mesmo defeito que o `produto.ts` diz ter
+consertado no fluxo, vivo aqui, e o próprio comentário do arquivo explica por
+que isso importa: **o motor é chamado de outros lugares** (o painel da dona, o
+pedido corrigido na mão) e ali o nome chega curto.
+
+### A base da festa podia sugerir bolo salgado
+
+`primeiroDaCategoria("bolo")` casa pelo começo, e há três categorias de bolo.
+Ele devolvia o primeiro da ORDEM DO CATÁLOGO, e hoje dá certo **por acidente**.
+No dia em que a dona reordenar a tela, a proposta passa a sugerir bolo salgado
+de R$ 29,90 e ninguém descobre olhando código: o número simplesmente muda.
+
+Pedir o mais barato também não serve, e foi medido: o mais barato entre os três
+é justamente o bolo salgado. O certo é pedir a categoria certa.
+
+### O normalizador local sombreava o de todo mundo
+
+Um `const semAcento` dentro da função escondia o `semAcento` importado no topo do
+arquivo: quem lesse o código veria o nome conhecido e estaria lendo outra função.
+E com uma diferença de verdade: a local fazia `String(t)` sem o `|| ""`, então
+`undefined` virava a palavra "undefined" e podia virar chave de preço.
+
+### Teste novo
+
+`o-motor-nao-cobra-o-que-foi-recusado.cjs`: os **30 sabores de bolo** da casa
+pelo nome curto, os 12 docinhos, e as onze maneiras de aceitar ou recusar o papel
+de arroz. Cobra a classe inteira, e não os três exemplos que eu tinha na mão.
+Duas iscas provadas, e cada uma reproduziu o defeito exato.
