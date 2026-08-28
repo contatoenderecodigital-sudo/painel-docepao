@@ -36,7 +36,7 @@ Isto sobrevive à compactação. A minha memória de ter lido, não.
 | 7 | `lib/ia/fluxo/sabor.ts` | 1-295, sem buraco | **INTEIRO** — 6 defeitos |
 | 8 | `lib/ia/fluxo/etapas.ts` | 1-626, sem buraco | **INTEIRO** — 5 defeitos |
 | 9 | `lib/ia/fluxo/pergunta.ts` | 1-786, sem buraco | **INTEIRO** — 6 defeitos |
-| 10 | `lib/ia/fluxo/fechar.ts` | 60-152 | falta o resto |
+| 10 | `lib/ia/fluxo/fechar.ts` | 1-240, sem buraco | **INTEIRO** — 4 defeitos |
 | 11 | `lib/ia/orcamento.ts` | 450-510 | falta quase tudo |
 | 12 | `lib/banco/montagem.ts` | 114-155, 368-392 | falta quase tudo |
 | 13 | `lib/ia/fluxo/gravar.ts` | nada | não lido |
@@ -730,3 +730,57 @@ cobra quatro coisas que nenhum compilador vê: etapa aberta sem fala, a fala
 contradizendo a etapa, botão acima de 20 caracteres ou mais de três por mensagem
 (a Meta recusa a mensagem inteira e o cliente não recebe nada), e peça de
 cardápio citada que não existe em disco. Duas iscas provadas.
+
+---
+
+## 10. `lib/ia/fluxo/fechar.ts` — o portão de saída
+
+240 linhas. **Quatro defeitos.**
+
+### A terceira cópia do mesmo `=== "bolo"`
+
+A mesma comparação à mão que estava na etapa do bolo e na fala dela também
+morava aqui. Só que esta já estava **coberta pelo laço de família vinte linhas
+acima**, e era mais fraca que ele:
+
+    pedido com "bolo"   ->  "qual bolo você quer" E "o sabor do bolo"
+    pedido com "bolos"  ->  só o primeiro; a cópia à mão não pegava o plural
+
+O cliente ouvia a mesma falta duas vezes, com palavras diferentes.
+
+### "qual bolos você quer"
+
+O portão aceita o jeito que o cliente escreveu, e depois devolvia **a palavra
+crua dele** na pergunta. A padaria fala com o cliente, então ela fala certo:
+nasceu `nomeDaFamilia`, que devolve o nome canônico.
+
+### Total zero fechava pedido
+
+Havia trava pra cotação vazia e não pra cotação toda zerada. Todo produto da
+casa tem preço, então zero nunca é resposta certa, e um pedido de R$ 0,00 na
+fila custa uma ligação pro cliente.
+
+**Sem teste, e está escrito no código por quê:** eu tentei montar o estado que
+dispara isso e não consegui. Com item de qtd zero a trava de cima já segura, e
+com produto fora do cardápio a cotação volta vazia. Só dispara se o motor falhar
+de um jeito que hoje eu não sei provocar, que é justamente quando rede embaixo
+serve.
+
+### Um comentário órfão
+
+"Bolo sem sabor não se produz", colado no bloco do topo.
+
+### Uma coisa que eu tentei melhorar e desfiz
+
+Eu tinha juntado as duas chamadas de `motivoParaAEquipe` numa variável. Era
+arrumação, não conserto, e **quebrou dois testes** que liam aquela expressão na
+fonte pra provar que a pendência da equipe sai do motivo e não é ligada em todo
+pedido. Não vale trocar duas guardas de verdade por uma chamada a menos numa
+função pura. Desfiz.
+
+### Um teste que cobrava a frase, e não o efeito
+
+`pedido-so-fecha-com-tudo` exigia a expressão *"sabor do bolo"* no motivo. Com o
+conserto acima o motivo passou a ser *"qual bolo você quer"* — mesmo efeito, e
+sem a duplicata. **Teste que cobra a frase quebra quando a frase melhora.**
+Agora ele cobra que o bolo sem sabor não feche e que o motivo fale do bolo.

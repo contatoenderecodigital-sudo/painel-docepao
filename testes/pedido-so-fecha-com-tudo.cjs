@@ -79,7 +79,18 @@ if (!r.semItem.length) falhas.push("pedido SEM ITEM fecharia; isso ja zerou a en
 if (!r.semItem.some((x) => /item/i.test(x))) falhas.push("o motivo de nao fechar sem item nao fala de item");
 
 // ------------------------------------------- bolo sem sabor nao fecha
-if (!r.semSaborNoBolo.some((x) => /sabor do bolo/i.test(x))) {
+//
+// A COBRANCA E O EFEITO, E NAO A FRASE.
+//
+// Isto exigia a expressao "sabor do bolo" no motivo. Em 28/08/2026 o
+// fechamento parou de ter uma checagem propria pro bolo (era a terceira copia
+// da mesma comparacao escrita a mao) e passou a usar o laco de familia, que
+// diz "qual bolo voce quer". O comportamento ficou igual e ate melhor: antes o
+// cliente ouvia a mesma falta DUAS vezes, com palavras diferentes.
+//
+// Teste que cobra a frase quebra quando a frase melhora. O que nao pode mudar e
+// o bolo sem sabor nao fechar, e o motivo falar do bolo.
+if (!r.semSaborNoBolo.length || !r.semSaborNoBolo.some((x) => /bolo/i.test(x))) {
   falhas.push("bolo sem sabor fecharia: a cozinha receberia um bolo que ninguem sabe assar");
 }
 

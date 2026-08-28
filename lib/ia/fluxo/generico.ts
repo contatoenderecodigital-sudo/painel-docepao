@@ -121,6 +121,22 @@ export function ehNomeDeFamilia(produto: unknown): boolean {
 }
 
 /**
+ * O NOME CANONICO DESTA FAMILIA, pra frase que vai pro cliente.
+ *
+ * `ehNomeDeFamilia` aceita o jeito que ele escreveu, e o fechamento devolvia
+ * essa palavra crua na pergunta:
+ *
+ *     "qual bolos voce quer"
+ *
+ * A padaria fala com o cliente, entao ela fala certo. Devolve null quando o
+ * nome nao e familia.
+ */
+export function nomeDaFamilia(produto: unknown): string | null {
+  const chaves = chavesReduzidas();
+  return formasDoCliente(String(produto ?? "")).find((f) => chaves.has(f)) ?? null;
+}
+
+/**
  * OS PRODUTOS QUE ESSA FAMÍLIA TEM, para a padaria perguntar qual.
  *
  * Sai da lista única, então cadastrar um produto novo no cardápio faz ele

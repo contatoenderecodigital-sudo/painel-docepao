@@ -31,7 +31,7 @@ import { motorPadrao } from "../orcamento";
 import type { Estado } from "./fluxo";
 import { prazoDoTopoAperta } from "./falas-do-cliente";
 import { saboresQueFaltam, saboresAlemDoLimite } from "./sabor";
-import { ehNomeDeFamilia } from "./generico";
+import { nomeDaFamilia } from "./generico";
 import { paraOMotor } from "./cotar";
 
 /**
@@ -121,10 +121,12 @@ export function oQueFaltaPraFechar(e: Estado): string[] {
   //
   // Aqui é o portão de saída, e ele vale para a casa inteira.
   for (const i of e.itens) {
-    if (ehNomeDeFamilia(i.produto)) falta.push("qual " + String(i.produto).toLowerCase() + " você quer");
+    // A frase sai com o nome CANONICO da familia, e nao com a palavra crua: o
+    // portao aceita "bolos" e o cliente ouvia "qual bolos voce quer".
+    const familia = nomeDaFamilia(i.produto);
+    if (familia) falta.push("qual " + familia + " você quer");
   }
 
-  // Bolo sem sabor nao se produz: a cozinha fica sem saber o que assar.
   // TOPO SEM NOME E IDADE NAO SE PRODUZ.
   //
   // Cada topo e fabricado com o tema, o nome e o numero. Fechar assim manda pra
@@ -144,10 +146,16 @@ export function oQueFaltaPraFechar(e: Estado): string[] {
       falta.push("o que vai escrito na peça");
     }
   }
-  const boloSemSabor = e.itens.find(
-    (i) => String(i.categoria).startsWith("bolo") && String(i.produto).trim().toLowerCase() === "bolo",
-  );
-  if (boloSemSabor) falta.push("o sabor do bolo");
+  // AQUI HAVIA UMA TERCEIRA COPIA DO `produto === "bolo"`, ESCRITA A MAO.
+  //
+  // A mesma comparacao existia na etapa do bolo e na fala dela, e as tres foram
+  // trocadas por `ehNomeDeFamilia` em 28/08/2026. Esta ja estava coberta pelo
+  // laco de familia vinte linhas acima, e era mais fraca que ele:
+  //
+  //   pedido com "bolo"   ->  "qual bolo voce quer" E "o sabor do bolo"
+  //   pedido com "bolos"  ->  so o primeiro; a copia a mao nao pegava o plural
+  //
+  // O cliente ouvia a mesma falta duas vezes, com palavras diferentes.
   return falta;
 }
 
@@ -189,6 +197,23 @@ export async function fecharPedido(
   }
 
   const totalCentavos = Math.round(Number(cot.total || 0) * 100);
+
+  // TOTAL ZERO COM LINHA COTADA E O MOTOR TENDO FALHADO, NAO UM PEDIDO DE GRACA.
+  //
+  // A trava de cima pega a cotacao VAZIA. Esta pega a outra metade: linhas que
+  // vieram, todas com subtotal zero. Todo produto da casa tem preco, entao zero
+  // aqui nunca e resposta certa, e um pedido de R$ 0,00 na fila da dona custa
+  // uma ligacao pro cliente pra desfazer o que a conversa prometeu.
+  //
+  // SEM TESTE, E DE PROPOSITO ESTAR ESCRITO AQUI: eu tentei montar o estado que
+  // dispara isto e nao consegui. Com item de qtd zero a trava de cima ja segura,
+  // e com produto fora do cardapio a cotacao volta vazia e a outra trava segura.
+  // Entao isto so dispara se o MOTOR falhar de um jeito que hoje eu nao sei
+  // provocar -- que e exatamente o caso em que uma rede embaixo serve.
+  if (totalCentavos <= 0) {
+    console.error("[fluxo] o motor cotou tudo por zero; nao fecho:", e.itens.map((i) => i.produto).join(", "));
+    return null;
+  }
 
   const pedidoId = await registrarPedido(negocioId, clienteId, {
     // `itens` e o que o cliente pediu; `linhas` e o que o motor cotou. Os dois
