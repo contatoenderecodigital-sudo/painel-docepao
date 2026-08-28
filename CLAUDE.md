@@ -15,6 +15,8 @@ mínimo que não pode ser esquecido. O resto está nos arquivos apontados aqui.
 | `O-QUE-FALTA.md` | o backlog vivo, com o estado medido de cada coisa |
 | `PERGUNTAR-PRA-DONA.md` | as perguntas abertas para a dona da padaria |
 | `PERGUNTA-E-BOTAO.md` | a regra de toda etapa com botão. **Ler antes de criar uma** |
+| `IDEIAS-PRA-IA.md` | ideias que aparecem no meio da leitura e ficam esperando o fim dela |
+| `LEITURA-DA-CADEIA.md` | os 14 arquivos na ordem da mensagem, e o que cada leitura achou |
 | `O-QUE-A-DONA-FALOU.md` | varredura das 55 transcrições, com citação de origem |
 | `ARQUITETURA.md` | como as peças se encaixam |
 
