@@ -17,7 +17,11 @@ execFileSync(
   "npx",
   ["tsc", "lib/cupom-escpos.ts", "lib/departamentos.ts", "lib/tipos.ts",
    "--outDir", pasta, "--module", "commonjs", "--target", "es2020",
-   "--skipLibCheck", "--esModuleInterop"],
+   "--skipLibCheck", "--esModuleInterop",
+   // `departamentos.ts` passou a perguntar a unidade ao CARDAPIO, e o cardapio
+   // e um JSON. Sem isto o tsc nao resolve o import e o teste morre com
+   // "Cannot find module './catalogo.json'".
+   "--resolveJsonModule"],
   { stdio: "pipe", shell: true },
 );
 const { montarCupons } = require(join(pasta, "cupom-escpos.js"));

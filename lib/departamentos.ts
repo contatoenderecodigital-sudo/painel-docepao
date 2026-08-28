@@ -23,6 +23,7 @@
 // ============================================================================
 
 import type { Pedido } from "./tipos";
+import { produtoPorNome } from "./ia/dados/produtos";
 
 export type DeptoId =
   | "salgados"
@@ -160,20 +161,44 @@ export function deptoDe(item: { categoria?: string | null; produto: string }): D
 // pedido editado na mao), entao aqui o peso e reconstituido: pela familia do
 // produto, que e por quilo por definicao, e pela quantidade quebrada, porque
 // 1,5 coxinha nao existe.
+// O CATALOGO DECIDE, E O RESTO E REDE EMBAIXO.
+//
+// A coluna `unidade` pode vir nula (linha antiga, pedido editado na mao), e o
+// bolo de 3 kg gravado assim saia no ticket como "3x BOLO BRIGADEIRO": a cozinha
+// assava TRES bolos.
+//
+// A reconstituicao existia, e ela chutava pela CATEGORIA e por uma lista de
+// NOMES escrita a mao. Medido em 28/08/2026, com o item chegando sem unidade:
+//
+//     17 dos 86 produtos saiam com a unidade errada
+//     os 15 bolos caseiros e as duas pizzas, todos `un` no cardapio, viravam kg
+//
+// A causa era o conjunto abaixo listar `bolo_caseiro` e `pizza` como "por quilo
+// por natureza", e eles nao sao: o caseiro se vende por unidade (R$ 30,90 a
+// R$ 35,90 cada) e a pizza tambem.
+//
+// Nao estava dando prejuizo, e vale dizer por que: hoje toda linha gravada tem
+// unidade, e conferi no banco. A defesa e que estava errada.
+//
+// Agora quem responde primeiro e o cardapio, pelo nome do produto. As duas
+// camadas abaixo ficam pro que o cardapio nao conhece: o pedido corrigido na
+// mao com um nome que nao existe, e a quantidade quebrada, porque 1,5 coxinha
+// nao existe.
+//
+// O CONJUNTO DE CATEGORIAS FICA, e mistura DOIS vocabularios de proposito:
+// `bolo_recheado` e do orcamento e e o que esta gravado nas linhas do banco;
+// `bolo_festa` e do pedido. Os dois chegam aqui.
 const KG_POR_NATUREZA = new Set([
   "bolo_recheado",
   "bolo_festa",
-  "bolo_caseiro",
   "por_quilo",
   "torta_fria",
   "torta_recheada",
   "empadao",
   "calzone",
   "bolo_salgado",
-  "pizza",
   "padaria",
 ]);
-const KG_POR_NOME = /cachorro|pao frances|pao de x|pizza redonda|torta fria|torta salgada|empadao|cuca|pao doce/;
 
 export function unidadeDoItem(item: {
   categoria?: string | null;
@@ -183,9 +208,28 @@ export function unidadeDoItem(item: {
 }): "un" | "kg" {
   if (item.unidade === "kg") return "kg";
   if (item.unidade === "un") return "un";
+
+  // O CARDAPIO RESPONDE, MAS SO NO CASAMENTO EXATO.
+  //
+  // A primeira versao disto perguntava com `produtoNoComeco`, que casa pelo
+  // COMECO do nome, e o teste `todo-produto-funciona` pegou na hora:
+  //
+  //   "bolo prestigio com ganache"  comeca com "bolo prestigio"
+  //   e "bolo prestigio" e o bolo de FESTA, vendido por quilo
+  //
+  // O caseiro saiu em kg no papel. E o mesmo tropeco que o `produtos.ts` avisa
+  // no comentario do `produtoNoComeco`: "bolo caseiro prestigio com ganache tem
+  // que ganhar de bolo caseiro prestigio, que nem existe mas quase casou uma
+  // vez".
+  //
+  // Aqui nao se pode chutar: o nome ja passou pelo resolvedor antes de virar
+  // linha do pedido, entao se ele nao bate EXATO com o cardapio, quem responde
+  // sao as duas camadas de baixo.
+  const daCasa = produtoPorNome(String(item.produto ?? ""));
+  if (daCasa) return daCasa.unidade;
+
   const c = norm(item.categoria);
   if (KG_POR_NATUREZA.has(c)) return "kg";
-  if (KG_POR_NOME.test(norm(item.produto))) return "kg";
   if (!Number.isInteger(Number(item.qtd))) return "kg";
   return "un";
 }

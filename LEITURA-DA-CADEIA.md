@@ -1106,3 +1106,47 @@ em 26/08; hoje são dez, e nenhum deles é do fluxo da conversa.
 de resultado sozinho passaria com a lista antiga, porque ela acerta os sete de
 hoje. O que a lista não faz é acertar o produto de amanhã, e isso só dá pra
 cobrar olhando como a decisão é tomada. Isca provada.
+
+---
+
+## Fora da lista: `lib/departamentos.ts` — a unidade no papel
+
+Achado varrendo o padrão do defeito da bancada. A mesma doença, no arquivo que
+decide o que sai escrito na comanda:
+
+    const KG_POR_NOME = /cachorro|pao frances|pao de x|pizza redonda|torta fria|
+                         torta salgada|empadao|cuca|pao doce/;
+
+E o conjunto de categorias listava `bolo_caseiro` e `pizza` como "por quilo por
+natureza", **e eles não são**: o caseiro se vende por unidade (R$ 30,90 a
+R$ 35,90 cada) e a pizza também.
+
+Medido com o item chegando sem unidade gravada: **17 dos 86 produtos saíam com a
+unidade errada** — os 15 bolos caseiros e as duas pizzas.
+
+**Não estava dando prejuízo, e conferi por quê:** consultei o banco e toda linha
+gravada tem unidade. A defesa é que estava errada. Agora quem responde primeiro
+é o cardápio.
+
+### O teste pegou um erro meu no meio do conserto
+
+A primeira versão perguntava com `produtoNoComeco`, que casa pelo COMEÇO:
+
+    "bolo prestígio com ganache"  começa com  "bolo prestígio"
+    e "bolo prestígio" é o bolo de FESTA, vendido por quilo
+
+O caseiro saiu em kg no papel, e o `todo-produto-funciona` reprovou na hora. É o
+mesmo tropeço que o `produtos.ts` avisa no comentário do `produtoNoComeco`.
+Virou `produtoPorNome`, que exige casamento exato.
+
+### Provado contra a versão anterior
+
+172 casos (os 86 pelo nome do catálogo e pelo nome curto), comparando a função
+antiga com a nova: **0 pioraram, 33 melhoraram.**
+
+### Um efeito colateral que valeu registrar
+
+`departamentos.ts` passou a importar o cardápio, e o cardápio é um JSON. Sete
+testes compilam os arquivos DE VERDADE com `tsc` (em vez de testar uma cópia
+digitada, que esconderia divergência), e um deles morria com *"Cannot find
+module './catalogo.json'"*. Faltava `--resolveJsonModule`.
