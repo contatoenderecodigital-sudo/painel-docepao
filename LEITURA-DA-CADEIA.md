@@ -2495,3 +2495,60 @@ o comentário que descreve outra versão), a pergunta certa depois de achar não
 
 Foi o que achou as treze cópias da unidade, as cinco da hora, e teria achado esta
 etapa vizinha na hora, se eu tivesse perguntado.
+
+
+---
+
+# A LEITURA DO `app/` (rotas e páginas)
+
+Das 3.922 linhas, 1.051 já estavam lidas (o webhook, em duas passadas). Restam
+~2.870. Começando pela autenticação, que é onde o item 44 achou o buraco.
+
+## 51. `app/sso/route.ts` — a mesma forma de erro, na porta que loga como dona
+
+O `/sso` loga como **dono da padaria sem pedir senha**. Existe pro MODO OWNER: o
+hub manda um token assinado com `SSO_SECRET` e o painel abre dentro de um iframe
+já logado. Quem entra por essa porta pode tudo o que a dona pode.
+
+```ts
+const exp = data && typeof data.exp === "number" ? data.exp : 0;
+if (!data || !negocioId || (exp && Date.now() > exp)) recusa
+```
+
+**Token sem `exp` passava.** O valor cai pra zero, `(exp && ...)` é falsy, e o
+token entra. Valeria pra sempre — e ele viaja na URL, que vai pro histórico do
+navegador, pro log do proxy e pro cabeçalho `Referer` de qualquer coisa que a
+página carregue.
+
+Conferi no hub antes de chamar de exposição: `app/ws/[neg]/page.tsx` **sempre**
+emite com 5 minutos. Ninguém estava exposto hoje.
+
+Mas a guarda estava escrita pra **aceitar o token mais fraco possível**, que é a
+mesma forma de erro do item 44: um `if` que parece guarda e não dispara nunca.
+Agora falha fechado.
+
+O teste `o-sso-nao-aceita-token-fraco.cjs` mede dez tokens (sem validade,
+vencido, validade que não é número, sem negócio, assinado com outro segredo, sem
+assinatura) e **lê a linha da guarda no arquivo** antes de rodar: se ela voltar
+pra forma que aceita, ele reprova apontando a linha. Isca provada.
+
+## Anotado na leitura do `app/`, não consertado
+
+### Login sem limite de tentativas
+
+`app/login/acao.ts` chama `autenticar` e devolve "E-mail ou senha incorretos" sem
+contar tentativas. O `bcrypt.compare` é lento por natureza (uns 100ms), o que já
+limita a força bruta, mas **não há bloqueio**. O hub tem `excedeuLimite` em
+`lib/groow/ratelimit.ts`; o painel não tem limitador nenhum.
+
+### `assinar` e `verificar` duplicados
+
+`app/sso/route.ts` tem a sua cópia das duas funções, e `lib/auth.ts` tem a
+original. São a **mesma assinatura de sessão**, escrita duas vezes. Hoje são
+idênticas; no dia em que uma mudar (algoritmo, encoding, formato do payload), a
+outra para de validar o cookie e ninguém descobre por um erro, só por gente
+deslogada sem motivo.
+
+A duplicação tem uma razão real: o `lib/auth.ts` grava com `cookies()`, e o
+`/sso` precisa gravar num `NextResponse`. Mas o `assinar`/`verificar` podiam sair
+de um lugar só.

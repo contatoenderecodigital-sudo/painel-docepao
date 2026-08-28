@@ -36,6 +36,13 @@ Todas são risco latente, não defeito vivo. Conferi uma por uma.
 | dezesseis cópias do normalizador de texto | estão nos quinze arquivos que eu **ainda não li**. Vão junto com a leitura |
 | "TODA query filtra por `negocio_id`" é falso | varri as 29 que não filtram: nenhuma vaza entre tenants. O que existe é a frase dizendo mais que o código |
 
+### 2b. Achados na leitura do `app/`, anotados e não consertados
+
+| o que | por que não mexi |
+| --- | --- |
+| **login sem limite de tentativas** | o `bcrypt` já é lento, o que limita a força bruta, mas não há bloqueio. O hub tem limitador, o painel não tem nenhum. Precisa de um, e é peça nova |
+| **`assinar`/`verificar` duplicados** | `app/sso/route.ts` e `lib/auth.ts` têm a mesma assinatura de sessão escrita duas vezes. Hoje idênticas; se uma mudar, a outra para de validar o cookie e ninguém descobre por erro, só por gente deslogada sem motivo |
+
 ### 3. Consertos SEM isca automatizada, que precisam de olho humano
 
 | o que | como conferir |

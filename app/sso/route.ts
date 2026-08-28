@@ -28,9 +28,24 @@ function verificar(token: string, secret: string): Record<string, unknown> | nul
 export async function GET(req: Request) {
   const t = new URL(req.url).searchParams.get("t") || "";
   const data = SSO_SECRET ? verificar(t, SSO_SECRET) : null;
+  // TOKEN SEM VALIDADE E RECUSADO, E NAO ACEITO PRA SEMPRE.
+  //
+  // Aqui estava `(exp && Date.now() > exp)`: quando o token nao trazia `exp`, o
+  // valor caia pra 0, o `(exp && ...)` era falsy, e o token PASSAVA. Um link de
+  // SSO sem validade valeria pra sempre, e ele viaja na URL, que vai pro
+  // historico do navegador, pro log do proxy e pro cabecalho Referer.
+  //
+  // O hub sempre emite com 5 minutos (`app/ws/[neg]/page.tsx`), entao ninguem
+  // estava exposto hoje. Mas a guarda estava escrita pra ACEITAR o token mais
+  // fraco possivel, que e a mesma forma de erro das dezesseis rotas sem login:
+  // um `if` que parece guarda e nao dispara nunca.
+  //
+  // Agora falha fechado: sem `exp` numerico e valido, nao entra.
+  //
+  // Achado na leitura do `app/`, 28/08/2026.
   const exp = data && typeof data.exp === "number" ? data.exp : 0;
   const negocioId = data && typeof data.negocioId === "string" ? data.negocioId : "";
-  if (!data || !negocioId || (exp && Date.now() > exp)) {
+  if (!data || !negocioId || !exp || Date.now() > exp) {
     return new NextResponse(null, { status: 303, headers: { Location: "/login" } });
   }
   // resolve o dono do negócio na gaveta
