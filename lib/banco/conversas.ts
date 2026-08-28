@@ -49,70 +49,51 @@ export async function carregarHistorico(
        order by criado_em desc limit $3`,
     [negocioId, clienteId, LIMITE_HISTORICO],
   );
-  const msgs = linhas.reverse().map((m) => ({ role: m.papel, content: m.conteudo }));
-  return pedidoEmAberto ? msgs : cortarNoPedidoFechado(msgs);
+  // O `pedidoEmAberto` ficou sem efeito quando o corte saiu daqui, e continua no
+  // lugar de proposito: ele diz, pra quem le, que existe um estado em que a
+  // conversa anterior ainda esta viva. Ver o bloco abaixo.
+  void pedidoEmAberto;
+  return linhas.reverse().map((m) => ({ role: m.papel, content: m.conteudo }));
 }
 
-// PEDIDO FECHADO VIRA RESUMO, NÃO CONTINUA SENDO CONVERSA.
+// AQUI FICAVAM O CORTE DO PEDIDO FECHADO E O RESUMO DELE, E OS DOIS ERAM DO
+// CEREBRO ANTIGO.
 //
-// O cliente que já encomendou volta pra encomendar de novo, e a IA lia tudo
-// como se fosse um pedido só: ele pediu comida pra festa de 20 pessoas e
-// recebeu de volta os 500 salgados, o bolo do Batman e a forminha verde da
-// encomenda anterior. Mesmo avisada de que aquilo estava fechado, ela anotava
-// os itens velhos no pedido novo, porque o vaivém inteiro ainda estava ali.
+// O QUE ELES FAZIAM
 //
-// Aqui o que sobra do pedido fechado é a mensagem de fechamento, que já é o
-// resumo dele. Ela continua podendo responder "o que eu pedi mesmo?" e repetir
-// a encomenda se ele quiser a mesma coisa; o que sumiu é o rastro que fazia
-// item velho reaparecer sozinho.
-const MARCA_FECHADO = /^\*Pedido recebido\*/m;
-
-// O resumo do último pedido fechado deste cliente, pra IA ter na mão quando ele
-// perguntar o que pediu ou quiser a mesma coisa. Perguntado "o pedido que eu
-// fechei era o quê?", ela respondia com o pedido que está sendo montado agora e
-// ainda chamava ele de fechado: o resumo estava lá no alto do histórico, longe
-// demais de onde ela decide o que responder.
-export async function resumoPedidoFechado(
-  negocioId: string,
-  clienteId: string,
-): Promise<string | null> {
-  const l = await queryUm<{ conteudo: string }>(
-    `select conteudo from mensagens
-      where negocio_id = $1 and cliente_id = $2 and papel = 'assistant'
-        and conteudo like '*Pedido recebido*%'
-      order by criado_em desc limit 1`,
-    [negocioId, clienteId],
-  );
-  return l?.conteudo ?? null;
-}
-
-function cortarNoPedidoFechado(msgs: Mensagem[]): Mensagem[] {
-  let ultimo = -1;
-  msgs.forEach((m, i) => {
-    if (m.role === "assistant" && MARCA_FECHADO.test(m.content)) ultimo = i;
-  });
-  // Sem pedido fechado, ou fechado agora mesmo (o cliente ainda nem respondeu):
-  // a conversa segue inteira.
-  if (ultimo < 0 || ultimo === msgs.length - 1) return msgs;
-
-  const aviso: Mensagem = {
-    role: "user",
-    content:
-      "[ AVISO DO SISTEMA, nao e o cliente falando ] O pedido acima JA FOI FECHADO e esta com a equipe, e por isso a " +
-      "conversa que o montou nao aparece mais aqui. Daqui pra baixo e uma encomenda NOVA, do zero: nao anote nada daquele " +
-      "pedido por conta propria. Aquele resumo ali em cima serve pra duas coisas, so: responder se ele PERGUNTAR o que " +
-      "pediu, e repetir os itens se ele PEDIR a mesma coisa de novo. Se ele quiser mexer no pedido que ja foi, chame a " +
-      "equipe, porque a cozinha pode ja ter comecado.",
-  };
-  return [msgs[ultimo], aviso, ...msgs.slice(ultimo + 1)];
-}
-
-// Grava um turno da conversa. Retorna o id da mensagem.
+// `cortarNoPedidoFechado` procurava no historico uma mensagem comecando com
+// "*Pedido recebido*" e cortava tudo o que viesse antes, pra a IA nao anotar num
+// pedido novo os itens do pedido velho. `resumoPedidoFechado` buscava a mesma
+// marca no banco pra dar o resumo de contexto.
 //
-// `papel` continua sendo o que a IA enxerga no histórico ('user'/'assistant').
-// `extra.autor` distingue quem falou na TELA ('cliente'|'ia'|'equipe'): a
-// mensagem que a DONA digita entra papel='assistant' + autor='equipe'. Mídia
-// recebida entra com tipo/mime/dados (base64) pra aparecer no chat.
+// POR QUE ELES NAO PODIAM FUNCIONAR
+//
+// Nenhuma mensagem do sistema comeca com "*Pedido recebido*" desde que o cerebro
+// antigo foi apagado, em 26/08/2026. A fala de fechamento hoje e "Pronto, seu
+// pedido foi pra fila da equipe da padaria" -- e ela passa pela REESCRITA da IA
+// (`podeReescrever: true`), entao o texto que chega no cliente muda a cada
+// conversa. Marca fixa nenhuma casa com texto que o modelo reescreve.
+//
+// O corte era um `if` que nunca era verdadeiro, e o resumo uma consulta que
+// nunca achava nada. Achados lendo o arquivo em 28/08/2026.
+//
+// E POR QUE O DEFEITO QUE ELES IMPEDIAM NAO VOLTA
+//
+// Aquele defeito -- item do pedido velho reaparecendo no novo -- existia porque
+// o cerebro antigo recebia A CONVERSA INTEIRA e decidia tudo em cima dela. O
+// fluxo novo manda pro modelo UMA mensagem: `pensar({ instrucao, mensagem })`.
+// Ele nao ve historico, entao nao ha o que reaproveitar por engano.
+//
+// O historico continua sendo carregado, e serve pra duas coisas que nao passam
+// pelo modelo: saber se a padaria ja cumprimentou, e achar a mensagem citada
+// quando o cliente responde uma antiga.
+//
+// O `resumoPedidoFechado` tambem ja estava na lista de orfaos do
+// `nada-de-codigo-fantasma`, e escondido: a unica "segunda aparicao" dele era
+// uma MENCAO num comentario que eu mesmo escrevi contando que a chamada tinha
+// sido removida. O comentario que narra a morte de uma funcao a mantinha viva
+// aos olhos do detector, e isso virou conserto la.
+
 export type ExtraMensagem = {
   autor?: "cliente" | "ia" | "equipe" | "cobranca";
   tipo?: "texto" | "imagem" | "audio" | "documento" | "video";

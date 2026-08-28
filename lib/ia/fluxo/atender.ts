@@ -311,7 +311,41 @@ export async function atenderComFluxoNovo(
   // "pode ser" no meio dos docinhos e conversa, embaixo do resumo e ordem.
   let pedidoId: string | undefined;
   if (mensagem.botaoId === "fecha_sim" || r.confirmouEscrevendo) {
-    const fechado = await fecharPedido(negocioId, clienteId, r.estado);
+    // A EQUIPE JA MEXEU NO PEDIDO: ISSO NAO E UM ERRO, E UMA NOTICIA.
+    //
+    // `registrarPedido` recusa sobrescrever pedido que a equipe ajustou, e com
+    // razao: num teste o topo de R$ 33 que a dona tinha lancado sumiu quando a
+    // IA registrou de novo. A recusa e um `throw`, e o throw subia ate o webhook,
+    // que trata qualquer excecao do mesmo jeito:
+    //
+    //     "Deu um probleminha aqui do meu lado."
+    //
+    // Nada quebrou. A equipe esta com o pedido dele, que e exatamente o que ele
+    // queria saber, e a padaria respondia pedindo desculpa por um problema que
+    // nao existe. Achado lendo o `conversas.ts` em 28/08/2026.
+    //
+    // O handoff continua: quem fala com ele agora e gente, porque o pedido mudou
+    // de mao. O que muda e a frase, que passa a ser verdade.
+    let fechado: Awaited<ReturnType<typeof fecharPedido>> = null;
+    try {
+      fechado = await fecharPedido(negocioId, clienteId, r.estado);
+    } catch (e) {
+      const motivo = String((e as Error)?.message ?? e);
+      if (!/equipe ja ajustou/.test(motivo)) throw e;
+      r.rastro.push("a equipe ja ajustou este pedido; nao sobrescrevo e passo pra ela");
+      const aviso =
+        "Seu pedido já está com a equipe da padaria, e eles ajustaram alguma coisa nele. " +
+        "Vou chamar alguém pra te confirmar certinho antes de fechar.";
+      return {
+        texto: semEmoji(aviso),
+        botoes: [],
+        cardapio: null,
+        etapa: "confirmacao",
+        precisaHumano: true,
+        rastro: r.rastro,
+        uso,
+      };
+    }
     if (fechado) {
       pedidoId = fechado.pedidoId;
       r.rastro.push("pedido fechado: " + fechado.pedidoId + " (R$ " + (fechado.totalCentavos / 100).toFixed(2) + ")");

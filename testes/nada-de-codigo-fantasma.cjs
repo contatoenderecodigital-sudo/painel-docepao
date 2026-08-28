@@ -90,10 +90,21 @@ const ondeProcurar = varrer(raiz).filter((f) => !f.endsWith("nada-de-codigo-fant
 // pode ficar de pe convidando alguem a usar.
 //
 // Fora as linhas de import, sobra o que de fato chama.
+// E COMENTARIO TAMBEM NAO E USO.
+//
+// Quarto buraco deste mesmo detector, achado lendo o `conversas.ts` em
+// 28/08/2026: `resumoPedidoFechado` estava exportada e sem chamador, e a unica
+// "segunda aparicao" dela era uma MENCAO dentro de um comentario que eu proprio
+// tinha escrito, explicando que a chamada dela tinha sido removida.
+//
+// O comentario que conta a morte de uma funcao a mantinha viva aos olhos do
+// detector.
 const semImports = (texto) =>
   texto
     .split(String.fromCharCode(10))
     .filter((l) => !/^\s*import\s/.test(l) && !/^\s*}\s*from\s+["']/.test(l))
+    // Comentario de uma linha, e linha de bloco que comeca com * ou /*.
+    .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
     .join(String.fromCharCode(10));
 
 const tudo = ondeProcurar.map((f) => {
