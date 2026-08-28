@@ -26,21 +26,49 @@ vezes ela achou.
 
 | a pergunta | achou | o pior caso que ela pegou |
 | --- | --- | --- |
-| **essa lista é minha, ou é do cardápio?** | 9 | o padeiro saía de seis nomes à mão: pão novo cadastrado ia pra confeitaria |
-| **quem mais responde essa mesma pergunta?** | 8 | quatro lugares decidiam se o produto era genérico, e consertar um criava beco no outro |
-| **esse comentário descreve o código que está embaixo dele?** | 9 | `leituraQueCabeNaEtapa` jurava ser a última trava de toda etapa; era de três |
-| **esse arquivo lê o `catalogo.json` cru?** | 7 | a chave `pizza` fora dos quatro baldes: a meia pizza saía com o sabor colado no nome |
-| **esse import, tipo ou galho tem chamador?** | 4 | `p.categoria === "bolo"` nunca casava: bolo de café cotado como docinho de R$ 1,25 |
-| **esse valor está decidido em outro lugar também?** | 8 | dezesseis cópias do normalizador, e quatro já divergiam |
+| **essa lista é minha, ou é do cardápio?** | 11 | o padeiro saía de seis nomes à mão: pão novo cadastrado ia pra confeitaria |
+| **quem mais responde essa mesma pergunta?** | 9 | quatro lugares decidiam se o produto era genérico, e consertar um criava beco no outro |
+| **esse comentário descreve o código que está embaixo dele?** | 16 | o `marcarImpresso` prometia idempotência e cumpria em uma das duas escritas: pedido carimbado como impresso sem ter saído na cozinha |
+| **esse arquivo lê o `catalogo.json` cru?** | 8 | a chave `pizza` fora dos quatro baldes: a meia pizza saía com o sabor colado no nome |
+| **esse import, tipo ou galho tem chamador?** | 7 | `p.categoria === "bolo"` nunca casava: bolo de café cotado como docinho de R$ 1,25 |
+| **esse valor está decidido em outro lugar também?** | 13 | a unidade do item, em TREZE lugares, três deles escondidos dentro de SQL |
 | **essa regra tem fronteira de palavra?** | 3 | "certo" dentro de "incerto": alguém em dúvida aprovando um valor |
-| **o teste que jura cobrir isso consegue falhar?** | 5 | três defeitos passaram meses sob teste verde, incluindo a pizza sem candidato |
+| **o teste que jura cobrir isso consegue falhar?** | 7 | o `` do Windows desligava o corte de comentário de cinco detectores, em silêncio |
 
 E a nona, que só apareceu depois do arquivo 8 e é a mais cara de ignorar:
 
-> **eu consertei um lado dessa regra em outro arquivo?**
+> **eu consertei um lado dessa regra em outro arquivo?** (achou 7)
 
-Cinco defeitos vieram daí, e um deles virou beco sem saída: trocar o genérico do
-bolo na etapa sem trocar na fala fazia a padaria perguntar o prato para sempre.
+Cinco defeitos vieram daí no cérebro, e um deles virou beco sem saída: trocar o
+genérico do bolo na etapa sem trocar na fala fazia a padaria perguntar o prato
+para sempre. Na camada de banco ela achou mais dois, e o pior foi o
+`pedidoRegistradoDoCliente`: a guarda do "pedido não impresso não some" existia
+na função gêmea, com o caso escrito no comentário, e faltava justamente na que
+alimenta a tela onde a equipe conserta.
+
+### As duas que nasceram na camada de banco
+
+> **os dois lados desta comparação estão no mesmo fuso?** (achou 2)
+
+`timestamptz` de um lado e o corte já convertido pra São Paulo do outro. O
+Postgres converte o segundo usando o fuso da SESSÃO, então num container em UTC
+o mês e o dia começam três horas antes. Achou o card de recuperado do mês e o
+contador de mensagens de hoje, os dois errando dinheiro e número calados. O
+`resultados.ts` já fazia do jeito certo, e foi ele que serviu de gabarito.
+
+> **alguém LÊ este campo, ou só escrevem nele?** (achou 3)
+
+Parente da pergunta do chamador, mas para DADO em vez de código, e mais difícil
+de ver porque o campo é preenchido com capricho:
+
+- o aviso `[o cliente respondeu MARCANDO esta mensagem...]` ia pro `historico`,
+  que o cérebro novo nunca vê;
+- `PedidoParaGravar.itens` era construído a cada pedido fechado e ninguém lia;
+- `carregarHistorico(negocioId, clienteId, pedidoEmAberto)` jogava o terceiro
+  parâmetro fora com um `void`, e o webhook fazia uma consulta ao banco só pra
+  preencher esse parâmetro.
+
+Nos três havia um comentário garantindo que alguém lia.
 
 ---
 
@@ -1092,6 +1120,29 @@ eram 15. Sobram **27, com 5.744 linhas**, e há peça central ali.
 | 26 | `lib/ia/dados/apelidos.ts` | 112 | **INTEIRO** — 3 defeitos |
 | 27 | `lib/ia/fluxo/situacao.ts` | 87 | **INTEIRO** |
 | 28 | `lib/ia/fluxo/cotar.ts` | 49 | **INTEIRO** |
+
+E a camada de banco, lida em 28/08/2026:
+
+| # | arquivo | linhas | estado |
+| --- | --- | --- | --- |
+| 29 | `lib/banco/pedidos.ts` | 620 | **INTEIRO** — 6 defeitos |
+| 30 | `lib/banco/montagem.ts` | 540 | **INTEIRO** — 2 defeitos |
+| 31 | `lib/banco/conversas.ts` | 499 | **INTEIRO** — 6 defeitos |
+| 32 | `lib/banco/resultados.ts` | 380 | **INTEIRO** — 1 defeito (o pior do dia) |
+| 33 | `lib/banco/negocios.ts` | 340 | **INTEIRO** — 3 defeitos |
+| 34 | `lib/banco/parados.ts` | 283 | **INTEIRO** — 2 defeitos |
+| 35 | `lib/banco/fila.ts` | 275 | **INTEIRO** — 2 defeitos |
+| 36 | `lib/banco/atendimentos.ts` | 217 | **INTEIRO** — 1 defeito |
+| 37 | `lib/banco/db.ts` | 130 | **INTEIRO** — cabeçalho descrevia outra arquitetura |
+| 38 | `lib/banco/clientes.ts` | 119 | **INTEIRO** — 1 defeito |
+| 39 | `lib/banco/tipos-da-conversa.ts` | 60 | **INTEIRO** — 1 campo que ninguém lia |
+
+Puxados junto, porque o rastro de um defeito passava por eles:
+`lib/tipos.ts`, `lib/departamentos.ts`, `lib/cupom-escpos.ts`, `lib/mock.ts`,
+`lib/negocio.ts`, `lib/ia/dados/produtos.ts`, `lib/ia/fluxo/generico.ts`,
+`lib/ia/fluxo/leitor-da-frase.ts`, `app/(painel)/acoes.ts`,
+`app/api/whatsapp/route.ts`, `app/api/montagem/route.ts`,
+`app/api/cardapio/opcoes/route.ts` e quatro telas.
 | — | banco e infra (9 arquivos) | 2.281 | não lidos |
 | — | fora do cérebro (3 arquivos) | 530 | não lidos |
 
