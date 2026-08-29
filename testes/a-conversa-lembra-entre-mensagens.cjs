@@ -72,6 +72,7 @@ const NAO_PRECISA_GRAVAR = {
   // limpa na mesma passada. Gravar faria a padaria repetir qual e o recheio da
   // coxinha em toda mensagem seguinte.
   recheiosTrocados: "vive um turno so: vira a frase do recheio da casa e e limpo junto",
+  saboresAConfirmar: "vive um turno so: vira frase pra equipe depois de insistir no sabor e e limpo na mesma passada",
 };
 
 const sonda = path.join(__dirname, "_sonda-memoria.mjs");

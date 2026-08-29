@@ -40,6 +40,7 @@ import { coresDaForminha } from "./sabor";
 import { afirmouOuNegou, semAcento } from "../texto";
 import { APELIDOS } from "../dados/apelidos";
 import { produtosDaCasa } from "../dados/produtos";
+import { chavesDeFamilia, ehNomeDeFamilia } from "./generico";
 import type { Leitura } from "./leitura";
 
 // O mesmo normalizador de todo mundo. Era a decima segunda copia, e a unica
@@ -177,7 +178,7 @@ function acharNaFrase(fala: string): { nome: string; onde: number; tamanho: numb
     // "kiche"). A regua sai dessa medicao, e o teste cobra que nenhum apelido da
     // casa se perca por causa dela.
     //
-    // Apelido de duas palavras passa direto: "de 30", "uma pizza", "de forma".
+    // Apelido de duas palavras passa direto: "de 30", "de forma", "pizza de metro".
     const serveParaCacar = (a: string) => a.includes(" ") || a.length >= 5;
     const apelidos = (APELIDOS[nome] ?? APELIDOS[alvo] ?? []).map(semAcMin).filter(serveParaCacar);
     const apelido = apelidos.find((a) => cerca(semRuido(a)).test(t));
@@ -216,27 +217,41 @@ function acharNaFrase(fala: string): { nome: string; onde: number; tamanho: numb
 
   // DOIS NOMES NO MESMO PEDACO DA FRASE SAO UM PRODUTO SO, E VENCE O MAIOR.
   //
-  // "uma pizza" e apelido de pizza inteira, e "pizza redonda" e outro produto.
-  // Na frase "quero uma pizza redonda" os dois casam, em pedacos que se
-  // sobrepoem, e os DOIS viravam item:
+  // "pizza" e familia, "pizza redonda" e produto. Na frase "quero uma pizza
+  // redonda" os dois casam, e os DOIS viravam item (e a inteira ainda virava
+  // uma terceira linha quando "uma pizza" era apelido de pizza inteira).
   //
-  //   "quero uma pizza redonda"      ->  pizza inteira E pizza redonda
-  //   "uma pizza meia de calabresa"  ->  pizza inteira E pizza meia
-  //
-  // Uma pizza pedida virava duas linhas no pedido, e a inteira custa R$ 120.
-  // Medido em 28/08/2026.
-  //
-  // O maior ganha porque e o mais especifico: quem escreveu "pizza redonda"
-  // disse mais do que quem escreveu "pizza". O menor sai inteiro, e nao vira
-  // sabor nem observacao: ele nunca foi produto ali.
+  // O maior ganha: quem escreveu "pizza redonda" disse mais do que "pizza".
+  // "quero uma pizza" sozinho fica familia, e a padaria pergunta forma, meia
+  // ou redonda, em vez de cotar R$ 120 calada.
+
+  for (const chave of chavesDeFamilia()) {
+    const alvo = semAcMin(chave);
+    if (!alvo) continue;
+    const m = cerca(alvo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).exec(t);
+    if (!m) continue;
+    const onde = t.indexOf(alvo);
+    achados.push({ nome: chave, onde: onde >= 0 ? onde : 0, tamanho: alvo.length });
+  }
+
   const porTamanho = [...achados].sort((a, b) => b.tamanho - a.tamanho || a.onde - b.onde);
   const ficam: typeof achados = [];
   for (const c of porTamanho) {
     const pisa = ficam.some((f) => c.onde < f.onde + f.tamanho && f.onde < c.onde + c.tamanho);
     if (!pisa) ficam.push(c);
   }
-  // Devolvidos na ordem da frase, que e a ordem em que ele pensou.
-  return ficam.sort((a, b) => a.onde - b.onde);
+  const familias = new Set(chavesDeFamilia().map((k) => semAcMin(k)));
+  return ficam
+    .filter((c) => {
+      if (!familias.has(semAcMin(c.nome))) return true;
+      return !ficam.some((p) => {
+        if (p === c || familias.has(semAcMin(p.nome))) return false;
+        if (p.onde <= c.onde) return false;
+        const entre = t.slice(c.onde + c.tamanho, p.onde);
+        return /^ *(de|da|do)? *$/.test(entre);
+      });
+    })
+    .sort((a, b) => a.onde - b.onde);
 }
 
 /* ------------------------------------------------------------------ dados */
@@ -588,6 +603,12 @@ export function itensDeOutraEtapaNaFrase(
 
   for (const { nome, onde, tamanho } of acharNaFrase(fala)) {
     if (daEtapaDeAgora(nome)) continue;
+    // NOME DE FAMILIA DA FESTA NAO E ITEM GUARDADO.
+    //
+    // "nao quero docinho, so salgado e bolo" fala das tres pernas da proposta,
+    // nao pede um produto. Pizza fica: ela nao tem etapa, e "quero uma pizza"
+    // precisa entrar como familia pra padaria perguntar forma, meia ou redonda.
+    if (ehNomeDeFamilia(nome) && semAcMin(nome) !== "pizza") continue;
     // "50 trufa de morango": o morango esta dentro do recheio da trufa.
     if (onde < fimDoRecheioAnterior) continue;
 

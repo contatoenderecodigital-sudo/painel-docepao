@@ -41,7 +41,7 @@ import { calcularBase, avisoDePoucoPorSabor } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
-import { coresDaForminha, saborQueFalta, recheioQueNaoExiste } from "./sabor";
+import { coresDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista } from "./sabor";
 import { restricoesQueACasaNaoFaz, obsSemRestricao, avisoDaRestricao } from "./restricao";
 import { paraOMotor } from "./cotar";
 import { respostaDeInformacao } from "./informacao";
@@ -123,6 +123,14 @@ export type Estado = PedidoEmMontagem & {
    * frente da pergunta da etapa e some.
    */
   recheiosTrocados?: string[];
+  /**
+   * SABOR FORA DO CARDAPIO, so depois que o cliente insistiu.
+   *
+   * A dona: "se o cliente pedir outro sabor, a gente vai colocando". A padaria
+   * mostra o cardapio primeiro. Se ele insiste, anota e chama a equipe.
+   * Vive um turno na fala; a marca fica na observacao do item.
+   */
+  saboresAConfirmar?: string[];
 };
 
 /** Quem chama o modelo. Injetado pra dar pra testar sem gastar. */
@@ -1692,7 +1700,42 @@ export async function responder(
   // terceira, para de insistir e chama a equipe: tem coisa que a padaria
   // resolve numa frase e a Dora nao resolve em dez.
   const mesmaPergunta = Boolean(estado.ultimaFala) && fala.texto === estado.ultimaFala;
-  const insistiu = mesmaPergunta ? (estado.insistiu ?? 0) + 1 : 0;
+  let insistiu = mesmaPergunta ? (estado.insistiu ?? 0) + 1 : 0;
+
+  // SABOR FORA DA LISTA: a padaria mostra o cardapio. Se ele insiste, anota
+  // pra equipe em vez de recusar a venda. A dona: "se o cliente pedir outro
+  // sabor, a gente vai colocando".
+  let aceitouSaborInsistido = false;
+  if (insistiu >= 2) {
+    const anotados: string[] = [];
+    const itens = estado.itens.map((i) => {
+      if (!saborQueFalta(i.produto, i.obs)) return i;
+      const obs = String(i.obs ?? "").trim();
+      if (!obs) return i;
+      if (semAc(obs).includes(semAc(MARCA_SABOR_A_CONFIRMAR))) return i;
+      if (obs.split(" | ").some((p) => saborCabeNaLista(i.produto, p))) return i;
+      anotados.push(i.produto + " de " + obs);
+      return { ...i, obs: obs + " (" + MARCA_SABOR_A_CONFIRMAR + ")" };
+    });
+    if (anotados.length) {
+      aceitouSaborInsistido = true;
+      estado = { ...estado, itens, saboresAConfirmar: anotados };
+      proxima = etapaDaVez(estado, roteiro());
+      fala = falaDaEtapa(proxima, estado, total, proxima.id === etapaAgora.id ? naoTemos : []);
+      precisaHumano = true;
+      insistiu = 0;
+      rastro.push(
+        "sabor fora da lista, insistiu; anotei e chamei a equipe (" +
+          anotados.join(", ") + ")",
+      );
+      fala = {
+        ...fala,
+        texto: "Anotei " + anotados.join(", ") +
+          ". A equipe confirma se a casa faz esse sabor." +
+          (fala.texto ? "\n\n" + fala.texto : ""),
+      };
+    }
+  }
   // REPETIR A PERGUNTA NAO E O MESMO QUE NAO TER ENTENDIDO.
   //
   // A conta acima olha so pra pergunta que esta saindo. O comentario dizia "a
@@ -1756,7 +1799,9 @@ export async function responder(
     etapasJaPerguntadas: marcas.length ? [...jaPerguntadas, ...marcas] : jaPerguntadas,
   };
 
-  if (insistiu === 1 && fala.opcoes?.length && !fala.texto.includes(fala.opcoes[0])) {
+  if (aceitouSaborInsistido) {
+    // A pergunta mudou: nao cai no "nao estou entendendo".
+  } else if (insistiu === 1 && fala.opcoes?.length && !fala.texto.includes(fala.opcoes[0])) {
     fala = { ...fala, texto: fala.texto + "\n\nAs opções são: " + fala.opcoes.join(", ") + "." };
     rastro.push("repeti a pergunta; mostrei as opcoes");
   } else if ((insistiu >= 2 && !entendeuAlgo) || insistiu >= 4) {

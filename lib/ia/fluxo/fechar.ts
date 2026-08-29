@@ -30,8 +30,9 @@ import { registrarPedido, grudarFotosNoPedido } from "@/lib/banco/conversas";
 import { motorPadrao } from "../orcamento";
 import type { Estado } from "./fluxo";
 import { prazoDoTopoAperta } from "./falas-do-cliente";
-import { saboresQueFaltam, saboresAlemDoLimite } from "./sabor";
+import { saboresQueFaltam, saboresAlemDoLimite, MARCA_SABOR_A_CONFIRMAR } from "./sabor";
 import { nomeDaFamilia } from "./generico";
+import { semAcento as semAc } from "../texto";
 import { paraOMotor } from "./cotar";
 import { unidadeDoItem } from "../../tipos";
 
@@ -51,15 +52,23 @@ import { unidadeDoItem } from "../../tipos";
  *   equipe.
  */
 function motivoParaAEquipe(e: Estado): string | undefined {
-  if (e.pecas?.topo !== true) return undefined;
-  const partes = [
-    "Topo de bolo (tema " + e.tema + ", " +
-      (e.escrito || [e.topoNome, e.topoIdade].filter(Boolean).join(", ") || "sem nada escrito") +
-      "): falta a equipe lançar o valor.",
-  ];
-  const aperta = prazoDoTopoAperta(e.dados.data);
-  if (aperta) partes.push("Atenção ao prazo: " + aperta + ".");
-  return partes.join(" ");
+  const partes: string[] = [];
+  if (e.pecas?.topo === true) {
+    partes.push(
+      "Topo de bolo (tema " + e.tema + ", " +
+        (e.escrito || [e.topoNome, e.topoIdade].filter(Boolean).join(", ") || "sem nada escrito") +
+        "): falta a equipe lançar o valor.",
+    );
+    const aperta = prazoDoTopoAperta(e.dados.data);
+    if (aperta) partes.push("Atenção ao prazo: " + aperta + ".");
+  }
+  const marca = semAc(MARCA_SABOR_A_CONFIRMAR);
+  for (const i of e.itens) {
+    const obs = semAc(String(i.obs ?? ""));
+    if (!obs.includes(marca)) continue;
+    partes.push(i.produto + ": " + String(i.obs).trim() + " (equipe confirma).");
+  }
+  return partes.length ? partes.join(" ") : undefined;
 }
 
 export type PedidoFechado = {

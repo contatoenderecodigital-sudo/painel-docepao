@@ -43,7 +43,6 @@ export const APELIDOS: Record<string, string[]> = {
     "retangular",
     "pizza grande",
     "pizza inteira",
-    "uma pizza",
   ],
   "pizza meia": ["meia pizza", "metade da pizza", "meia de forma", "meia"],
   "pizza redonda": ["redonda", "pizza redonda", "de 30", "30 cm"],

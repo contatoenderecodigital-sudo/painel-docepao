@@ -453,7 +453,7 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
 // justamente o que ela quer conferir num bolo de aniversario.
 //
 // paraOCliente separa os dois usos: com observacao, sem recado interno.
-export function formatarOrcamento(c: Cotacao, titulo = "Orçamento", paraOCliente = false): string {
+function formatarOrcamento(c: Cotacao, titulo = "Orçamento", paraOCliente = false): string {
   const L: string[] = [];
   L.push(titulo);
   L.push("".padEnd(28, "."));

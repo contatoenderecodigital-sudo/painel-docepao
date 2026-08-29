@@ -195,6 +195,11 @@ export function ehNomeDeFamilia(produto: unknown): boolean {
   return formasDoCliente(String(produto ?? "")).some((f) => chaves.has(f));
 }
 
+/** As chaves canônicas (pizza, salgado, docinho...), pra o leitor achar na frase. */
+export function chavesDeFamilia(): string[] {
+  return Object.keys(FAMILIAS);
+}
+
 /**
  * O NOME CANONICO DESTA FAMILIA, pra frase que vai pro cliente.
  *

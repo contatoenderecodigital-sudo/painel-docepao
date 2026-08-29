@@ -36,6 +36,21 @@ import { produtosDaCasa, produtoNoComeco, produtoPorNome } from "../dados/produt
 import { semAcento, afirmouOuNegou, cercaDaPalavra } from "../texto";
 import { identificarProduto } from "./produto";
 
+/** Na observacao: sabor que a casa nao tem na lista, a equipe confirma. */
+export const MARCA_SABOR_A_CONFIRMAR = "sabor a confirmar";
+
+/** O sabor que ele pediu e um dos que o cardapio lista neste produto? */
+export function saborCabeNaLista(produto: string, sabor: string): boolean {
+  const p = produtoNoComeco(produto) ?? produtoPorNome(produto);
+  if (!p?.sabores.length) return false;
+  const pedido = semAcento(sabor);
+  if (!pedido) return false;
+  return p.sabores.some((s) => {
+    const alvo = semAcento(s);
+    return alvo === pedido || alvo.includes(pedido) || pedido.includes(alvo);
+  });
+}
+
 /**
  * Todo produto do cardapio que tem lista de sabor ou recheio pra escolher.
  *
@@ -74,8 +89,10 @@ const semAcMin = semAcento;
  * jeitos e os dois chegam na cozinha igual.
  */
 export function saborQueFalta(produto: string, obs?: string | null): { nome: string; opcoes: string[] } | null {
-  const linha = semAcMin(produto) + " " + semAcMin(obs ?? "");
   const nome = semAcMin(produto);
+
+  // LISTA ABERTA SO DEPOIS DE INSISTIR. Ate la a padaria mostra o cardapio.
+  if (semAcMin(obs ?? "").includes(semAcMin(MARCA_SABOR_A_CONFIRMAR))) return null;
 
   // QUEM DIZ QUAL PRODUTO E ESTE E O CATALOGO, E NAO O COMECO DA STRING.
   //

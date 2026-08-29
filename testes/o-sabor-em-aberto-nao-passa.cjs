@@ -69,6 +69,8 @@ fs.writeFileSync(
     "    if (!saborQueFalta(jeito, null)) naoPerguntou.push(jeito + ' [' + p.nome + ']');",
     "    // 2. com o sabor escolhido: NAO pode perguntar de novo",
     "    if (saborQueFalta(jeito, sabor)) perguntouAtoa.push(jeito + ' + ' + sabor);",
+    "    // 4. sabor fora da lista, ja anotado pra equipe: NAO pergunta de novo",
+    "    if (saborQueFalta(jeito, 'pistache (sabor a confirmar)')) perguntouAtoa.push(jeito + ' + sabor a confirmar');",
     "    // 3. negando o sabor: nao escolheu nada, TEM que perguntar",
     "    for (const negacao of ['sem ' + sabor, 'nao quero ' + sabor]) {",
     "      if (!saborQueFalta(jeito, negacao)) negadoPassou.push(jeito + ' + \"' + negacao + '\"');",

@@ -33,7 +33,8 @@ import {
 } from "../dados/produtos";
 // O MESMO normalizador de todo mundo. Aqui era a quinta copia dele, e esta
 // trocava a ordem do toLowerCase com o normalize.
-import { semAcento as semAcMin } from "../texto";
+import { semAcento as semAcMin, formasDoCliente } from "../texto";
+import { chavesDeFamilia } from "./generico";
 
 export type Identidade = {
   /** O nome como o resto do sistema tem que escrever, sempre igual. */
@@ -45,6 +46,23 @@ export type Identidade = {
   /** true quando o nome só existe num lugar do cardápio. */
   unico: boolean;
 };
+
+function familiaNoComeco(t: string): string | null {
+  const chaves = chavesDeFamilia()
+    .map((k) => ({ k, n: semAcMin(k) }))
+    .sort((a, b) => b.n.length - a.n.length);
+  const formas = formasDoCliente(t);
+  const perto = (n: string, s: string) => {
+    if (!n || !s) return false;
+    if (s === n || s.startsWith(n + " ")) return true;
+    const miolo = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp("(^|[^a-z])" + miolo + "s?(?![a-z])").test(s);
+  };
+  for (const { k, n } of chaves) {
+    if (perto(n, t) || formas.some((f) => perto(n, f))) return k;
+  }
+  return null;
+}
 
 /**
  * O QUE É ESTE ITEM, RESOLVIDO CONTRA O CARDÁPIO.
@@ -133,6 +151,26 @@ export function identificarProduto(nomeBruto: string, categoria?: string): Ident
     .sort((a, b) => b.casa.length - a.casa.length);
 
   if (!servem.length) {
+    // NOME DE FAMILIA NAO VIRA O PRODUTO MAIS COMPRIDO.
+    //
+    // "uma pizza" nao e pizza inteira (R$ 120). "2 pizzas" nao e o file ao molho
+    // madeira. Sem isto o apelido ou o casamento por pedaco escolhia o preco.
+    // A padaria pergunta qual: forma, meia ou redonda.
+    const fam = familiaNoComeco(t);
+    if (fam) {
+      const n = semAcMin(fam);
+      const onde = t.indexOf(n);
+      const resto = t
+        .slice(onde >= 0 ? onde + n.length : n.length)
+        .replace(/^ *(de|da|do|com) +/, "")
+        .trim();
+      return {
+        produto: fam,
+        recheio: resto || null,
+        unidade: "un",
+        unico: true,
+      };
+    }
     return {
       produto: bruto,
       recheio: null,

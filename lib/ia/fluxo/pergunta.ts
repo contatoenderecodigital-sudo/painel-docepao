@@ -21,7 +21,7 @@ import { brl, motorPadrao } from "../orcamento";
 import type { Etapa, PedidoEmMontagem } from "./etapas";
 import { saudacaoDaHora, prazoDoTopoAperta } from "./falas-do-cliente";
 import { saboresQueFaltam, saboresAlemDoLimite, coresDoCardapio } from "./sabor";
-import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia } from "./generico";
+import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia, nomeDaFamilia, familiaDoNome } from "./generico";
 import { paraOMotor } from "./cotar";
 import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
 import { semAcento } from "../texto";
@@ -188,8 +188,31 @@ const CARDAPIO_DO_GRUPO: Record<string, string> = {
 
 function pecaDoCardapio(produto: string): string | null {
   const p = produtoNoComeco(produto) ?? produtoPorNome(produto);
-  if (!p) return null;
-  return CARDAPIO_DO_GRUPO[p.grupo] ?? null;
+  if (p) return CARDAPIO_DO_GRUPO[p.grupo] ?? null;
+  return familiaDoNome(produto) === "pizza" || nomeDaFamilia(produto) === "pizza" ? "pizza" : null;
+}
+
+function falaSeTemFamilia(p: PedidoEmMontagem, aviso = ""): Fala | null {
+  const familia = p.itens.find((i) => ehNomeDeFamilia(i.produto));
+  if (!familia) return null;
+  const pergunta = perguntaDaFamilia(familia.produto);
+  if (!pergunta) return null;
+  const peca = pecaDoCardapio(familia.produto);
+  return {
+    texto: aviso + pergunta + (peca ? " Te mandei o cardápio pra escolher." : ""),
+    botoes: [],
+    cardapio: peca,
+    podeReescrever: true,
+    opcoes: opcoesDaFamilia(familia.produto),
+  };
+}
+
+function falaSeTemPizza(p: PedidoEmMontagem, aviso = ""): Fala | null {
+  const tem = p.itens.some(
+    (i) => nomeDaFamilia(i.produto) === "pizza" || familiaDoNome(i.produto) === "pizza",
+  );
+  if (!tem) return null;
+  return falaSeTemFamilia(p, aviso);
 }
 
 function pediuTudoDeUmaVez(p: PedidoEmMontagem): boolean {
@@ -714,6 +737,8 @@ export function falaDaEtapa(
   const aviso = naoTemos.length
     ? "Não achei " + naoTemos.join(" nem ") + " no cardápio com esse nome. "
     : "";
+  const daPizza = falaSeTemPizza(p, aviso);
+  if (daPizza) return daPizza;
   switch (etapa.id) {
     case "quantas_pessoas":
       return { texto: "Quantas pessoas vão na festa?", botoes: [], cardapio: null, podeReescrever: true };
@@ -773,19 +798,8 @@ export function falaDaEtapa(
       // Sem esta pergunta, bloquear no fechamento vira TRAVA: a padaria recusa
       // fechar e não diz o que falta, e o cliente fica olhando o mesmo resumo.
       // O bloqueio sem a pergunta é pior que o defeito.
-      const familia = p.itens.find((i) => ehNomeDeFamilia(i.produto));
-      if (familia) {
-        const pergunta = perguntaDaFamilia(familia.produto);
-        if (pergunta) {
-          return {
-            texto: pergunta,
-            botoes: [],
-            cardapio: null,
-            podeReescrever: true,
-            opcoes: opcoesDaFamilia(familia.produto),
-          };
-        }
-      }
+      const daFamilia = falaSeTemFamilia(p);
+      if (daFamilia) return daFamilia;
 
       // SABOR A MAIS TAMBÉM PERGUNTA, pelo mesmo motivo do de menos.
       //

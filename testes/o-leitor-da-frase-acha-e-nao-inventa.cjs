@@ -96,7 +96,7 @@ fs.writeFileSync(
     "",
     "// 5. nomes que se sobrepoem viram um item so",
     "const SOBREPOE = [['quero uma pizza redonda', 'pizza redonda'],",
-    "  ['uma pizza meia de calabresa', 'pizza meia'], ['quero uma pizza', 'pizza inteira']];",
+    "  ['uma pizza meia de calabresa', 'pizza meia'], ['quero uma pizza', 'pizza']];",
     "const duplicaram = SOBREPOE",
     "  .filter(([f, alvo]) => { const r = itens(f); return r.length !== 1 || r[0].produto !== alvo; })",
     "  .map(([f, alvo]) => f + ' -> ' + JSON.stringify(itens(f).map((i) => i.produto)) + ', esperado ' + alvo);",
