@@ -3546,3 +3546,82 @@ plausíveis e o cardápio vende as duas. Com essa resposta, o conserto é curto.
 
 O conserto foi revertido: o repositório está no estado medido, e não num
 meio-termo não verificado.
+
+---
+
+## 75. O rastro não existe mais, e o pouco que sobrou achou o defeito
+
+Fui usar o instrumento que o `DIARIO-DA-IA.md` chama de mais produtivo do
+projeto, e ele não está lá:
+
+> **ANTES DE CULPAR A IA, LEIA O RASTRO.** Em uma hora isso achou três defeitos
+> que os relatórios de teste não achavam, e **nos três a IA estava fazendo
+> certo**.
+
+As linhas `[rastro]` mostravam cada chamada de ferramenta com argumentos e
+resposta. Eram do **cérebro velho**, que trabalhava com ferramentas. O fluxo novo
+não chama ferramenta, então o rastro foi junto na demolição de 26/08, e nenhum
+documento registrou a perda. Hoje sobra uma linha por turno:
+
+```
+[fluxo-novo] etapa: abertura / proxima: quantas_pessoas
+```
+
+### E essa linha sozinha entregou o defeito
+
+```
+[fluxo-novo] etapa: abertura / proxima: quantas_pessoas
+[fluxo-novo] etapa: dados / proxima: dados
+[fluxo-novo] etapa: dados / proxima: confirmacao
+```
+
+A etapa `salgado` **nunca aconteceu**, num pedido de 200 salgados. Aí eu li a
+montagem no banco, em vez de deduzir:
+
+```json
+{"produto": "salgado assado", "categoria": "outro", "qtd": 200}
+```
+
+**A categoria é `outro`.** `temCategoria(p, "salgado")` casa por
+`startsWith("salgado")`, então com `outro` a etapa do salgado se considera fora
+do assunto e é pulada. Ninguém pergunta quais, e a cozinha recebe 200 de nada.
+
+### A causa: nome de família não é produto de catálogo
+
+Fora das etapas de família, quem dá a categoria é o catálogo. O catálogo não
+conhece `salgado assado`, porque **isso não é produto, é família**. A tabela
+`FAMILIAS`, no `generico.ts`, sabe a resposta desde sempre. Faltava perguntar
+para ela.
+
+Agora pergunta, com uma trava: só vale quando a família aponta para **uma**
+categoria. `salgado assado` resolve; `salgado` sozinho aponta para frito e
+assado, e escolher ali mandaria a comanda para a bancada errada.
+
+### O teste ficou verde com o conserto desfeito, e a isca pegou
+
+A primeira sonda refazia a regra dentro dela:
+
+```js
+const comoOFluxoDecide = (nome) => {
+  const doCatalogo = categoriaDoPedido(nome);
+  if (doCatalogo !== 'outro') return doCatalogo;
+  return categoriaUnicaDaFamilia(nome) ?? doCatalogo;   // copia da regra
+};
+```
+
+Medindo a cópia, tirar o conserto do `fluxo.ts` não mudava nada. **Quarta vez em
+dois dias** que reconstruir para medir vira medir a reconstrução, e a única razão
+de eu ter percebido foi rodar a isca antes de dar o trabalho por pronto.
+
+O conserto foi exportar `categoriaDaEtapa` e chamar a função de verdade. Com a
+isca agora, seis achados, e o defeito é maior do que o cenário mostrava:
+
+```
+"salgado assado"   -> outro, devia ser salgado_assado
+"salgado frito"    -> outro, devia ser salgado_frito
+"salgados assados" -> outro, devia ser salgado_assado
+"docinho"          -> outro, devia ser docinho
+"doce"             -> outro, devia ser docinho
+```
+
+> Isca que não reprova não é isca: é um teste que aprende a mentir junto.

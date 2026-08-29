@@ -25,11 +25,18 @@ E resposta escrita vale igual a tocar no botão. Quem escreve "sem topo e sem
 papel de arroz" respondeu as duas; quem escreve "com papel de arroz" respondeu
 uma e continua sendo perguntado só da outra.
 
-**3. Se ele ignorou duas vezes, SEGUE.**
+**3. Se ele ignorou UMA vez, SEGUE.**
 
-Insistir uma terceira vez faz o fluxo chamar a equipe por causa de um detalhe
-opcional, e isso é pior do que perder o detalhe. Quem ignorou duas vezes já
-respondeu: ele não quer.
+Insistir faz o fluxo chamar a equipe por causa de um detalhe opcional, e isso é
+pior do que perder o detalhe. Quem ignorou já respondeu: ele não quer.
+
+> **Este arquivo dizia "duas vezes" até 29/08/2026, e o código escolheu uma em
+> 25/08.** Quatro dias descrevendo uma regra que não existia, no documento que o
+> `CLAUDE.md` manda ler antes de criar qualquer etapa com botão. Quem seguisse
+> isto implementaria a regra errada, e o teste dele passaria.
+>
+> É o motivo de o "porquê" morar em comentário colado na linha: documento
+> separado do código envelhece sem avisar.
 
 ---
 
@@ -73,17 +80,34 @@ Em `lib/ia/fluxo/etapas.ts`, dentro do `cumprida` da etapa:
 ```ts
 cumprida: (p) => {
   // 1 e 2: sem resposta, a etapa segura. Com resposta, passa.
-  // 3: quem ignorou duas vezes ja respondeu, e ela segue.
+  // 3: quem ignorou ja respondeu, e ela segue.
   if (p.pecas?.topo == null || p.pecas?.papelDeArroz == null) {
-    return jaPerguntouEEleNaoRespondeu(p);
+    return jaPerguntouEEleNaoRespondeu(p, "pecas_do_bolo");
   }
   ...
 }
 ```
 
-`jaPerguntouEEleNaoRespondeu` é `(p.insistiu ?? 0) >= 1`. O `insistiu` é contado
-em `lib/ia/fluxo/fluxo.ts`, comparando a fala da vez com a anterior, e já existia
-para outra coisa (a escalada para a equipe na terceira repetição).
+```ts
+const jaPerguntouEEleNaoRespondeu = (p: PedidoEmMontagem, oQue: string) =>
+  (p.etapasJaPerguntadas ?? []).includes(oQue);
+```
+
+**Ela recebe uma PERGUNTA, não só uma etapa.** `"bolo"` quer dizer "alguma
+pergunta da etapa do bolo já saiu"; `"bolo:prato"` quer dizer "a pergunta do
+prato já saiu". Uma etapa pode ter mais de uma pergunta, e marcar só a etapa faz
+a marca da primeira dar a segunda por respondida. Essa diferença custou o topo e
+o papel de arroz de todo bolo de festa, até ser medida em 28/08/2026.
+
+A marca é gravada pelo `fluxo.ts`, que escreve `id` e `id:chave` da fala que
+saiu. **Nunca escreva a marca à mão num teste:** errar a marca fez um teste
+passar verde com a etapa travada em produção, e a padaria repetiu a mesma
+pergunta para sempre sem registrar o pedido. O jeito certo está em
+`testes/a-conversa-das-pecas-sempre-termina.cjs`, que monta a marca do mesmo
+jeito que o fluxo monta.
+
+O campo `insistiu` ainda existe, e serve para outra coisa: a escalada para a
+equipe quando a conversa trava. Ele **não** é mais o sinal desta regra.
 
 **O que NÃO se escreve:**
 
@@ -123,7 +147,7 @@ Todas as etapas que esperam botão, e como cada uma se comporta.
 | etapa | botões | como fecha | tem o defeito? |
 | --- | --- | --- | --- |
 | `base_da_festa` | Pode ser / Quero ajustar | `baseAceita` | não. Sem base não há proposta, e não existe nada a perder por não perguntar |
-| `pecas_do_bolo` | Sim / Não, duas vezes | os dois respondidos, ou ignorados duas vezes | **tinha, consertado em 26/08** |
+| `pecas_do_bolo` | Sim / Não, uma pergunta cada | os dois respondidos, ou cada um ignorado uma vez | **tinha, consertado em 26/08; voltou por outra porta e foi medido em 28/08** |
 | `oferta` | Quero docinho / Quero bolo / Só isso | `ofereceu` | não. Ela se marca como oferecida nos três caminhos, inclusive no "só isso" |
 | `confirmacao` | Confirmar / Mudar algo | `() => false` | não, e é de propósito: só o botão fecha o pedido, nunca o código |
 

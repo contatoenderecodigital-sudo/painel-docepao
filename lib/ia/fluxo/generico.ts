@@ -156,6 +156,39 @@ export function familiaDoNome(produto: unknown): string | null {
   return (cats[0] && familiaDaCategoria(cats[0])) || chave;
 }
 
+/**
+ * A CATEGORIA DESTE NOME DE FAMILIA, quando ela e UMA so.
+ *
+ * POR QUE ISTO EXISTE
+ *
+ * "salgado assado" e nome de familia, e nao produto do cardapio. Quem da a
+ * categoria fora das etapas de familia e o catalogo, e o catalogo nao conhece
+ * nome de familia: devolvia `outro`. Medido contra a producao em 29/08/2026,
+ * lendo a montagem de verdade:
+ *
+ *     {"produto": "salgado assado", "categoria": "outro", "qtd": 200}
+ *
+ * Com `outro`, `temCategoria(p, "salgado")` da falso, a etapa do salgado se
+ * considera fora do assunto e e PULADA. Ninguem pergunta quais salgados, e a
+ * cozinha recebe uma linha de 200 sem produto nenhum.
+ *
+ * A tabela `FAMILIAS` aqui em cima sabia a resposta o tempo todo. Faltava
+ * alguem perguntar pra ela.
+ *
+ * UMA SO, DE PROPOSITO
+ *
+ * "salgado assado" aponta pra `salgado_assado`, e nao ha o que decidir. Mas
+ * "salgado" sozinho aponta pra frito E assado, e ai escolher seria chutar a
+ * bancada: se o item nunca for resolvido, a comanda sai na sala errada. Nesse
+ * caso devolve null e quem chama segue como seguia.
+ */
+export function categoriaUnicaDaFamilia(produto: unknown): string | null {
+  const chave = nomeDaFamilia(produto);
+  if (!chave) return null;
+  const cats = chavesReduzidas().get(semAcento(chave)) ?? [];
+  return cats.length === 1 ? cats[0] : null;
+}
+
 /** Este nome é família, e não produto? */
 export function ehNomeDeFamilia(produto: unknown): boolean {
   const chaves = chavesReduzidas();

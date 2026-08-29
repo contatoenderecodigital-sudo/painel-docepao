@@ -12,10 +12,10 @@ flowchart TD
     B --> C{Ele ainda está digitando?}
     C -->|sim| C1[Espera e junta as mensagens]
     C1 --> C
-    C -->|não| D{FLUXO_NOVO_PARA ligado?}
+    C -->|não| D{FLUXO_NOVO_PARA=off?}
 
-    D -->|não| Z[cérebro antigo<br/>lib/ia/cerebro.ts<br/>modelo com ferramentas]
-    D -->|sim, é o padrão| E[fluxo novo<br/>lib/ia/fluxo/]
+    D -->|sim| Z[a IA fica calada<br/>a mensagem chega e ninguém responde]
+    D -->|não, é o padrão| E[o fluxo<br/>lib/ia/fluxo/]
 
     E --> F[Lê o estado do banco<br/>pedido_montagem]
     F --> G[etapaDaVez<br/>primeira etapa não cumprida]
@@ -58,8 +58,8 @@ prompt.**
 | Preço de cada item | código | `orcamento.ts` + `catalogo.json` |
 | Quantos quilos de bolo | código | `fluxo/fluxo.ts` |
 | Nome do produto que o corretor estragou | código | `dados/apelidos.ts` |
-| Se um item pode sair do pedido | **código** | `cerebro.ts`, exige pedido do cliente |
-| Se o pedido pode fechar | código | guardas em `cerebro.ts` |
+| Se um item pode sair do pedido | **código** | `fluxo/fluxo.ts`, exige pedido do cliente |
+| Se o pedido pode fechar | código | `cumprida` de cada etapa, em `fluxo/etapas.ts` |
 | Confirmar o pedido com o cliente | **equipe**, nunca a IA | fila do painel |
 
 ## 3. Onde os dados moram
@@ -78,7 +78,8 @@ isso o medidor olha os dois lugares: olhar só um reprova quem fez tudo certo.
 
 Duas coisas diferentes, e a segunda é a que pega defeito de verdade.
 
-**`testes/todos.cjs`** — 64 testes. Cada um nasceu de um erro real. Rápidos,
+**`testes/todos.cjs`** — 83 testes. Cada um nasceu de um erro real, e cada um tem
+isca provada: com o conserto desfeito, ele reprova. Rápidos,
 mas cada um mede uma regra isolada.
 
 **`testes/medidor.cjs`** — roda **conversas inteiras** contra a produção e julga
@@ -148,16 +149,23 @@ ali, não sobra registro. Mesma família.
 
 **`qa-concorrencia` vermelho**, pelo motivo acima.
 
-**Duas decisões suas em aberto:** manter ou tirar a pergunta do prato (não existe
-no fluxograma da Kemilly), e a ordem das perguntas de papel de arroz e topo.
+**As duas decisões que estavam aqui foram tomadas.** A pergunta do prato saiu
+(28/08/2026), e a ordem ficou papel de arroz antes do topo, pelo fluxograma da
+Kemilly (26/08). As decisões em aberto hoje moram em `PERGUNTAR-PRA-DONA.md`.
 
 ## 8. Onde tem risco escondido
 
-- **Dois cérebros no repositório.** `cerebro.ts` (antigo, com ferramentas) e
-  `lib/ia/fluxo` (novo). O novo é o padrão, e `FLUXO_NOVO_PARA=nao` volta para o
-  antigo em segundos, sem deploy. O preço disso é que **editar o antigo não muda
-  nada em produção**: aconteceu comigo nesta sessão, corrigi dois defeitos no
-  arquivo errado e dei como feitos.
+- **O cérebro velho não existe mais.** `cerebro.ts` e `guardas.ts` foram
+  apagados em 26/08/2026, com 13.950 linhas. Hoje `FLUXO_NOVO_PARA=off` não
+  troca de cérebro: ele **desliga a IA**, pro dia em que ela fizer besteira com
+  cliente na linha.
+
+  **O que a demolição custou, e ainda não foi pago:** o levantamento em
+  `O-QUE-O-VELHO-PROTEGIA.md` marcou as regras 25, 26 e 27 como
+  *precisa de conversa*, ou seja, não portadas. São a delegação da escolha
+  ("escolhe você os tipos") e a mudança de total. As três estavam funcionando em
+  21/08, medidas, e voltaram a falhar na bateria de 28/08. Antes de apagar, a
+  gente levantou o que se perde; o que ficou faltando foi reimplementar.
 - **Regex com `\b` vira byte de backspace** no caminho até o disco e a regra
   nunca casa. Já custou caro quatro vezes. Existe o teste
   `nenhum-byte-quebrado.cjs` justamente para isso, e ele pega toda vez.

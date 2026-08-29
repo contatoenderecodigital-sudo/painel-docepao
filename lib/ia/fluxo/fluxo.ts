@@ -34,6 +34,7 @@ import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitur
 import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase } from "./leitor-da-frase";
 import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida } from "../texto";
 import { identificarProduto } from "./produto";
+import { categoriaUnicaDaFamilia } from "./generico";
 import { produtoNoComeco, produtoPorNome, produtosDaCasa } from "../dados/produtos";
 import { semAcento as semAc } from "../texto";
 import { calcularBase, avisoDePoucoPorSabor } from "./base";
@@ -216,7 +217,9 @@ const DO_BOTAO: Record<string, (e: Estado) => Estado> = {
  * A etapa e justamente quem sabe: estando no passo do salgado, o item e
  * salgado. Frito ou assado sai do cardapio, que e a mesma fonte do preco.
  */
-function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
+// Exportada pra ser MEDIDA. A primeira versao do teste refez esta conta dentro
+// da sonda, e por isso ficou verde com o conserto desfeito: media a copia.
+export function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
   const nome = semAc(produto);
   if (etapa === "salgado") {
     // FRITO OU ASSADO QUEM DIZ E A LISTA UNICA, e nao uma leitura do catalogo
@@ -264,7 +267,23 @@ function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
   //
   // O nome do produto ja diz de que familia ele e, e essa informacao mora no
   // catalogo. Nao havia motivo pra depender da etapa.
-  return categoriaDoCatalogo(nome);
+  const doCatalogo = categoriaDoCatalogo(nome);
+  if (doCatalogo !== "outro") return doCatalogo;
+
+  // NOME DE FAMILIA NAO E PRODUTO DE CATALOGO, E MESMO ASSIM TEM FAMILIA.
+  //
+  // O catalogo nao conhece "salgado assado", entao devolvia `outro`. Medido
+  // contra a producao em 29/08/2026, lendo a montagem de verdade:
+  //
+  //     {"produto": "salgado assado", "categoria": "outro", "qtd": 200}
+  //
+  // Com `outro` a etapa do salgado se considera fora do assunto e e pulada:
+  // ninguem pergunta quais, e a cozinha recebe 200 de nada. A tabela FAMILIAS
+  // sabia a resposta; faltava perguntar pra ela.
+  //
+  // So vale quando a familia aponta pra UMA categoria. "salgado" sozinho aponta
+  // pra frito e assado, e escolher ali seria chutar a bancada.
+  return categoriaUnicaDaFamilia(nome) ?? doCatalogo;
 }
 
 /**

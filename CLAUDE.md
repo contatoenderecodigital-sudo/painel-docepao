@@ -22,17 +22,30 @@ mínimo que não pode ser esquecido. O resto está nos arquivos apontados aqui.
 
 ---
 
-## DOIS CÉREBROS, E SÓ UM RODA
+## UM CÉREBRO SÓ
 
-`lib/ia/fluxo/*` é o **vivo**. `ehDoFluxoNovo` só devolve false com valor
-explícito em `FLUXO_NOVO_PARA`, então o fluxo **é** o sistema.
+`lib/ia/fluxo/*` é o sistema. `FLUXO_NOVO_PARA=off` não troca de cérebro: ele
+**desliga a IA**, pro dia em que ela fizer besteira com cliente na linha.
 
-`lib/ia/cerebro.ts` é o **morto**. Ainda tem 7 mil linhas, ainda compila, e
-editar ele **não muda nada em produção**.
+**O cérebro velho não existe mais.** `cerebro.ts` e `guardas.ts` foram apagados
+em 26/08/2026, com 13.950 linhas. Este arquivo mandava não editá-los até
+29/08, três dias depois de eles sumirem.
 
-Isto já custou duas rodadas inteiras de trabalho: os consertos passaram no
-build, passaram no deploy, e não fizeram nada. **Antes de editar, confira quem
-chama.**
+**O que a demolição custou, e ainda não foi pago.** O levantamento em
+`O-QUE-O-VELHO-PROTEGIA.md` marcou as regras 25, 26 e 27 como *precisa de
+conversa*, ou seja: não portadas para o fluxo. São a **delegação da escolha**
+("escolhe você os tipos, confio") e a **mudança de total**. As três estavam
+funcionando e medidas em 21/08, e voltaram a falhar na bateria de 28/08.
+
+Antes de apagar a gente levantou o que se perde. O que faltou foi reimplementar.
+
+**A lição que fica, e vale além deste caso:** regra marcada como "não portada"
+é dívida com data de vencimento, e o vencimento é a próxima medição.
+
+### Antes de editar, confira quem chama
+
+Editar arquivo que ninguém importa já custou duas rodadas inteiras aqui: os
+consertos passaram no build, passaram no deploy, e não fizeram nada.
 
 ---
 
@@ -188,7 +201,7 @@ O portão:
 node testes/todos.cjs
 ```
 
-63 testes, fecha em uns dois minutos, e **não fala com a rede**. Os quatro que
+83 testes, fecha em uns dois minutos, e **não fala com a rede**. Os quatro que
 falam com o VPS são instrumento e rodam na mão:
 
 ```

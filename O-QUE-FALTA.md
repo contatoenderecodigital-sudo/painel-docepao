@@ -32,7 +32,7 @@ velho protegia, com o veredito de cada uma, está em `O-QUE-O-VELHO-PROTEGIA.md`
 node testes/todos.cjs
 ```
 
-**33 testes, 33 verdes, em dois minutos, e nenhum fala com a rede.** Antes ele
+**83 testes, 83 verdes, em dois minutos, e nenhum fala com a rede.** (Eram 33 em 26/08.) Antes ele
 travava mais de meia hora num teste de SSH e as trinta provas seguintes nunca
 rodavam.
 
