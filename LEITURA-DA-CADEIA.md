@@ -3625,3 +3625,52 @@ isca agora, seis achados, e o defeito é maior do que o cenário mostrava:
 ```
 
 > Isca que não reprova não é isca: é um teste que aprende a mentir junto.
+
+### O conserto do item 75, medido: a etapa acordou
+
+Bateria contra `836217c`: **11 de 15**, contra 10 antes. E o banco confirma que a
+categoria parou de ser `outro`:
+
+```json
+{"produto": "salgado assado", "categoria": "salgado_assado", "qtd": 200}
+```
+
+A conversa mudou de comportamento. Antes o log mostrava `abertura → dados`, com
+a etapa do salgado pulada. Agora ela pergunta:
+
+```
+cliente >> preciso de 200 salgados assados pra quarta as 9h
+padaria >> Quais sabores de salgados você prefere?   [+ cardápio]
+cliente >> pode escolher voce os tipos, confio
+padaria >> Quais salgados você vai querer?           [+ cardápio de novo]
+```
+
+**O conserto entregou o que devia, e descobriu o que sobra.** O que resta é a
+regra 25/26 do `O-QUE-O-VELHO-PROTEGIA.md`, não portada na demolição: o cliente
+delega e a padaria insiste.
+
+### Por que eu parei aqui, e o que o próximo precisa saber
+
+A máquina de sortear existe (`repartirABase`, em `fluxo.ts`), mas ela só roda com
+**base de festa aceita** (`baseAceita && base`). No pedido de 200 assados não há
+base, então ela nunca entra.
+
+Escrever a delegação para o item genérico é peça nova **no caminho do preço**:
+assado custa R$ 1,25 e frito R$ 1,00, e quem escolhe decide o que o cliente
+paga. O que já está decidido, e não precisa perguntar de novo:
+
+| pergunta | resposta, e onde está |
+| --- | --- |
+| a padaria deve escolher quando ele delega? | **sim**, regras 25 e 26, e o áudio da dona |
+| respeita o que ele disse? | **sim**: quem pediu assado não pode receber frito |
+| quantos tipos? | um sortido da família, somando a quantidade que ele pediu |
+| e o preço? | sai do motor, como todo preço aqui |
+
+O jeito antigo está descrito em `O-QUE-FIZ-ENQUANTO-VOCE-DORMIA.md`, itens 1, 2,
+13, 19, 20 e 23, com os casos reais. O cenário `quem pede assado nao recebe
+frito` já é o gabarito: espera esfirra, proíbe frito.
+
+**A armadilha registrada, para não repetir:** três guardas diferentes recusavam a
+sugestão do próprio sistema, com a mesma desculpa e textos diferentes, e cada
+conserto pontual achou só uma. O que achou as três foi o rastro, que hoje não
+existe mais. Ver o item 75.

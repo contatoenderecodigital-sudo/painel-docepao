@@ -123,44 +123,31 @@ porque essa uma mudou o tamanho do problema.
 
 ## O QUE EU PRECISO DE VOCÊ
 
-### 1. TRÊS decisões que são suas, e travam trabalho
+### 1. Duas decisões que são suas, e travam trabalho
 
-A terceira é nova, e a bateria trouxe ela com prova.
+Eram três até eu ler os documentos. A terceira não era sua: ver logo abaixo.
 
 | o que | a pergunta |
 | --- | --- |
-| **Cliente delegando a escolha** | ver abaixo, é a mais importante |
 | **Aviso do dia** | a dona escreve "sem pão após as 18h" e **a IA nunca fica sabendo**. No cérebro novo a fala é escrita em código, então não existe prompt onde enfiar o aviso. Quer que eu faça o aviso entrar nas etapas, ou tira o campo da tela? |
 | **Pedido sem dia de retirada** | a equipe resolve a pendência e não tem onde preencher a data. O aviso já diz que falta. Entra um campo de data ali? |
 
-#### A decisão nova: "pode escolher você os tipos, confio"
+#### A "decisão nova" que eu te passei NÃO era sua. Era dívida minha.
 
-Dois cenários da bateria falham por causa disto, e ele é seu porque **mexe no
-que o cliente paga**:
+Eu te escrevi que a delegação ("pode escolher você os tipos, confio") era
+decisão sua. **Estava errado**, e só descobri lendo os documentos:
 
-```
-cliente >> quero 200 salgados fritos pra sexta as 18h, pode escolher os tipos
-padaria >> Quais salgados você deseja?  [+ cardápio]
-cliente >> na verdade muda pra 150 salgados
-padaria >> Não encontrei salgado frito com esse nome. Quais salgados você quer?
-cliente >> nome Marcia Fontana, pix
-padaria >> Quais salgados você deseja?  [+ cardápio]
-```
+| onde | o que diz |
+| --- | --- |
+| `O-QUE-FIZ-ENQUANTO-VOCE-DORMIA.md` (21/08) | a delegação foi implementada e medida, com a formatura de R$ 1.675,20 como caso real |
+| `O-QUE-O-VELHO-PROTEGIA.md` (26/08) | regras **25, 26 e 27**, marcadas *precisa de conversa*: não portadas |
+| `DIARIO-DA-IA.md` (20/08) | a bateria fechou **8 de 8** com esses cenários verdes |
 
-O cliente delegou a escolha e a padaria continua perguntando.
+Ou seja: **funcionava, morava no cérebro velho, e foi apagado em 26/08.** Não
+era pergunta pra você, era trabalho meu que ficou por fazer.
 
-**E existe um motivo forte pra ser assim.** O `generico.ts` foi escrito depois
-que a IA escolheu sozinha e cobrou **R$ 240 por uma pizza de R$ 40**: ela pegou a
-de nome mais comprido do cardápio. Desde então, nome de família ("salgado",
-"pizza", "docinho") não fecha etapa: a padaria PERGUNTA qual.
-
-Então a pergunta é sua, e tem duas partes:
-
-1. quando o cliente diz "escolhe você", a padaria deve escolher?
-2. se sim, **por qual regra**? o mais barato da família? o mais vendido? um mix?
-
-Eu não decido isso: é dinheiro na conta do cliente, e a regra que você escolher
-vira código, não prompt.
+Isso agora está escrito no `CLAUDE.md`, com a lição junto: regra marcada como
+"não portada" é dívida com vencimento, e o vencimento é a próxima medição.
 
 ### 2. Duas coisas de minutos, que só você pode fazer
 
@@ -183,8 +170,8 @@ vira código, não prompt.
 
 | | |
 | --- | --- |
-| defeitos consertados | **245** |
-| testes no portão | **83**, cada um com isca provada |
+| defeitos consertados | **247** |
+| testes no portão | **84**, cada um com isca provada |
 | leitura | **fechada**: cérebro, banco, rotas e telas |
 | bateria contra a produção | rodada 4 vezes hoje, 15 cenários x 3 execuções |
 
@@ -202,13 +189,24 @@ vira código, não prompt.
 
 | cenário | o que é |
 | --- | --- |
-| `quem pede assado nao recebe frito` | **decisão sua**: cliente delegou a escolha |
-| `mudar o total nao vira negociacao` | mesma raiz, mais a mudança de quantidade não entendida no meio do cardápio |
-| `troca de bolo nao duplica` | o bolo trocado deixa uma linha com **quantidade zero** no banco |
+| `quem pede assado nao recebe frito` | **a raiz foi consertada em 29/08**: nome de família chegava como `outro` e a etapa era pulada. Falta medir |
+| `mudar o total nao vira negociacao` | mesma raiz, mais a mudança de quantidade não entendida no meio do cardápio (item 4 do *cortar pela raiz*, no `O-QUE-FALTA.md`) |
+| `troca de bolo nao duplica` | o bolo trocado deixa uma linha com **quantidade zero**. Parei antes de consertar: o caminho é o do *misto*, que precifica bolo |
 | `bolo sem lactose` | o sabor do bolo vira um docinho separado na comanda |
-| `cinco jeitos 1` | 2 de 3: intermitente, não consistente |
 
-Os dois últimos são meus e estão na fila. Os dois primeiros esperam você.
+O primeiro tinha diagnóstico errado meu: eu chamei de decisão sua, e era código.
+
+### E uma perda que ninguém tinha anotado
+
+**O rastro não existe mais.** As linhas `[rastro]`, que o `DIARIO-DA-IA.md`
+chama do instrumento mais produtivo do projeto, eram do cérebro velho, que
+trabalhava com ferramentas. Foram junto na demolição de 26/08 e o diário ainda
+recomenda usá-las.
+
+Hoje sobra uma linha por turno (`[fluxo-novo] etapa: X / proxima: Y`), e ela
+sozinha foi o que achou o defeito de 29/08. Vale decidir se a gente reconstrói
+um rastro pro fluxo novo: seria o instrumento mais barato de tudo que existe
+aqui, e a leitura inteira do repositório não achou o que ele achou em um turno.
 
 ---
 
