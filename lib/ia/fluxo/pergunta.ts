@@ -437,16 +437,61 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
  * opcoes do proprio cardapio, entao ela nunca oferece o que a casa nao faz.
  */
 function perguntaDoSabor(p: PedidoEmMontagem, familia: string): Fala | null {
-  const falta = saboresQueFaltam(p.itens.filter((i) => String(i.categoria || "").startsWith(familia)));
-  if (!falta.length) return null;
-  const f = falta[0];
+  return falaDoSaborQueFalta(
+    saboresQueFaltam(p.itens.filter((i) => String(i.categoria || "").startsWith(familia)))[0],
+  );
+}
+
+/**
+ * SABOR EM ABERTO E DA CASA INTEIRA, NAO SO DO SALGADO.
+ *
+ * A etapa do salgado perguntava recheio. Pizza, empadão, cuca recheada,
+ * calzone, franciscano, cupcake e torta nao tem etapa propria: o cliente
+ * pedia, a padaria ia pedir o dia da retirada, e o sabor so aparecia na
+ * confirmacao (ou nunca). A dona: se o produto tem sabor, tem que escolher,
+ * e e geral da padaria.
+ *
+ * Quem decide a lista e o catalogo (`sabores[]` sem `saborFixo`). Coxinha
+ * nao entra. Pao frances nao entra.
+ */
+function falaDoSaborQueFalta(
+  semSabor: { produto: string; opcoes: string[] } | undefined,
+): Fala | null {
+  if (!semSabor) return null;
+  const peca = pecaDoCardapio(semSabor.produto);
+  if (semSabor.opcoes.length > 6 && peca) {
+    return {
+      texto: "O " + semSabor.produto + " vai de quê? Te mandei o cardápio pra escolher.",
+      botoes: [],
+      cardapio: peca,
+      podeReescrever: true,
+      opcoes: semSabor.opcoes,
+    };
+  }
   return {
-    texto: "O " + f.produto + " vai de quê? Tem " + f.opcoes.join(", ") + ".",
+    texto: "O " + semSabor.produto + " vai de quê? Tem " + semSabor.opcoes.join(", ") + ".",
     botoes: [],
     cardapio: null,
     podeReescrever: true,
-    opcoes: f.opcoes,
+    opcoes: semSabor.opcoes,
   };
+}
+
+function falaDeSaborEmAberto(p: PedidoEmMontagem): Fala | null {
+  const demais = saboresAlemDoLimite(p.itens)[0];
+  if (demais) {
+    return {
+      texto:
+        demais.produto.charAt(0).toUpperCase() + demais.produto.slice(1) +
+        " vai até " + demais.limite + " sabores, e vieram " + demais.escolhidos.length +
+        ". Quais " + demais.limite + " você quer?",
+      botoes: [],
+      cardapio: null,
+      podeReescrever: true,
+      opcoes: demais.escolhidos,
+    };
+  }
+  return falaDoSaborQueFalta(saboresQueFaltam(p.itens)[0]);
 }
 
 /**
@@ -740,6 +785,13 @@ export function falaDaEtapa(
     : "";
   const daPizza = falaSeTemPizza(p, aviso);
   if (daPizza) return daPizza;
+  // Recheio e sabor de QUALQUER produto do catalogo, nao so salgado.
+  // Sem isto, empadão/pizza/cuca iam pra "que dia voce busca" com o sabor em
+  // aberto. Confirmacao e registrado ficam com a ordem deles (resumo, fim).
+  if (etapa.id !== "confirmacao" && etapa.id !== "registrado") {
+    const doSabor = falaDeSaborEmAberto(p);
+    if (doSabor) return doSabor;
+  }
   switch (etapa.id) {
     case "quantas_pessoas":
       return { texto: "Quantas pessoas vão na festa?", botoes: [], cardapio: null, podeReescrever: true };
@@ -802,71 +854,8 @@ export function falaDaEtapa(
       const daFamilia = falaSeTemFamilia(p);
       if (daFamilia) return daFamilia;
 
-      // SABOR A MAIS TAMBÉM PERGUNTA, pelo mesmo motivo do de menos.
-      //
-      // A pizza de forma vai até 4 sabores, a meia e a redonda até 2. O
-      // catálogo diz isso em `sabores_ate` desde sempre, e ninguém lia: uma
-      // redonda fechava com CINCO sabores e ia pra uma cozinha que não faz.
-      //
-      // A trava sozinha seria pior que o defeito. Por isso a padaria devolve os
-      // sabores que ELE mesmo falou, pra ele marcar os que cabem, em vez de
-      // dizer "escolhe menos" e deixar o cliente rolar a conversa pra lembrar o
-      // que tinha pedido.
-      const demais = saboresAlemDoLimite(p.itens)[0];
-      if (demais) {
-        return {
-          // SEM ARTIGO NA FRENTE DO PRODUTO.
-          //
-          // "No pizza redonda" e "a cuca" com "o" na frente sao erros que a
-          // clientela ve na hora. O genero do produto nao esta no catalogo e
-          // adivinhar pela ultima letra erra em "torta fria" e "franciscano".
-          // Comecar a frase pelo nome resolve sem inventar gramatica.
-          texto:
-            demais.produto.charAt(0).toUpperCase() + demais.produto.slice(1) +
-            " vai até " + demais.limite + " sabores, e vieram " + demais.escolhidos.length +
-            ". Quais " + demais.limite + " você quer?",
-          botoes: [],
-          cardapio: null,
-          podeReescrever: true,
-          opcoes: demais.escolhidos,
-        };
-      }
-
-      // E O SABOR TAMBÉM, pelo mesmo motivo.
-      //
-      // O sabor em aberto já bloqueava o fechamento, e SÓ as etapas do salgado e
-      // do docinho perguntavam. Quem pede pizza, empadão, torta ou calzone
-      // chegava aqui com o sabor faltando, via o resumo, escrevia "pode
-      // confirmar" e via o mesmo resumo de novo, para sempre.
-      //
-      // Medido em 26/08/2026 com uma conversa de pizza: o pedido saía certo em
-      // produto e preço (2 kg de pizza redonda, R$ 83,80) e nunca era
-      // registrado, porque faltava o sabor e ninguém perguntava.
-      const semSabor = saboresQueFaltam(p.itens)[0];
-      if (semSabor) {
-        // LISTA LONGA VIRA CARDÁPIO, NÃO PAREDE DE TEXTO.
-        //
-        // A pizza tem 31 sabores. Despejar os 31 numa mensagem de WhatsApp é
-        // pior que não responder: ninguém lê, e a peça de cardápio existe
-        // exatamente para isso. É o que a padaria já faz nas etapas de família.
-        const peca = pecaDoCardapio(semSabor.produto);
-        if (semSabor.opcoes.length > 6 && peca) {
-          return {
-            texto: "O " + semSabor.produto + " vai de quê? Te mandei o cardápio pra escolher.",
-            botoes: [],
-            cardapio: peca,
-            podeReescrever: true,
-            opcoes: semSabor.opcoes,
-          };
-        }
-        return {
-          texto: "O " + semSabor.produto + " vai de quê? Tem " + semSabor.opcoes.join(", ") + ".",
-          botoes: [],
-          cardapio: null,
-          podeReescrever: true,
-          opcoes: semSabor.opcoes,
-        };
-      }
+      const doSabor = falaDeSaborEmAberto(p);
+      if (doSabor) return doSabor;
 
       const daForminha = falaDaForminha(p);
       if (daForminha) return daForminha;

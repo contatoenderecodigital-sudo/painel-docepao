@@ -47,6 +47,7 @@ fs.writeFileSync(
     'import { falaDaEtapa } from "../lib/ia/fluxo/pergunta.ts";',
     "",
     "const conf = ETAPAS_DA_FESTA.find((x) => x.id === 'confirmacao');",
+    "const dados = ETAPAS_DA_FESTA.find((x) => x.id === 'dados');",
     "// Um pedido com TUDO respondido menos o sabor: e assim que da pra medir o",
     "// sabor sozinho, sem a data ou o nome mascararem o resultado.",
     "const base = {",
@@ -64,12 +65,17 @@ fs.writeFileSync(
     "",
     "const fechamSemEscolher = [];",
     "const naoPerguntam = [];",
+    "const naoPerguntamNoMeio = [];",
     "const naoFechamComOSabor = [];",
     "for (const p of comSabor) {",
     "  const e = pedidoCom(p.nome, null);",
     "  if (!oQueFaltaPraFechar(e).length) fechamSemEscolher.push(p.nome);",
     "  const f = falaDaEtapa(conf, e, 1000);",
     "  if (/Fechando o pedido/.test(String(f.texto))) naoPerguntam.push(p.nome);",
+    "  const noMeio = falaDaEtapa(dados, e, 1000);",
+    "  if (!/vai de qu|card[aá]pio pra escolher/i.test(String(noMeio.texto))) {",
+    "    naoPerguntamNoMeio.push(p.nome + ' / ' + p.categoria + ' -> ' + String(noMeio.texto).slice(0, 70));",
+    "  }",
     "  // E O CONTRARIO: com o sabor escolhido, tem que fechar. Sem isto a regra",
     "  // viraria uma trava que nunca solta.",
     "  const escolhido = pedidoCom(p.nome, p.sabores[0]);",
@@ -104,7 +110,7 @@ fs.writeFileSync(
     "",
     "console.log(JSON.stringify({",
     "  comSabor: comSabor.length, semSabor: semSabor.length,",
-    "  fechamSemEscolher, naoPerguntam, naoFechamComOSabor, incomodam,",
+    "  fechamSemEscolher, naoPerguntam, naoPerguntamNoMeio, naoFechamComOSabor, incomodam,",
     "  docinhos: docinhos.length, fechamSemCor, naoPerguntamCor, perguntamCorEmPao,",
     "}));",
   ].join("\n"),
@@ -142,6 +148,7 @@ cobra("produto com sabor que FECHA sem escolher", r.fechamSemEscolher);
 // 2. E E PERGUNTADO. Bloquear sem perguntar e pior que o defeito: a padaria
 // recusa fechar, nao diz o que falta, e o cliente fica olhando o mesmo resumo.
 cobra("produto que bloqueia e NAO pergunta", r.naoPerguntam);
+cobra("produto com sabor que na etapa dos DADOS nao pergunta o sabor", r.naoPerguntamNoMeio);
 
 // 3. E COM O SABOR ESCOLHIDO, FECHA. Senao a regra vira trava que nunca solta.
 cobra("produto que nao fecha nem com o sabor escolhido", r.naoFechamComOSabor);
