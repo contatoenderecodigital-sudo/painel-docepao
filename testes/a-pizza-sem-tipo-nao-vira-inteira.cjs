@@ -27,6 +27,7 @@ fs.writeFileSync(
     "import { produtosNaFrase } from '../lib/ia/fluxo/leitor-da-frase.ts';",
     "import { falaDaEtapa } from '../lib/ia/fluxo/pergunta.ts';",
     "import { ROTEIRO_COMUM } from '../lib/ia/fluxo/etapas.ts';",
+    "import { responder } from '../lib/ia/fluxo/fluxo.ts';",
     "",
     "const ident = (t) => identificarProduto(t).produto;",
     "const dados = ROTEIRO_COMUM.find((e) => e.id === 'dados');",
@@ -37,6 +38,9 @@ fs.writeFileSync(
     "  pecas:null, insistiu:0, etapasJaPerguntadas:[],",
     "};",
     "const fala = falaDaEtapa(dados, pedido, 0, []);",
+    "const inventou = await responder(pedido,",
+    "  { texto: 'nao, escolhe voce, confio' },",
+    "  (async () => ({ itens:[{ produto:'pizza inteira', qtd:1, sabor:'bacon' }] })) );",
     "console.log(JSON.stringify({",
     "  uma: ident('uma pizza'),",
     "  duas: ident('2 pizzas'),",
@@ -48,6 +52,7 @@ fs.writeFileSync(
     "  texto: fala.texto,",
     "  cardapio: fala.cardapio,",
     "  opcoes: fala.opcoes,",
+    "  depoisDaInvencao: inventou.estado.itens.map((i) => ({ produto: i.produto, obs: i.obs })),",
     "}));",
   ].join("\n"),
   "utf8",
@@ -80,6 +85,11 @@ cobra("a frase 'quero uma pizza redonda' acha so a redonda", JSON.stringify(r.re
 cobra("a pergunta manda o cardapio de pizza", r.cardapio === "pizza", JSON.stringify(r.cardapio));
 cobra("a pergunta lista as tres", Array.isArray(r.opcoes) && r.opcoes.includes("pizza inteira") && r.opcoes.includes("pizza meia") && r.opcoes.includes("pizza redonda"), JSON.stringify(r.opcoes));
 cobra("a pergunta nao cota R$ 120", !/120/.test(String(r.texto || "")), String(r.texto || "").slice(0, 160));
+cobra(
+  "modelo nao promove pizza sem o tipo na frase",
+  Array.isArray(r.depoisDaInvencao) && r.depoisDaInvencao.length === 1 && r.depoisDaInvencao[0].produto === "pizza" && !r.depoisDaInvencao[0].obs,
+  JSON.stringify(r.depoisDaInvencao),
+);
 
 console.log("");
 if (falhas.length) {

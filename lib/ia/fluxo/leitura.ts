@@ -588,6 +588,7 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "quantidade, devolva o que ele quer em itens. Se ele disse que não quer " +
       "alguma família (salgado, docinho, bolo), devolva em naoQuer." +
       " Pediu pra casa escolher os tipos? delegaEscolha = true, sem itens. " +
+      "{} nessa frase e erro: a escolha da casa muda o pedido. " +
       "Aceitar a proposta não é pedir pra casa escolher.",
     salgado:
       "A etapa é ESCOLHER OS SALGADOS. Só existe salgado aqui: se ele falar de " +

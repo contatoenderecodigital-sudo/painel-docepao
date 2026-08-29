@@ -425,8 +425,16 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     //
     // `pessoas` e o dado estavel: sem ele nao ha base possivel, com ele a base
     // vem. Ler a causa em vez do efeito.
-    pulavel: (p) =>
-      !p.ehFesta || !(p.pessoas ?? 0) || jaPerguntouEEleNaoRespondeu(p, "base_da_festa"),
+    // QUEM AINDA NAO ACEITOU A PROPOSTA CONTINUA NELA.
+    //
+    // `jaPerguntouEEleNaoRespondeu` aqui fazia a primeira resposta pular
+    // salgado, docinho e bolo. Medido no ar em 29/08/2026: a padaria propôs
+    // 300 salgados, o cliente disse "escolhe voce os tipos, confio", o modelo
+    // devolveu {}, e a proxima pergunta foi "Como voce prefere pagar?".
+    //
+    // Dado de retirada na mesma festa nao fecha a proposta. Fecha o botao,
+    // a recusa, o item nomeado ou a delegacao da escolha.
+    pulavel: (p) => !p.ehFesta || !(p.pessoas ?? 0),
   },
   {
     id: "salgado",

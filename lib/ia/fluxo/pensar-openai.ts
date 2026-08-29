@@ -76,7 +76,8 @@ const FORMATO = `Responda SÓ com um JSON, sem texto em volta, neste formato:
 }
 
 Mande SÓ os campos que a mensagem mudou. Campo que não mudou, não mande.
-Se a mensagem não mudou nada no pedido, mande {}.`;
+Se a mensagem não mudou nada no pedido, mande {}.
+Pediu pra casa escolher os tipos ou o sabor? Isso MUDA o pedido: delegaEscolha true, sem itens.`;
 
 /**
  * Monta a funcao que o fluxo chama pra pensar.

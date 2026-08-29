@@ -34,7 +34,8 @@ import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitur
 import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase } from "./leitor-da-frase";
 import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida } from "../texto";
 import { identificarProduto } from "./produto";
-import { categoriaUnicaDaFamilia, categoriasDaFamilia, ehNomeDeFamilia, nomeDaFamilia } from "./generico";
+import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, nomeDaFamilia, opcoesDaFamilia } from "./generico";
+import { APELIDOS } from "../dados/apelidos";
 import { produtoNoComeco, produtoPorNome, produtosDaCasa } from "../dados/produtos";
 import { semAcento as semAc } from "../texto";
 import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
@@ -498,6 +499,31 @@ function temProdutoDeVerdade(e: Estado, pref: string): boolean {
 }
 
 /**
+ * ELE FALOU DESTE PRODUTO, OU A IA INVENTOU O TIPO?
+ *
+ * Medido no ar em 29/08/2026: "quero uma pizza" ficou familia, e na mensagem
+ * seguinte ("escolhe voce os salgados") o modelo devolveu pizza inteira de
+ * bacon. Ninguem falou inteira nem bacon. Os nomes e os apelidos saem do
+ * catalogo, nao de uma lista minha.
+ */
+function oClienteNomeouEsteProduto(fala: string, produto: string): boolean {
+  const t = semAc(fala);
+  if (!t) return false;
+  const n = semAc(produto);
+  if (n && cercaDaPalavra(n).test(t)) return true;
+  for (const a of APELIDOS[produto] ?? []) {
+    const aa = semAc(a);
+    if (aa && cercaDaPalavra(aa).test(t)) return true;
+  }
+  const fam = nomeDaFamilia(produto);
+  if (fam && !ehNomeDeFamilia(produto)) {
+    const resto = n.replace(semAc(fam), " ").replace(/ +/g, " ").trim();
+    if (resto.length >= 4 && cercaDaPalavra(resto).test(t)) return true;
+  }
+  return false;
+}
+
+/**
  * QUEM MUDA O TOTAL DA FESTA NAO NEGOCIA: ATUALIZA A CONTA.
  *
  * "vamos fazer 150 salgados entao" nao pede pra recalcular pelas pessoas. O
@@ -775,6 +801,23 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       const produto = quem.produto;
       const categoria = categoriaDaEtapa(etapa, produto);
 
+      const famDoItem =
+        nomeDaFamilia(produto) ??
+        chavesDeFamilia().find((k) => opcoesDaFamilia(k).some((o) => semAc(o) === semAc(produto))) ??
+        null;
+      // So a pizza: os tres nomes sao TIPO, nao sabor. Bolo e salgado na lista
+      // da familia sao o que ele escolhe, e pular eles some o pedido.
+      const jaTemGenericoDestaFamilia =
+        famDoItem === "pizza" &&
+        itens.some((x) => ehNomeDeFamilia(x.produto) && nomeDaFamilia(x.produto) === "pizza");
+      if (
+        jaTemGenericoDestaFamilia &&
+        opcoesDaFamilia("pizza").some((o) => semAc(o) === semAc(produto)) &&
+        !oClienteNomeouEsteProduto(falaDoCliente, produto)
+      ) {
+        continue;
+      }
+
       let obsItem = i.obs ?? null;
 
       // O RECHEIO QUE ESTE PRODUTO NÃO TEM NÃO VAI PRA COZINHA.
@@ -1024,6 +1067,7 @@ export async function responder(
   let naoTemos: string[] = [];
   let confirmouEscrevendo = false;
   let precisaHumano = false;
+  let leituraDesteTurno: Leitura | null = null;
 
   const roteiro = () => etapas ?? roteiroDoPedido(estado);
   const etapaAgora = etapaDaVez(estado, roteiro());
@@ -1262,6 +1306,7 @@ export async function responder(
     //
     // O segundo e o caso que fez o `aplicar` subir pra ca, e ele continua de pe.
     const lida = juntarComAFrase(limpa, String(mensagem.texto ?? ""));
+    leituraDesteTurno = lida;
     if (lida.perguntou?.sobre && lida.itens?.length) {
       const comNumero = lida.itens.filter((i) => Number(i.qtd) > 0);
       if (comNumero.length !== lida.itens.length) {
@@ -1608,6 +1653,37 @@ export async function responder(
 
   // ------------------------------------------------- a etapa seguinte
   let proxima = etapaDaVez(estado, roteiro());
+
+  // A PROPOSTA NAO SAI DA MESA POR SILENCIO DO MODELO.
+  //
+  // Medido no ar em 29/08/2026: festa pra 30, a padaria propôs 300 salgados,
+  // o cliente disse "escolhe voce os tipos, confio", o modelo devolveu {}, e
+  // `jaPerguntouEEleNaoRespondeu` pulou a base, o salgado, o docinho e o bolo.
+  // Sobrou "Como voce prefere pagar?", com o pedido vazio.
+  //
+  // Quem fala do pedido sem aceitar, sem recusar, sem nomear e sem mudar dado
+  // ainda esta na proposta. Dado de retirada nesta mensagem e outro assunto,
+  // e ai a marca de perguntado continua valendo.
+  if (
+    etapaAgora.id === "base_da_festa" &&
+    estado.ehFesta &&
+    (estado.pessoas ?? 0) > 0 &&
+    estado.base &&
+    !estado.baseAceita &&
+    leituraDesteTurno &&
+    leituraDesteTurno.aceitouBase !== true &&
+    leituraDesteTurno.delegaEscolha !== true &&
+    !leituraDesteTurno.itens?.length &&
+    !leituraDesteTurno.naoQuer?.length &&
+    !leituraDesteTurno.dados &&
+    !leituraDesteTurno.perguntou
+  ) {
+    const daBase = roteiro().find((x) => x.id === "base_da_festa");
+    if (daBase && !daBase.cumprida(estado)) {
+      proxima = daBase;
+      rastro.push("a proposta ainda esta na mesa");
+    }
+  }
 
   // A volta so acontece quando o desvio ja se resolveu, senao a conversa fica
   // pulando entre duas etapas sem terminar nenhuma.

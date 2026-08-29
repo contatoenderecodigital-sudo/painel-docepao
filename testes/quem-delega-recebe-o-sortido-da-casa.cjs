@@ -62,6 +62,16 @@ fs.writeFileSync(
     "  { texto: 'pode ser sortido de salgado frito' } as never,",
     "  (async () => ({ itens:[{produto:'salgado frito',qtd:100}], delegaEscolha: true })) as never);",
     "",
+    "const propostaNaMesa = com({",
+    "  ehFesta:true, pessoas:30, baseAceita:false,",
+    "  base:{salgados:300,docinhos:150,boloKg:3,totalCentavos:62820},",
+    "  etapasJaPerguntadas:['quantas_pessoas','base_da_festa'],",
+    "  dados:{nome:'Carla',data:'10/09',hora:'15:00',pagamento:null},",
+    "});",
+    "const modeloVazio = await responder(propostaNaMesa as never,",
+    "  { texto: 'escolhe voce os tipos, confio' } as never,",
+    "  (async () => ({})) as never);",
+    "",
     "console.log(JSON.stringify({",
     "  delegou: {",
     "    itens: delegou.estado.itens.map((i) => ({ produto: i.produto, categoria: i.categoria, qtd: i.qtd, obs: i.obs })),",
@@ -74,6 +84,11 @@ fs.writeFileSync(
     "    baseAceita: aceitou.estado.baseAceita,",
     "  },",
     "  soFrito: soFrito.estado.itens.map((i) => i.categoria),",
+    "  modeloVazio: {",
+    "    etapa: etapaDaVez(modeloVazio.estado as never, roteiroDoPedido(modeloVazio.estado as never)).id,",
+    "    itens: modeloVazio.estado.itens.length,",
+    "    fala: modeloVazio.fala.texto,",
+    "  },",
     "}));",
   ].join("\n"),
   "utf8",
@@ -123,6 +138,16 @@ if (r.aceitou.itens.length) {
 if (!r.soFrito.length) falhas.push("sortido de salgado frito saiu vazio");
 if (r.soFrito.some((c) => c !== "salgado_frito")) {
   falhas.push("sortido de salgado frito misturou assado: " + [...new Set(r.soFrito)].join(", "));
+}
+
+if (r.modeloVazio.etapa === "dados") {
+  falhas.push("modelo vazio na proposta pulou pro pagamento: " + r.modeloVazio.fala);
+}
+if (r.modeloVazio.itens !== 0) {
+  falhas.push("modelo vazio inventou item: " + r.modeloVazio.itens);
+}
+if (r.modeloVazio.etapa !== "base_da_festa") {
+  falhas.push("modelo vazio saiu da proposta: etapa " + r.modeloVazio.etapa);
 }
 
 console.log("itens do sortido: " + r.delegou.itens.length + ", soma " + soma);
