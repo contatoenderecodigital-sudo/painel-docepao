@@ -102,6 +102,7 @@ fs.writeFileSync(
     "console.log(JSON.stringify({",
     "  alvos: alvos.size, produtos: produtosDaCasa().length,",
     "  semResposta, inventou, numeroErrado,",
+    "  redonda: preco('pizza redonda')?.texto ?? null,",
     "}));",
   ].join("\n"),
   "utf8",
@@ -133,6 +134,11 @@ const cobra = (rotulo, lista) => {
 cobra("o cliente perguntou o preco e a padaria nao respondeu", r.semResposta);
 cobra("a padaria deu preco do que ela nao vende", r.inventou);
 cobra("o numero da resposta nao e o do cardapio", r.numeroErrado);
+if (!r.redonda || !/35/.test(r.redonda) || !/45/.test(r.redonda)) {
+  falhas.push("redonda");
+  console.log("ERRO  pizza redonda nao fala a faixa que costuma sair: " + r.redonda);
+  console.log("");
+}
 
 if (falhas.length) {
   console.log("REPROVOU");

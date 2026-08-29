@@ -181,22 +181,28 @@ não faz"), mas o sabor pedido não fica registrado em lugar nenhum. A dona diss
 *"se o cliente pedir outro sabor, a gente vai colocando"*, e pra ir colocando
 ela precisa VER o que pediram.
 
-### 4. O leitor da frase não lê quantidade
+### 4. O leitor da frase lê quantidade depois do nome
 
-`"muda a coxinha pra 100"`: ele acha a coxinha e ignora o 100. Quando o modelo
-se distrai com a pergunta da etapa, ninguém pega a correção. É o que sobrou da
-festa 3, e ainda mata pedido inteiro.
+`"muda a coxinha pra 100"` atualiza a quantidade mesmo quando o modelo está em
+outra pergunta e devolve o item velho, ou não devolve item nenhum.
 
 ### 5. As duas pequenas, já nomeadas
 
-`obs: metade` indo como lixo pra comanda, e o `valor_tipico`: quem pede pizza
-redonda compra por peso sem saber que sai entre R$ 35 e R$ 45.
+`obs: metade` indo como lixo pra comanda. O `valor_tipico` da pizza redonda
+passa na pergunta de preço: costuma sair entre R$ 35 e R$ 45.
 
 ---
 
 ## O QUE FAZER AGORA, em ordem
 
-### 1. Migrar o `sabor.ts` para a lista única  ⟵ RETOMAR AQUI
+### 1. Migrar o `sabor.ts` para a lista única
+
+**Feito.** Quem pede escolha sai de `saborFixo` e `sabores[]`. As cores da
+forminha tambem: `coresDoCardapio()` mora na lista unica. O JSON cru saiu do
+`sabor.ts`.
+
+As quatro divergencias medidas (empadão com palmito, torta fria com palmito,
+pizza inteira, pizza meia) perguntam.
 
 A bateria está em **5 de 5** e não há vermelho conhecido. O próximo passo é o
 item de padronização de maior valor, e as quatro divergências já estão medidas
@@ -232,9 +238,8 @@ O achado que define o trabalho: eram **dezessete** arquivos importando
 - a categoria do produto no fluxo (`lib/ia/fluxo/fluxo.ts`)
 - `categoriaDoPedido` e `unidadeDoPedido`, que vieram do cérebro apagado
 
-**Faltam catorze leitores.** O mais valioso é `lib/ia/fluxo/sabor.ts`, que decide
-**se pergunta ou não** o sabor — a regra do `recheio` singular contra `recheios`
-plural que a lista única já resolve com `saborFixo`.
+**Faltam os leitores que ainda remontam o JSON** (orcamento monta o motor,
+fatos.ts, rotas de cardapio). Um por vez, com a foto de preco no meio.
 
 Já comparei os dois, em 26/08/2026, antes de migrar: **82 dos 86 produtos
 concordam.** As quatro divergências são todas na mesma direção (a lista única

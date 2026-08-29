@@ -249,7 +249,10 @@ function precoDaFamilia(familia: string): string | null {
 }
 
 /** "Cuca sai de R$ 22,90 a R$ 26,90 o quilo." Sai da lista, com o preco dela. */
-function fraseDaLista(lista: { preco: number; unidade: "un" | "kg" }[], familia: string): string | null {
+function fraseDaLista(
+  lista: { preco: number; unidade: "un" | "kg"; valorTipico?: [number, number] }[],
+  familia: string,
+): string | null {
   // A unidade muda a frase, e um mesmo grupo pode ter as duas: a pizza redonda
   // e por quilo e a de forma e por peca.
   const porUnidade = (u: "kg" | "un") => lista.filter((x) => x.unidade === u);
@@ -264,7 +267,14 @@ function fraseDaLista(lista: { preco: number; unidade: "un" | "kg" }[], familia:
   if (porUnidade("un").length) partes.push(faixa(porUnidade("un")) + " a unidade");
   if (!partes.length) return null;
   const nome = String(familia).trim();
-  return nome.charAt(0).toUpperCase() + nome.slice(1) + " sai " + partes.join(", e ") + ".";
+  let texto = nome.charAt(0).toUpperCase() + nome.slice(1) + " sai " + partes.join(", e ") + ".";
+  // A REDONDA E POR PESO, E O CLIENTE NAO TEM BALANCA. O catalogo guarda a faixa
+  // que costuma sair; sem isto ele ouve so o quilo e nao sabe se cabe no bolso.
+  if (lista.length === 1 && lista[0].valorTipico) {
+    const [a, b] = lista[0].valorTipico;
+    texto += " Costuma sair entre " + brl(a) + " e " + brl(b) + ".";
+  }
+  return texto;
 }
 
 /**

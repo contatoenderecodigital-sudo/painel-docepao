@@ -552,6 +552,29 @@ export function juntarComAFrase(doModelo: Leitura, fala: string): Leitura {
   }
   if (daFrase.dados) junto.dados = { ...(doModelo.dados ?? {}), ...daFrase.dados };
 
+  // A QUANTIDADE ESCRITA NA FRASE NAO PODE SUMIR QUANDO O MODELO DISTRAI.
+  //
+  // "na verdade muda a coxinha pra 100": o numero vem DEPOIS do nome, e o
+  // modelo na etapa da oferta largava a correcao. O leitor ja achava o 100 em
+  // `itensDeOutraEtapaNaFrase`, mas so quando o produto era de OUTRA etapa.
+  // Coxinha na etapa do salgado era pulada, e a quantidade nova morria.
+  //
+  // Completar, nao desmentir: se o modelo ja mandou quantidade, ela fica.
+  const daFraseItens = itensNaFrase(fala);
+  if (daFraseItens.length) {
+    const atuais = [...(junto.itens ?? [])];
+    const mesmo = (a: string, b: string) => semAcMin(a) === semAcMin(b);
+    for (const i of daFraseItens) {
+      const achou = atuais.findIndex((x) => mesmo(x.produto, i.produto));
+      if (achou < 0) {
+        atuais.push({ produto: i.produto, qtd: i.qtd, obs: i.obs ?? null });
+      } else if (i.qtd > 0) {
+        atuais[achou] = { ...atuais[achou], qtd: i.qtd };
+      }
+    }
+    if (atuais.length) junto.itens = atuais;
+  }
+
   return junto;
 }
 
@@ -593,6 +616,16 @@ export function itensDeOutraEtapaNaFrase(
   fala: string,
   daEtapaDeAgora: (produto: string) => boolean,
 ): { produto: string; qtd: number; obs?: string }[] {
+  return itensNaFrase(fala).filter((i) => !daEtapaDeAgora(i.produto));
+}
+
+/**
+ * OS PRODUTOS DA FRASE, COM A QUANTIDADE QUE ELE ESCREVEU.
+ *
+ * Numero antes do nome ("50 brigadeiro") e numero depois ("muda a coxinha pra
+ * 100"). Os dois. Sem numero fica zero, que e resposta da festa.
+ */
+export function itensNaFrase(fala: string): { produto: string; qtd: number; obs?: string }[] {
   const t = semAcMin(fala);
   if (!t.trim()) return [];
 
@@ -602,7 +635,6 @@ export function itensDeOutraEtapaNaFrase(
   let fimDoRecheioAnterior = -1;
 
   for (const { nome, onde, tamanho } of acharNaFrase(fala)) {
-    if (daEtapaDeAgora(nome)) continue;
     // NOME DE FAMILIA DA FESTA NAO E ITEM GUARDADO.
     //
     // "nao quero docinho, so salgado e bolo" fala das tres pernas da proposta,

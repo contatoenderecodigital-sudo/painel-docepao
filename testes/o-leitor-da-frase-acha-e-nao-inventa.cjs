@@ -66,7 +66,7 @@ fs.writeFileSync(
   [
     "import { produtosDaCasa } from '../lib/ia/dados/produtos.ts';",
     "import { APELIDOS } from '../lib/ia/dados/apelidos.ts';",
-    "import { produtosNaFrase, itensDeOutraEtapaNaFrase } from '../lib/ia/fluxo/leitor-da-frase.ts';",
+    "import { produtosNaFrase, itensDeOutraEtapaNaFrase, juntarComAFrase } from '../lib/ia/fluxo/leitor-da-frase.ts';",
     "",
     "const nada = () => false;",
     "const itens = (f) => itensDeOutraEtapaNaFrase(f, nada);",
@@ -123,10 +123,25 @@ fs.writeFileSync(
     "  .filter((f) => produtosNaFrase(f).some((n) => /pizza/i.test(n)))",
     "  .map((f) => f + ' -> ' + JSON.stringify(produtosNaFrase(f)));",
     "",
+    "// 8. a quantidade DEPOIS do nome, que e como se corrige o pedido",
+    "const correcoes = [",
+    "  ['na verdade muda a coxinha pra 100', 'coxinha', 100],",
+    "  ['aumenta a coxinha pra 300', 'coxinha', 300],",
+    "  ['coxinha 150', 'coxinha', 150],",
+    "];",
+    "const qtdPerdida = correcoes.filter(([f, nome, n]) => {",
+    "  const j = juntarComAFrase({ itens: [{ produto: nome, qtd: 200 }] }, f);",
+    "  const item = (j.itens ?? []).find((i) => i.produto === nome);",
+    "  return !item || Number(item.qtd) !== n;",
+    "}).map(([f, nome, n]) => f + ' ficou sem ' + n + ' de ' + nome);",
+    "const qtdSoNaFrase = juntarComAFrase({}, 'na verdade muda a coxinha pra 100');",
+    "if (!qtdSoNaFrase.itens?.some((i) => i.produto === 'coxinha' && i.qtd === 100))",
+    "  qtdPerdida.push('frase sozinha nao anotou os 100 da coxinha');",
+    "",
     "console.log(JSON.stringify({",
     "  produtos: produtosDaCasa().length,",
     "  invisiveis, inventados, perdidosNoErro, saborVirouItem, semObs, duplicaram,",
-    "  apelidosCurtos, pizzaFantasma,",
+    "  apelidosCurtos, pizzaFantasma, qtdPerdida,",
     "}));",
   ].join("\n"),
   "utf8",
@@ -163,6 +178,7 @@ cobra("o sabor colado no nome se perdeu", r.semObs);
 cobra("um produto virou duas linhas por nomes que se sobrepoem", r.duplicaram);
 cobra("apelido curto descartado deixou o produto sem nenhuma porta", r.apelidosCurtos);
 cobra("frase sem pizza trazendo pizza", r.pizzaFantasma);
+cobra("quantidade depois do nome se perdeu", r.qtdPerdida);
 
 if (falhas.length) {
   console.log("REPROVOU");

@@ -97,6 +97,14 @@ export type ProdutoDaCasa = {
    * um recheio, o empadão é de um sabor.
    */
   saboresAte?: number;
+  /**
+   * FAIXA QUE A CASA COBRA NA PRATICA, quando o preco de tabela e por quilo e
+   * o cliente nao tem como saber o peso de antemao.
+   *
+   * A pizza redonda sai entre R$ 35 e R$ 45. Estava no catalogo em
+   * `valor_tipico` e ninguem lia: quem perguntava o preco ouvia so o quilo.
+   */
+  valorTipico?: [number, number];
 };
 
 /**
@@ -183,6 +191,7 @@ type ItemBruto = {
   recheio?: string;
   recheios?: string[];
   sabores?: string[];
+  valor_tipico?: number[];
 };
 
 /** A cuca é do padeiro mas não é pão: grupo próprio, como o cardápio mostra. */
@@ -361,6 +370,10 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
       saboresAte: Number((o as { sabores_ate?: number }).sabores_ate) > 0
         ? Number((o as { sabores_ate?: number }).sabores_ate)
         : undefined,
+      valorTipico:
+        Array.isArray(o.valor_tipico) && o.valor_tipico.length === 2
+          ? [Number(o.valor_tipico[0]), Number(o.valor_tipico[1])]
+          : undefined,
     });
   }
 
@@ -562,4 +575,17 @@ export function unidadeDoPedido(nome: string, categoria?: string): "kg" | "un" {
 export function saboresDaPizzaPorTipo(): { doces: string[]; salgados: string[] } {
   produtosDaCasa(); // garante que a lista foi montada (e o cache preenchido)
   return saboresPorTipo;
+}
+
+/**
+ * AS CORES DE FORMINHA DO CARDAPIO.
+ *
+ * Morava no `sabor.ts` lendo o JSON cru. A lista unica e o dono do catalogo, e
+ * a cor e dado da dona igual ao preco: cadastrar uma cor nova na tela tem que
+ * valer em todo lugar sozinha.
+ */
+export function coresDoCardapio(): string[] {
+  const cores = (catalogo as unknown as { forminhas_docinho?: { cores?: string[] } })
+    .forminhas_docinho?.cores;
+  return (cores ?? []).map(String).filter(Boolean);
 }

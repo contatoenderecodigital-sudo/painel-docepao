@@ -31,8 +31,8 @@
 //  pode fechar assim.
 // ============================================================================
 
-import catalogo from "../dados/catalogo.json";
-import { produtosDaCasa, produtoNoComeco, produtoPorNome } from "../dados/produtos";
+import { produtosDaCasa, produtoNoComeco, produtoPorNome, coresDoCardapio } from "../dados/produtos";
+export { coresDoCardapio };
 import { semAcento, afirmouOuNegou, cercaDaPalavra } from "../texto";
 import { identificarProduto } from "./produto";
 
@@ -318,11 +318,6 @@ export function coresDaForminha(texto: string): string[] {
   }
   // Na ordem em que ele falou, que e a ordem em que ele pensou.
   return achadas.sort((a, b) => a.onde - b.onde).map((a) => a.cor);
-}
-
-/** Todas as cores do cardapio, pra oferecer quando ele pedir uma que nao existe. */
-export function coresDoCardapio(): string[] {
-  return ((catalogo.forminhas_docinho?.cores ?? []) as string[]).map(String);
 }
 
 /**
