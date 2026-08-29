@@ -233,7 +233,15 @@ const CENARIOS = [
       "e 60 brigadeiros, forminha dourada",
       "um bolo de 3 kg de laka, pao de lo branco",
       "sem topo e sem papel de arroz",
-      "as 15h, nome Fernanda Klein, cartao",
+      // 06/09/2026 E DOMINGO, e no domingo a casa fecha das 12h as 16h.
+      //
+      // O cenario pedia 15h, entao a padaria RECUSAVA com o horario certo e a
+      // conversa nunca fechava. A IA estava certa; o cenario e que pedia o
+      // impossivel. Ficou escondido ate 28/08/2026 porque o travamento do
+      // `quantas_pessoas` nunca deixava a conversa chegar na hora da retirada.
+      //
+      // 10h cai na janela da manha (6h30 as 12h).
+      "as 10h, nome Fernanda Klein, cartao",
       // FALTAVA O CONFIRMAR, E O CENARIO COBRAVA PEDIDO REGISTRADO.
       //
       // `confirmacao.cumprida` e `() => false` de proposito: so a confirmacao

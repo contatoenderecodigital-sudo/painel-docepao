@@ -96,8 +96,18 @@ export function retiradaForaDoExpediente(
   const escrever = (m: number) =>
     String(Math.floor(m / 60)) + "h" + (m % 60 ? String(m % 60).padStart(2, "0") : "");
   const janelas = faixas.map((f) => escrever(f.de) + " às " + escrever(f.ate)).join(" e das ");
+  // O AVISO INFORMA. QUEM PERGUNTA E A ETAPA.
+  //
+  // Esta frase terminava em "Qual horario fica bom pra voce?", e o unico lugar
+  // que a usa (`fluxo.ts`) sempre gruda a pergunta da etapa logo atras. O
+  // cliente recebia duas perguntas para a mesma coisa, na mesma mensagem:
+  //
+  //   "No domingo a gente atende das 6h30 as 12h e das 16h as 20h.
+  //    Qual horario fica bom pra voce?  Que horas voce vai buscar?"
+  //
+  // Medido em 28/08/2026, na bateria. Sem a pergunta daqui, a mensagem fica com
+  // o motivo na frente e UMA pergunta no fim, que e o desenho descrito la.
   return (
-    (domingo ? "No domingo" : "Nesse dia") +
-    " a gente atende das " + janelas + ". Qual horário fica bom pra você?"
+    (domingo ? "No domingo" : "Nesse dia") + " a gente atende das " + janelas + "."
   );
 }
