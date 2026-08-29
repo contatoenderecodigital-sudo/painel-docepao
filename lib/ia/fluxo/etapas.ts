@@ -443,7 +443,31 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // Na festa ela pergunta por iniciativa propria (a proposta ja combinou o
     // total). No pedido comum ela so entra se o cliente TIVER pedido salgado:
     // quem quer dez paes nao e interrogado sobre coxinha.
-    pulavel: (p) => recusou(p, "salgado") || (!p.ehFesta && !temCategoria(p, "salgado")),
+    // A INICIATIVA DA PADARIA VALE SO QUANDO ALGO FOI COMBINADO.
+    //
+    // A regra dizia "na festa ela pergunta por iniciativa propria (a proposta ja
+    // combinou o total)". A justificativa e boa, mas so vale se a proposta
+    // EXISTIU: `ehFesta` sozinho nao prova que alguem combinou nada.
+    //
+    // Quem liga o `ehFesta` e o modelo, e ele erra. Medido contra a producao em
+    // 28/08/2026:
+    //
+    //   cliente >> queria um bolo de 2 kg de brigadeiro pra sexta as 16h
+    //   padaria >> Quantas pessoas vao na festa?
+    //   cliente >> ele pode ser sem lactose? minha filha tem intolerancia
+    //   padaria >> Ja vou chamar alguem da equipe pra te passar certinho.
+    //   cliente >> nome Aline Ribeiro, pix
+    //   padaria >> Quais salgados voce deseja?   [+ cardapio de salgados]
+    //
+    // Um bolo pra sexta virou festa, e a padaria foi oferecer salgado a quem
+    // nunca falou de salgado. Nao mexi no classificador: `ehFesta` escolhe o
+    // ROTEIRO inteiro, e derrubar festa de verdade custa a proposta, que e a
+    // venda. Mexi na iniciativa, que e o que causou o dano.
+    //
+    // Agora a padaria so puxa uma familia sozinha quando o cliente ACEITOU uma
+    // base que a inclui. Fora disso, ela fala do que ele falou.
+    pulavel: (p) =>
+      recusou(p, "salgado") || (!temCategoria(p, "salgado") && !(p.ehFesta && p.baseAceita)),
   },
   {
     id: "docinho",
@@ -459,7 +483,9 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       !faltaSabor(p, "docinho") &&
       !semForminha(p) &&
       !temGenerico(p, "docinho"),
-    pulavel: (p) => recusou(p, "docinho|doce") || (!p.ehFesta && !temCategoria(p, "docinho")),
+    // Mesma regra do salgado: iniciativa so com base aceita.
+    pulavel: (p) =>
+      recusou(p, "docinho|doce") || (!temCategoria(p, "docinho") && !(p.ehFesta && p.baseAceita)),
   },
   {
     id: "bolo",
@@ -526,7 +552,9 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // Ate 23/08/2026 esta etapa era pulada em todo pedido que nao fosse festa,
     // entao quem encomendava um bolo avulso nunca era perguntado do sabor: a
     // comanda saia com "1 kg de bolo" e a cozinha sem saber o que assar.
-    pulavel: (p) => recusou(p, "bolo") || (!p.ehFesta && !temCategoria(p, "bolo")),
+    // Mesma regra do salgado: iniciativa so com base aceita.
+    pulavel: (p) =>
+      recusou(p, "bolo") || (!temCategoria(p, "bolo") && !(p.ehFesta && p.baseAceita)),
   },
   {
     id: "pecas_do_bolo",

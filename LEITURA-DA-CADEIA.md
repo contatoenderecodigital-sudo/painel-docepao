@@ -3435,3 +3435,57 @@ reprovavam com a mensagem `nao registrou o pedido`, que é **a mesma** do
 travamento real, e estavam escondendo ele atrás dela.
 
 > Duas causas com a mesma mensagem de erro é uma delas passando despercebida.
+
+---
+
+## 73. Um defeito escondendo o outro, três vezes na mesma bateria
+
+Depois de consertar o travamento do item 72, a bateria continuou reprovando. E as
+razões que apareceram embaixo dele foram todas **diferentes** do travamento:
+
+### 1. Um cenário pedia o que a padaria não faz
+
+`festa com quatro familias fecha` marcava retirada às **15h no dia 06/09/2026**.
+
+```
+06/09/2026 é domingo, e no domingo a casa fecha das 12h às 16h.
+```
+
+A IA recusava e oferecia o horário certo. **Ela estava certa**; o cenário é que
+pedia o impossível. Com 10h, o pedido fecha completo: quatro itens, sabores e
+forminha certos, R$ 378,20.
+
+Isso estava escondido porque a conversa nunca chegava na hora da retirada.
+
+### 2. Um cenário ficava VERDE com a conversa quebrada
+
+`mudar o total nao vira negociacao` passava 3/3 antes do conserto. O gabarito
+dele confere só a **soma dos itens**, e não se o pedido fecha. Então ele ficava
+verde enquanto o cliente levava a mesma pergunta para sempre.
+
+> Um teste que não olha o fim da conversa aprova o laço infinito.
+
+Depois do conserto, o laço saiu e outro defeito ficou no caminho crítico: a
+mudança de quantidade não é entendida enquanto o cliente escolhe do cardápio.
+
+### 3. Duas causas com a mesma mensagem de erro
+
+Dois cenários reprovavam com `nao registrou o pedido`. Um era o travamento real;
+o outro era **teste sem a fala de confirmar**, e `confirmacao.cumprida` é
+`() => false` de propósito. A mensagem idêntica fez os dois parecerem um.
+
+### E o aviso de horário perguntava duas vezes
+
+```
+"No domingo a gente atende das 6h30 às 12h e das 16h às 20h.
+ Qual horário fica bom pra você?  Que horas você vai buscar?"
+```
+
+O aviso terminava em pergunta, e o `fluxo.ts` gruda a pergunta da etapa atrás, de
+propósito ("o aviso vem na frente da pergunta, e não no lugar dela"). Cada metade
+estava certa sozinha; juntas, perguntavam duas vezes a mesma coisa.
+
+> **O aviso informa. Quem pergunta é a etapa.**
+
+É o mesmo formato do item 72: duas regras certas que só erram na combinação. Foi
+o terceiro caso do dia, e nenhum dos três apareceria numa releitura.

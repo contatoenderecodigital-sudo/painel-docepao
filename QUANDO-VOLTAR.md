@@ -7,8 +7,9 @@ Escrito enquanto você estava fora. O detalhe técnico está no
 
 ## O QUE MUDOU HOJE, EM UMA FRASE
 
-**A leitura acabou.** Cérebro, banco, rotas e telas foram lidos por inteiro,
-linha a linha. As quatro últimas telas que faltavam tinham defeito, as quatro.
+**A leitura acabou, e a bateria achou o que ela não achou.** Cérebro, banco,
+rotas e telas foram lidos por inteiro. Depois disso, medir contra a produção
+achou um travamento que impedia o pedido de ser registrado.
 
 ---
 
