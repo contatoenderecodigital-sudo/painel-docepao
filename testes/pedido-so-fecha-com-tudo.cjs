@@ -46,6 +46,7 @@ fs.writeFileSync(
     "const semItem = { ...cheio, itens: [] };",
     "const semSaborNoBolo = { ...cheio, itens: [...cheio.itens.slice(0,2), {produto:'bolo', categoria:'bolo_festa', qtd:2, obs:null}] };",
     "const semDados = { ...cheio, dados:{nome:null, data:'12/09/2026', hora:null, pagamento:null} };",
+    "const semForminha = { ...cheio, forminha: null, itens: cheio.itens.map((i) => i.produto === 'brigadeiro' ? { ...i, obs: null } : i) };",
     "",
     // a conta que iria pro pedido
     "const cot = motorPadrao.cotarPorItens(cheio.itens.map((i) => ({ item: i.produto, qtd: i.qtd, obs: i.obs ?? undefined })));",
@@ -54,6 +55,7 @@ fs.writeFileSync(
     "  semItem: oQueFaltaPraFechar(semItem),",
     "  semSaborNoBolo: oQueFaltaPraFechar(semSaborNoBolo),",
     "  semDados: oQueFaltaPraFechar(semDados),",
+    "  semForminha: oQueFaltaPraFechar(semForminha),",
     "  cotacao: { total: cot.total, linhas: (cot.linhas ?? []).map((l) => ({ item: l.item, qtd: l.qtd, unidade: l.unidade, subtotal: l.subtotal })) },",
     "}));",
   ].join("\n"),
@@ -99,6 +101,10 @@ for (const oQue of ["nome", "hora", "pagamento"]) {
   if (!r.semDados.some((x) => new RegExp(oQue, "i").test(x))) {
     falhas.push("pedido sem " + oQue + " fecharia");
   }
+}
+
+if (!r.semForminha.length || !r.semForminha.some((x) => /forminha/i.test(x))) {
+  falhas.push("docinho sem cor de forminha fecharia");
 }
 
 // ------------------------------------------- a conta bate

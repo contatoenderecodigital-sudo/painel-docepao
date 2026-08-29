@@ -84,9 +84,28 @@ fs.writeFileSync(
     "  if (falta.some((x) => /sabor|qual/.test(x))) incomodam.push(p.nome + ' -> ' + falta.join('; '));",
     "}",
     "",
+    "const docinhos = produtosDaCasa().filter((p) => String(p.categoria).startsWith('docinho'));",
+    "const fechamSemCor = [];",
+    "const naoPerguntamCor = [];",
+    "const perguntamCorEmPao = [];",
+    "for (const p of docinhos) {",
+    "  const obs = (!p.saborFixo && p.sabores.length) ? p.sabores[0] : null;",
+    "  const e = { ...pedidoCom(p.nome, obs), forminha: null };",
+    "  e.itens = e.itens.map((i) => ({ ...i, obs }));",
+    "  if (!oQueFaltaPraFechar(e).some((x) => /forminha/i.test(x))) fechamSemCor.push(p.nome);",
+    "  const f = falaDaEtapa(conf, e, 1000);",
+    "  if (!/forminha/i.test(String(f.texto))) naoPerguntamCor.push(p.nome + ' -> ' + String(f.texto).slice(0, 80));",
+    "}",
+    "for (const p of produtosDaCasa().filter((x) => x.categoria === 'padaria')) {",
+    "  const e = pedidoCom(p.nome, (!p.saborFixo && p.sabores[0]) ? p.sabores[0] : null);",
+    "  const f = falaDaEtapa(conf, e, 1000);",
+    "  if (/forminha/i.test(String(f.texto))) perguntamCorEmPao.push(p.nome);",
+    "}",
+    "",
     "console.log(JSON.stringify({",
     "  comSabor: comSabor.length, semSabor: semSabor.length,",
     "  fechamSemEscolher, naoPerguntam, naoFechamComOSabor, incomodam,",
+    "  docinhos: docinhos.length, fechamSemCor, naoPerguntamCor, perguntamCorEmPao,",
     "}));",
   ].join("\n"),
   "utf8",
@@ -130,6 +149,10 @@ cobra("produto que nao fecha nem com o sabor escolhido", r.naoFechamComOSabor);
 // 4. E QUEM NAO TEM SABOR NAO E INCOMODADO. Perguntar o recheio da coxinha, que
 // e fixo, e fazer o cliente escolher o que nao tem escolha.
 cobra("produto de sabor fixo sendo perguntado a toa", r.incomodam);
+
+cobra("docinho que FECHA sem cor de forminha", r.fechamSemCor);
+cobra("docinho que bloqueia a cor e NAO pergunta", r.naoPerguntamCor);
+cobra("pao ou cuca sendo perguntado a cor da forminha", r.perguntamCorEmPao);
 
 console.log("");
 if (falhas.length) {

@@ -30,7 +30,7 @@ import { registrarPedido, grudarFotosNoPedido } from "@/lib/banco/conversas";
 import { motorPadrao } from "../orcamento";
 import type { Estado } from "./fluxo";
 import { prazoDoTopoAperta } from "./falas-do-cliente";
-import { saboresQueFaltam, saboresAlemDoLimite, MARCA_SABOR_A_CONFIRMAR } from "./sabor";
+import { saboresQueFaltam, saboresAlemDoLimite, faltaCorDaForminha, MARCA_SABOR_A_CONFIRMAR } from "./sabor";
 import { nomeDaFamilia } from "./generico";
 import { semAcento as semAc } from "../texto";
 import { paraOMotor } from "./cotar";
@@ -117,6 +117,15 @@ export function oQueFaltaPraFechar(e: Estado): string[] {
   // lista, entao a padaria nunca recusa fechar sem dizer o que fazer.
   for (const f of saboresAlemDoLimite(e.itens)) {
     falta.push("quais " + f.limite + " sabores no " + f.produto);
+  }
+
+  // A COR DA FORMINHA E DA PRODUCAO, IGUAL AO SABOR.
+  //
+  // A etapa do docinho ja pedia a cor, e o fechamento nao. Quem chegasse na
+  // confirmacao por outro caminho (pedido simples, dados na primeira mensagem)
+  // fechava brigadeiro e trufa sem cor, e a dona montava a forminha no escuro.
+  if (faltaCorDaForminha(e.itens, e.forminha)) {
+    falta.push("a cor da forminha");
   }
 
   // NOME DE FAMÍLIA NÃO FECHA PEDIDO.

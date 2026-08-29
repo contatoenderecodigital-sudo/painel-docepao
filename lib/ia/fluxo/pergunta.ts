@@ -20,7 +20,7 @@
 import { brl, motorPadrao } from "../orcamento";
 import type { Etapa, PedidoEmMontagem } from "./etapas";
 import { saudacaoDaHora, prazoDoTopoAperta } from "./falas-do-cliente";
-import { saboresQueFaltam, saboresAlemDoLimite, coresDoCardapio } from "./sabor";
+import { saboresQueFaltam, saboresAlemDoLimite, coresDoCardapio, faltaCorDaForminha } from "./sabor";
 import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia, nomeDaFamilia, familiaDoNome } from "./generico";
 import { paraOMotor } from "./cotar";
 import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
@@ -478,15 +478,16 @@ function falaDoDocinho(p: PedidoEmMontagem, aviso: string): Fala {
     };
   }
 
-  // UMA PERGUNTA SO, PRO PEDIDO INTEIRO.
-  //
-  // Regra do dono, 24/08/2026: "voce pode aceitar uma ou mais cor e NAO quero
-  // que peca o cliente qual cor de forminha usar para X docinho".
-  //
-  // Eu tinha feito ela cobrar item por item quando faltasse cor ("e o
-  // cajuzinho, vai em qual cor?"), e isso vira interrogatorio: a cliente escolhe
-  // as cores da festa dela, nao a cor de cada docinho. Todas as cores que ele
-  // falar valem pro pedido todo.
+  return falaDaForminha(p) ?? {
+    texto: aviso + "Agora os docinhos: quais você quer?",
+    botoes: [],
+    cardapio: "docinhos",
+    podeReescrever: true,
+  };
+}
+
+function falaDaForminha(p: PedidoEmMontagem): Fala | null {
+  if (!faltaCorDaForminha(p.itens, p.forminha)) return null;
   const cores = coresDoCardapio();
   return {
     texto:
@@ -866,6 +867,9 @@ export function falaDaEtapa(
           opcoes: semSabor.opcoes,
         };
       }
+
+      const daForminha = falaDaForminha(p);
+      if (daForminha) return daForminha;
 
       return {
         texto: falaDaConfirmacao(p, totalCentavos),

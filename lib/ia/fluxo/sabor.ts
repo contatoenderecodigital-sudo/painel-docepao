@@ -287,6 +287,32 @@ export function saboresQueFaltam(
 }
 
 /**
+ * TEM DOCINHO NO PEDIDO E AINDA NAO TEM COR DE FORMINHA?
+ *
+ * Audio da dona, 29/07/2026: na hora que a pessoa escolhe docinho, a padaria
+ * SEMPRE pergunta a cor. Ela monta a forminha antes de rechear.
+ *
+ * A cor pode ter vindo no campo do pedido ou na observacao da linha. Os dois
+ * chegam na cozinha. Sem os dois, a comanda sai e a producao comeca na cor
+ * errada.
+ *
+ * Quem e docinho sai da categoria do catalogo, nao de uma lista de nomes.
+ */
+export function faltaCorDaForminha(
+  itens: { produto: string; categoria?: string; obs?: string | null }[],
+  forminha?: string | null,
+): boolean {
+  const temDocinho = itens.some((i) => {
+    if (String(i.categoria || "").startsWith("docinho")) return true;
+    const p = produtoPorNome(i.produto) ?? produtoNoComeco(i.produto);
+    return String(p?.categoria || "").startsWith("docinho");
+  });
+  if (!temDocinho) return false;
+  if (String(forminha ?? "").trim()) return false;
+  return !itens.some((i) => coresDaForminha(String(i.obs ?? "")).length > 0);
+}
+
+/**
  * AS CORES DE FORMINHA QUE ELE FALOU.
  *
  * Teste da Kemilly, 23/08/2026: ela pediu "quero azul e rosa" com dois docinhos
