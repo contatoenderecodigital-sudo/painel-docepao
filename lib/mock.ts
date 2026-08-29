@@ -30,9 +30,9 @@ export const PEDIDOS_MOCK: Pedido[] = [
     observacoes: "Festa de aniversário. Cliente pediu pra caprichar no brigadeiro.",
     criadoEm: new Date(hoje.getTime() - 1000 * 60 * 12).toISOString(),
     itens: [
-      { produto: "Salgado assado", categoria: "salgado", qtd: 100, unitCentavos: 125, subtotalCentavos: 12500 },
-      { produto: "Brigadeiro", categoria: "doce", qtd: 50, unitCentavos: 125, subtotalCentavos: 6250 },
-      { produto: "Bolo 4 leites", categoria: "bolo_recheado", qtd: 1, unitCentavos: 4690, subtotalCentavos: 4690 },
+      { produto: "Salgado assado", categoria: "salgado_assado", qtd: 100, unitCentavos: 125, subtotalCentavos: 12500 },
+      { produto: "Brigadeiro", categoria: "docinho", qtd: 50, unitCentavos: 125, subtotalCentavos: 6250 },
+      { produto: "Bolo 4 leites", categoria: "bolo_festa", qtd: 1, unitCentavos: 4690, subtotalCentavos: 4690 },
     ],
   },
   {
@@ -62,9 +62,9 @@ export const PEDIDOS_MOCK: Pedido[] = [
     observacoes: null,
     criadoEm: new Date(hoje.getTime() - 1000 * 60 * 3).toISOString(),
     itens: [
-      { produto: "Salgado frito", categoria: "salgado", qtd: 50, unitCentavos: 100, subtotalCentavos: 5000 },
-      { produto: "Coxinha", categoria: "salgado", qtd: 30, unitCentavos: 100, subtotalCentavos: 3000 },
-      { produto: "Trufa de morango", categoria: "doce", qtd: 12, unitCentavos: 225, subtotalCentavos: 2700 },
+      { produto: "Salgado frito", categoria: "salgado_frito", qtd: 50, unitCentavos: 100, subtotalCentavos: 5000 },
+      { produto: "Coxinha", categoria: "salgado_frito", qtd: 30, unitCentavos: 100, subtotalCentavos: 3000 },
+      { produto: "Trufa de morango", categoria: "docinho", qtd: 12, unitCentavos: 225, subtotalCentavos: 2700 },
     ],
   },
 ];
@@ -90,8 +90,8 @@ export const ORCAMENTOS_PARADOS_MOCK: Pedido[] = [
     cobrancaEm: horas(6 * 24),
     clienteViuEm: horas(5 * 24),
     itens: [
-      { produto: "Bolo 3 andares", categoria: "bolo_recheado", qtd: 1, unitCentavos: 98000, subtotalCentavos: 98000 },
-      { produto: "Salgado assado", categoria: "salgado", qtd: 200, unitCentavos: 130, subtotalCentavos: 26000 },
+      { produto: "Bolo 3 andares", categoria: "bolo_festa", qtd: 1, unitCentavos: 98000, subtotalCentavos: 98000 },
+      { produto: "Salgado assado", categoria: "salgado_assado", qtd: 200, unitCentavos: 130, subtotalCentavos: 26000 },
     ],
   },
   {
@@ -107,8 +107,8 @@ export const ORCAMENTOS_PARADOS_MOCK: Pedido[] = [
     observacoes: "Café da firma. Pediu orçamento e sumiu.",
     criadoEm: horas(3 * 24 + 2),
     itens: [
-      { produto: "Salgado assado", categoria: "salgado", qtd: 100, unitCentavos: 125, subtotalCentavos: 12500 },
-      { produto: "Mini pizza", categoria: "salgado", qtd: 20, unitCentavos: 275, subtotalCentavos: 5500 },
+      { produto: "Salgado assado", categoria: "salgado_assado", qtd: 100, unitCentavos: 125, subtotalCentavos: 12500 },
+      { produto: "Mini pizza", categoria: "salgado_assado", qtd: 20, unitCentavos: 275, subtotalCentavos: 5500 },
     ],
   },
   {
@@ -125,8 +125,8 @@ export const ORCAMENTOS_PARADOS_MOCK: Pedido[] = [
     criadoEm: horas(26),
     cobrancaEm: horas(2),
     itens: [
-      { produto: "Salgado assado", categoria: "salgado", qtd: 300, unitCentavos: 125, subtotalCentavos: 37500 },
-      { produto: "Brigadeiro", categoria: "doce", qtd: 100, unitCentavos: 125, subtotalCentavos: 12500 },
+      { produto: "Salgado assado", categoria: "salgado_assado", qtd: 300, unitCentavos: 125, subtotalCentavos: 37500 },
+      { produto: "Brigadeiro", categoria: "docinho", qtd: 100, unitCentavos: 125, subtotalCentavos: 12500 },
     ],
   },
   {
@@ -142,8 +142,8 @@ export const ORCAMENTOS_PARADOS_MOCK: Pedido[] = [
     observacoes: null,
     criadoEm: horas(5),
     itens: [
-      { produto: "Coxinha", categoria: "salgado", qtd: 60, unitCentavos: 100, subtotalCentavos: 6000 },
-      { produto: "Trufa de morango", categoria: "doce", qtd: 16, unitCentavos: 225, subtotalCentavos: 3600 },
+      { produto: "Coxinha", categoria: "salgado_frito", qtd: 60, unitCentavos: 100, subtotalCentavos: 6000 },
+      { produto: "Trufa de morango", categoria: "docinho", qtd: 16, unitCentavos: 225, subtotalCentavos: 3600 },
     ],
   },
 ];

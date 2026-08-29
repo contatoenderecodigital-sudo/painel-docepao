@@ -596,7 +596,7 @@
     {
       "nome": "mini bolha doce",
       "preco": 1.25,
-      "categoria": "salgado",
+      "categoria": "salgado_frito",
       "unidade": "un",
       "sabores": [
         "banana"

@@ -25,7 +25,6 @@
 //  que nao acontece e pior que nao ter entrega.
 // ============================================================================
 
-import catalogo from "../dados/catalogo.json";
 import { brl } from "../orcamento";
 import { semAcento } from "../texto";
 import { DOCE_PAO } from "../persona";

@@ -119,7 +119,7 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
   // palavra do sabor também vale como apelido. Casar duas vezes o mesmo sabor
   // não faz mal: o preço só muda quando o outro é mais caro de verdade.
   const SABORES_BOLO = produtos
-    .filter((p) => p.categoria === "bolo_recheado" && norm(p.nome).startsWith("bolo ") && !norm(p.nome).startsWith("bolo recheado "))
+    .filter((p) => p.categoria === "bolo_festa" && norm(p.nome).startsWith("bolo ") && !norm(p.nome).startsWith("bolo recheado "))
     .flatMap((p) => {
       const sabor = norm(p.nome).slice(5);
       const ultima = (sabor.split(" ").pop() || "").replace(/[^a-zà-ú0-9]/g, "");
@@ -330,7 +330,7 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
       // Dois sabores no mesmo bolo: vale o mais caro. É a regra da casa, está
       // escrita na própria peça do cardápio, e o motor não aplicava: brigadeiro
       // com morango saía a R$ 46,90 o quilo em vez de R$ 49,90.
-      if (ref.categoria === "bolo_recheado") {
+      if (ref.categoria === "bolo_festa") {
         const caro = saborMaisCaro(chave + " " + (obs ?? ""));
         if (caro && caro.preco > ref.preco) {
           const outro = caro.nome.replace(/^bolo /, "");
@@ -385,7 +385,7 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
       }
     }
     if (quer.doce && rend.docePorPessoa) {
-      const prod = primeiroDaCategoria("doce");
+      const prod = primeiroDaCategoria("docinho");
       if (prod) {
         const unidades = Math.round(n * rend.docePorPessoa);
         pedido.push({ item: prod.nome, qtd: Math.max(1, Math.ceil(unidades / unidade)) });
@@ -404,7 +404,7 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
       //
       // Pedir o mais barato tambem nao serve, e foi medido: o mais barato entre
       // os tres e justamente o bolo salgado.
-      const prod = primeiroDaCategoria("bolo_recheado");
+      const prod = primeiroDaCategoria("bolo_festa");
       if (prod) {
         // Bolo por quilo: qtd = PESO (kg), 1 casa decimal. Por unidade: nº de bolos.
         const qtd =
@@ -492,18 +492,12 @@ export function formatarOrcamento(c: Cotacao, titulo = "Orçamento", paraOClient
 // O-QUE-FALTA. Enquanto não for tomada, o orçamento continua respondendo
 // exatamente o que sempre respondeu, e `testes/o-catalogo-nao-mudou-preco.cjs`
 // é a prova disso.
-const CATEGORIA_NO_ORCAMENTO: Record<string, string> = {
-  salgado_frito: "salgado",
-  salgado_assado: "salgado",
-  docinho: "doce",
-  bolo_festa: "bolo_recheado",
-};
 
 function produtosDoCatalogo(): Produto[] {
   const p: Produto[] = [];
   // Genéricos primeiro: o "por pessoas" sugere salgado sem discriminar o tipo.
-  p.push({ nome: "salgado frito", preco: catalogo.salgados.frito.preco, categoria: "salgado" });
-  p.push({ nome: "salgado assado", preco: catalogo.salgados.assado.preco, categoria: "salgado" });
+  p.push({ nome: "salgado frito", preco: catalogo.salgados.frito.preco, categoria: "salgado_frito" });
+  p.push({ nome: "salgado assado", preco: catalogo.salgados.assado.preco, categoria: "salgado_assado" });
 
   // TUDO O QUE A CASA VENDE, da lista única. Nome, preço, unidade e categoria
   // saem de lá: aqui não se interpreta mais o catálogo, só se traduz a palavra
@@ -512,7 +506,7 @@ function produtosDoCatalogo(): Produto[] {
     p.push({
       nome: c.nome,
       preco: c.preco,
-      categoria: CATEGORIA_NO_ORCAMENTO[c.categoria] ?? c.categoria,
+      categoria: c.categoria,
       unidade: c.unidade,
     });
   }
@@ -525,7 +519,7 @@ function produtosDoCatalogo(): Produto[] {
   // Por isso não estão na lista única: lá só entra o que a casa vende com nome
   // e preço, e o degrau não tem nome de venda.
   for (const f of catalogo.bolos_recheados.faixas) {
-    p.push({ nome: "bolo recheado " + f.faixa.toLowerCase(), preco: f.preco, categoria: "bolo_recheado", unidade: "kg" });
+    p.push({ nome: "bolo recheado " + f.faixa.toLowerCase(), preco: f.preco, categoria: "bolo_festa", unidade: "kg" });
   }
   // CADA SABOR DE PIZZA COM NOME PROPRIO, igual ao bolo recheado.
   //

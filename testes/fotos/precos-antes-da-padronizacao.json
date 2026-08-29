@@ -1,277 +1,277 @@
 {
  "coxinha": {
   "item": "coxinha",
-  "categoria": "salgado",
+  "categoria": "salgado_frito",
   "unit": 1,
   "unidade": "un"
  },
  "bolinha de queijo": {
   "item": "bolinha de queijo",
-  "categoria": "salgado",
+  "categoria": "salgado_frito",
   "unit": 1,
   "unidade": "un"
  },
  "almofadinha": {
   "item": "almofadinha",
-  "categoria": "salgado",
+  "categoria": "salgado_frito",
   "unit": 1,
   "unidade": "un"
  },
  "croquete": {
   "item": "croquete",
-  "categoria": "salgado",
+  "categoria": "salgado_frito",
   "unit": 1,
   "unidade": "un"
  },
  "mini pão de queijo": {
   "item": "mini pão de queijo",
-  "categoria": "salgado",
+  "categoria": "salgado_frito",
   "unit": 1,
   "unidade": "un"
  },
  "salsicha frita": {
   "item": "salsicha frita",
-  "categoria": "salgado",
+  "categoria": "salgado_frito",
   "unit": 1,
   "unidade": "un"
  },
  "chodó": {
   "item": "chodó",
-  "categoria": "salgado",
+  "categoria": "salgado_frito",
   "unit": 1,
   "unidade": "un"
  },
  "mini bolha": {
   "item": "mini bolha",
-  "categoria": "salgado",
+  "categoria": "salgado_frito",
   "unit": 1,
   "unidade": "un"
  },
  "risólis": {
   "item": "risólis",
-  "categoria": "salgado",
+  "categoria": "salgado_frito",
   "unit": 1,
   "unidade": "un"
  },
  "pastel assado": {
   "item": "pastel assado",
-  "categoria": "salgado",
+  "categoria": "salgado_assado",
   "unit": 1.25,
   "unidade": "un"
  },
  "esfirra": {
   "item": "esfirra",
-  "categoria": "salgado",
+  "categoria": "salgado_assado",
   "unit": 1.25,
   "unidade": "un"
  },
  "empadinha": {
   "item": "empadinha",
-  "categoria": "salgado",
+  "categoria": "salgado_assado",
   "unit": 1.25,
   "unidade": "un"
  },
  "quiche": {
   "item": "quiche",
-  "categoria": "salgado",
+  "categoria": "salgado_assado",
   "unit": 1.25,
   "unidade": "un"
  },
  "croissant": {
   "item": "croissant",
-  "categoria": "salgado",
+  "categoria": "salgado_assado",
   "unit": 1.25,
   "unidade": "un"
  },
  "mini pizza": {
   "item": "mini pizza",
-  "categoria": "salgado",
+  "categoria": "salgado_assado",
   "unit": 1.25,
   "unidade": "un"
  },
  "mini sanduíche de patê de frango": {
   "item": "mini sanduíche de patê de frango",
-  "categoria": "salgado",
+  "categoria": "salgado_assado",
   "unit": 1.25,
   "unidade": "un"
  },
  "mini x": {
   "item": "mini x",
-  "categoria": "salgado",
+  "categoria": "salgado_assado",
   "unit": 1.25,
   "unidade": "un"
  },
  "enroladinho de salsicha assado": {
   "item": "enroladinho de salsicha assado",
-  "categoria": "salgado",
+  "categoria": "salgado_assado",
   "unit": 1.25,
   "unidade": "un"
  },
  "pão de batata": {
   "item": "pão de batata",
-  "categoria": "salgado",
+  "categoria": "salgado_assado",
   "unit": 1.25,
   "unidade": "un"
  },
  "brigadeiro": {
   "item": "brigadeiro",
-  "categoria": "doce",
+  "categoria": "docinho",
   "unit": 1.25,
   "unidade": "un"
  },
  "beijinho": {
   "item": "beijinho",
-  "categoria": "doce",
+  "categoria": "docinho",
   "unit": 1.25,
   "unidade": "un"
  },
  "cajuzinho": {
   "item": "cajuzinho",
-  "categoria": "doce",
+  "categoria": "docinho",
   "unit": 1.25,
   "unidade": "un"
  },
  "café": {
   "item": "café",
-  "categoria": "doce",
+  "categoria": "docinho",
   "unit": 1.25,
   "unidade": "un"
  },
  "leite ninho": {
   "item": "leite ninho",
-  "categoria": "doce",
+  "categoria": "docinho",
   "unit": 1.25,
   "unidade": "un"
  },
  "bicho de pé": {
   "item": "bicho de pé",
-  "categoria": "doce",
+  "categoria": "docinho",
   "unit": 1.75,
   "unidade": "un"
  },
  "camafeu de nozes": {
   "item": "camafeu de nozes",
-  "categoria": "doce",
+  "categoria": "docinho",
   "unit": 1.75,
   "unidade": "un"
  },
  "docinho de churros": {
   "item": "docinho de churros",
-  "categoria": "doce",
+  "categoria": "docinho",
   "unit": 1.75,
   "unidade": "un"
  },
  "leite ninho com avelã": {
   "item": "leite ninho com avelã",
-  "categoria": "doce",
+  "categoria": "docinho",
   "unit": 1.75,
   "unidade": "un"
  },
  "olho de sogra": {
   "item": "olho de sogra",
-  "categoria": "doce",
+  "categoria": "docinho",
   "unit": 1.75,
   "unidade": "un"
  },
  "ouriço": {
   "item": "ouriço",
-  "categoria": "doce",
+  "categoria": "docinho",
   "unit": 1.75,
   "unidade": "un"
  },
  "trufa": {
   "item": "trufa",
-  "categoria": "doce",
+  "categoria": "docinho",
   "unit": 2.25,
   "unidade": "un"
  },
  "bolo 4 leites": {
   "item": "bolo 4 leites",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 46.9,
   "unidade": "kg"
  },
  "bolo brigadeiro": {
   "item": "bolo brigadeiro",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 46.9,
   "unidade": "kg"
  },
  "bolo dois amores": {
   "item": "bolo dois amores",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 46.9,
   "unidade": "kg"
  },
  "bolo frutas (pêssego e abacaxi)": {
   "item": "bolo frutas (pêssego e abacaxi)",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 46.9,
   "unidade": "kg"
  },
  "bolo laka": {
   "item": "bolo laka",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 46.9,
   "unidade": "kg"
  },
  "bolo mineira": {
   "item": "bolo mineira",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 46.9,
   "unidade": "kg"
  },
  "bolo prestígio": {
   "item": "bolo prestígio",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 46.9,
   "unidade": "kg"
  },
  "bolo porto alegre": {
   "item": "bolo porto alegre",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 46.9,
   "unidade": "kg"
  },
  "bolo brigadeiro com maracujá": {
   "item": "bolo brigadeiro com maracujá",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 46.9,
   "unidade": "kg"
  },
  "bolo bombom": {
   "item": "bolo bombom",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 49.9,
   "unidade": "kg"
  },
  "bolo biz": {
   "item": "bolo biz",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 49.9,
   "unidade": "kg"
  },
  "bolo morango": {
   "item": "bolo morango",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 49.9,
   "unidade": "kg"
  },
  "bolo marta rocha": {
   "item": "bolo marta rocha",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 49.9,
   "unidade": "kg"
  },
  "bolo 0% lactose": {
   "item": "bolo 0% lactose",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 55.9,
   "unidade": "kg"
  },
  "bolo strogonoff de nozes": {
   "item": "bolo strogonoff de nozes",
-  "categoria": "bolo_recheado",
+  "categoria": "bolo_festa",
   "unit": 55.9,
   "unidade": "kg"
  },
@@ -487,7 +487,7 @@
  },
  "mini bolha doce": {
   "item": "mini bolha doce",
-  "categoria": "salgado",
+  "categoria": "salgado_frito",
   "unit": 1.25,
   "unidade": "un"
  },
