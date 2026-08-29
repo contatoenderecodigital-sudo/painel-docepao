@@ -436,6 +436,20 @@ export function gruposDaCasa(): string[] {
  * Está escrito aqui, e não em três lugares, porque errar isto manda o pedido
  * pro setor errado da cozinha.
  */
+/**
+ * AS CATEGORIAS QUE O PEDIDO CHAMA PELO MESMO NOME QUE O CATALOGO.
+ *
+ * Sao as que o `departamentos.ts` sabe rotear pra uma bancada. Acrescentar uma
+ * categoria no catalogo e nao acrescentar aqui faz o produto perder a bancada e
+ * cair no generico, que e o defeito que isto conserta.
+ */
+const CATEGORIAS_DO_PEDIDO = new Set([
+  "salgado_frito", "salgado_assado", "docinho", "bolo_festa", "bolo_caseiro",
+  "pizza", "cupcake",
+  "torta_fria", "torta_recheada", "empadao", "calzone", "bolo_salgado",
+  "franciscano", "padaria",
+]);
+
 export function categoriaDoPedido(nome: string): string {
   const t = limpo(nome);
   if (!t) return "outro";
@@ -443,24 +457,33 @@ export function categoriaDoPedido(nome: string): string {
 
   const p = produtoNoComeco(t);
   if (p) {
-    // Estas SETE o pedido chama pelo mesmo nome que o catálogo. O comentário
-    // dizia "cinco" e a lista abaixo tem sete: nasceu com cinco e cresceu.
-    if (
-      p.categoria === "salgado_frito" ||
-      p.categoria === "salgado_assado" ||
-      p.categoria === "docinho" ||
-      p.categoria === "bolo_festa" ||
-      p.categoria === "bolo_caseiro" ||
-      p.categoria === "pizza" ||
-      p.categoria === "cupcake"
-    ) {
-      return p.categoria;
-    }
-    // A `mini bolha doce` é a mesma bolha FRITA, só que doce, e o catálogo diz
-    // isso na categoria dele. Sem esta linha ela virava "por_unidade" e saía da
-    // comanda dos salgados, que é onde ela é produzida.
+    // A CATEGORIA DO CATALOGO PASSA INTEIRA, e nao so sete dela.
+    //
+    // Eram sete, e as outras SETE eram achatadas em `por_quilo` ou
+    // `por_unidade`. Medido em 29/08/2026: dezesseis produtos perdiam a bancada
+    // no caminho do catalogo pro pedido.
+    //
+    //     padaria        -> por_quilo    7 produtos
+    //     torta_fria     -> por_quilo    2
+    //     empadao        -> por_quilo    2
+    //     torta_recheada -> por_quilo    2
+    //     calzone        -> por_quilo    1
+    //     bolo_salgado   -> por_quilo    1
+    //     franciscano    -> por_unidade  1
+    //
+    // O `departamentos.ts` conhece as catorze desde sempre, e o proprio
+    // comentario dele dizia o preco disso: "por_quilo e por_unidade nao dizem
+    // QUAL produto e: quem decide ali e o nome". A comanda adivinhava pelo nome
+    // o que o catalogo ja sabia.
+    //
+    // O que mais doia era `padaria`. Audio da dona: "so o padeiro que e outra
+    // sala", e sao os sete produtos dele que perdiam a marca.
+    if (CATEGORIAS_DO_PEDIDO.has(p.categoria)) return p.categoria;
+    // A `mini bolha doce` é a mesma bolha FRITA, só que doce. O catálogo dizia
+    // "salgado" nela e foi consertado na raiz em 29/08/2026; esta linha fica
+    // como borda, pro dia em que a dona cadastrar outro produto assim.
     if (p.categoria === "salgado") return "salgado_frito";
-    // O resto vira peso ou peça, que é o que a comanda precisa saber.
+    // Só o que a comanda NAO conhece vira peso ou peça.
     return p.unidade === "kg" ? "por_quilo" : "por_unidade";
   }
 

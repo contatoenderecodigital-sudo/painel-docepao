@@ -74,7 +74,12 @@ type Registrado = {
 
 type Categoria =
   | "bolo_festa" | "bolo_caseiro" | "docinho" | "salgado_frito" | "salgado_assado"
-  | "pizza" | "por_quilo" | "por_unidade" | "cupcake" | "papel_de_arroz" | "outro";
+  | "pizza" | "por_quilo" | "por_unidade" | "cupcake" | "papel_de_arroz"
+  // As bancadas que o catalogo sabia e o pedido achatava em "por quilo" ate
+  // 29/08/2026. Sem elas AQUI, a tela mostraria "Outro" pra um pao frances.
+  | "torta_fria" | "torta_recheada" | "empadao" | "calzone" | "bolo_salgado"
+  | "franciscano" | "padaria"
+  | "outro";
 
 type Unidade = "un" | "kg";
 type Item = { produto: string; categoria: Categoria; qtd: number; unidade: Unidade; obs?: string | null };
@@ -94,6 +99,14 @@ const UNIDADES_POR_CATEGORIA: Record<Categoria, Unidade[]> = {
   por_unidade: ["un"],
   cupcake: ["un"],
   papel_de_arroz: ["un"],
+  // Todas por quilo, menos o franciscano, que a dona vende por peca a R$ 12,00.
+  torta_fria: ["kg"],
+  torta_recheada: ["kg"],
+  empadao: ["kg"],
+  calzone: ["kg"],
+  bolo_salgado: ["kg"],
+  padaria: ["kg"],
+  franciscano: ["un"],
   outro: ["un", "kg"],
 };
 const unidadesDe = (c: Categoria): Unidade[] => UNIDADES_POR_CATEGORIA[c] ?? ["un", "kg"];
@@ -120,6 +133,13 @@ const CATEGORIAS: { id: Categoria; rotulo: string; porQuilo?: boolean; escolhive
   { id: "pizza", rotulo: "Pizza" },
   { id: "cupcake", rotulo: "Cupcake" },
   { id: "papel_de_arroz", rotulo: "Papel de arroz", escolhivel: false },
+  { id: "torta_fria", rotulo: "Torta fria", porQuilo: true },
+  { id: "torta_recheada", rotulo: "Torta doce", porQuilo: true },
+  { id: "empadao", rotulo: "Empadão", porQuilo: true },
+  { id: "calzone", rotulo: "Calzone", porQuilo: true },
+  { id: "bolo_salgado", rotulo: "Bolo salgado", porQuilo: true },
+  { id: "padaria", rotulo: "Padaria", porQuilo: true },
+  { id: "franciscano", rotulo: "Franciscano" },
   { id: "por_quilo", rotulo: "Por quilo", porQuilo: true },
   { id: "por_unidade", rotulo: "Por unidade" },
   { id: "outro", rotulo: "Outro" },

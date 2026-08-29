@@ -72,7 +72,8 @@ if (/CATEGORIA_NO_ORCAMENTO/.test(motor)) {
 // -----------------------------------------------------------------------------
 const SONDA = [
   "import { motorPadrao } from '../lib/ia/orcamento.ts';",
-  "import { produtosDaCasa } from '../lib/ia/dados/produtos.ts';",
+  "import { produtosDaCasa, categoriaDoPedido } from '../lib/ia/dados/produtos.ts';",
+  "import { deptoDe } from '../lib/departamentos.ts';",
   "",
   "// A categoria que o motor guarda pra cada nome. `cotarPorItens` devolve a",
   "// linha cotada, que e onde a categoria aparece pra quem consome o motor.",
@@ -86,7 +87,17 @@ const SONDA = [
   "const daLista = {};",
   "for (const p of produtosDaCasa()) daLista[p.nome] = String(p.categoria ?? '');",
   "",
-  "console.log(JSON.stringify({ doMotor, daLista }));",
+  "",
+  "// A CATEGORIA DO CATALOGO CHEGA INTEIRA NO PEDIDO, e a comanda a conhece.",
+  "const noPedido = {};",
+  "const naComanda = {};",
+  "for (const p of produtosDaCasa()) {",
+  "  const c = categoriaDoPedido(p.nome);",
+  "  noPedido[p.nome] = c;",
+  "  naComanda[p.nome] = deptoDe({ categoria: c, produto: p.nome });",
+  "}",
+  "",
+  "console.log(JSON.stringify({ doMotor, daLista, noPedido, naComanda }));",
 ];
 
 fs.writeFileSync(sonda, SONDA.join("\n"), "utf8");
@@ -98,7 +109,7 @@ try {
 } finally {
   try { fs.unlinkSync(sonda); } catch {}
 }
-const { doMotor, daLista } = JSON.parse(bruto.trim().split("\n").pop());
+const { doMotor, daLista, noPedido, naComanda } = JSON.parse(bruto.trim().split("\n").pop());
 
 // O vocabulario velho, que nao pode mais SAIR de lugar nenhum.
 const VELHO = new Set(["salgado", "doce", "bolo_recheado"]);
@@ -126,6 +137,48 @@ if (divergem.length) {
       "Quem decide a bancada e a categoria, entao isso e comanda na sala errada:",
   );
   for (const d of divergem.slice(0, 8)) falhas.push("    " + d);
+}
+
+// -----------------------------------------------------------------------------
+// 5. A CATEGORIA DO CATALOGO CHEGA INTEIRA NO PEDIDO.
+//
+// Ate 29/08/2026 o `categoriaDoPedido` conhecia SETE categorias e achatava as
+// outras sete em `por_quilo` ou `por_unidade`. Dezesseis produtos perdiam a
+// bancada no caminho, e a comanda adivinhava pelo NOME o que o catalogo ja
+// sabia. O pior era `padaria`: sete produtos, e a dona disse com todas as
+// letras que "so o padeiro que e outra sala".
+//
+// `adicional_bolo -> papel_de_arroz` e a UNICA traducao de proposito: o papel de
+// arroz e acessorio do bolo e sai na comanda dele.
+// -----------------------------------------------------------------------------
+const TRADUCAO_DE_PROPOSITO = { adicional_bolo: "papel_de_arroz" };
+const achatadas = [];
+for (const [nome, cat] of Object.entries(noPedido)) {
+  const doCatalogo = daLista[nome];
+  if (doCatalogo === cat) continue;
+  if (TRADUCAO_DE_PROPOSITO[doCatalogo] === cat) continue;
+  achatadas.push(nome + ": catalogo diz " + JSON.stringify(doCatalogo) + ", pedido grava " + JSON.stringify(cat));
+}
+if (achatadas.length) {
+  falhas.push(
+    achatadas.length + " produto(s) perdem a categoria do catalogo no caminho pro " +
+      "pedido. Quem decide a bancada e ela, entao isso e a comanda adivinhando pelo nome:",
+  );
+  for (const a of achatadas.slice(0, 10)) falhas.push("    " + a);
+}
+
+// E a comanda tem que achar a bancada PELA CATEGORIA. O `deptoDe` cai em
+// `docinhos` quando nao reconhece nada, entao um pao frances ali e defeito.
+const naBancadaErrada = [];
+for (const [nome, depto] of Object.entries(naComanda)) {
+  const cat = daLista[nome] ?? "";
+  if (depto === "docinhos" && cat !== "docinho") {
+    naBancadaErrada.push(nome + " (" + cat + ") caiu na bancada de sobra");
+  }
+}
+if (naBancadaErrada.length) {
+  falhas.push(naBancadaErrada.length + " produto(s) caem na bancada de sobra da comanda:");
+  for (const b of naBancadaErrada.slice(0, 8)) falhas.push("    " + b);
 }
 
 // -----------------------------------------------------------------------------

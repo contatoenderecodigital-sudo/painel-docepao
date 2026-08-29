@@ -38,6 +38,19 @@ export type CategoriaItem =
   | "por_unidade"
   | "cupcake"
   | "papel_de_arroz"
+  // AS BANCADAS QUE O CATALOGO JA SABIA E O PEDIDO JOGAVA FORA.
+  //
+  // Ate 29/08/2026 o `categoriaDoPedido` achatava estas sete em `por_quilo` ou
+  // `por_unidade`, e a comanda tinha que adivinhar pelo NOME o que o catalogo
+  // ja dizia. O caso que mais doia era `padaria`: sao sete produtos, e a dona
+  // disse com todas as letras que "so o padeiro que e outra sala".
+  | "torta_fria"
+  | "torta_recheada"
+  | "empadao"
+  | "calzone"
+  | "bolo_salgado"
+  | "franciscano"
+  | "padaria"
   | "outro";
 
 export type ItemMontagem = {
