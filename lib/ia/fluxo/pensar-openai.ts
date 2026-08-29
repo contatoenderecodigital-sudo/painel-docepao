@@ -59,6 +59,7 @@ const FORMATO = `Responda SÓ com um JSON, sem texto em volta, neste formato:
   "pessoas": 0,
   "ehFesta": true,
   "aceitouBase": false,
+  "delegaEscolha": false,
   "naoQuer": ["salgado"],
   "confirmou": true,
   "pecas": { "topo": true, "papelDeArroz": true },
@@ -188,6 +189,7 @@ export function pensarComOpenAI(
       if (lido.ehFesta === true) limpo.ehFesta = true;
       if (Number(lido.pessoas) > 0) limpo.pessoas = Number(lido.pessoas);
       if (lido.aceitouBase === true) limpo.aceitouBase = true;
+      if (lido.delegaEscolha === true) limpo.delegaEscolha = true;
       if (lido.recomecar === true) limpo.recomecar = true;
       // SEM ESTA LINHA O "pode fechar" DELE MORRIA AQUI.
       //

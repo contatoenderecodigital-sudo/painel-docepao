@@ -168,14 +168,19 @@ conferir(semComanda.length === 0, "nenhum produto fica sem comanda" + (semComand
 conferir(comandaErrada.length === 0, "nenhum produto vai pra comanda errada" + (comandaErrada.length ? ": " + comandaErrada.join("; ") : ""));
 
 // Salgado e docinho, que sao o grosso do movimento.
-for (const i of catalogo.salgados.frito.itens.concat(catalogo.salgados.assado.itens)) {
-  const deu = deptoDe({ produto: i.nome, categoria: "salgado" });
+for (const i of catalogo.salgados.frito.itens) {
+  const deu = deptoDe({ produto: i.nome, categoria: "salgado_frito" });
+  if (deu !== "salgados") comandaErrada.push(`${i.nome} foi pra ${deu}`);
+}
+for (const i of catalogo.salgados.assado.itens) {
+  const deu = deptoDe({ produto: i.nome, categoria: "salgado_assado" });
   if (deu !== "salgados") comandaErrada.push(`${i.nome} foi pra ${deu}`);
 }
 conferir(comandaErrada.length === 0, "todo salgado vai pra comanda de salgados");
 
+comandaErrada = [];
 for (const i of catalogo.doces.itens) {
-  const deu = deptoDe({ produto: i.nome, categoria: "doce" });
+  const deu = deptoDe({ produto: i.nome, categoria: "docinho" });
   if (deu !== "docinhos") comandaErrada.push(`${i.nome} foi pra ${deu}`);
 }
 conferir(comandaErrada.length === 0, "todo docinho vai pra comanda de docinhos");

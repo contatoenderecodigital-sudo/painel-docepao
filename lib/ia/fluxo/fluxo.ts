@@ -34,10 +34,10 @@ import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitur
 import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase } from "./leitor-da-frase";
 import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida } from "../texto";
 import { identificarProduto } from "./produto";
-import { categoriaUnicaDaFamilia } from "./generico";
+import { categoriaUnicaDaFamilia, categoriasDaFamilia, ehNomeDeFamilia, nomeDaFamilia } from "./generico";
 import { produtoNoComeco, produtoPorNome, produtosDaCasa } from "../dados/produtos";
 import { semAcento as semAc } from "../texto";
-import { calcularBase, avisoDePoucoPorSabor } from "./base";
+import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
@@ -474,6 +474,102 @@ function jaTemEsseProduto(itens: { produto: string }[], produto: string): boolea
   });
 }
 
+function prefixoDaFamilia(chave: string): string {
+  if (chave.startsWith("salgado")) return "salgado";
+  if (chave === "docinho" || chave === "doce") return "docinho";
+  if (chave.startsWith("bolo")) return "bolo";
+  return chave;
+}
+
+function totalDitoDaFamilia(e: Estado, chave: string): number {
+  const daLinha = e.itens.find((i) => nomeDaFamilia(i.produto) === chave);
+  if (daLinha && Number(daLinha.qtd) > 0) return Number(daLinha.qtd);
+  const pref = prefixoDaFamilia(chave);
+  if (pref === "salgado") return e.base?.salgados ?? 0;
+  if (pref === "docinho") return e.base?.docinhos ?? 0;
+  if (pref === "bolo") return e.base?.boloKg ?? 0;
+  return 0;
+}
+
+function temProdutoDeVerdade(e: Estado, pref: string): boolean {
+  return e.itens.some(
+    (i) => String(i.categoria || "").startsWith(pref) && !ehNomeDeFamilia(i.produto),
+  );
+}
+
+/**
+ * QUEM MUDA O TOTAL DA FESTA NAO NEGOCIA: ATUALIZA A CONTA.
+ *
+ * "vamos fazer 150 salgados entao" nao pede pra recalcular pelas pessoas. O
+ * numero novo e o da familia, e a proposta passa a ser esse.
+ */
+function atualizarBasePeloTotalDito(e: Estado, l: Leitura): Estado {
+  if (!e.base || !l.itens?.length) return e;
+  const base = { ...e.base };
+  let mudou = false;
+  for (const i of l.itens) {
+    const fam = nomeDaFamilia(i.produto);
+    const qtd = Number(i.qtd);
+    if (!fam || !(qtd > 0)) continue;
+    const pref = prefixoDaFamilia(fam);
+    if (pref === "salgado" && base.salgados !== qtd) {
+      base.salgados = qtd;
+      mudou = true;
+    } else if (pref === "docinho" && base.docinhos !== qtd) {
+      base.docinhos = qtd;
+      mudou = true;
+    } else if (pref === "bolo" && base.boloKg !== qtd) {
+      base.boloKg = qtd;
+      mudou = true;
+    }
+  }
+  return mudou ? { ...e, base } : e;
+}
+
+/**
+ * ELE PEDIU PRA CASA ESCOLHER. O CODIGO MONTA O SORTIDO.
+ *
+ * A IA so diz que ele delegou. Os produtos saem do catalogo, na ordem da dona,
+ * com a conta dos 20 por sabor. Quem ja escolheu produto de verdade nesta
+ * familia nao e sobrescrito: a delegacao nao apaga o que ele nomeou.
+ */
+function aplicarDelegacao(e: Estado, etapa: EtapaId): Estado {
+  const chaves = new Set<string>();
+  for (const i of e.itens) {
+    const n = nomeDaFamilia(i.produto);
+    if (n) chaves.add(n);
+  }
+  if (!chaves.size) {
+    if (etapa === "salgado" || etapa === "docinho" || etapa === "bolo") chaves.add(etapa);
+    if (etapa === "base_da_festa" && e.base) {
+      if (e.base.salgados > 0) chaves.add("salgado");
+      if (e.base.docinhos > 0) chaves.add("docinho");
+      if (e.base.boloKg > 0) chaves.add("bolo");
+    }
+  }
+  if (!chaves.size) return e;
+
+  let itens = [...e.itens];
+  let mudou = false;
+  for (const chave of chaves) {
+    const pref = prefixoDaFamilia(chave);
+    if (temProdutoDeVerdade({ ...e, itens }, pref)) continue;
+    const cats = categoriasDaFamilia(chave);
+    if (!cats.length) continue;
+    const total = totalDitoDaFamilia({ ...e, itens }, chave);
+    const sortido = sortidoDaCasa(cats, total);
+    if (!sortido.length) continue;
+    itens = itens.filter(
+      (i) => !(String(i.categoria || "").startsWith(pref) || prefixoDaFamilia(nomeDaFamilia(i.produto) ?? "") === pref),
+    );
+    itens.push(...sortido);
+    mudou = true;
+  }
+  if (!mudou) return e;
+  const aceita = etapa === "base_da_festa" ? true : e.baseAceita;
+  return { ...e, itens, baseAceita: aceita };
+}
+
 function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Estado {
   let novo: Estado = { ...e };
 
@@ -834,6 +930,9 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
     if (restricoesTiradas.length) novo.restricoesTiradas = [...new Set(restricoesTiradas)];
     if (recheiosTrocados.length) novo.recheiosTrocados = [...new Set(recheiosTrocados)];
   }
+
+  novo = atualizarBasePeloTotalDito(novo, l);
+  if (l.delegaEscolha === true) novo = aplicarDelegacao(novo, etapa);
 
   // A COR DA FORMINHA E CARIMBADA DEPOIS DOS ITENS, NAO ANTES.
   //

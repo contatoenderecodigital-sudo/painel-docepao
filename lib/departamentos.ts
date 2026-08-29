@@ -84,16 +84,11 @@ function norm(s: string | null | undefined): string {
     .trim();
 }
 
-// A categoria gravada em pedido_itens vem de dois vocabularios: o do catalogo
-// (lib/ia/orcamento.ts) e o da ferramenta da IA e da tela. Sao os mesmos
-// produtos escritos de outro jeito, e sem as duas listas todo pedido corrigido
-// pela equipe caia numa comanda generica.
+// A categoria gravada em pedido_itens e a do catalogo: salgado_frito,
+// salgado_assado, docinho, bolo_festa. Os nomes velhos do orcamento
+// (salgado, doce, bolo_recheado) nao entram mais aqui: os pedidos gravados
+// com eles eram da fase de teste, e a padaria ainda nao recebeu o sistema.
 const POR_CATEGORIA: Record<string, DeptoId> = {
-  // vocabulario do catalogo
-  salgado: "salgados",
-  doce: "docinhos",
-  bolo_recheado: "bolo_festa",
-  bolo_caseiro: "bolo_caseiro",
   pizza: "pizza",
   torta_fria: "torta_fria",
   empadao: "empadao",
@@ -104,11 +99,11 @@ const POR_CATEGORIA: Record<string, DeptoId> = {
   calzone: "calzone",
   padaria: "padaria",
   adicional_bolo: "bolo_festa",
-  // vocabulario da ferramenta da IA e da tela
   salgado_frito: "salgados",
   salgado_assado: "salgados",
   docinho: "docinhos",
   bolo_festa: "bolo_festa",
+  bolo_caseiro: "bolo_caseiro",
   papel_de_arroz: "bolo_festa",
   // "por_quilo" e "por_unidade" nao dizem QUAL produto e: quem decide ali e o
   // nome, na lista abaixo.
@@ -184,12 +179,7 @@ export function deptoDe(item: { categoria?: string | null; produto: string }): D
 // camadas abaixo ficam pro que o cardapio nao conhece: o pedido corrigido na
 // mao com um nome que nao existe, e a quantidade quebrada, porque 1,5 coxinha
 // nao existe.
-//
-// O CONJUNTO DE CATEGORIAS FICA, e mistura DOIS vocabularios de proposito:
-// `bolo_recheado` e do orcamento e e o que esta gravado nas linhas do banco;
-// `bolo_festa` e do pedido. Os dois chegam aqui.
 const KG_POR_NATUREZA = new Set([
-  "bolo_recheado",
   "bolo_festa",
   "por_quilo",
   "torta_fria",

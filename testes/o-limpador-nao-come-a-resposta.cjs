@@ -49,6 +49,7 @@ fs.writeFileSync(
     "  pessoas: 30,",
     "  ehFesta: true,",
     "  aceitouBase: true,",
+    "  delegaEscolha: true,",
     "  naoQuer: ['bolo'],",
     "  confirmou: true,",
     "  pecas: { topo: true, papelDeArroz: false },",

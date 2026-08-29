@@ -42,6 +42,7 @@ import { APELIDOS } from "../dados/apelidos";
 import {
   produtosDaCasa, produtoNoComeco, produtoPorNome, gruposDaCasa, CATEGORIAS_DE_BOLO,
 } from "../dados/produtos";
+import { ehNomeDeFamilia, nomeDaFamilia } from "./generico";
 
 /**
  * SOBRE O QUE ELE PODE TER PERGUNTADO.
@@ -84,6 +85,16 @@ export type Leitura = {
   ehFesta?: boolean;
   /** Aceitou a base como esta? So vale na etapa da base. */
   aceitouBase?: boolean;
+  /**
+   * ELE PEDIU PRA CASA ESCOLHER OS TIPOS.
+   *
+   * "escolhe voce", "pode ser sortido", "fica a seu criterio". Nao e lista de
+   * palavras: o modelo le a intencao e devolve o booleano. O codigo monta o
+   * sortido pelo catalogo e pela regra da dona (20 por sabor, 5 no cento).
+   *
+   * Aceitar a proposta ("pode ser") NAO e isto: ali ele so disse o quanto.
+   */
+  delegaEscolha?: boolean;
   /** O que ele disse que NAO quer, pra nao oferecer de novo. */
   naoQuer?: string[];
   /**
@@ -575,22 +586,30 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "A etapa é ACEITAR A BASE da festa que a padaria acabou de propor. " +
       "Se ele aceitou como está, aceitouBase = true. Se ele pediu para mudar " +
       "quantidade, devolva o que ele quer em itens. Se ele disse que não quer " +
-      "alguma família (salgado, docinho, bolo), devolva em naoQuer.",
+      "alguma família (salgado, docinho, bolo), devolva em naoQuer." +
+      " Pediu pra casa escolher os tipos? delegaEscolha = true, sem itens. " +
+      "Aceitar a proposta não é pedir pra casa escolher.",
     salgado:
       "A etapa é ESCOLHER OS SALGADOS. Só existe salgado aqui: se ele falar de " +
       "docinho ou de bolo, devolva falouDeOutraEtapa em vez de anotar." +
-      recusa("salgado") + semNumero + lista,
+      recusa("salgado") + semNumero +
+      " Pediu pra casa escolher os tipos? delegaEscolha = true, sem itens." +
+      lista,
     docinho:
       "A etapa é ESCOLHER OS DOCINHOS. Só existe docinho aqui: se ele falar de " +
       "bolo ou de salgado, devolva falouDeOutraEtapa em vez de anotar. " +
       "Se ele disser a COR da forminha (rosa, azul, dourada, verde tiffany), " +
-      "devolva em forminha." + recusa("docinho") + semNumero + lista,
+      "devolva em forminha." + recusa("docinho") + semNumero +
+      " Pediu pra casa escolher os tipos? delegaEscolha = true, sem itens." +
+      lista,
     bolo:
       "A etapa é ESCOLHER O BOLO. Só sabor de bolo aqui: se ele falar de " +
       "docinho, devolva falouDeOutraEtapa, mesmo que o nome sirva pros dois " +
       "(brigadeiro, beijinho). O peso em quilos vai na quantidade." +
       " Embalagem: prato \"aberto\" ou \"tampa\"." +
-      recusa("bolo") + semNumero + lista,
+      recusa("bolo") + semNumero +
+      " Pediu pra casa escolher o sabor? delegaEscolha = true, sem itens." +
+      lista,
     pecas_do_bolo:
       "A etapa é TOPO E PAPEL DE ARROZ, e o NOME e a IDADE do aniversariante." +
       String.fromCharCode(10) +
@@ -861,7 +880,11 @@ export function leituraQueCabeNaEtapa(
       //   sem artigo "um 4 leites"    -> "4 leites"
       //   reduzido   "uns salgadinhos" -> "salgado"
       const jeitos = formasDoCliente(i.produto);
-      if (jeitos.some((j) => existeNoCardapio(j) || etapaDesteProduto(j)) || daFamiliaDaCasa(i.produto)) {
+      if (
+        jeitos.some((j) => existeNoCardapio(j) || etapaDesteProduto(j)) ||
+        daFamiliaDaCasa(i.produto) ||
+        ehNomeDeFamilia(i.produto)
+      ) {
         return true;
       }
       naoExistem.push(i.produto);
@@ -923,6 +946,16 @@ export function leituraQueCabeNaEtapa(
     // O item entrava pela porta certa e era tratado como intruso. Quem sabe de
     // quem e o produto e o catalogo, e ele ja foi perguntado logo acima.
     if (!cabe && etapaDesteProduto(i.produto) === etapa) cabe = true;
+    // NOME DE FAMILIA E RESPOSTA DESTA ETAPA.
+    //
+    // "vamos fazer 150 salgados" nao nomeia coxinha nenhuma. Sem isto o portao
+    // barrava a linha e o total da festa nunca atualizava.
+    if (!cabe && ehNomeDeFamilia(i.produto)) {
+      const fam = nomeDaFamilia(i.produto) ?? "";
+      if (etapa === "salgado" && fam.startsWith("salgado")) cabe = true;
+      if (etapa === "docinho" && (fam === "docinho" || fam === "doce")) cabe = true;
+      if (etapa === "bolo" && fam.startsWith("bolo")) cabe = true;
+    }
 
     if (!cabe) {
       barrados.push(i.produto);

@@ -129,15 +129,17 @@ Estas dependem do que o modelo faz, não do código determinístico. Ficam para 
 **24. Aceitar a sugestão anota o pedido** — o botão `base_sim` existe e grava.
 Falta medir o caso em que ele aceita **escrevendo**.
 
-**25. Quem pede indicação não recebe a pergunta de volta** — "escolhe você,
-confio". O leitor determinístico não trata, e é assunto do modelo dentro da
-etapa. **PRECISA DE CONVERSA.**
+**25. Quem pede indicação não recebe a pergunta de volta** — `delegaEscolha` na
+leitura. O modelo marca a intenção; o código monta o sortido pelo catálogo e
+pelo `_minimo_por_sabor` da dona (20 por sabor, 5 no cento). Aceitar a proposta
+não dispara isso. **TRAZIDO.**
 
 **26. Toda guarda que recusa por "o cliente não falou" aceita a delegação** —
-não há guarda, mas a IA ainda pode devolver a pergunta. **PRECISA DE CONVERSA.**
+não há guarda. A etapa fecha porque o sortido já escolheu os tipos. **TRAZIDO.**
 
 **27. Mudar o total é uma conta, não uma negociação** — "vamos fazer 150
-salgados então" tem que refazer a base. **PRECISA DE CONVERSA.**
+salgados então" atualiza `base.salgados` (e o equivalente em docinho e bolo).
+Não recalcula pelas pessoas. **TRAZIDO.**
 
 **28. "Pode fechar" vence qualquer oferta** — existe `confirmouEscrevendo`, mas
 o caso de o cliente atropelar a oferta precisa de conversa. **PRECISA DE CONVERSA.**

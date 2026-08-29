@@ -32,6 +32,7 @@
 
 import { motorPadrao } from "../orcamento";
 import catalogo from "../dados/catalogo.json";
+import { produtosDaCasa } from "../dados/produtos";
 import type { PedidoEmMontagem } from "./etapas";
 import { formasDoCliente } from "../texto";
 
@@ -150,4 +151,47 @@ export function avisoDePoucoPorSabor(qtds: number[]): string | null {
     "Dividindo assim ficam " + menor + " de alguns sabores. A casa costuma sugerir " +
     "pelo menos " + sugerir + " de cada, mas dá pra fazer do jeito que você preferir."
   );
+}
+
+/**
+ * O SORTIDO DA CASA, quando ele pede pra padaria escolher os tipos.
+ *
+ * Nao e ranking nem lista de favoritos. Sai da ordem do catalogo, com a conta
+ * que a dona ditou: uns 20 de cada e 5 sabores no cento. Quem tem sabor fixo
+ * entra sem observacao; quem tem lista ganha o primeiro sabor do catalogo, pra
+ * a etapa nao ficar perguntando o que a casa ja escolheu.
+ *
+ * Bolo de festa e um so: o primeiro da lista, no peso que a proposta combinou.
+ */
+export function sortidoDaCasa(
+  categorias: string[],
+  total: number,
+): { produto: string; categoria: string; qtd: number; obs: string | null }[] {
+  if (!(total > 0) || !categorias.length) return [];
+  const soFesta = categorias.includes("bolo_festa");
+  const candidatos = produtosDaCasa().filter(
+    (p) => categorias.includes(p.categoria) && (!soFesta || p.categoria === "bolo_festa"),
+  );
+  if (!candidatos.length) return [];
+
+  const porKg = soFesta || candidatos.every((p) => p.unidade === "kg");
+  if (porKg) {
+    const p = candidatos[0];
+    return [{ produto: p.nome, categoria: p.categoria, qtd: total, obs: null }];
+  }
+
+  const { sugerir, saboresNoCento } = minimoPorSabor();
+  const tetoCento =
+    saboresNoCento > 0 ? saboresNoCento * Math.max(1, Math.round(total / 100)) : candidatos.length;
+  const tetoMinimo = sugerir > 0 ? Math.max(1, Math.floor(total / sugerir)) : candidatos.length;
+  const n = Math.min(candidatos.length, Math.max(1, Math.min(tetoCento, tetoMinimo)));
+  const escolhidos = candidatos.slice(0, n);
+  const cada = Math.floor(total / n);
+  const resto = total - cada * n;
+  return escolhidos.map((p, i) => ({
+    produto: p.nome,
+    categoria: p.categoria,
+    qtd: cada + (i === 0 ? resto : 0),
+    obs: p.saborFixo || !p.sabores.length ? null : p.sabores[0],
+  }));
 }

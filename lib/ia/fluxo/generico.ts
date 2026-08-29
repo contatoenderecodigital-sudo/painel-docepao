@@ -182,10 +182,14 @@ export function familiaDoNome(produto: unknown): string | null {
  * bancada: se o item nunca for resolvido, a comanda sai na sala errada. Nesse
  * caso devolve null e quem chama segue como seguia.
  */
-export function categoriaUnicaDaFamilia(produto: unknown): string | null {
+export function categoriasDaFamilia(produto: unknown): string[] {
   const chave = nomeDaFamilia(produto);
-  if (!chave) return null;
-  const cats = chavesReduzidas().get(semAcento(chave)) ?? [];
+  if (!chave) return [];
+  return chavesReduzidas().get(semAcento(chave)) ?? [];
+}
+
+export function categoriaUnicaDaFamilia(produto: unknown): string | null {
+  const cats = categoriasDaFamilia(produto);
   return cats.length === 1 ? cats[0] : null;
 }
 

@@ -29,12 +29,11 @@
 //   1. o motor nao volta a ter tabela de traducao de categoria
 //   2. nenhum produto do motor sai com uma categoria do vocabulario velho
 //   3. a categoria do motor e A MESMA da lista unica, produto por produto
-//   4. a comanda continua entendendo o vocabulario VELHO
+//   4. a comanda NAO volta a falar a lingua velha: os pedidos gravados com
+//      bolo_recheado eram da fase de teste, a padaria ainda nao recebeu o sistema
 //
-// A 4 e a que parece contraditoria e nao e: o banco esta cheio de pedidos
-// gravados com `bolo_recheado`, e pedido velho tem que continuar saindo na
-// bancada certa. Unificar o que se escreve DAQUI PRA FRENTE nao reescreve o
-// passado, e o `departamentos.ts` diz isso com todas as letras.
+// A 4 e a que parece contraditoria e nao e mais: os pedidos antigos eram
+// testes. Unificar agora e o momento certo, antes da padaria entrar.
 //
 // Roda com: node testes/a-categoria-fala-uma-lingua-so.cjs
 const path = require("node:path");
@@ -182,14 +181,14 @@ if (naBancadaErrada.length) {
 }
 
 // -----------------------------------------------------------------------------
-// 4. A comanda continua entendendo o vocabulario velho, por causa do banco.
+// 4. A comanda fala a lingua do catalogo. Os nomes velhos nao voltam.
 // -----------------------------------------------------------------------------
 const comanda = semComentario("lib/departamentos.ts");
-if (!/bolo_recheado/.test(comanda)) {
+if (/bolo_recheado/.test(comanda) || /^\s*salgado:/m.test(comanda) || /^\s*doce:/m.test(comanda)) {
   falhas.push(
-    "o `departamentos.ts` deixou de conhecer `bolo_recheado`: o banco esta cheio " +
-      "de pedidos gravados com o vocabulario velho, e eles passariam a sair na " +
-      "bancada errada. Unificar o que se escreve daqui pra frente nao reescreve o passado",
+    "o `departamentos.ts` voltou a conhecer o vocabulario velho " +
+      "(salgado, doce, bolo_recheado): os pedidos gravados assim eram teste, " +
+      "e manter duas linguas e o defeito que este arquivo existe pra pegar",
   );
 }
 
