@@ -183,10 +183,32 @@ vira código, não prompt.
 
 | | |
 | --- | --- |
-| defeitos consertados | **242** |
+| defeitos consertados | **245** |
 | testes no portão | **83**, cada um com isca provada |
 | leitura | **fechada**: cérebro, banco, rotas e telas |
-| medições contra a produção | a bateria inteira, 15 cenários x 3 execuções |
+| bateria contra a produção | rodada 4 vezes hoje, 15 cenários x 3 execuções |
+
+### O que a bateria consertou, em ordem
+
+| defeito | como estava |
+| --- | --- |
+| **travamento do `quantas_pessoas`** | quem dizia "festa" e ditava os itens ficava preso, e o pedido nunca era registrado |
+| **travamento do `base_da_festa`** | apareceu ao consertar o de cima, esperando aceite de proposta que nunca foi feita |
+| **iniciativa sem base aceita** | um bolo pra sexta virou festa e a padaria foi oferecer salgado a quem nunca falou de salgado |
+| **aviso de horário com duas perguntas** | o aviso terminava em pergunta e o fluxo colava a da etapa atrás |
+| **cenário pedindo o impossível** | retirada 15h num domingo em que a casa fecha das 12h às 16h |
+
+### O que ainda falha, e o que é cada um
+
+| cenário | o que é |
+| --- | --- |
+| `quem pede assado nao recebe frito` | **decisão sua**: cliente delegou a escolha |
+| `mudar o total nao vira negociacao` | mesma raiz, mais a mudança de quantidade não entendida no meio do cardápio |
+| `troca de bolo nao duplica` | o bolo trocado deixa uma linha com **quantidade zero** no banco |
+| `bolo sem lactose` | o sabor do bolo vira um docinho separado na comanda |
+| `cinco jeitos 1` | 2 de 3: intermitente, não consistente |
+
+Os dois últimos são meus e estão na fila. Os dois primeiros esperam você.
 
 ---
 

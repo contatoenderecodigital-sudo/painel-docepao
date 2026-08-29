@@ -3489,3 +3489,60 @@ estava certa sozinha; juntas, perguntavam duas vezes a mesma coisa.
 
 É o mesmo formato do item 72: duas regras certas que só erram na combinação. Foi
 o terceiro caso do dia, e nenhum dos três apareceria numa releitura.
+
+---
+
+## 74. A troca de bolo deixa linha fantasma, e eu PAREI antes de consertar
+
+Medido contra a produção:
+
+```
+cliente >> quero um bolo de 2 kg de prestigio pra festa dia 12/09
+cliente >> na verdade muda pra 4 leites
+
+no banco >> 2 ~ bolo prestígio ~ prestigio
+            0 ~ bolo 4 leites  ~              <- linha fantasma
+```
+
+A cozinha recebe dois bolos, um de zero quilo, e o cliente é cobrado pelo bolo
+que acabou de dispensar.
+
+### Por que não consertei
+
+Comecei a consertar na junção de itens (ela casa por **nome do produto**, então
+"bolo prestígio" e "bolo 4 leites" viram linhas diferentes). Escrevi a regra
+"item sem quantidade, numa família com um item só, é aquele item com outro
+nome", que descreve o cliente com precisão: ninguém pede zero de nada.
+
+E aí a sonda mostrou que **existe outro caminho** que junta bolo: o **misto**.
+
+```ts
+// Nota da dona no cardápio: "bolo misto vale o sabor mais caro"
+const caro = [...bolos].sort((a, b) => preco(b.produto) - preco(a.produto))[0];
+const peso = [...bolos, ...semSabor].reduce((s, b) => Math.max(s, Number(b.qtd) || 0), 0);
+```
+
+Dois bolos viram um, com o **preço do mais caro** e o peso do maior. Meu galho
+novo nem era alcançado nesse caminho, e o resultado da sonda não bateu com o que
+nenhum dos dois deveria produzir.
+
+**Isso é código que precifica bolo.** Mexer nele com um entendimento pela metade
+troca uma linha fantasma por um preço errado, que é muito pior.
+
+### E a sonda me enganou duas vezes na mesma investigação
+
+Primeiro pus `pessoas: 20, baseAceita: true`, e a base da festa injetou
+quantidade sozinha: o bolo trocado saiu com **200**, que é o número de salgados
+da base de 20 pessoas. Na conversa real não houve base aceita nenhuma.
+
+> **Reconstruir o estado pra medir é medir a reconstrução.** É a terceira vez
+> hoje que isso me pega, e das três esta foi a que quase virou conserto errado.
+
+### Onde retomar
+
+O caminho do misto, em `fluxo.ts`, e a pergunta a responder primeiro é: **quando
+o cliente diz "muda pra X", isso é troca ou é misto?** As duas leituras são
+plausíveis e o cardápio vende as duas. Com essa resposta, o conserto é curto.
+
+O conserto foi revertido: o repositório está no estado medido, e não num
+meio-termo não verificado.
