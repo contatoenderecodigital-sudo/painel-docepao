@@ -337,7 +337,20 @@ export default function TestarIA() {
               className="flex-1 bg-white/10 rounded-full px-4 py-2.5 text-[13.5px] text-cream placeholder:text-cream/40 focus:outline-none focus:ring-2 focus:ring-cobre/25 disabled:opacity-60"
             />
             <button
-              onClick={enviar}
+              // ENVIAR SEM ARGUMENTO, E NAO A FUNCAO DIRETO.
+              //
+              // `onClick={enviar}` entrega o MouseEvent do React no lugar do
+              // `toque`, e o evento e truthy. A primeira linha do `enviar` faz
+              // `String(toque.titulo || toque.id)`, que num evento da a string
+              // "undefined": quem clicava no botao mandava a palavra
+              // "undefined" pro cerebro, em vez do que tinha digitado. So o
+              // Enter funcionava, porque ele chama `enviar()` pelado.
+              //
+              // Isso tambem travava o DEPLOY: o `next build` reprova o tipo, e
+              // toda construcao desde 30/08/2026 05:20 falhou por esta linha.
+              // Producao ficou 30 commits atras sem ninguem ver, porque o
+              // portao local nao roda `next build`.
+              onClick={() => enviar()}
               disabled={(!texto.trim() && !anexo) || digitando}
               className="grad-cobre press w-11 h-11 rounded-full grid place-items-center text-vinho-d shrink-0 disabled:opacity-45 disabled:cursor-default"
               aria-label="Enviar"
