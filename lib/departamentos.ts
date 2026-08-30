@@ -23,7 +23,7 @@
 // ============================================================================
 
 import type { Pedido } from "./tipos";
-import { produtoPorNome } from "./ia/dados/produtos";
+import { produtoPorNome, produtoNoComeco } from "./ia/dados/produtos";
 
 export type DeptoId =
   | "salgados"
@@ -113,9 +113,23 @@ const POR_CATEGORIA: Record<string, DeptoId> = {
 // arroz, vela, prato e caixa sao coisas que quem monta o bolo le junto com ele.
 const ACESSORIO_DE_BOLO = /topo de bolo|topo|papel de arroz|vela|prato aberto|caixa com tampa|andar/;
 
-// Quando a categoria e generica, quem diz a comanda e o nome do produto: torta
-// fria e empadao sao produzidos em mesas diferentes, mesmo os dois sendo
-// vendidos por quilo.
+// A REDE EMBAIXO, PRO NOME QUE O CARDAPIO NAO CONHECE.
+//
+// Ela era o mecanismo principal, e o preco disso foi medido em 30/08/2026 nos
+// 86 produtos da casa, com o item chegando sem categoria gravada: QUATRO saiam
+// na comanda errada, e o catalogo sabia a resposta dos quatro.
+//
+//     mini pizza           salgado_assado  ->  saia na comanda da PIZZA
+//     leite ninho com avela  docinho       ->  saia na comanda do BOLO FESTA
+//     mini pao de queijo   salgado_frito   ->  saia nos DOCINHOS
+//     chodo                salgado_frito   ->  saia nos DOCINHOS
+//
+// A mini pizza e salgadinho de festa e nao pizza, e o "avela" acendia o `vela`
+// do acessorio de bolo, entao um docinho ia parar no papel de quem monta bolo.
+//
+// Agora quem responde primeiro e a categoria do catalogo, e esta lista fica pro
+// que ele nao conhece: o pedido corrigido na mao com um nome que nao existe.
+// Sem ela, "torta fria de camarao" digitado pela equipe cairia nos docinhos.
 const POR_NOME: [RegExp, DeptoId][] = [
   [/torta fria|torta salgada/, "torta_fria"],
   [/empad[ao]o/, "empadao"],
@@ -142,6 +156,20 @@ export function deptoDe(item: { categoria?: string | null; produto: string }): D
   const p = norm(item.produto);
   const porCategoria = POR_CATEGORIA[c];
   if (porCategoria) return porCategoria;
+
+  // O CATALOGO RESPONDE ANTES DA LISTA DE NOMES.
+  //
+  // A categoria gravada pode vir vazia (linha antiga, pedido corrigido na mao),
+  // e ai a pergunta passa a ser sobre o NOME. O nome esta no cardapio, e o
+  // cardapio ja diz a categoria de cada produto: perguntar pra ele e a mesma
+  // resposta que o item teria se a categoria tivesse sido gravada.
+  //
+  // Exato primeiro, depois o nome que comeca o texto, porque o produto chega
+  // com o sabor colado ("mini pizza de calabresa", "cuca recheada de banana").
+  const daCasa = produtoPorNome(item.produto) ?? produtoNoComeco(item.produto);
+  const doCatalogo = daCasa ? POR_CATEGORIA[norm(daCasa.categoria)] : undefined;
+  if (doCatalogo) return doCatalogo;
+
   for (const [rx, id] of POR_NOME) if (rx.test(p)) return id;
   if (ACESSORIO_DE_BOLO.test(p)) return "bolo_festa";
   // Sobrou doce sem categoria conhecida: vai pros docinhos, que e a bancada que
