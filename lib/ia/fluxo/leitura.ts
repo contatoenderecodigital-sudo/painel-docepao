@@ -362,13 +362,66 @@ const daLista = (...categorias: string[]) =>
  * usa. Categoria que nao esta aqui existe e e vendida (pizza, cuca, cupcake,
  * torta, calzone), so nao tem etapa que pergunte por ela.
  */
-const CATEGORIAS_DA_ETAPA = {
+const CATEGORIAS_NOMEADAS: Record<string, readonly string[]> = {
   salgado: ["salgado_frito", "salgado_assado"],
   docinho: ["docinho"],
   bolo: CATEGORIAS_DE_BOLO,
-} as const;
+  // Papel de arroz e topo. Ja tinham dono, e o dono e a etapa das pecas.
+  pecas_do_bolo: ["adicional_bolo"],
+};
 
-const ETAPAS_DE_PRODUTO = Object.keys(CATEGORIAS_DA_ETAPA) as (keyof typeof CATEGORIAS_DA_ETAPA)[];
+/**
+ * NENHUMA CATEGORIA DO CATALOGO FICA SEM DONO.
+ *
+ * Aqui havia um objeto de tres linhas, e o comentario dele admitia o buraco:
+ * "categoria que nao esta aqui existe e e vendida (pizza, cuca, cupcake,
+ * torta, calzone), so nao tem etapa que pergunte por ela".
+ *
+ * Era uma lista minha, que e justamente o que a dona proibiu em 27/08/2026, e
+ * custava um quarto do cardapio. Medido em 30/08/2026:
+ *
+ *   24 dos 86 produtos nao pertenciam a etapa nenhuma
+ *   10 categorias orfas: padaria, cupcake, pizza, torta_fria, empadao,
+ *      torta_recheada, bolo_salgado, franciscano, calzone
+ *
+ * O estrago nao era "a padaria nao pergunta". Era pior: a pergunta ate saia
+ * (por `perguntaDaFamilia`), mas a RESPOSTA chegava numa etapa que nao
+ * conhece aquele produto, e `leituraQueCabeNaEtapa` jogava fora. A conversa
+ * repetia a mesma pergunta ate o cliente desistir. Medido contra a producao:
+ *
+ *   padaria >> Voce quer a pizza inteira, meia ou redonda?
+ *   cliente >> quero 2 inteiras, uma de calabresa e uma de frango
+ *   padaria >> Voce quer a pizza inteira, meia ou redonda?    (de novo)
+ *   cliente >> dia 05/09 as 19h, nome Rodrigo Zanella, pix
+ *   padaria >> Qual pizza voce prefere: inteira, meia ou redonda?
+ *
+ * O pedido nunca fechou e os dados dele se perderam no laco.
+ *
+ * Cada uma das nove familias orfas caia nisso por uma porta propria, e cada
+ * uma virava um remendo. E por isso que as correcoes nao terminavam.
+ *
+ * Agora o dono das categorias que sobram e uma etapa so, e a conta e do
+ * CATALOGO: se a dona cadastrar uma familia amanha, ela ja nasce com dono,
+ * sem ninguem editar este arquivo. O teste `toda-categoria-tem-etapa.cjs`
+ * cobra isso.
+ */
+export function categoriasSemEtapaPropria(): string[] {
+  const comDono = new Set(Object.values(CATEGORIAS_NOMEADAS).flat());
+  const todas = new Set(produtosDaCasa().map((p) => String(p.categoria || "")));
+  return [...todas].filter((c) => c && !comDono.has(c)).sort();
+}
+
+/** As etapas que perguntam por produto, na ordem em que a conversa anda. */
+const ETAPAS_DE_PRODUTO = [
+  ...Object.keys(CATEGORIAS_NOMEADAS),
+  "resto_do_cardapio",
+] as EtapaId[];
+
+/** As categorias que esta etapa atende. Junta o nomeado e o que sobra. */
+export function categoriasDaEtapa(etapa: EtapaId): readonly string[] {
+  if (etapa === "resto_do_cardapio") return categoriasSemEtapaPropria();
+  return CATEGORIAS_NOMEADAS[etapa] ?? [];
+}
 
 /**
  * O VOCABULARIO DA ETAPA.
@@ -380,9 +433,9 @@ const ETAPAS_DE_PRODUTO = Object.keys(CATEGORIAS_DA_ETAPA) as (keyof typeof CATE
 export function vocabularioDaEtapa(etapa: EtapaId): string[] {
   switch (etapa) {
     case "salgado":
-      return comOsApelidos(daLista(...CATEGORIAS_DA_ETAPA.salgado));
+      return comOsApelidos(daLista(...categoriasDaEtapa("salgado")));
     case "docinho":
-      return comOsApelidos(daLista(...CATEGORIAS_DA_ETAPA.docinho));
+      return comOsApelidos(daLista(...categoriasDaEtapa("docinho")));
     case "bolo":
       // O BOLO CASEIRO TAMBEM E BOLO, E ISSO FALTAVA.
       //
@@ -399,7 +452,17 @@ export function vocabularioDaEtapa(etapa: EtapaId): string[] {
       //
       // Achado migrando este arquivo pra lista unica, que e o que o dono mandou
       // fazer. Cada migração destas achou defeito que ninguem sabia que existia.
-      return comOsApelidos(daLista(...CATEGORIAS_DA_ETAPA.bolo));
+      return comOsApelidos(daLista(...categoriasDaEtapa("bolo")));
+    case "resto_do_cardapio":
+      // TUDO QUE A CASA VENDE E NAO CABE NAS TRES DE CIMA.
+      //
+      // Pizza, torta, empadao, cupcake, pao, cuca, calzone, franciscano e
+      // bolo salgado. Vinte e quatro produtos que ate 30/08/2026 nao tinham
+      // etapa nenhuma, e cujas respostas eram descartadas por chegarem numa
+      // etapa que nao os conhecia.
+      //
+      // A lista sai do catalogo, entao familia nova da dona ja entra aqui.
+      return comOsApelidos(daLista(...categoriasDaEtapa("resto_do_cardapio")));
     default:
       return [];
   }
@@ -435,7 +498,7 @@ function hojeEmSaoPaulo(): string {
  */
 function cardapioDaInstrucao(etapa: EtapaId): string[] {
   if (etapa === "oferta") {
-    return comOsApelidos(daLista(...CATEGORIAS_DA_ETAPA.docinho, ...CATEGORIAS_DA_ETAPA.bolo));
+    return comOsApelidos(daLista(...categoriasDaEtapa("docinho"), ...categoriasDaEtapa("bolo")));
   }
   return vocabularioDaEtapa(etapa);
 }
@@ -617,6 +680,12 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       recusa("bolo") + semNumero +
       " Pediu pra casa escolher o sabor? delegaEscolha = true, sem itens." +
       lista,
+    resto_do_cardapio:
+      "A etapa e ESCOLHER QUAL, dentro do que ele ja pediu: pizza, torta, " +
+      "empadao, cupcake, pao, cuca, calzone. Ele ja nomeou a familia; falta " +
+      "o TIPO ou o RECHEIO. Use o nome do cardapio inteiro (por exemplo " +
+      "\"pizza inteira\", nao \"inteira\"). O recheio vai no campo sabor." +
+      semNumero + lista,
     pecas_do_bolo:
       "A etapa é TOPO E PAPEL DE ARROZ, e o NOME e a IDADE do aniversariante." +
       String.fromCharCode(10) +
@@ -722,7 +791,7 @@ export function etapaDesteProduto(produto: string): EtapaId | null {
   const daCasa = produtoNoComeco(produto) ?? produtoPorNome(identificarProduto(produto).produto);
   if (daCasa) {
     for (const etapa of ETAPAS_DE_PRODUTO) {
-      if ((CATEGORIAS_DA_ETAPA[etapa] as readonly string[]).includes(daCasa.categoria)) return etapa;
+      if (categoriasDaEtapa(etapa).includes(daCasa.categoria)) return etapa;
     }
     // Existe na casa e nenhuma etapa pergunta por ele: pizza, cuca, cupcake,
     // torta, calzone. Null aqui e verdade, e quem chama precisa saber que e
@@ -961,21 +1030,31 @@ export function leituraQueCabeNaEtapa(
 
     if (!cabe) {
       barrados.push(i.produto);
-      // Existe no cardapio e alguma etapa vai perguntar por ele? Guarda pra la.
-      if (etapaDesteProduto(i.produto)) {
+      // Existe no cardapio e alguma etapa PERGUNTA por ele? Guarda pra la.
+      //
+      // O resto do cardapio nao entra aqui, e o motivo importa: a etapa dele
+      // nao existe pra perguntar QUAL PRODUTO (isso ele ja disse), e sim pra
+      // perguntar o TIPO ou o RECHEIO do que ele ja pediu. Estacionar a torta
+      // fria ate chegar la atrasaria o registro sem ganhar nada, e o item
+      // seguiria escondido do resumo enquanto isso.
+      //
+      // Ele passa agora, do jeito que sempre passou, e a etapa nova cobra o
+      // que falta depois. A etapa ACRESCENTA um lugar onde a resposta cabe;
+      // ela nao tira de ninguem o direito de ser citado fora da hora.
+      const dele = etapaDesteProduto(i.produto);
+      if (dele && dele !== "resto_do_cardapio") {
         paraDepois.push(i);
         return [];
       }
-      // EXISTE, E NENHUMA ETAPA VAI PERGUNTAR POR ELE.
+      // O RESTO DO CARDAPIO PASSA DIRETO.
       //
       // Sao 24 produtos da casa: pizza, cuca, cupcake, torta fria, empadao,
-      // calzone, franciscano, pao. As etapas de produto sao tres (salgado,
-      // docinho, bolo) e nenhuma delas cobre esses.
-      //
-      // Barrar aqui so podia perder o item, porque nao existe um "depois" pra
-      // onde guardar: nenhuma etapa vai chamar por ele nunca. Antes disto, quem
-      // estava escolhendo salgado e dizia "e uma torta fria" perdia a torta E
-      // ouvia que a padaria nao tinha.
+      // calzone, franciscano, pao. Ate 30/08/2026 nenhuma etapa perguntava por
+      // eles, e por isso a resposta do cliente sobre o tipo se perdia. Agora a
+      // etapa `resto_do_cardapio` faz essa pergunta, mas o ITEM continua
+      // entrando na hora em que ele fala: quem esta escolhendo salgado e diz
+      // "e uma torta fria" nao pode perder a torta nem ouvir que a padaria
+      // nao tem.
       if (existeNoCardapio(i.produto)) return [i];
       // Pizza nao tem etapa propria. Na etapa do salgado ela era negada
       // (familia "pizza" nao esta no cardapio como produto) ou carimbada

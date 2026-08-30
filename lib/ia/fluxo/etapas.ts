@@ -36,6 +36,7 @@ export type EtapaId =
   | "salgado"
   | "docinho"
   | "bolo"
+  | "resto_do_cardapio"
   | "pecas_do_bolo"
   | "oferta"
   | "dados"
@@ -86,6 +87,7 @@ export type Etapa = {
 import { saboresQueFaltam, ehSalgadoDoCardapio } from "./sabor";
 import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
 import { ehNomeDeFamilia } from "./generico";
+import { categoriasSemEtapaPropria } from "./leitura";
 import { formasDoCliente } from "../texto";
 
 /** O que a conversa ja acumulou. E o unico estado que existe. */
@@ -338,6 +340,26 @@ const faltaSaborDoSalgado = (p: PedidoEmMontagem) => faltaSabor(p, "salgado");
 // Aqui havia uma copia, e ela ja discordava da original: "pizza" era nome de
 // familia la e nao era aqui. Cada arquivo decidindo uma coisa sobre a mesma
 // palavra e o defeito que mais se repetiu neste projeto.
+
+/**
+ * OS ITENS QUE CAEM NA ETAPA DO RESTO DO CARDAPIO.
+ *
+ * A categoria sai do CATALOGO, e nao da linha: o modelo erra a categoria, e
+ * foi assim que a esfirra anotada como `outro` fazia a etapa do salgado se
+ * pular com o recheio em aberto.
+ */
+const doRestoDoCardapio = (p: PedidoEmMontagem) => {
+  const minhas = new Set(categoriasSemEtapaPropria());
+  return p.itens.filter((i) => minhas.has(categoriaNoCardapio(i.produto, i.categoria)));
+};
+
+/** Falta escolher qual (pizza inteira? meia? redonda?) em algum deles. */
+const temGenericoDoResto = (p: PedidoEmMontagem) =>
+  doRestoDoCardapio(p).some((i) => ehNomeDeFamilia(i.produto));
+
+/** Falta o recheio de algum deles (empadao de palmito ou de frango?). */
+const faltaSaborDoResto = (p: PedidoEmMontagem) =>
+  saboresQueFaltam(doRestoDoCardapio(p)).length > 0;
 
 /** Sobrou algum item nesta familia que ainda e generico? */
 const temGenerico = (p: PedidoEmMontagem, pref: string) =>
@@ -605,6 +627,36 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     },
   },
   {
+    id: "resto_do_cardapio",
+    rotulo: "escolhendo o resto do cardapio",
+    // A pergunta de verdade sai da FAMILIA que ele nomeou, em `pergunta.ts`
+    // (`falaSeTemFamilia`): "Qual pizza voce quer: inteira, meia ou redonda?".
+    // Esta frase e so o rotulo, pro caso de a familia nao dizer nada.
+    pergunta: "O que mais você quer?",
+    // O cardapio certo sai da familia que ele nomeou (`pecaDoCardapio`), e nao
+    // daqui: esta etapa atende nove familias, cada uma com a sua peca.
+    espera: { tipo: "texto", oQue: "qual item do cardapio, dentro da familia que ele pediu" },
+    // ESTA ETAPA NUNCA PERGUNTA POR INICIATIVA PROPRIA.
+    //
+    // Ela existe pra dar um LUGAR onde a resposta do cliente cabe. As tres
+    // etapas de cima (salgado, docinho, bolo) cobriam 62 dos 86 produtos; os
+    // outros 24 nao tinham etapa, e por isso a resposta deles chegava numa
+    // etapa que nao os conhece e era jogada fora por `leituraQueCabeNaEtapa`.
+    //
+    // O sintoma sempre foi o mesmo laco, e cada familia caia nele por uma
+    // porta propria. Medido contra a producao em 30/08/2026:
+    //
+    //   padaria >> Voce quer a pizza inteira, meia ou redonda?
+    //   cliente >> quero 2 inteiras, uma de calabresa e uma de frango
+    //   padaria >> Voce quer a pizza inteira, meia ou redonda?   (de novo)
+    //
+    // Ela so entra quando ja existe item DELE que falta resolver: familia sem
+    // tipo escolhido, ou sabor em aberto. Quem pediu dez paes nunca ouve
+    // pergunta nenhuma daqui.
+    cumprida: (p) => !temGenericoDoResto(p) && !faltaSaborDoResto(p),
+    pulavel: (p) => !temGenericoDoResto(p) && !faltaSaborDoResto(p),
+  },
+  {
     id: "pecas_do_bolo",
     rotulo: "papel de arroz e topo",
     // A fala de verdade sai de falaDasPecas, que pergunta o PAPEL primeiro
@@ -806,6 +858,7 @@ export const ROTEIRO_DA_FESTA: Etapa[] = SO([
   "salgado",
   "docinho",
   "bolo",
+  "resto_do_cardapio",
   "pecas_do_bolo",
   "dados",
   "confirmacao",
@@ -822,6 +875,7 @@ export const ROTEIRO_COMUM: Etapa[] = SO([
   "salgado",
   "docinho",
   "bolo",
+  "resto_do_cardapio",
   "pecas_do_bolo",
   "oferta",
   "dados",

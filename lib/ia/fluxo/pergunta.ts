@@ -846,6 +846,34 @@ export function falaDaEtapa(
     case "bolo":
       return falaDoBolo(p, aviso);
 
+    case "resto_do_cardapio": {
+      // A PERGUNTA SAI DA FAMILIA QUE ELE NOMEOU.
+      //
+      // Esta etapa atende nove familias (pizza, torta, empadao, cupcake, pao,
+      // cuca, calzone, franciscano, bolo salgado), e cada uma tem a sua
+      // pergunta e a sua peca de cardapio. Escrever uma frase fixa aqui seria
+      // a padaria perguntando de pizza pra quem falou de torta.
+      //
+      // `falaSeTemFamilia` ja monta a certa: le a familia do item que ainda
+      // esta generico, pega as opcoes do catalogo e manda a peca junto.
+      const daFamilia = falaSeTemFamilia(p, aviso);
+      if (daFamilia) return daFamilia;
+      // Sem familia em aberto, o que falta e recheio. A pergunta sai com as
+      // opcoes do proprio cardapio daquele item, e nao de uma lista fixa.
+      //
+      // O fallback nunca deveria ser alcancado (a etapa so entra quando falta
+      // uma das duas coisas), mas fala e obrigatoria: devolver a pergunta da
+      // etapa e melhor do que devolver silencio se a conta mudar um dia.
+      return (
+        falaDoSaborQueFalta(proximoSaborQueFalta(p.itens, null)) ?? {
+          texto: aviso + "O que mais você quer?",
+          botoes: [],
+          cardapio: null,
+          podeReescrever: true,
+        }
+      );
+    }
+
     case "pecas_do_bolo":
       return falaDasPecas(p);
 

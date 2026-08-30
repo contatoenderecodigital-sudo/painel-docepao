@@ -84,9 +84,19 @@ const falhas = [];
 // A festa NAO tem a etapa da oferta, de proposito: a proposta ja combinou
 // salgado, docinho e bolo juntos, e oferecer de novo o que ele acabou de
 // aceitar e empurra, nao atendimento.
+// `resto_do_cardapio` entrou em 30/08/2026, depois do bolo e antes das pecas.
+//
+// Ate ali as etapas de produto eram tres (salgado, docinho, bolo) e cobriam
+// 62 dos 86 produtos. Os outros 24 (pizza, torta, empadao, cupcake, pao,
+// cuca, calzone, franciscano, bolo salgado) nao tinham etapa nenhuma, e por
+// isso a resposta do cliente sobre o TIPO deles chegava numa etapa que nao os
+// conhecia e era descartada. A conversa repetia a mesma pergunta ate morrer.
+//
+// Ela e pulavel e nunca pergunta por iniciativa propria: so entra quando ja
+// existe item DELE com o tipo ou o recheio em aberto.
 const festaEsperada = [
   "abertura", "quantas_pessoas", "base_da_festa", "salgado", "docinho",
-  "bolo", "pecas_do_bolo", "dados", "confirmacao", "registrado",
+  "bolo", "resto_do_cardapio", "pecas_do_bolo", "dados", "confirmacao", "registrado",
 ];
 if (JSON.stringify(r.festa) !== JSON.stringify(festaEsperada)) {
   falhas.push("o roteiro da festa mudou de ordem: " + r.festa.join(" -> "));

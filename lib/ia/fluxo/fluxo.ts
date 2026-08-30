@@ -34,7 +34,7 @@ import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitur
 import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase, familiaDoQueEleNomeou } from "./leitor-da-frase";
 import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida, formasDoCliente } from "../texto";
 import { identificarProduto } from "./produto";
-import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, ehPizzaQueNaoESalgado, nomeDaFamilia, opcoesDaFamilia } from "./generico";
+import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, ehPizzaQueNaoESalgado, familiaDoProduto, nomeDaFamilia, opcoesDaFamilia } from "./generico";
 import { APELIDOS } from "../dados/apelidos";
 import { produtoNoComeco, produtoPorNome, produtosDaCasa, coresDoCardapio } from "../dados/produtos";
 import { semAcento as semAc } from "../texto";
@@ -563,16 +563,43 @@ function temProdutoDeVerdade(e: Estado, pref: string): boolean {
 function oClienteNomeouEsteProduto(fala: string, produto: string): boolean {
   const t = semAc(fala);
   if (!t) return false;
+
+  // O PLURAL DA FRASE, DEPOIS DA FORMA FIEL.
+  //
+  // A cerca de palavra recusa "inteira" dentro de "inteiras", e faz isso de
+  // proposito: "carne" nao pode casar dentro de "descarnado". Mas o cliente
+  // responde no plural quando pede mais de um, e a padaria pergunta assim.
+  //
+  // Medido contra a producao em 30/08/2026, com o container ja no SHA da main:
+  //
+  //   padaria >> Voce quer a pizza inteira, meia ou redonda?
+  //   cliente >> quero 2 inteiras, uma de calabresa e uma de frango
+  //   padaria >> Voce quer a pizza inteira, meia ou redonda?   (de novo)
+  //
+  // Das tres respostas que a propria padaria oferece, "inteira" era a unica
+  // que ela nao lia: "redonda" e "meia" tem apelido proprio no catalogo, e
+  // "inteira" so existe dentro do nome "pizza inteira". O corte do prefixo
+  // (logo abaixo) entregava "inteira" contra uma frase que dizia "inteiras".
+  //
+  // A ordem e a mesma do `formasDoCliente`, e pelo mesmo motivo: a forma fiel
+  // primeiro, a reduzida so se a fiel nao achou nada. E gramatica do
+  // portugues, uma das tres origens legitimas, nao lista de palavra minha.
+  const semPlural = t.replace(/(aes|oes|aos)\b/g, "ao").replace(/s\b/g, "");
+  const achaNaFrase = (termo: string) => {
+    const cerca = cercaDaPalavra(termo);
+    return cerca.test(t) || cerca.test(semPlural);
+  };
+
   const n = semAc(produto);
-  if (n && cercaDaPalavra(n).test(t)) return true;
+  if (n && achaNaFrase(n)) return true;
   for (const a of APELIDOS[produto] ?? []) {
     const aa = semAc(a);
-    if (aa && cercaDaPalavra(aa).test(t)) return true;
+    if (aa && achaNaFrase(aa)) return true;
   }
-  const fam = nomeDaFamilia(produto);
+  const fam = familiaDoProduto(produto);
   if (fam && !ehNomeDeFamilia(produto)) {
     const resto = n.replace(semAc(fam), " ").replace(/ +/g, " ").trim();
-    if (resto.length >= 4 && cercaDaPalavra(resto).test(t)) return true;
+    if (resto.length >= 4 && achaNaFrase(resto)) return true;
   }
   return false;
 }
@@ -875,10 +902,11 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       const produto = quem.produto;
       const categoria = categoriaDaEtapa(etapa, produto);
 
-      const famDoItem =
-        nomeDaFamilia(produto) ??
-        chavesDeFamilia().find((k) => opcoesDaFamilia(k).some((o) => semAc(o) === semAc(produto))) ??
-        null;
+      // A conta de "de que familia e este produto" mora em familiaDoProduto,
+      // e so la. Ela estava escrita aqui em linha e faltava no
+      // oClienteNomeouEsteProduto, que por isso descartava a resposta do
+      // cliente sobre o tipo da pizza.
+      const famDoItem = familiaDoProduto(produto);
       // So a pizza: os tres nomes sao TIPO, nao sabor. Bolo e salgado na lista
       // da familia sao o que ele escolhe, e pular eles some o pedido.
       const jaTemGenericoDestaFamilia =
@@ -1479,8 +1507,18 @@ export async function responder(
       const ehPergunta = Boolean(limpa.perguntou?.sobre) || /\?/.test(falaAgora);
       if (ehPergunta && famNomeada && famNomeada !== famDestaEtapa) {
         const nomeado = produtosNaFrase(falaAgora)[0];
+        // A ETAPA DO RESTO DO CARDAPIO NAO CONTA COMO "TEM ETAPA PROPRIA".
+        //
+        // Ela existe pra perguntar o TIPO do que ele ja pediu, e nao pra
+        // receber quem so PERGUNTOU se a casa faz. Quem pergunta "voces fazem
+        // pizza de forma?" quer o preco, nao um interrogatorio.
+        //
+        // Sem esta linha, a etapa nova (30/08/2026) desfaz o conserto do
+        // mesmo dia: a pergunta de pizza no meio do bolo voltava a ser
+        // desviada em vez de respondida.
+        const daFamilia = nomeado ? etapaDesteProduto(nomeado) : null;
         const etapaDaFam: EtapaId | null =
-          (nomeado ? etapaDesteProduto(nomeado) : null) ||
+          (daFamilia === "resto_do_cardapio" ? null : daFamilia) ||
           (famNomeada === "bolo" || famNomeada === "salgado" || famNomeada === "docinho"
             ? famNomeada
             : null);

@@ -228,6 +228,34 @@ export function nomeDaFamilia(produto: unknown): string | null {
 }
 
 /**
+ * DE QUE FAMILIA E ESTE PRODUTO?
+ *
+ * Pergunta diferente da que `nomeDaFamilia` responde, e por isso ela existe.
+ * `nomeDaFamilia` responde "este NOME e uma familia?", entao para "pizza
+ * inteira" ela devolve null, que esta certo: "pizza inteira" e um produto,
+ * nao uma familia.
+ *
+ * Quem precisa saber a que familia um PRODUTO pertence tinha que remontar a
+ * conta por fora. O `fluxo.ts` fazia isso em linha, e o
+ * `oClienteNomeouEsteProduto` nao fazia: por isso ele nao conseguia tirar o
+ * prefixo de "pizza inteira" para procurar "inteira" na frase, e a resposta
+ * do cliente era descartada.
+ *
+ * Duas contas do mesmo assunto em lugares diferentes e o defeito que mais se
+ * repetiu neste projeto. Agora e uma so, e a resposta sai do CATALOGO:
+ * `opcoesDaFamilia` ja lista os produtos de cada familia.
+ */
+export function familiaDoProduto(produto: unknown): string | null {
+  const nome = limpo(String(produto ?? ""));
+  if (!nome) return null;
+  const direto = nomeDaFamilia(produto);
+  if (direto) return direto;
+  return chavesDeFamilia().find((chave) =>
+    opcoesDaFamilia(chave).some((o) => limpo(o) === nome),
+  ) ?? null;
+}
+
+/**
  * PIZZA DE VERDADE, NAO SALGADINHO.
  *
  * Mini pizza e salgado assado e fica na etapa do salgado. Pizza, pizza
