@@ -32,6 +32,28 @@
 // Produto novo no cardapio ja nasce coberto: se ele tiver sabor e ninguem
 // perguntar, isto aqui quebra antes de chegar no cliente.
 //
+// E DESDE 30/08/2026 ELE MEDE TAMBEM O JEITO QUE O CLIENTE ESCREVE.
+//
+// O teste percorria so os 86 nomes CANONICOS, e o cliente nao escreve o nome do
+// cardapio: escreve "risoles" e nao "risólis", "esfiha" e nao "esfirra",
+// "chique" e nao "quiche". O proprio `sabor.ts` conta que isso ja foi defeito
+// vivo, medido em 28/08/2026:
+//
+//     saborQueFalta("risolis")  ->  pergunta o sabor
+//     saborQueFalta("risoles")  ->  NAO PERGUNTA
+//     saborQueFalta("esfiha")   ->  NAO PERGUNTA
+//
+// Um item entrando com essa grafia atravessava a trava do fechamento em
+// silencio, e a comanda saia SEM RECHEIO. O conserto esta feito, e nenhum teste
+// media a grafia: as 35 do `apelidos.ts` que apontam pra produto com sabor
+// passam a ser cobradas dos dois lados.
+//
+// O SABOR COLADO NO NOME TAMBEM CONTA COMO ESCOLHIDO.
+//
+// O leitor da frase anota "esfirra de carne" num campo so, e ai o sabor nao esta
+// na observacao. Se o fechamento nao aceitasse isso, a padaria pediria o recheio
+// que o cliente acabou de dizer, o que e a trava-que-nao-solta pelo outro lado.
+//
 // Roda com: node testes/quem-tem-sabor-tem-que-escolher.cjs
 const path = require("node:path");
 const fs = require("node:fs");
@@ -42,6 +64,7 @@ fs.writeFileSync(
   sonda,
   [
     'import { produtosDaCasa, categoriaDoPedido } from "../lib/ia/dados/produtos.ts";',
+    'import { APELIDOS } from "../lib/ia/dados/apelidos.ts";',
     'import { oQueFaltaPraFechar } from "../lib/ia/fluxo/fechar.ts";',
     'import { ETAPAS_DA_FESTA } from "../lib/ia/fluxo/etapas.ts";',
     'import { falaDaEtapa } from "../lib/ia/fluxo/pergunta.ts";',
@@ -82,6 +105,32 @@ fs.writeFileSync(
     "  if (oQueFaltaPraFechar(escolhido).length) {",
     "    naoFechamComOSabor.push(p.nome + ' (' + p.sabores[0] + ') -> ' + oQueFaltaPraFechar(escolhido).join('; '));",
     "  }",
+    "  // O SABOR COLADO NO NOME, que e como o leitor da frase anota.",
+    "  const colado = pedidoCom(p.nome + ' de ' + p.sabores[0], null);",
+    "  if (oQueFaltaPraFechar(colado).length) {",
+    "    naoFechamComOSabor.push(p.nome + ' de ' + p.sabores[0] + ' (colado no nome) -> ' + oQueFaltaPraFechar(colado).join('; '));",
+    "  }",
+    "}",
+    "",
+    "// O JEITO QUE O CLIENTE ESCREVE, do `apelidos.ts`, nos produtos com sabor.",
+    "const comSaborPorNome = new Map(comSabor.map((p) => [p.nome.toLowerCase(), p]));",
+    "let grafias = 0;",
+    "const grafiaNaoPergunta = [];",
+    "const grafiaNaoFecha = [];",
+    "for (const [canonico, escritas] of Object.entries(APELIDOS)) {",
+    "  const p = comSaborPorNome.get(String(canonico).toLowerCase());",
+    "  if (!p) continue;",
+    "  for (const g of escritas) {",
+    "    grafias++;",
+    "    const semNada = oQueFaltaPraFechar(pedidoCom(g, null));",
+    "    if (!semNada.some((x) => /sabor/.test(x))) {",
+    "      grafiaNaoPergunta.push(g + ' (e ' + p.nome + ') -> falta: ' + (semNada.join('; ') || 'nada'));",
+    "    }",
+    "    for (const jeito of [pedidoCom(g, p.sabores[0]), pedidoCom(g + ' de ' + p.sabores[0], null)]) {",
+    "      const falta = oQueFaltaPraFechar(jeito);",
+    "      if (falta.length) grafiaNaoFecha.push(jeito.itens[0].produto + ' / obs ' + JSON.stringify(jeito.itens[0].obs) + ' -> ' + falta.join('; '));",
+    "    }",
+    "  }",
     "}",
     "",
     "const incomodam = [];",
@@ -112,6 +161,7 @@ fs.writeFileSync(
     "  comSabor: comSabor.length, semSabor: semSabor.length,",
     "  fechamSemEscolher, naoPerguntam, naoPerguntamNoMeio, naoFechamComOSabor, incomodam,",
     "  docinhos: docinhos.length, fechamSemCor, naoPerguntamCor, perguntamCorEmPao,",
+    "  grafias, grafiaNaoPergunta, grafiaNaoFecha,",
     "}));",
   ].join("\n"),
   "utf8",
@@ -130,6 +180,7 @@ const falhas = [];
 
 console.log("Produtos com sabor pra escolher: " + r.comSabor);
 console.log("Produtos de sabor fixo ou sem sabor: " + r.semSabor);
+console.log("Grafias do cliente medidas nos produtos com sabor: " + r.grafias);
 console.log("");
 
 const cobra = (rotulo, lista) => {
@@ -156,6 +207,14 @@ cobra("produto que nao fecha nem com o sabor escolhido", r.naoFechamComOSabor);
 // 4. E QUEM NAO TEM SABOR NAO E INCOMODADO. Perguntar o recheio da coxinha, que
 // e fixo, e fazer o cliente escolher o que nao tem escolha.
 cobra("produto de sabor fixo sendo perguntado a toa", r.incomodam);
+
+// 5. E VALE PRO JEITO QUE O CLIENTE ESCREVE, nao so pro nome do cardapio.
+cobra("grafia do cliente que FECHA sem perguntar o sabor", r.grafiaNaoPergunta);
+cobra("grafia do cliente que nao fecha nem com o sabor escolhido", r.grafiaNaoFecha);
+if (!r.grafias) {
+  falhas.push("nenhuma grafia do cliente foi medida: a varredura do apelidos.ts quebrou");
+  console.log("ERRO  nenhuma grafia do cliente foi medida");
+}
 
 cobra("docinho que FECHA sem cor de forminha", r.fechamSemCor);
 cobra("docinho que bloqueia a cor e NAO pergunta", r.naoPerguntamCor);
