@@ -167,6 +167,14 @@ conferir(faltando.length === 0, "comanda que não saiu: " + faltando.join(", "))
 console.log("");
 console.log((faltando.length ? "ERRO  " : "ok    ") + "cada família virou a sua comanda");
 
+const papelSalgados = limpo(cupons.find((c) => limpo(c).includes("== SALGADOS ==")) || "");
+const papelPizza = limpo(cupons.find((c) => limpo(c).includes("== PIZZA ==")) || "");
+conferir(semAcento(papelSalgados).includes("coxinha (frito)"), "coxinha na comanda SALGADOS sem (frito)");
+conferir(semAcento(papelSalgados).includes("esfirra (assado)"), "esfirra na comanda SALGADOS sem (assado)");
+conferir(!semAcento(papelPizza).includes("(frito)") && !semAcento(papelPizza).includes("(assado)"), "pizza ganhou marca de frito ou assado");
+console.log((semAcento(papelSalgados).includes("coxinha (frito)") && semAcento(papelSalgados).includes("esfirra (assado)") ? "ok    " : "ERRO  ") + "na linha do salgado aparece se e frito ou assado");
+console.log((!semAcento(papelPizza).includes("(frito)") && !semAcento(papelPizza).includes("(assado)") ? "ok    " : "ERRO  ") + "pizza nao ganha a marca de frito nem assado");
+
 // Nenhum item pode ficar de fora do caixa: e o papel que fecha o valor.
 const caixa = limpo(cupons[cupons.length - 1]);
 const forasDoCaixa = deTudo.filter((i) => !semAcento(caixa).includes(semAcento(i.produto)));

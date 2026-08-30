@@ -34,7 +34,7 @@ const { identificarProduto } = require(join(pasta, "ia", "fluxo", "produto.js"))
 const { produtosNaFrase } = require(join(pasta, "ia", "fluxo", "leitor-da-frase.js"));
 const { vocabularioDaEtapa } = require(join(pasta, "ia", "fluxo", "leitura.js"));
 const { coresDoCardapio } = require(join(pasta, "ia", "fluxo", "sabor.js"));
-const { deptoDe, DEPARTAMENTOS } = require(join(pasta, "departamentos.js"));
+const { deptoDe, DEPARTAMENTOS, nomeNoTicket } = require(join(pasta, "departamentos.js"));
 const catalogo = require("../lib/ia/dados/catalogo.json");
 
 let erros = 0;
@@ -177,6 +177,35 @@ for (const i of catalogo.salgados.assado.itens) {
   if (deu !== "salgados") comandaErrada.push(`${i.nome} foi pra ${deu}`);
 }
 conferir(comandaErrada.length === 0, "todo salgado vai pra comanda de salgados");
+
+const marcaErrada = [];
+for (const i of catalogo.salgados.frito.itens) {
+  const linha = nomeNoTicket({ produto: i.nome, categoria: "salgado_frito" });
+  const jaNoNome = /(^|[^a-z0-9])frito([^a-z0-9]|$)/i.test(i.nome);
+  if (jaNoNome) {
+    if (/\(frito\)/i.test(linha)) marcaErrada.push(i.nome + " repetiu frito");
+  } else if (!/\(frito\)/i.test(linha)) {
+    marcaErrada.push(i.nome + " saiu sem frito: " + linha);
+  }
+}
+for (const i of catalogo.salgados.assado.itens) {
+  const linha = nomeNoTicket({ produto: i.nome, categoria: "salgado_assado" });
+  const jaNoNome = /(^|[^a-z0-9])assado([^a-z0-9]|$)/i.test(i.nome);
+  if (jaNoNome) {
+    if (/\(assado\)/i.test(linha)) marcaErrada.push(i.nome + " repetiu assado");
+  } else if (!/\(assado\)/i.test(linha)) {
+    marcaErrada.push(i.nome + " saiu sem assado: " + linha);
+  }
+}
+conferir(marcaErrada.length === 0, "todo salgado diz frito ou assado na linha" + (marcaErrada.length ? ": " + marcaErrada.join("; ") : ""));
+conferir(
+  !/\(frito\)|\(assado\)/.test(nomeNoTicket({ produto: "brigadeiro", categoria: "docinho" })),
+  "docinho nao ganha marca de frito nem assado",
+);
+conferir(
+  !/\(frito\)|\(assado\)/.test(nomeNoTicket({ produto: "pizza inteira", categoria: "pizza" })),
+  "pizza nao ganha marca de frito nem assado",
+);
 
 comandaErrada = [];
 for (const i of catalogo.doces.itens) {

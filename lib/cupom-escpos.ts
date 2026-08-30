@@ -34,7 +34,7 @@
 //  da memória).
 // ============================================================================
 
-import { deptoDe, deptosDoPedido, nomeDaComanda, qtdDoTicket, unidadeDoTicket, type DeptoId } from "./departamentos";
+import { deptoDe, deptosDoPedido, nomeDaComanda, nomeNoTicket, qtdDoTicket, unidadeDoTicket, type DeptoId } from "./departamentos";
 import { tiraAcento } from "./ia/texto";
 
 export type ItemCupom = {
@@ -162,10 +162,14 @@ function cabecalho(titulo: string, p: PedidoCupom): string {
 // A observação de cada item sai logo abaixo dele: é o sabor, o recheio, a cor
 // da forminha, o tema do topo, o nome e a idade do aniversariante. Cada uma na
 // comanda do seu item, então a forminha não vaza pra comanda do bolo.
+//
+// Salgado frito e assado saem no MESMO papel "== SALGADOS ==". A diferença
+// aparece no nome da linha, via nomeNoTicket: "coxinha (frito)", "esfirra
+// (assado)". A dona: "so eh pra mudar o produto nao a comanda que sai".
 function listaItens(itens: ItemCupom[]): string {
   let t = "";
   for (const i of itens) {
-    t += NEGRITO_ON + qtdDoTicket(i).padEnd(8) + NEGRITO_OFF + semAcento(i.produto) + "\n";
+    t += NEGRITO_ON + qtdDoTicket(i).padEnd(8) + NEGRITO_OFF + semAcento(nomeNoTicket(i)) + "\n";
     if (i.obs) t += observacaoDoItem(i.obs, i.produto);
   }
   return t;

@@ -12,6 +12,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Pedido, PedidoStatus } from "@/lib/tipos";
 import { brl, formatarTelefoneBR, linkWhatsapp } from "@/lib/tipos";
+import { nomeNoTicket } from "@/lib/departamentos";
 import { aprovarPedido, recusarPedido, reimprimirPedido } from "@/app/(painel)/acoes";
 import { X, Loader2, Image as ImageIcon, MessageSquare, AlertTriangle, Check, Printer } from "lucide-react";
 
@@ -246,7 +247,7 @@ export default function PedidoDetalhe({
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="text-sm text-cream/90">
                         <b className="text-cream tabular-nums">{qtdFmt(i.qtd, i.unidade)}</b>{" "}
-                        {i.produto}
+                        {nomeNoTicket(i)}
                       </span>
                       <span className="text-[13px] text-cream/60 tabular-nums shrink-0">
                         {brl(i.subtotalCentavos)}

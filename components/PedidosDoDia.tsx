@@ -15,6 +15,7 @@ import {
   agregarPorDepto,
   deptoInfo,
   deptosDoPedido,
+  nomeNoTicket,
   qtdDoTicket,
   unidadeDoTicket,
 } from "@/lib/departamentos";
@@ -329,7 +330,7 @@ export default function PedidosDoDia({
                           <b className="text-[14px] text-cream tabular-nums" style={{ color: d.cor }}>
                             {qtdDoTicket({ produto: it.produto, qtd: it.qtd, unidade: it.unidade })}
                           </b>
-                          <span className="text-[14px] text-cream">{it.produto}</span>
+                          <span className="text-[14px] text-cream">{nomeNoTicket(it)}</span>
                           {/* A hora manda na bancada: e ela que diz o que sai do
                               forno primeiro. Sem isso a estacao ve o que produzir
                               e nao ve pra quando. */}
@@ -393,7 +394,7 @@ export default function PedidosDoDia({
                               <span className="font-semibold text-cream tabular-nums">
                                 {qtdDoTicket(i)}
                               </span>{" "}
-                              {i.produto}
+                              {nomeNoTicket(i)}
                             </div>
                             {i.obs ? (
                               <div
