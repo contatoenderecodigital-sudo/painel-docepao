@@ -228,6 +228,8 @@ fs.writeFileSync(
     "    calzone: fotoDe(produtosDaCasa().find((x) => x.nome.startsWith('calzone'))?.nome ?? 'calzone'),",
     "    esfirra: fotoDe('esfirra'),",
     "    coxinha: fotoDe('coxinha'),",
+    "    trufa: fotoDe('trufa'),",
+    "    miniPizza: fotoDe('mini pizza'),",
     "  },",
     "}));",
   ].join("\n"),
@@ -312,6 +314,10 @@ cobraSpec("esfirra pede sabor e manda salgados",
   spec.esfirra?.pede && pergunta(spec.esfirra) && spec.esfirra.cardapio === "salgados");
 cobraSpec("coxinha nao pede sabor",
   spec.coxinha?.existe && spec.coxinha.pede === false && !pergunta(spec.coxinha));
+cobraSpec("trufa pede sabor, nao fecha sem, manda docinhos, etapa nao e salgado",
+  spec.trufa?.existe && spec.trufa.pede && pergunta(spec.trufa) && spec.trufa.cardapio === "docinhos" && spec.trufa.etapa !== "salgado" && (spec.trufa.falta || []).some((x) => /sabor/.test(x)));
+cobraSpec("mini pizza pede sabor na etapa do salgado, nao e pizza inteira",
+  spec.miniPizza?.existe && spec.miniPizza.pede && spec.miniPizza.etapa === "salgado" && pergunta(spec.miniPizza) && spec.miniPizza.cardapio === "salgados");
 
 cobra("docinho que FECHA sem cor de forminha", r.fechamSemCor);
 cobra("docinho que bloqueia a cor e NAO pergunta", r.naoPerguntamCor);

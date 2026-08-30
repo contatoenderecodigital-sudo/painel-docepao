@@ -32,9 +32,9 @@ import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMon
 import { falaDaEtapa, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitura } from "./leitura";
 import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase } from "./leitor-da-frase";
-import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida } from "../texto";
+import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida, formasDoCliente } from "../texto";
 import { identificarProduto } from "./produto";
-import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, nomeDaFamilia, opcoesDaFamilia } from "./generico";
+import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, ehPizzaQueNaoESalgado, nomeDaFamilia, opcoesDaFamilia } from "./generico";
 import { APELIDOS } from "../dados/apelidos";
 import { produtoNoComeco, produtoPorNome, produtosDaCasa, coresDoCardapio } from "../dados/produtos";
 import { semAcento as semAc } from "../texto";
@@ -240,25 +240,16 @@ export function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
   // mesma etapa virou salgado_frito e entrou no mesmo rateio.
   //
   // Pizza nao e salgado de festa. Brigadeiro e docinho. A etapa so desempata
-  // o que o cardapio nao conhece.
-  const doCatalogo = categoriaDoCatalogo(nome);
-  if (doCatalogo !== "outro") return doCatalogo;
+  // o que o cardapio nao conhece. Mini pizza, essa sim, e salgado assado.
+  // Artigo na frente ("uma mini pizza") tambem tem que achar o produto.
+  for (const f of formasDoCliente(produto)) {
+    const doCatalogo = categoriaDoCatalogo(semAc(f));
+    if (doCatalogo !== "outro") return doCatalogo;
+    const daFamilia = categoriaUnicaDaFamilia(f);
+    if (daFamilia) return daFamilia;
+  }
 
-  // NOME DE FAMILIA NAO E PRODUTO DE CATALOGO, E MESMO ASSIM TEM FAMILIA.
-  //
-  // O catalogo nao conhece "salgado assado", entao devolvia `outro`. Medido
-  // contra a producao em 29/08/2026, lendo a montagem de verdade:
-  //
-  //     {"produto": "salgado assado", "categoria": "outro", "qtd": 200}
-  //
-  // Com `outro` a etapa do salgado se considera fora do assunto e e pulada:
-  // ninguem pergunta quais, e a cozinha recebe 200 de nada. A tabela FAMILIAS
-  // sabia a resposta; faltava perguntar pra ela.
-  //
-  // So vale quando a familia aponta pra UMA categoria. "salgado" sozinho aponta
-  // pra frito e assado, e escolher ali seria chutar a bancada.
-  const daFamilia = categoriaUnicaDaFamilia(nome);
-  if (daFamilia) return daFamilia;
+  if (ehPizzaQueNaoESalgado(produto)) return "pizza";
 
   if (etapa === "salgado") {
     // O cardapio nao conhece o nome: frito e o padrao da casa, e e o que a
@@ -278,7 +269,7 @@ export function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
     return "bolo_festa";
   }
 
-  return doCatalogo;
+  return "outro";
 }
 
 /**

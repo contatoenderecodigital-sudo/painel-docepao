@@ -61,8 +61,8 @@ function familiaNoComeco(t: string): string | null {
   for (const { k, n } of chaves) {
     if (!(perto(n, t) || formas.some((f) => perto(n, f)))) continue;
     // Mini pizza e salgado. A palavra pizza no meio dela nao e a familia da
-    // pizza de forma: no pedido misturado virava a pizza cara e sumia o
-    // salgado.
+    // pizza de forma: no pedido misturado virava a pizza cara (R$ 120) e
+    // pulava a conversa da festa.
     if (n === "pizza") {
       const eMini = [t, ...formas].some(
         (f) => f === "mini pizza" || f.startsWith("mini pizza ") || f.startsWith("mini pizza,"),
