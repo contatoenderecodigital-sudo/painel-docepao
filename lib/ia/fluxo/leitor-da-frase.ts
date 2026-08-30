@@ -596,6 +596,12 @@ function recheiosDoCatalogo(): string[] {
   return [...new Set(produtosDaCasa().flatMap((p) => p.sabores))].filter(Boolean);
 }
 
+function pedeSaborAberto(nome: string): boolean {
+  const n = semAcMin(nome);
+  const p = produtosDaCasa().find((x) => semAcMin(x.nome) === n || semAcMin(x.nomeCurto) === n);
+  return Boolean(p && !p.saborFixo && p.sabores.length);
+}
+
 /**
  * O ITEM DE OUTRA ETAPA QUE ESTA ESCRITO NA FRASE E O MODELO NAO DEVOLVEU.
  *
@@ -699,21 +705,38 @@ export function itensNaFrase(fala: string): { produto: string; qtd: number; obs?
     // escreveu "coxinia" tem sete letras ali, e cortar por "coxinha" moveria o
     // resto da frase de lugar.
     const cru = t.slice(onde + tamanho);
+    const tinhaLigacao = /^ *(de|da|do|com) +/.test(cru);
     const semLigacao = cru.replace(/^ *(de|da|do|com) +/, "");
     const ateOProximo = semLigacao.split(/[,;]| e (?=[a-z])/)[0] ?? "";
     const recheio = recheiosDoCatalogo().find((r) => {
       const rr = semAcMin(r);
       return rr && (ateOProximo === rr || ateOProximo.startsWith(rr + " ") || ateOProximo.startsWith(rr));
     });
+    // SABOR FORA DO CARDAPIO NAO SOME.
+    //
+    // A dona: "se o cliente pedir outro sabor, a gente vai colocando". Pra
+    // colocando, a equipe PRECISA VER o que ele falou. O casamento acima so
+    // pega sabor da lista; "esfirra de pistache" ficava esfirra SEM recado, e
+    // a insistencia depois tambem nao grudava (so olha a lista da casa).
+    //
+    // So vale colado com de/da/do/com, igual ao recheio da casa: "50 esfirra
+    // pra sabado" nao e sabor. E nao vira sabor de catalogo: vai como recado.
+    let recado: string | undefined;
     if (recheio) {
       // Tudo ate o fim do recheio ja tem dono.
       fimDoRecheioAnterior = onde + tamanho + (cru.length - semLigacao.length) + semAcMin(recheio).length;
+    } else if (tinhaLigacao && pedeSaborAberto(nome)) {
+      const resto = ateOProximo.trim();
+      if (resto) {
+        recado = resto;
+        fimDoRecheioAnterior = onde + tamanho + (cru.length - semLigacao.length) + resto.length;
+      }
     }
 
     achados.push({
       produto: nome,
       qtd: qtd > 0 && qtd <= 5000 ? qtd : 0,
-      ...(recheio ? { obs: recheio } : {}),
+      ...(recheio ? { obs: recheio } : recado ? { obs: recado } : {}),
     });
   }
   return achados;

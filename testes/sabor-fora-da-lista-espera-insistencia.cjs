@@ -44,15 +44,24 @@ fs.writeFileSync(
     "",
     "const comCarne = await responder({ ...VAZIO }, { texto: '50 esfirra de carne' }, pensarCarne);",
     "",
+    "const soFrase = await responder({ ...VAZIO }, { texto: '50 esfirra de pistache' }, async () => ({}));",
+    "",
     "console.log(JSON.stringify({",
     "  perguntouNoComeco: Boolean(saborQueFalta('esfirra', obs1)),",
     "  marcaNoComeco: /sabor a confirmar/i.test(String(obs1 || '')),",
     "  equipeNoComeco: t1.precisaHumano === true,",
+    "  pistacheNoComeco: /pistache/i.test(String(obs1 || '')),",
+    "  itemNoComeco: t1.estado.itens.length,",
     "  marcaDepois: /sabor a confirmar/i.test(String(obs3 || '')),",
     "  equipeDepois: t3.precisaHumano === true,",
+    "  pistacheDepois: /pistache/i.test(String(obs3 || '')),",
+    "  itemDepois: t3.estado.itens.length,",
     "  falaDepois: t3.fala.texto,",
     "  carneMarca: /sabor a confirmar/i.test(String((comCarne.estado.itens[0] && comCarne.estado.itens[0].obs) || '')),",
     "  carneEquipe: comCarne.precisaHumano === true,",
+    "  carneObs: (comCarne.estado.itens[0] && comCarne.estado.itens[0].obs) || '',",
+    "  fraseObs: (soFrase.estado.itens[0] && soFrase.estado.itens[0].obs) || '',",
+    "  fraseItem: soFrase.estado.itens.length,",
     "}));",
   ].join("\n"),
   "utf8",
@@ -81,9 +90,16 @@ const cobra = (rotulo, ok, detalhe) => {
 cobra("na primeira vez a padaria ainda pergunta o sabor", r.perguntouNoComeco === true);
 cobra("na primeira vez NAO marca sabor a confirmar", r.marcaNoComeco === false, String(r.marcaNoComeco));
 cobra("na primeira vez NAO chama a equipe", r.equipeNoComeco === false);
+cobra("na primeira vez o pistache ja esta no recado do item", r.pistacheNoComeco === true);
+cobra("o item nao some na primeira vez", r.itemNoComeco === 1);
 cobra("depois de insistir, anota sabor a confirmar", r.marcaDepois === true, String(r.falaDepois || "").slice(0, 160));
 cobra("depois de insistir, chama a equipe", r.equipeDepois === true);
+cobra("depois de insistir o pistache continua no recado", r.pistacheDepois === true);
+cobra("o item nao some depois de insistir", r.itemDepois === 1);
 cobra("sabor do cardapio nao vira chamado", r.carneMarca === false && r.carneEquipe === false);
+cobra("sabor do cardapio fica como sabor, nao some", /carne/i.test(String(r.carneObs || "")), String(r.carneObs));
+cobra("frase sozinha (modelo vazio) guarda o pistache no recado", /pistache/i.test(String(r.fraseObs || "")), String(r.fraseObs));
+cobra("frase sozinha nao some o item", r.fraseItem === 1);
 
 console.log("");
 if (falhas.length) {

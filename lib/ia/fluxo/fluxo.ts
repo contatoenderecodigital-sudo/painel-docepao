@@ -869,6 +869,14 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       const outroRecheio = recheioQueNaoExiste(produto, saborPedido);
       if (outroRecheio) {
         recheiosTrocados.push(produto + " de " + outroRecheio);
+        // Recheio fixo: o que ele pediu nao vai pra comanda. Tira do obs se
+        // o leitor da frase tinha deixado o resto do "de X" como recado.
+        if (saborPedido && String(obsItem ?? "").toLowerCase().includes(saborPedido.toLowerCase())) {
+          obsItem = String(obsItem)
+            .split(" | ")
+            .filter((p) => semAc(p) !== semAc(saborPedido))
+            .join(" | ") || null;
+        }
       } else if (saborPedido && !String(obsItem ?? "").toLowerCase().includes(saborPedido.toLowerCase())) {
         // O SABOR VEM NA FRENTE DO RECADO, e não atrás.
         //
@@ -1044,6 +1052,27 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       novo.itens = novo.itens.map((i) =>
         i === item ? { ...i, obs: [i.obs, achado].filter(Boolean).join(" | ") } : i,
       );
+    } else if (/\?/.test(String(falaDoCliente || "")) === false) {
+      // ELE INSISTIU NUM SABOR QUE A LISTA NAO TEM.
+      //
+      // "pistache" sozinho nao nomeia produto e nao esta nas opcoes. Sem isto
+      // a resposta caia no vazio, a padaria perguntava de novo, e na
+      // insistencia o bloco de equipe exigia obs ja preenchida: o sabor
+      // pedido nunca chegava na comanda.
+      const cru = String(falaDoCliente || "").trim();
+      const soIsto = semAc(cru);
+      const jaTem = semAc(String(item.obs ?? ""));
+      if (
+        cru &&
+        soIsto.length >= 3 &&
+        soIsto.length <= 40 &&
+        !produtosNaFrase(cru).length &&
+        !jaTem.includes(soIsto)
+      ) {
+        novo.itens = novo.itens.map((i) =>
+          i === item ? { ...i, obs: [i.obs, cru].filter(Boolean).join(" | ") } : i,
+        );
+      }
     }
   }
 
@@ -1308,7 +1337,16 @@ export async function responder(
     // O segundo e o caso que fez o `aplicar` subir pra ca, e ele continua de pe.
     const lida = juntarComAFrase(limpa, String(mensagem.texto ?? ""));
     leituraDesteTurno = lida;
-    if (lida.perguntou?.sobre && lida.itens?.length) {
+    // PERGUNTA SEM NUMERO NAO VIRA ITEM. O MODELO HEDGEANDO TAMBEM NAO.
+    //
+    // O modelo devolve `{}` ou `perguntou` quando deveria anotar. A frase
+    // "quero 50 coxinha" tem o produto e o numero: o leitor ja colocou na
+    // leitura. Sem o numero, "quanto e a coxinha?" (com ? ou com perguntou)
+    // nao inventa linha. Ponto de interrogacao e do mundo, nao lista minha.
+    const falaCru = String(mensagem.texto ?? "");
+    const soPerguntou =
+      Boolean(lida.perguntou?.sobre) || /\?/.test(falaCru);
+    if (soPerguntou && lida.itens?.length) {
       const comNumero = lida.itens.filter((i) => Number(i.qtd) > 0);
       if (comNumero.length !== lida.itens.length) {
         rastro.push(
@@ -1318,7 +1356,7 @@ export async function responder(
       }
       lida.itens = comNumero.length ? comNumero : undefined;
     }
-    estado = aplicar(estado, lida, etapaAgora.id, String(mensagem.texto ?? ""));
+    estado = aplicar(estado, lida, etapaAgora.id, falaCru);
 
     // ---------------------------------------- A CONVERSA NAO E UM PEDIDO
     //
@@ -1354,7 +1392,18 @@ export async function responder(
     //
     // A conversa nao sai do lugar: ele continua na mesma etapa, e a proxima
     // mensagem dele segue de onde parou.
-    if (limpa.perguntou?.sobre) {
+    // PEDIDO COM NUMERO NAO VIRA SO CONFIRMACAO.
+    //
+    // O modelo hedgeia: devolve perguntou (ou confirmou) e esquece o item.
+    // A frase ja anotou "50 coxinha". Se a gente sair daqui respondendo preco
+    // e fingindo que nao anotou, a padaria fala "voce quer coxinha, certo?"
+    // e o pedido fica vazio no turno seguinte quando a leitura nova nao
+    // devolve o item de novo.
+    //
+    // Perguntar continua nao sendo pedir: sem quantidade na frase, o bloco
+    // de cima tirou a linha e este return responde a pergunta.
+    const anotouPedidoNesteTurno = (lida.itens ?? []).some((i) => Number(i.qtd) > 0);
+    if (limpa.perguntou?.sobre && !anotouPedidoNesteTurno) {
       // "QUANTO FICA?" NO MEIO DO PEDIDO E O TOTAL DELE, NAO TABELA DE PRECO.
       //
       // Teste da Kemilly: ela perguntou "quanto fica?" com o pedido montado e a
