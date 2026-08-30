@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Pedido } from "@/lib/tipos";
 import { brl, formatarTelefoneBR, linkWhatsapp } from "@/lib/tipos";
+import { nomeNoTicket } from "@/lib/departamentos";
 import { MSG_PADRAO, montarTextoDaCobranca } from "@/lib/cobranca-texto";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import AjudaInfo from "@/components/AjudaInfo";
@@ -442,7 +443,7 @@ export default function Recuperar({
                     <div className="text-sm text-cream/70 mt-2">
                       {/* 2 kg de cuca virava "2× cuca" na leitura rápida, como se
                           fossem duas cucas. O detalhe já mostrava certo. */}
-                      {p.itens.map((i) => `${i.qtd}${i.unidade === "kg" ? " kg" : "×"} ${i.produto}`).join(" · ")}
+                      {p.itens.map((i) => `${i.qtd}${i.unidade === "kg" ? " kg" : "×"} ${nomeNoTicket(i)}`).join(" · ")}
                     </div>
                     {p.observacoes && (
                       <div className="text-xs text-cream/55 italic mt-1">"{p.observacoes}"</div>

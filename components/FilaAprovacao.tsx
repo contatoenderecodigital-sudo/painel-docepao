@@ -11,6 +11,7 @@ import { buscarDoPainel, AVISO_SESSAO_EXPIRADA } from "@/lib/buscar-do-painel";
 import Link from "next/link";
 import type { Pedido, FormaPagamento, HistoricoCliente } from "@/lib/tipos";
 import { brl, formatarTelefoneBR, linkWhatsapp, mesAno } from "@/lib/tipos";
+import { nomeNoTicket } from "@/lib/departamentos";
 import { MessageSquare, Repeat, UserPlus, Wallet, CalendarDays, AlertTriangle, CreditCard, Banknote, Zap, CheckCircle2, Clock, Image as ImageIcon } from "lucide-react";
 import CupomPreview from "./CupomPreview";
 import StatusImpressora from "./StatusImpressora";
@@ -178,7 +179,7 @@ function CardPedido({
                   <span className="font-semibold text-cream">
                     {it.unidade === "kg" ? `${String(it.qtd).replace(".", ",")} kg` : `${it.qtd}×`}
                   </span>{" "}
-                  {it.produto}
+                  {nomeNoTicket(it)}
                 </span>
                 <span className="text-cream/65 tabular-nums shrink-0">
                   {brl(it.subtotalCentavos)}
