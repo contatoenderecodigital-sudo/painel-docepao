@@ -12,6 +12,31 @@ import { brl } from "@/lib/ia/orcamento";
 const ENV_TOKEN = process.env.WHATSAPP_TOKEN;
 const ENV_PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 const BASE = "https://graph.facebook.com/v25.0";
+const LIMITE_TEXTO = 4096;
+const LIMITE_TEXTO_COM_BOTOES = 1024;
+
+/**
+ * Divide texto no limite da Meta sem perder nenhum caractere.
+ *
+ * Procura uma quebra perto do fim para nao cortar palavra. Quando nao existe,
+ * corta exatamente no limite. O espaco ou a quebra fica em uma das partes,
+ * entao juntar o resultado devolve o original inteiro.
+ */
+export function partesDaMensagem(texto: string, limite = LIMITE_TEXTO): string[] {
+  const partes: string[] = [];
+  let falta = String(texto ?? "");
+  const teto = Math.max(1, Math.floor(limite));
+  while (falta.length > teto) {
+    const janela = falta.slice(0, teto);
+    let corte = Math.max(janela.lastIndexOf("\n"), janela.lastIndexOf(" "));
+    if (corte < Math.floor(teto / 2)) corte = teto;
+    else corte += 1;
+    partes.push(falta.slice(0, corte));
+    falta = falta.slice(corte);
+  }
+  if (falta || !partes.length) partes.push(falta);
+  return partes;
+}
 
 // Token+numero usados pra falar com a Graph API. Prioriza o do tenant.
 export type CredsEnvio = { token?: string | null; phoneId?: string | null };
@@ -60,26 +85,33 @@ export async function marcarLidaEDigitando(
 export async function enviarTexto(para: string, texto: string, creds?: CredsEnvio): Promise<string | null> {
   const { token, phoneId } = resolverCreds(creds);
   const destino = normalizarBR(para);
-  console.log(`[whatsapp] enviando para ${destino} (recebido: ${para}) via ${phoneId}`);
-  const r = await fetch(`${BASE}/${phoneId}/messages`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to: destino,
-      type: "text",
-      text: { body: texto },
-    }),
-  });
-  if (!r.ok) throw new Error(`Falha ao enviar WhatsApp: ${r.status} ${await r.text()}`);
-  // O id volta na resposta do Meta: e por ele que a gente reconhece depois
-  // qual mensagem o cliente marcou pra responder.
-  try {
-    const corpo = (await r.json()) as { messages?: { id?: string }[] };
-    return corpo?.messages?.[0]?.id ?? null;
-  } catch {
-    return null;
+  const partes = partesDaMensagem(texto);
+  let ultimoWamid: string | null = null;
+  for (let i = 0; i < partes.length; i++) {
+    console.log(
+      `[whatsapp] enviando para ${destino} (recebido: ${para}) via ${phoneId}` +
+        (partes.length > 1 ? `, parte ${i + 1}/${partes.length}` : ""),
+    );
+    const r = await fetch(`${BASE}/${phoneId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to: destino,
+        type: "text",
+        text: { body: partes[i] },
+      }),
+    });
+    if (!r.ok) throw new Error(`Falha ao enviar WhatsApp: ${r.status} ${await r.text()}`);
+    // O ultimo id representa a resposta inteira para o recibo da conversa.
+    try {
+      const corpo = (await r.json()) as { messages?: { id?: string }[] };
+      ultimoWamid = corpo?.messages?.[0]?.id ?? ultimoWamid;
+    } catch {
+      // A mensagem foi aceita. O recibo pode ficar sem id, como antes.
+    }
   }
+  return ultimoWamid;
 }
 
 // BOTAO DE RESPOSTA: ate tres, 20 caracteres cada.
@@ -104,6 +136,15 @@ export async function enviarBotoes(
   creds?: CredsEnvio,
   rodape?: string,
 ): Promise<string | null> {
+  const textoInteiro = String(texto || "");
+  // Corpo interativo aceita menos texto que mensagem comum. Cortar aqui fazia
+  // o fim do resumo desaparecer, inclusive total e retirada. Resumo inteiro
+  // vale mais que o conforto do botao; o cliente tambem pode confirmar
+  // escrevendo, caminho que o fluxo ja aceita.
+  if (textoInteiro.length > LIMITE_TEXTO_COM_BOTOES) {
+    console.log("[whatsapp] texto nao cabe com botoes; enviando inteiro sem botoes");
+    return enviarTexto(para, textoInteiro, creds);
+  }
   const { token, phoneId } = resolverCreds(creds);
   const destino = normalizarBR(para);
   const tres = botoes.slice(0, 3).map((b, i) => ({
@@ -123,8 +164,8 @@ export async function enviarBotoes(
     type: "interactive",
     interactive: {
       type: "button",
-      // O corpo tambem tem teto (1024): estourar derruba a mensagem inteira.
-      body: { text: String(texto || "").slice(0, 1024) },
+      // O corpo tambem tem teto. Texto grande ja saiu inteiro logo acima.
+      body: { text: textoInteiro },
       action: { buttons: tres },
     },
   };
