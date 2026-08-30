@@ -218,6 +218,39 @@ modelo acerta                ->  100 ~ coxinha
 Travado por `testes/o-leitor-da-frase-acha-e-nao-inventa.cjs`, que cobre as tres
 formas e tambem o caso da frase sozinha, sem item nenhum do modelo.
 
+### 4a. A TERCEIRA CAMADA DA PIZZA — FECHADA EM 30/08/2026
+
+O defeito de "2 inteiras, uma de calabresa e uma de frango" tinha **tres**
+camadas, e as duas primeiras nao bastavam:
+
+```
+antes             1 ~ pizza inteira ~ calabresa | frango   R$ 120,00
+so a instrucao    2 ~ pizza inteira ~ frango com catupiry  R$ 240,00  (perdeu a calabresa)
+fluxo consertado  1 ~ pizza inteira ~ calabresa
+                  1 ~ pizza inteira ~ frango com catupiry  (medido LOCAL, correto)
+producao          1 ~ pizza inteira ~ frango com catupiry | calabresa  R$ 120,00
+```
+
+A terceira e a GRAVACAO. `pizza` esta em `UMA_LINHA_SO`, entao a montagem
+casava as duas linhas pelo nome e juntava de volta o que a leitura tinha acabado
+de separar, somando o sabor. Somar sabor continua certo (sao ate 4 na mesma
+pizza); o que faltava era distinguir **somar sabor na mesma pizza** de
+**empilhar duas pizzas diferentes**. Quem soma escreve um sabor que CONTEM o que
+ja estava; quem pediu outra pizza escreve um sabor sem nada em comum.
+
+A guarda de doce contra salgada NAO saiu, e nao e repeticao da regra nova:
+quando a Dora reescreve a observacao inteira como `"calabresa, brigadeiro"`, o
+texto novo contem o antigo e passaria pela regra do sabor. Quem barra e o tipo.
+
+**A decisao virou funcao pura, e isso e metade do conserto.** Ela morava dentro
+do `anotarItem`, que so roda com banco, e por isso o `linha-nao-multiplica.cjs`
+conferia a regra por GREP no texto do arquivo: procurava a condicao antiga ter
+sumido, e nao o comportamento estar certo. **Grep passa verde com a regra
+escrita e quebrada.** Agora e `linhaQueRecebe(itens, item)`, e o teste novo
+monta o pedido, chama, e olha o numero que voltou:
+`testes/a-pizza-de-outro-sabor-e-outra-linha.cjs`, sete casos, isca provada
+(so o caso do dinheiro vermelho, as seis licoes em volta verdes).
+
 ### 4b. O LIXO — FECHADO EM 30/08/2026, e o detector deixou de ter ponto cego
 
 **A lista de pastas saiu do `nada-de-codigo-fantasma.cjs`.** Ele varria quatro
@@ -589,6 +622,36 @@ comissão, atribuição pelo link (testada no navegador).
 
 - merge de `coolify-postgres` para `servidor`, e aposentar o pm2 do aaPanel
 - revogar o token da API do Coolify quando terminar
+
+### Cancelar UMA de duas linhas do mesmo produto (achado em 30/08/2026)
+
+Defeito de dinheiro, na direcao contraria a da pizza: o cliente **paga por um
+item que cancelou**. Nao e regressao do conserto da pizza, e mais velho que ele
+(medido: duas coxinhas de recheios diferentes ja eram duas linhas antes).
+
+O pedido ja aceita duas linhas do mesmo nome com recheios diferentes:
+
+```
+100 ~ coxinha ~ frango
+ 50 ~ coxinha ~ calabresa
+```
+
+Mas tudo o que tira item do pedido enxerga so o NOME:
+
+- `itensQueSairam` em `gravar.ts` chaveia por `produto|categoria`, sem a
+  observacao. Se o cliente cancela a de calabresa, a chave continua no `depois`
+  e **nada e removido**: a linha cancelada fica no banco e entra na conta.
+- `removerItem` em `montagem.ts` filtra por `mesmaLinha`, que tambem so olha o
+  nome. Quando ele e chamado, leva **as duas**, e ai o dano e o oposto: some
+  do pedido o que o cliente nao mandou tirar. Isso fere "nada some do pedido".
+
+Os dois lados erram, e a granularidade certa e produto + categoria +
+observacao. **Nao consertar de improviso:** a chave ignora a observacao de
+proposito, porque ela CRESCE ("calabresa" virando "calabresa, frango") e
+incluir a observacao crua faria a linha que so ficou mais completa contar como
+linha que saiu. Precisa de teste com isca antes, na mesma forma do
+`a-pizza-de-outro-sabor-e-outra-linha.cjs`: a decisao sai pra funcao pura, e o
+teste monta o pedido e olha o que voltou.
 
 **Os dois cérebros saíram da lista em 26/08/2026.** Era a dívida mais cara do
 projeto e custou duas correções entregues como prontas que não faziam nada.

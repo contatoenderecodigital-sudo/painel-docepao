@@ -3749,3 +3749,64 @@ o que serve pra qualquer separador que o modelo escolher amanhã.
 | 1 pizza, dois sabores | **uma linha**: a inteira aceita até quatro, dividir cobraria dobrado |
 | 5 pizzas, dois sabores | não abre: não dá pra saber quantas de cada |
 | `calabresa e sem cebola` | não abre: recado não é sabor, e quem diz isso é o catálogo |
+
+---
+
+## 77. A terceira camada da pizza, e o teste que passava verde por grep
+
+Depois de consertar a leitura (o modelo lia `2x pizza [calabresa e frango com
+catupiry]`, uma linha so) e a repartição no fluxo, medi LOCAL e o fluxo entregava
+as duas linhas certas. A produção continuou fechando com uma pizza e R$ 120,00.
+
+Elas morriam na GRAVACAO. `pizza` esta em `UMA_LINHA_SO`, entao a montagem
+casava as duas pelo nome e juntava de volta o que a leitura tinha acabado de
+separar, somando o sabor. Foi assim que nasceu aquele
+`frango com catupiry | calabresa` numa linha so.
+
+Somar sabor continua certo, e por isso a regra nao podia simplesmente sair: sao
+ate quatro sabores na mesma pizza, e quem acrescenta um sabor na mensagem
+seguinte tem que COMPLETAR a linha. O que faltava era a distincao, e ela esta no
+texto que chega: **quem soma escreve um sabor que CONTEM o que ja estava; quem
+pediu outra pizza escreve um sabor sem nada em comum.**
+
+So vale pra pizza. No bolo a observacao e trocada a vontade enquanto a cliente
+decide o recheio, e cobrar a mesma regra ali faria a festa fechar com dois
+bolos, que e exatamente o defeito que pos o bolo em `UMA_LINHA_SO`.
+
+### O que eu quase apaguei achando que era repetição
+
+A guarda de pizza doce contra pizza salgada parecia virar letra morta depois da
+regra nova. Nao vira: quando a Dora reescreve a observacao inteira como
+`"calabresa, brigadeiro"`, o texto novo CONTEM o antigo e passa pela regra do
+sabor. Quem barra e o tipo. As duas guardas sao complementares, e cada uma tem
+um pedido de verdade atras dela.
+
+### E a lição que vale mais que o conserto
+
+A decisao morava dentro do `anotarItem`, que so roda com banco. Por isso o
+`linha-nao-multiplica.cjs`, que existe justamente pra proteger essa decisao,
+conferia a regra por **grep no texto do arquivo**: procurava a condicao antiga
+ter sumido, e nao o comportamento estar certo.
+
+**Grep passa verde com a regra escrita e quebrada.** Foi o que aconteceu: o teste
+estava verde o tempo todo enquanto a pizza fechava pela metade do preco.
+
+O conserto de verdade foi levantar a decisao pra `linhaQueRecebe(itens, item)`,
+que e pura, e escrever `a-pizza-de-outro-sabor-e-outra-linha.cjs`, que monta o
+pedido, chama a funcao e olha o numero que voltou. Sete casos, isca provada: so
+o caso do dinheiro vermelho, e as seis licoes em volta (bolo que cresce, trufa
+da forminha, doce contra salgada, salgado de recheios diferentes) verdes.
+
+**Quando o teste so consegue ler o arquivo, o problema nao e o teste: e a funcao
+estar presa dentro de outra que precisa de banco.**
+
+### O buraco que apareceu na direção contrária, e que é mais velho
+
+Com duas linhas do mesmo nome no pedido, cancelar UMA delas nao funciona:
+`itensQueSairam` e `removerItem` enxergam so o nome. Um deixa a linha cancelada
+no banco (o cliente paga pelo que tirou), o outro leva as duas (some do pedido o
+que ninguem mandou tirar).
+
+Nao e regressao deste conserto. Medi: duas coxinhas de recheios diferentes ja
+eram duas linhas antes dele. Esta anotado no `O-QUE-FALTA.md`, com o aviso de
+que a chave ignora a observacao DE PROPOSITO, porque ela cresce.

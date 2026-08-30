@@ -89,6 +89,21 @@ Portao local: **111 de 111**. Build limpo. Container em `8654e30`.
 
 ## A PRIMEIRA TAREFA: A QUANTIDADE
 
+> **FECHADA NO CODIGO EM 30/08/2026, e ela tinha TRES camadas, nao uma.**
+> A leitura (instrucao da etapa), a reparticao (`fluxo.ts`) e a **gravacao**
+> (`montagem.ts`). Depois das duas primeiras o fluxo ja entregava as duas
+> linhas certas, medido local, e a producao continuava cobrando R$ 120,00:
+> `pizza` esta em `UMA_LINHA_SO` e a gravacao juntava de volta o que a leitura
+> tinha acabado de separar. Detalhe completo no item 77 do
+> `LEITURA-DA-CADEIA.md` e no item 4a do `O-QUE-FALTA.md`.
+>
+> Travado por `testes/a-pizza-de-outro-sabor-e-outra-linha.cjs`, oito casos.
+> **Falta a medicao contra o banco depois do container mostrar o SHA novo** —
+> ate ela existir, isto aqui e conserto que passou no portao, nao conserto
+> provado.
+>
+> O texto abaixo fica como estava, porque e o enunciado do defeito.
+
 **Este e o defeito de dinheiro que sobrou, e ele esta ao vivo.**
 
 ```

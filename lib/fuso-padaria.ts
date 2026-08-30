@@ -10,18 +10,25 @@
 
 export const TZ_PADARIA = "America/Sao_Paulo";
 
-function parte(quando: Date, tipo: Intl.DateTimeFormatPartTypes, opcoes: Intl.DateTimeFormatOptions): string {
-  const achada = new Intl.DateTimeFormat("en-GB", { timeZone: TZ_PADARIA, ...opcoes })
-    .formatToParts(quando)
-    .find((p) => p.type === tipo);
-  return achada?.value ?? "";
-}
-
-/** HH:MM no fuso da padaria, sempre 00-23. Nunca AM/PM. */
+/**
+ * HH:MM no fuso da padaria, sempre 00-23. Nunca AM/PM.
+ *
+ * O `Intl` ENTREGA A STRING PRONTA, e por isso aqui nao se monta "HH" + ":" +
+ * "MM" na mao.
+ *
+ * A primeira versao pegava a hora e o minuto em duas chamadas e concatenava. O
+ * `testes/a-hora-da-retirada-e-uma-decisao-so.cjs` reprovou na hora, e ele
+ * estava certo: montar hora na mao e a terceira dona da mesma decisao, e este
+ * projeto ja pagou por hora errada em doze horas ("as 3h da tarde" virando
+ * 03:00). Uma chamada so, e o formatador decide.
+ */
 export function horaNaPadaria(quando: Date = new Date()): string {
-  const hora = parte(quando, "hour", { hour: "2-digit", minute: "2-digit", hour12: false, hourCycle: "h23" });
-  const minuto = parte(quando, "minute", { hour: "2-digit", minute: "2-digit", hour12: false, hourCycle: "h23" });
-  return String(hora).padStart(2, "0") + ":" + String(minuto).padStart(2, "0");
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: TZ_PADARIA,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(quando);
 }
 
 /** AAAA-MM-DD no fuso da padaria. */

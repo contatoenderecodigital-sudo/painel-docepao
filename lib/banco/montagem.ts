@@ -297,6 +297,169 @@ export function familiaDoItem(categoria: string, produto: string): string {
   return familiaDaCategoria(categoria) ?? familiaDoNome(produto) ?? String(categoria ?? "");
 }
 
+/**
+ * QUAL LINHA DO PEDIDO RECEBE ESTE ITEM. -1 quando e linha nova.
+ *
+ * Esta e a decisao mais cara do arquivo: errar pra um lado duplica a linha e o
+ * cliente paga o dobro, errar pro outro engole o item e a cozinha monta metade.
+ * As duas ja aconteceram em producao, e cada comentario aqui dentro e um
+ * pedido de verdade que fechou errado.
+ *
+ * Estava escrita dentro do `anotarItem`, que so roda com banco. Por isso o
+ * `linha-nao-multiplica.cjs` conferia a regra por GREP no texto do arquivo:
+ * procurava a condicao antiga ter sumido, e nao o comportamento estar certo.
+ * Grep passa verde com a regra escrita e quebrada. Aqui fora ela e uma funcao
+ * pura: o teste monta o pedido, chama, e olha o numero que voltou.
+ */
+export function linhaQueRecebe(itens: ItemMontagem[], item: ItemMontagem): number {
+const mesmoNome = itens.filter((x) => mesmaLinha(x, item));
+
+// MESMO PRODUTO COM RECHEIOS DIFERENTES SÃO DUAS LINHAS.
+//
+// "metade frango e metade calabresa" virava uma linha só: o calabresa
+// entrava por cima do frango e sumiam 150 salgados do pedido. Agora a
+// observação faz parte da identidade da linha.
+// No bolo o nome muda enquanto o cliente decide ("bolo bombom" vira "bolo
+// bombom com morango"): nome que contem o outro e a mesma linha ficando
+// completa, senao a festa fica com dois bolos e o dobro do preco.
+const nomeCresceu = (a: string, b: string) => {
+  const x = a.trim().toLowerCase();
+  const y = b.trim().toLowerCase();
+  return x.includes(y) || y.includes(x);
+};
+// PIZZA DOCE E PIZZA SALGADA SAO DUAS PIZZAS, NAO UMA.
+//
+// O rastro de 20/08/2026 mostrou o cliente pedindo uma de forma salgada com
+// tres sabores E uma doce de brigadeiro. A Dora anotou as duas certinho, e a
+// montagem juntou numa linha so, porque pizza esta em UMA_LINHA_SO pra os
+// sabores SOMAREM (sao ate 4 na mesma pizza). O pedido foi pra cozinha com
+// UMA pizza de "brigadeiro" e o cliente pagou por uma.
+//
+// Somar sabor da mesma pizza esta certo. Somar uma doce com uma salgada nao:
+// ninguem come pizza de calabresa com brigadeiro em cima. A lista do cardapio
+// separa as duas, entao o codigo pergunta de qual lista o sabor veio.
+// VENCE O CASAMENTO MAIS LONGO, nao a ordem da checagem.
+//
+// "crocante" e sabor de pizza DOCE, entao "bacon crocante" casava com doce
+// so porque a lista doce era olhada primeiro. Comparando o tamanho, "bacon
+// com brocolis" ganha de um "banana" que apareceu de raspao.
+const doceOuSalgada = (obs: string | null | undefined): "doce" | "salgada" | null => {
+  const t = marca(obs);
+  if (!t) return null;
+  const p = saboresDaPizzaPorTipo();
+  const maior = (lista: string[] = []) =>
+    lista.reduce((m, s) => {
+      const x = marca(s);
+      return t.includes(x) && x.length > m ? x.length : m;
+    }, 0);
+  const doce = maior(p.doces);
+  const salgada = maior(p.salgados);
+  if (!doce && !salgada) return null;
+  return doce > salgada ? "doce" : "salgada";
+};
+const tipoNovo = item.categoria === "pizza" ? doceOuSalgada(item.obs) : null;
+
+// SOMAR SABOR NA MESMA PIZZA NAO E EMPILHAR DUAS PIZZAS DIFERENTES.
+//
+// Medido na producao em 30/08/2026: o cliente pediu "2 inteiras, uma de
+// calabresa e uma de frango com catupiry" e o pedido fechou com UMA pizza,
+// "frango com catupiry | calabresa", R$ 120,00 no lugar de R$ 240,00.
+//
+// O fluxo ja tinha feito a parte dele. Ele leu o "2", contou dois sabores, e
+// entregou pra ca DUAS linhas de uma pizza cada. Elas morriam aqui: pizza esta
+// em UMA_LINHA_SO, entao a busca casava as duas pelo nome e a gravacao juntava
+// de volta o que a leitura tinha acabado de separar.
+//
+// Somar sabor continua certo, e por isso a regra nao pode simplesmente sair:
+// sao ate 4 sabores na mesma pizza, e o cliente que acrescenta um sabor na
+// mensagem seguinte tem que COMPLETAR a linha. A diferenca esta no texto que
+// chega. Quem soma escreve um sabor que CONTEM o que ja estava ("calabresa"
+// virando "calabresa, frango"); quem pediu outra pizza escreve um sabor que
+// nao tem nada a ver com o anterior.
+//
+// So vale pra pizza. No bolo a observacao e trocada a vontade enquanto a
+// cliente decide o recheio, e cobrar containment ali faria a festa fechar com
+// dois bolos, que e exatamente o defeito que pos o bolo em UMA_LINHA_SO.
+const saborSoma = (velha: string | null | undefined) => {
+  if (item.categoria !== "pizza") return true;
+  const antes = marca(velha);
+  const agora = marca(item.obs);
+  if (!antes || !agora) return true;
+  return antes.includes(agora) || agora.includes(antes);
+};
+
+let i = UMA_LINHA_SO.includes(item.categoria)
+  ? itens.findIndex(
+      (x) =>
+        x.categoria === item.categoria &&
+        nomeCresceu(x.produto, item.produto) &&
+        // So junta pizza com pizza do MESMO tipo. Sem tipo definido nos dois
+        // lados, segue a regra antiga.
+        //
+        // Esta guarda continua fazendo falta depois da regra de cima, e nao e
+        // repeticao dela: quando a Dora reescreve a observacao inteira como
+        // "calabresa, brigadeiro", o texto novo CONTEM o antigo e passaria pelo
+        // `saborSoma`. Quem barra e o tipo, que ve doce entrando em salgada.
+        (!tipoNovo || !doceOuSalgada(x.obs) || doceOuSalgada(x.obs) === tipoNovo) &&
+        saborSoma(x.obs),
+    )
+  : itens.findIndex((x) => mesmaLinha(x, item) && marca(x.obs) === marca(item.obs));
+
+// Só existe uma linha desse produto: é correção dela, não linha nova. Cobre
+// "muda pra 150 coxinhas" (sem recheio), "as coxinhas são de frango"
+// (acrescentando o recheio numa linha que ainda estava sem) e o caso que
+// duplicou a trufa: a linha tinha "forminha azul royal" e o sabor chegou
+// depois como "morango, forminha azul royal". Uma observação que CONTÉM a
+// outra é a mesma linha ficando mais completa, não um item novo.
+// VALE PRA QUALQUER NUMERO DE LINHAS, NAO SO PRA UMA.
+//
+// Isto exigia `mesmoNome.length === 1`, e por isso desistia assim que
+// existiam DUAS linhas do mesmo produto: dali em diante cada detalhe
+// confirmado virava linha nova. No teste de 19/08/2026 o pedido terminou com
+// QUATRO linhas de trufa, 100 unidades onde a cliente pediu 25, e num laco
+// eterno: a Dora perguntava o sabor, a cliente respondia, e em vez de
+// completar a linha nascia outra, entao o sabor nunca ficava preenchido.
+//
+// Agora procura entre TODAS as linhas do mesmo produto a que esta sendo
+// completada. Uma observacao que CONTEM a outra e a mesma linha ficando mais
+// completa, nao um item novo.
+if (i < 0 && mesmoNome.length > 0) {
+  // "sem sabor especificado" e observacao de enfeite: vale como vazia, senao
+  // o sabor que chega depois vira uma SEGUNDA linha do mesmo produto e o
+  // pedido fica com duas trufas, uma delas sem sabor pra sempre.
+  const limpar = (t: string) => (ENFEITE.test(t) ? "" : t);
+  // COMPARA POR PEDACO, NAO POR TEXTO CORRIDO.
+  //
+  // "forminha branca, morango" e "morango, forminha branca" sao a MESMA
+  // coisa, e comparando texto corrido nao casam. Foi assim que nasceu a
+  // quarta linha de trufa: a Dora reescreveu a observacao em outra ordem.
+  const pedacos = (t: string) =>
+    new Set(t.split(",").map((x) => x.trim()).filter(Boolean));
+  // PEDACO QUE CRESCE E O MESMO PEDACO, NAO OUTRO.
+  //
+  // A cliente disse "forminha azul", a Dora corrigiu pra "forminha azul
+  // bebe", e como os dois textos nao sao iguais nascia uma LINHA NOVA. O
+  // pedido da festa fechou com 150 brigadeiros onde ela pediu 75, R$ 187 a
+  // mais, e so nao foi cobrado porque a cliente conferiu e cobrou tres vezes.
+  const contem = (maior: Set<string>, menor: Set<string>) =>
+    [...menor].every((p) => [...maior].some((q) => q === p || q.includes(p) || p.includes(q)));
+  const nova = limpar(marca(item.obs));
+  const setNova = pedacos(nova);
+  // A linha MAIS parecida primeiro: entre varias, completa a que ja tem mais
+  // coisa em comum, senao o recheio cai na linha errada.
+  const candidata = mesmoNome
+    .map((x) => ({ x, antiga: limpar(marca(x.obs)) }))
+    .filter(({ antiga }) => {
+      if (!antiga || !nova) return true;
+      const setAntiga = pedacos(antiga);
+      return contem(setNova, setAntiga) || contem(setAntiga, setNova);
+    })
+    .sort((a, b) => b.antiga.length - a.antiga.length)[0];
+  if (candidata) i = itens.indexOf(candidata.x);
+}
+  return i;
+}
+
 export async function anotarItem(
   negocioId: string,
   clienteId: string,
@@ -304,116 +467,7 @@ export async function anotarItem(
 ): Promise<Montagem> {
   const m = await lerMontagem(negocioId, clienteId);
   const item = nomeComOsDoisSabores({ ...itemBruto, obs: observacaoLimpa(itemBruto.obs) });
-  const mesmoNome = m.itens.filter((x) => mesmaLinha(x, item));
-
-  // MESMO PRODUTO COM RECHEIOS DIFERENTES SÃO DUAS LINHAS.
-  //
-  // "metade frango e metade calabresa" virava uma linha só: o calabresa
-  // entrava por cima do frango e sumiam 150 salgados do pedido. Agora a
-  // observação faz parte da identidade da linha.
-  // No bolo o nome muda enquanto o cliente decide ("bolo bombom" vira "bolo
-  // bombom com morango"): nome que contem o outro e a mesma linha ficando
-  // completa, senao a festa fica com dois bolos e o dobro do preco.
-  const nomeCresceu = (a: string, b: string) => {
-    const x = a.trim().toLowerCase();
-    const y = b.trim().toLowerCase();
-    return x.includes(y) || y.includes(x);
-  };
-  // PIZZA DOCE E PIZZA SALGADA SAO DUAS PIZZAS, NAO UMA.
-  //
-  // O rastro de 20/08/2026 mostrou o cliente pedindo uma de forma salgada com
-  // tres sabores E uma doce de brigadeiro. A Dora anotou as duas certinho, e a
-  // montagem juntou numa linha so, porque pizza esta em UMA_LINHA_SO pra os
-  // sabores SOMAREM (sao ate 4 na mesma pizza). O pedido foi pra cozinha com
-  // UMA pizza de "brigadeiro" e o cliente pagou por uma.
-  //
-  // Somar sabor da mesma pizza esta certo. Somar uma doce com uma salgada nao:
-  // ninguem come pizza de calabresa com brigadeiro em cima. A lista do cardapio
-  // separa as duas, entao o codigo pergunta de qual lista o sabor veio.
-  // VENCE O CASAMENTO MAIS LONGO, nao a ordem da checagem.
-  //
-  // "crocante" e sabor de pizza DOCE, entao "bacon crocante" casava com doce
-  // so porque a lista doce era olhada primeiro. Comparando o tamanho, "bacon
-  // com brocolis" ganha de um "banana" que apareceu de raspao.
-  const doceOuSalgada = (obs: string | null | undefined): "doce" | "salgada" | null => {
-    const t = marca(obs);
-    if (!t) return null;
-    const p = saboresDaPizzaPorTipo();
-    const maior = (lista: string[] = []) =>
-      lista.reduce((m, s) => {
-        const x = marca(s);
-        return t.includes(x) && x.length > m ? x.length : m;
-      }, 0);
-    const doce = maior(p.doces);
-    const salgada = maior(p.salgados);
-    if (!doce && !salgada) return null;
-    return doce > salgada ? "doce" : "salgada";
-  };
-  const tipoNovo = item.categoria === "pizza" ? doceOuSalgada(item.obs) : null;
-
-  let i = UMA_LINHA_SO.includes(item.categoria)
-    ? m.itens.findIndex(
-        (x) =>
-          x.categoria === item.categoria &&
-          nomeCresceu(x.produto, item.produto) &&
-          // So junta pizza com pizza do MESMO tipo. Sem tipo definido nos dois
-          // lados, segue a regra antiga.
-          (!tipoNovo || !doceOuSalgada(x.obs) || doceOuSalgada(x.obs) === tipoNovo),
-      )
-    : m.itens.findIndex((x) => mesmaLinha(x, item) && marca(x.obs) === marca(item.obs));
-
-  // Só existe uma linha desse produto: é correção dela, não linha nova. Cobre
-  // "muda pra 150 coxinhas" (sem recheio), "as coxinhas são de frango"
-  // (acrescentando o recheio numa linha que ainda estava sem) e o caso que
-  // duplicou a trufa: a linha tinha "forminha azul royal" e o sabor chegou
-  // depois como "morango, forminha azul royal". Uma observação que CONTÉM a
-  // outra é a mesma linha ficando mais completa, não um item novo.
-  // VALE PRA QUALQUER NUMERO DE LINHAS, NAO SO PRA UMA.
-  //
-  // Isto exigia `mesmoNome.length === 1`, e por isso desistia assim que
-  // existiam DUAS linhas do mesmo produto: dali em diante cada detalhe
-  // confirmado virava linha nova. No teste de 19/08/2026 o pedido terminou com
-  // QUATRO linhas de trufa, 100 unidades onde a cliente pediu 25, e num laco
-  // eterno: a Dora perguntava o sabor, a cliente respondia, e em vez de
-  // completar a linha nascia outra, entao o sabor nunca ficava preenchido.
-  //
-  // Agora procura entre TODAS as linhas do mesmo produto a que esta sendo
-  // completada. Uma observacao que CONTEM a outra e a mesma linha ficando mais
-  // completa, nao um item novo.
-  if (i < 0 && mesmoNome.length > 0) {
-    // "sem sabor especificado" e observacao de enfeite: vale como vazia, senao
-    // o sabor que chega depois vira uma SEGUNDA linha do mesmo produto e o
-    // pedido fica com duas trufas, uma delas sem sabor pra sempre.
-    const limpar = (t: string) => (ENFEITE.test(t) ? "" : t);
-    // COMPARA POR PEDACO, NAO POR TEXTO CORRIDO.
-    //
-    // "forminha branca, morango" e "morango, forminha branca" sao a MESMA
-    // coisa, e comparando texto corrido nao casam. Foi assim que nasceu a
-    // quarta linha de trufa: a Dora reescreveu a observacao em outra ordem.
-    const pedacos = (t: string) =>
-      new Set(t.split(",").map((x) => x.trim()).filter(Boolean));
-    // PEDACO QUE CRESCE E O MESMO PEDACO, NAO OUTRO.
-    //
-    // A cliente disse "forminha azul", a Dora corrigiu pra "forminha azul
-    // bebe", e como os dois textos nao sao iguais nascia uma LINHA NOVA. O
-    // pedido da festa fechou com 150 brigadeiros onde ela pediu 75, R$ 187 a
-    // mais, e so nao foi cobrado porque a cliente conferiu e cobrou tres vezes.
-    const contem = (maior: Set<string>, menor: Set<string>) =>
-      [...menor].every((p) => [...maior].some((q) => q === p || q.includes(p) || p.includes(q)));
-    const nova = limpar(marca(item.obs));
-    const setNova = pedacos(nova);
-    // A linha MAIS parecida primeiro: entre varias, completa a que ja tem mais
-    // coisa em comum, senao o recheio cai na linha errada.
-    const candidata = mesmoNome
-      .map((x) => ({ x, antiga: limpar(marca(x.obs)) }))
-      .filter(({ antiga }) => {
-        if (!antiga || !nova) return true;
-        const setAntiga = pedacos(antiga);
-        return contem(setNova, setAntiga) || contem(setAntiga, setNova);
-      })
-      .sort((a, b) => b.antiga.length - a.antiga.length)[0];
-    if (candidata) i = m.itens.indexOf(candidata.x);
-  }
+  const i = linhaQueRecebe(m.itens, item);
 
   if (i >= 0) {
     // Corrigir NÃO apaga o que já estava: a observação antiga sobrevive quando
