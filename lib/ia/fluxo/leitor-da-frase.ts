@@ -39,8 +39,8 @@
 import { coresDaForminha } from "./sabor";
 import { afirmouOuNegou, semAcento } from "../texto";
 import { APELIDOS } from "../dados/apelidos";
-import { produtosDaCasa, pedeEscolhaDeSabor } from "../dados/produtos";
-import { chavesDeFamilia, ehNomeDeFamilia } from "./generico";
+import { produtosDaCasa, pedeEscolhaDeSabor, produtoPorNome, produtoNoComeco } from "../dados/produtos";
+import { chavesDeFamilia, ehNomeDeFamilia, familiaDaCategoria, familiaDoNome, nomeDaFamilia } from "./generico";
 import type { Leitura } from "./leitura";
 
 // O mesmo normalizador de todo mundo. Era a decima segunda copia, e a unica
@@ -108,6 +108,34 @@ function dist(x: string, y: string): number {
  */
 export function produtosNaFrase(fala: string): string[] {
   return [...new Set(acharNaFrase(fala).map((a) => a.nome))];
+}
+
+/**
+ * A FAMILIA QUE ELE NOMEOU, PELO CATALOGO.
+ *
+ * "voces fazem pizza de forma?" nao e sabor de bolo. O modelo, preso na etapa,
+ * classifica a pergunta como a familia da vez. O codigo le o que esta escrito
+ * contra a lista unica e devolve a familia larga (pizza, bolo, salgado).
+ *
+ * Null quando ele nao nomeou produto nem chave de familia.
+ */
+export function familiaDoQueEleNomeou(fala: string): string | null {
+  for (const nome of produtosNaFrase(fala)) {
+    const p = produtoPorNome(nome) ?? produtoNoComeco(nome);
+    if (p) {
+      const fam = familiaDaCategoria(p.categoria);
+      if (fam) return fam;
+      if (p.grupo) return p.grupo;
+    }
+    const daChave = familiaDoNome(nome) ?? nomeDaFamilia(nome);
+    if (daChave) return daChave;
+  }
+  const t = semAcMin(fala);
+  for (const chave of chavesDeFamilia()) {
+    const alvo = semAcMin(chave);
+    if (alvo && cerca(alvo).test(t)) return chave;
+  }
+  return null;
 }
 
 /**
