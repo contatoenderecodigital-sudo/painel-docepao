@@ -11,12 +11,16 @@ import { useEffect, useRef, useState } from "react";
 import { Bot, SendHorizontal, Trash2, Info, User, Paperclip, X } from "lucide-react";
 
 type Msg = { de: "cliente" | "ia"; texto: string; imagem?: string };
+type BotaoDaFala = { id: string; titulo: string };
 
 export default function TestarIA() {
   const [mensagens, setMensagens] = useState<Msg[]>([]);
   const [texto, setTexto] = useState("");
   const [digitando, setDigitando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Os mesmos botoes que o WhatsApp mostraria. Sem eles a tela de teste nao
+  // exercita metade da conversa (pagamento, fechar, base da festa).
+  const [botoes, setBotoes] = useState<BotaoDaFala[]>([]);
   // Foto de referência anexada à PRÓXIMA mensagem (data URL pra preview + envio).
   const [anexo, setAnexo] = useState<{ dataUrl: string; mime: string } | null>(null);
   // LIMPAR A TELA TEM QUE LIMPAR O BANCO TAMBEM.
@@ -67,16 +71,17 @@ export default function TestarIA() {
     usarArquivo(e.dataTransfer?.files?.[0]);
   }
 
-  async function enviar() {
-    const t = texto.trim();
-    if ((!t && !anexo) || digitando) return;
+  async function enviar(toque?: BotaoDaFala) {
+    const t = toque ? String(toque.titulo || toque.id) : texto.trim();
+    if ((!t && !anexo && !toque) || digitando) return;
     setErro(null);
 
-    // Conversa completa (incluindo a nova mensagem) vai pro cérebro real — igual
-    // ao webhook, a última mensagem é a pergunta nova do cliente.
+    // Conversa completa (incluindo a nova mensagem) vai pro cerebro real, igual
+    // ao webhook: a ultima mensagem e a pergunta nova do cliente.
     const conversa: Msg[] = [...mensagens, { de: "cliente", texto: t, imagem: anexo?.dataUrl }];
     setMensagens(conversa);
     setTexto("");
+    setBotoes([]);
     const anexoEnviar = anexo;
     setAnexo(null);
     setDigitando(true);
@@ -93,6 +98,7 @@ export default function TestarIA() {
           imagem: anexoEnviar?.dataUrl,
           imagemMime: anexoEnviar?.mime,
           reiniciar: reiniciarAgora,
+          botaoId: toque ? toque.id : null,
         }),
       });
       const dados = await r.json().catch(() => ({}));
@@ -109,6 +115,12 @@ export default function TestarIA() {
           imagem: url,
         }));
         setMensagens((m) => [...m, { de: "ia", texto: dados.resposta }, ...extras]);
+        const daFala = Array.isArray(dados.botoes) ? dados.botoes : [];
+        setBotoes(
+          daFala
+            .filter((b: BotaoDaFala) => b && typeof b.id === "string" && typeof b.titulo === "string")
+            .slice(0, 3),
+        );
         if (dados.aviso) setErro(dados.aviso);
       } else {
         setErro("A IA não devolveu resposta. Tente de novo.");
@@ -125,6 +137,7 @@ export default function TestarIA() {
     setErro(null);
     setTexto("");
     setAnexo(null);
+    setBotoes([]);
     // E o banco tambem, na proxima mensagem: sem isto o pedido da conversa
     // anterior continua montado e a IA responde em cima dele.
     setPrecisaReiniciar(true);
@@ -156,8 +169,9 @@ export default function TestarIA() {
       >
         <Info size={15} className="shrink-0 mt-0.5" style={{ color: "var(--brand-cobre-l)" }} />
         <div className="text-cream/80">
-          Este chat usa a mesma IA que atende no WhatsApp. Se ela fechar o pedido, ele cai na Fila de
-          Aprovação, do mesmo jeito que aconteceria com um cliente de verdade.
+          Este chat usa a mesma IA que atende no WhatsApp. Se o pedido fechar (pelo botao de
+          confirmar, nunca sozinho), ele cai na Fila de Aprovacao, do mesmo jeito que aconteceria
+          com um cliente de verdade.
         </div>
       </div>
 
@@ -177,7 +191,7 @@ export default function TestarIA() {
                 </div>
                 <p className="text-sm text-cream/60 mt-1 max-w-sm mx-auto">
                   Escreva uma mensagem abaixo (ex: &quot;quero 100 salgados pra sábado&quot;) e veja
-                  se a IA atende e fecha o pedido sozinha.
+                  se a IA atende. Fechar o pedido e o botao da equipe no painel.
                 </p>
               </div>
             </div>
@@ -252,7 +266,22 @@ export default function TestarIA() {
           )}
         </div>
 
-        {/* erro amigável */}
+        {botoes.length > 0 && !digitando && (
+          <div className="px-4 pb-2 flex flex-wrap gap-2 justify-center">
+            {botoes.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => enviar(b)}
+                className="press rounded-full px-3.5 py-1.5 text-[13px] font-medium text-[#3d1219]"
+                style={{ background: "linear-gradient(135deg,#96741a,#e7cf94)" }}
+              >
+                {b.titulo}
+              </button>
+            ))}
+          </div>
+        )}
+
         {erro && (
           <div
             className="mx-4 mb-2 rounded-[12px] px-4 py-2.5 text-[12.5px] leading-relaxed"

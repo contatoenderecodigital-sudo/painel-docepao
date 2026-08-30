@@ -390,9 +390,9 @@ Prova: `testes/a-frase-anota-mesmo-quando-o-modelo-hedgeia.cjs`.
 ### 7. Regerar as oito pecas de cardapio
 
 O HTML nasce de `scripts/gerar-cardapio.mjs` em `.cardapios/` (gitignored).
-Rodar o script de novo quando o catalogo mudar. Virar JPG e com Chrome da
-casa: captura full size em `public/cardapios/<nome>.jpg`. Sem Chrome neste
-ambiente, as imagens publicadas ficam com a versao que ja estava no repo.
+`scripts/gerar-cardapio-imagens.mjs` acha o Chrome do Linux (`/usr/bin`) ou o
+do Playwright no Windows. Conferir na padaria se a peca que o WhatsApp manda e
+esta captura.
 
 Dois agrupamentos que o dono mandou separar:
 
@@ -405,18 +405,19 @@ Dois agrupamentos que o dono mandou separar:
 
 ### 8. Recibo de entrega e leitura
 
-O evento de status agora e lido mesmo quando vem no mesmo pacote da mensagem.
-O UPDATE loga quando o `wamid` nao casa. Recibo **nao se inventa**. Se ainda
-nao gravar numa conversa real, o log diz se o evento chegou e o id nao bateu.
+O evento de status e lido mesmo quando vem no mesmo pacote da mensagem.
+O UPDATE loga quando o `wamid` nao casa. Recibo **nao se inventa**.
 
 ### 9. Marcar lida e "digitando" da 400 (#131009)
 
 E recusa da Meta neste `message_id` (id de teste, mensagem ja marcada, ou
 recurso nao liberado na conta). O log nomeia o 131009. Nao invento tique azul.
 
-### 10. Nenhuma tela mostra recibo
+### 10. A tela do WhatsApp mostra o recibo do banco
 
-Mesmo quando gravar, nao ha onde ver. Tela e trabalho de UI, nao desta rodada.
+Balão da equipe/IA escreve `entregue` ou `lida` a partir de `entregue_em` /
+`lida_em`. Sem campo, nao escreve. Sem tique azul. Prova: conversa real ainda e
+dele (chave SSH desta maquina nao existe).
 
 ### 11. Erro engolido em silencio — FEITO no caminho do WhatsApp
 
@@ -448,8 +449,8 @@ Aqui não dá para responder pelo estado, e é honesto dizer que não sei.
 - o painel da dona fora do que o `qa-painel` cobre
 - a ponte da impressora
 - vários clientes conversando ao mesmo tempo (`qa-concorrencia`)
-- **a tela `/testar` depois da mudança de cérebro.** Ela passou a chamar o
-  fluxo em 26/08/2026 e ainda não foi aberta no navegador desde então
+- **a tela `/testar` no navegador logado.** O codigo mostra os botoes da fala
+  e manda `botaoId`. Abrir a pagina em producao ainda e dele.
 
 ---
 

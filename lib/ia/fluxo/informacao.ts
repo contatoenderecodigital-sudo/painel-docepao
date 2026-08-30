@@ -270,8 +270,15 @@ function fraseDaLista(
   let texto = nome.charAt(0).toUpperCase() + nome.slice(1) + " sai " + partes.join(", e ") + ".";
   // A REDONDA E POR PESO, E O CLIENTE NAO TEM BALANCA. O catalogo guarda a faixa
   // que costuma sair; sem isto ele ouve so o quilo e nao sabe se cabe no bolso.
-  if (lista.length === 1 && lista[0].valorTipico) {
-    const [a, b] = lista[0].valorTipico;
+  // Vale tambem quando a familia tem mais de um produto (forma + redonda): a
+  // faixa do que e por peso entra na mesma frase, sem pedir o nome exato.
+  const jaDisse = new Set<string>();
+  for (const x of lista) {
+    if (!x.valorTipico) continue;
+    const [a, b] = x.valorTipico;
+    const chave = a + "-" + b;
+    if (jaDisse.has(chave)) continue;
+    jaDisse.add(chave);
     texto += " Costuma sair entre " + brl(a) + " e " + brl(b) + ".";
   }
   return texto;

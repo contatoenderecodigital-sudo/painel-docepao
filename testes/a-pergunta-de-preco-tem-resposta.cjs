@@ -102,7 +102,8 @@ fs.writeFileSync(
     "console.log(JSON.stringify({",
     "  alvos: alvos.size, produtos: produtosDaCasa().length,",
     "  semResposta, inventou, numeroErrado,",
-    "  redonda: preco('pizza redonda')?.texto ?? null,",
+    "  redonda: preco('pizza redonda')?.texto ?? null,
+  pizza: preco('pizza')?.texto ?? null,",
     "}));",
   ].join("\n"),
   "utf8",
@@ -137,6 +138,11 @@ cobra("o numero da resposta nao e o do cardapio", r.numeroErrado);
 if (!r.redonda || !/35/.test(r.redonda) || !/45/.test(r.redonda)) {
   falhas.push("redonda");
   console.log("ERRO  pizza redonda nao fala a faixa que costuma sair: " + r.redonda);
+  console.log("");
+}
+if (!r.pizza || !/35/.test(r.pizza) || !/45/.test(r.pizza)) {
+  falhas.push("pizza");
+  console.log("ERRO  'quanto e a pizza' nao fala a faixa da redonda: " + r.pizza);
   console.log("");
 }
 

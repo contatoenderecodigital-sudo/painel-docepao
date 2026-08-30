@@ -21,7 +21,8 @@ import { formatarTelefoneBR, linkWhatsapp, brl } from "@/lib/tipos";
 import { avisoDeSessao, buscarDoPainel, AVISO_SESSAO_EXPIRADA } from "@/lib/buscar-do-painel";
 import CampoTelefone, { telefoneCompleto } from "@/components/CampoTelefone";
 import AudioBolha from "@/components/AudioBolha";
-import { Check,
+import { rotuloDoRecibo } from "@/lib/whatsapp/recibo";
+import {
   Search, Plus, Paperclip, SendHorizontal, ArrowLeft, Bot, X,
   MessageSquare, Info, FileText, Download, CheckCheck, AlertCircle,
   Clock, ShieldAlert, Hand, ShoppingBag, Zap, TriangleAlert,
@@ -179,22 +180,19 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
   const rotulosAuto = [m.midiaNome ?? "", "foto", "áudio", "audio"].map((s) => s.toLowerCase());
   if (isMidia && legenda && rotulosAuto.includes(legenda.toLowerCase())) legenda = "";
 
+  const recibo = !isCliente ? rotuloDoRecibo(m) : null;
   const HoraSelo = () => (
     <span className={"text-[10px] inline-flex items-center gap-1 align-bottom " + (isCliente ? "text-black/35" : "text-black/45")}>
       {m.hora}
       {!isCliente && m.de === "equipe" && m.status === "enviando" && <Clock size={11} />}
-      {!isCliente && m.de === "equipe" && m.status === "enviado" && <CheckCheck size={12} />}
       {!isCliente && m.de === "equipe" && m.status === "erro" && <AlertCircle size={12} className="text-red-900" />}
-      {/* O que o WhatsApp respondeu depois do envio. Falha e o unico caso que
-          pede acao: a mensagem nao chegou no cliente. */}
-      {!isCliente && m.falhaEnvio && (
-        <span className="inline-flex items-center gap-1 text-red-900" title={m.falhaEnvio}>
-          <AlertCircle size={12} /> não chegou
+      {recibo === "nao chegou" && (
+        <span className="inline-flex items-center gap-1 text-red-900" title={m.falhaEnvio || undefined}>
+          <AlertCircle size={12} /> nao chegou
         </span>
       )}
-      {!isCliente && !m.falhaEnvio && m.lidaWpp && <CheckCheck size={12} className="text-sky-800" />}
-      {!isCliente && !m.falhaEnvio && !m.lidaWpp && m.entregue && <CheckCheck size={12} />}
-      {!isCliente && !m.falhaEnvio && !m.lidaWpp && !m.entregue && m.de === "ia" && <Check size={12} />}
+      {recibo === "lida" && <span>lida</span>}
+      {recibo === "entregue" && <span>entregue</span>}
     </span>
   );
 
@@ -224,10 +222,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
                   className="absolute bottom-1.5 right-1.5 text-[10px] text-white/90 px-1.5 py-0.5 rounded-full inline-flex items-center gap-1"
                   style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}
                 >
-                  {m.hora}
-                  {!isCliente && m.de === "equipe" && m.status === "enviando" && <Clock size={10} />}
-                  {!isCliente && m.de === "equipe" && m.status === "enviado" && <CheckCheck size={11} />}
-                  {!isCliente && m.de === "equipe" && m.status === "erro" && <AlertCircle size={11} />}
+                  <HoraSelo />
                 </span>
               )}
             </div>

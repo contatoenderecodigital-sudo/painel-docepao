@@ -34,18 +34,33 @@ const LARGURA = 1080;
 // O Chrome que o Playwright já baixou nesta máquina. playwright-core não traz
 // navegador junto, e instalar um só pra isso seria 300 MB por nada.
 function acharChrome() {
-  const base = join(homedir(), "AppData", "Local", "ms-playwright");
-  const pastas = readdirSync(base)
-    .filter((d) => d.startsWith("chromium-"))
-    .sort((a, b) => Number(b.split("-")[1]) - Number(a.split("-")[1]));
-  for (const p of pastas) {
-    const exe = join(base, p, "chrome-win", "chrome.exe");
+  const naMaquina = [
+    "/usr/local/bin/google-chrome",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+  ];
+  for (const exe of naMaquina) {
     try {
       statSync(exe);
       return exe;
     } catch {}
   }
-  throw new Error("nao achei o chrome do playwright em " + base);
+  const base = join(homedir(), "AppData", "Local", "ms-playwright");
+  try {
+    const pastas = readdirSync(base)
+      .filter((d) => d.startsWith("chromium-"))
+      .sort((a, b) => Number(b.split("-")[1]) - Number(a.split("-")[1]));
+    for (const p of pastas) {
+      const exe = join(base, p, "chrome-win", "chrome.exe");
+      try {
+        statSync(exe);
+        return exe;
+      } catch {}
+    }
+  } catch {}
+  throw new Error("nao achei Chrome nesta maquina (linux em /usr/bin ou Playwright no Windows)");
 }
 
 // O navegador recusa file:// vindo de automação, então as peças vão por HTTP
