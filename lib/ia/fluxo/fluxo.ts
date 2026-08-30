@@ -293,26 +293,6 @@ function dicaDaEtapa(etapa: EtapaId, e: PedidoEmMontagem, produto: string, fala:
 }
 
 /**
- * A DICA QUE O NOME USA PRA DESEMPATAR, QUE NAO E A CATEGORIA DO ITEM.
- *
- * Sai da etapa e do que ele escreveu. A etapa do salgado nao vira
- * `salgado_frito` aqui: isso carimbava pizza e docinho como frito. A do bolo
- * olha a frase (caseiro, festa, kg) e a base da festa (bolo em quilo).
- */
-function dicaDaEtapa(etapa: EtapaId, e: PedidoEmMontagem, produto: string, fala: string): string {
-  if (etapa === "docinho") return "docinho";
-  if (etapa === "salgado") return "salgado";
-  if (etapa === "bolo") {
-    const t = semAc(produto + " " + fala);
-    if (/\bcaseiros?\b/.test(t)) return "bolo_caseiro";
-    if (/\bfestas?\b/.test(t) || /\bkg\b/.test(t) || /\bquilos?\b/.test(t)) return "bolo_festa";
-    if (e.ehFesta && e.base && Number(e.base.boloKg) > 0) return "bolo_festa";
-    return "bolo";
-  }
-  return "";
-}
-
-/**
  * DE QUE FAMILIA E ESTE PRODUTO, SEGUNDO O CARDAPIO.
  *
  * Casa pelo comeco do nome, sem acento: "esfirra de carne" e uma esfirra. O que
