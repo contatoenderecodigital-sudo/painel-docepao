@@ -1754,6 +1754,29 @@ export async function responder(
       );
     }
 
+    // E O QUE NAO E ITEM TAMBEM, porque tambem decide dinheiro.
+    //
+    // O rastro so mostrava os itens, e por isso uma conversa de 30/08/2026 me
+    // deixou sem resposta: o cliente disse "nao, sem topo" e o pedido ganhou um
+    // papel de arroz de R$ 12,00 que ele tinha recusado no turno anterior. Pra
+    // saber se a culpa era do modelo ou da minha guarda eu precisava do que ele
+    // devolveu em `pecas` e em `naoQuer`, e isso nao estava em lugar nenhum.
+    //
+    // Fiquei deduzindo pelo estado gravado, que e o que este projeto ja aprendeu
+    // a nao fazer: ler o codigo gera hipotese, o rastro da veredito. Uma linha
+    // de log custa menos que uma hora de suposicao.
+    const naoEItem: string[] = [];
+    if (crua?.pecas) naoEItem.push("pecas=" + JSON.stringify(crua.pecas));
+    if (crua?.naoQuer?.length) naoEItem.push("naoQuer=" + crua.naoQuer.join(","));
+    if (crua?.tirar?.length) naoEItem.push("tirar=" + crua.tirar.join(","));
+    if (crua?.dados && Object.values(crua.dados).some((v) => String(v ?? "").trim())) {
+      naoEItem.push("dados=" + JSON.stringify(crua.dados));
+    }
+    if (crua?.confirmou === true) naoEItem.push("confirmou");
+    if (crua?.delegaEscolha === true) naoEItem.push("delegaEscolha");
+    if (crua?.aceitouBase === true) naoEItem.push("aceitouBase");
+    if (naoEItem.length) rastro.push("modelo tambem leu: " + naoEItem.join(" / "));
+
     const { limpa, barrados, naoExistem, paraDepois } = leituraQueCabeNaEtapa(etapaAgora.id, crua);
     if (barrados.length) rastro.push("barrado nesta etapa: " + barrados.join(", "));
 
@@ -2398,9 +2421,29 @@ export async function responder(
       const caro = [...bolos].sort((a, b) => preco(b.produto) - preco(a.produto))[0];
       const sabores = bolos.map((b) => b.produto).join(" e ");
       const misto = bolos.length > 1 ? "misto: " + sabores : null;
-      // O peso vem do maior dos dois, e do marcador tambem: a proposta anotou os
-      // 2 kg no "bolo" sem sabor antes de ele escolher.
-      const peso = [...bolos, ...semSabor].reduce((s, b) => Math.max(s, Number(b.qtd) || 0), 0);
+      // NA FESTA, O PESO DO BOLO E O DA BASE. E NAO O MAIOR PEDACO DELE.
+      //
+      // Medido conversando em 30/08/2026, festa de 30 pessoas:
+      //
+      //   base    >> 300 salgados, 150 docinhos, 3 kg de bolo
+      //   cliente >> quero misto de brigadeiro com ninho
+      //   rastro  >> reparti 3 de bolo entre 3 escolha(s)
+      //   pedido  >> 1 kg de bolo          <- R$ 55,90 no lugar de R$ 167,70
+      //
+      // O rateio da base divide a quantidade entre os sabores, e para salgado e
+      // docinho isso esta certo: 300 salgados viram 150 coxinha e 150 risoles,
+      // que sao coisas diferentes saindo do forno.
+      //
+      // BOLO MISTO NAO E ASSIM. Misto e UM bolo com dois sabores, nao dois
+      // bolos. Repartir o peso e depois pegar o maior pedaco derruba o bolo de
+      // 3 kg pra 1 kg, e o cliente paga um terco do que ia levar.
+      //
+      // Quem sabe o peso certo e a BASE, que e onde a proposta escreveu "3 kg de
+      // bolo" e onde a correcao do cliente cai quando ele muda o total. O maior
+      // pedaco continua valendo fora da festa, que e o pedido de bolo avulso.
+      const pesoDaBase = Number(estado.base?.boloKg) || 0;
+      const maiorPedaco = [...bolos, ...semSabor].reduce((s, b) => Math.max(s, Number(b.qtd) || 0), 0);
+      const peso = estado.ehFesta && pesoDaBase > 0 ? pesoDaBase : maiorPedaco;
       const outros = estado.itens.filter((i) => !String(i.categoria || "").startsWith("bolo"));
       estado = {
         ...estado,

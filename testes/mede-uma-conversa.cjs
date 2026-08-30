@@ -45,6 +45,8 @@ const psql = (sql) =>
       "psql -U hub -d enderecodigital_hub -A -F'|' -t -c \"" + sql.replace(/"/g, '\\"') + "\"",
   );
 
+const { conversaCom } = require("./_conversar.cjs");
+
 const arq = process.argv[2];
 if (!arq) {
   console.error("falta o arquivo de falas: node testes/mede-uma-conversa.cjs falas.json");
@@ -91,10 +93,26 @@ const FONE = process.env.FONE || "5511977770077";
   // dona com o nome que a conversa deu.
   await psql("delete from docepao.clientes where telefone='" + FONE + "'").catch(() => {});
 
-  for (const f of FALAS) {
-    console.log("  >> " + f.slice(0, 80));
-    await ssh("/root/conversa.sh " + FONE + " '" + String(f).replace(/'/g, "") + "' >/dev/null 2>&1").catch(() => null);
-  }
+  // UMA FALA POR VEZ, ESPERANDO A RESPOSTA.
+  //
+  // Antes este laco disparava as falas todas em sequencia e lia o banco no fim.
+  // A padaria responde de forma assincrona, entao a ordem da conversa saia por
+  // sorte de latencia, e a conversa medida nao era a conversa que o cliente
+  // teria. O dono viu isso na tela em 30/08/2026.
+  //
+  // Agora a resposta aparece NA HORA, embaixo da fala que a provocou: da pra
+  // ver a conversa acontecendo e perceber quando o roteiro respondeu fora do
+  // assunto, em vez de descobrir depois olhando o banco.
+  const mandar = conversaCom({
+    ssh,
+    psql,
+    fone: FONE,
+    aoResponder: (fala, resposta) => {
+      console.log("  cliente >> " + String(fala).slice(0, 100));
+      console.log("  padaria >> " + String(resposta).slice(0, 220));
+    },
+  });
+  for (const f of FALAS) await mandar(f);
 
   console.log("");
   console.log("=== O QUE A PADARIA RESPONDEU ===");

@@ -311,14 +311,26 @@ const CENARIOS = [
   },
 ];
 
+const { conversaCom } = require("./_conversar.cjs");
+
 const alvos = CENARIOS.filter((c) => !FILTRO || c.nome.toLowerCase().includes(FILTRO));
 const semAc = (t) => String(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 // Uma execucao de um cenario, num telefone que nao existiu antes.
 async function rodar(cenario, fone) {
-  for (const texto of cenario.fala) {
-    await ssh("/root/conversa.sh " + fone + " '" + texto.replace(/'/g, "") + "' >/dev/null 2>&1").catch(() => null);
-  }
+  // UMA FALA POR VEZ, ESPERANDO A RESPOSTA.
+  //
+  // Este laco disparava as falas todas em sequencia. A padaria responde de
+  // forma assincrona, entao a ordem da conversa saia por sorte de latencia, e a
+  // bateria media uma conversa que nenhum cliente teria: as vezes duas falas
+  // dele entravam antes de qualquer resposta.
+  //
+  // Isso envenena a NOTA, que e a unica coisa que esta bateria produz. Cenario
+  // reprovado por atropelo vira caca a defeito que nao existe, e cenario
+  // aprovado por sorte esconde defeito que existe. Achado em 30/08/2026, junto
+  // com o mesmo defeito no `mede-uma-conversa.cjs`.
+  const mandar = conversaCom({ ssh, psql, fone });
+  for (const texto of cenario.fala) await mandar(texto);
   // O PEDIDO MORA EM DOIS LUGARES, DEPENDENDO DE TER FECHADO OU NAO.
   //
   // Enquanto o cliente conversa, os itens ficam em pedido_montagem. Quando o
