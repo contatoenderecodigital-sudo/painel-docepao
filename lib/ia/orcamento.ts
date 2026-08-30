@@ -200,7 +200,7 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
       if (obs && MARCA_DE_BOLO.test(obs) && !chave.startsWith("bolo")) {
         // A CATEGORIA "bolo" NAO EXISTE NESTE MOTOR, E ESTE GALHO NUNCA DISPAROU.
         //
-        // As categorias que ele enxerga sao `bolo_recheado`, `bolo_caseiro` e
+        // As categorias que ele enxerga sao `bolo_festa`, `bolo_caseiro` e
         // `bolo_salgado`; "bolo" seco nao e nenhuma delas. Medido em
         // 28/08/2026, com marca de bolo na observacao:
         //
@@ -397,7 +397,7 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
       // BOLO DE FESTA, E NAO QUALQUER COISA QUE COMECE COM "bolo".
       //
       // `primeiroDaCategoria` casa pelo comeco, e ha tres categorias de bolo no
-      // motor: `bolo_recheado` (o de festa), `bolo_caseiro` e `bolo_salgado`.
+      // motor: `bolo_festa`, `bolo_caseiro` e `bolo_salgado`.
       // Pedir "bolo" devolvia o primeiro da ORDEM DO CATALOGO, e hoje isso da
       // certo por acidente. No dia em que a dona reordenar a tela, a proposta
       // da festa passa a sugerir BOLO SALGADO de R$ 29,90, e ninguem descobre
@@ -480,19 +480,16 @@ function formatarOrcamento(c: Cotacao, titulo = "Orçamento", paraOCliente = fal
 //  MOTOR PADRÃO (Doce Pão) — da lista única. Usado quando o negócio não tem
 //  cardápio próprio no banco (fallback).
 // ---------------------------------------------------------------------------
-// A CATEGORIA QUE O ORÇAMENTO FALA.
+// A CATEGORIA QUE O ORCAMENTO FALA E A MESMA DO PEDIDO.
 //
-// O sistema tem DOIS vocabulários de categoria, e isso é um defeito de verdade:
-// o orçamento diz "salgado", "doce", "bolo_recheado"; o pedido e a comanda dizem
-// "salgado_frito", "salgado_assado", "docinho", "bolo_festa". A lista única fala
-// o vocabulário do pedido, porque é ele que decide a bancada.
+// Era dois vocabularos: o motor dizia salgado/doce/bolo_recheado e o pedido
+// dizia salgado_frito/docinho/bolo_festa. A tabela CATEGORIA_NO_ORCAMENTO
+// saiu. Agora o motor grava o nome do catalogo, que e quem decide a bancada.
 //
-// Aqui a tradução fica em UM lugar visível, em vez de espalhada por dezessete
-// leitores. Unificar os dois vocabulários de vez muda a comanda de cozinha, e
-// isso é uma decisão separada, tomada de olho aberto. Está anotada no
-// O-QUE-FALTA. Enquanto não for tomada, o orçamento continua respondendo
-// exatamente o que sempre respondeu, e `testes/o-catalogo-nao-mudou-preco.cjs`
-// é a prova disso.
+// O titulo do papel da cozinha NAO muda: continua `== SALGADOS ==` para
+// frito e assado no mesmo papel. A distincao frito/assado e na LINHA, pela
+// categoria. Unificar deptoDe ou o titulo seria mudar o papel, e a dona
+// mandou nao mexer.
 
 function produtosDoCatalogo(): Produto[] {
   const p: Produto[] = [];
