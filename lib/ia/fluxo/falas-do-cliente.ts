@@ -82,16 +82,12 @@ export function pediuPraFalarComGente(fala: string): boolean {
   const pediu =
     /falar com (a |o )?(dona|equipe|atendente|gente|alguem|uma pessoa)|chama[r]? (a |o )?(dona|equipe|atendente)|quero (um |uma )?(atendente|humano)|passar pra (dona|equipe|atendente)/;
   if (!pediu.test(t)) return false;
-  const negou = [
-    "falar com a dona",
-    "falar com a equipe",
-    "falar com gente",
-    "falar com alguem",
-    "chamar a dona",
-    "chama a dona",
-    "atendente",
-  ].some((termo) => afirmouOuNegou(t, cercaDaPalavra(termo)) === false);
-  if (negou) return false;
+  // A cerca de palavra inteira engolia a virgula e lia o "quero 50 coxinha"
+  // que vinha DEPOIS como um sim pra falar com a dona. O termo curto e o
+  // mesmo leitor de sim/nao do resto do sistema.
+  if (afirmouOuNegou(t, /falar com|chama[r]? (a |o )?(dona|equipe|atendente)/) === false) {
+    return false;
+  }
   return true;
 }
 
