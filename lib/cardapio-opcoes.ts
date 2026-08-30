@@ -31,7 +31,7 @@
 //  Movido e trocado na leitura do `app/`, 28/08/2026.
 // ============================================================================
 
-import { produtosDaCasa, categoriaDoPedido } from "@/lib/ia/dados/produtos";
+import { produtosDaCasa, categoriaDoPedido, coresDoCardapio } from "@/lib/ia/dados/produtos";
 import { unidadeDoItem } from "@/lib/tipos";
 
 export type Opcao = { nome: string; categoria: string; unidade: "un" | "kg"; sabores: string[] };
@@ -44,3 +44,19 @@ export const OPCOES: Opcao[] = produtosDaCasa().map((p) => ({
   unidade: unidadeDoItem(p.unidade),
   sabores: p.sabores ?? [],
 }));
+
+/**
+ * AS CORES DE FORMINHA, PRA TELA OFERECER PRONTAS.
+ *
+ * A tela do pedido tinha as 21 cores REESCRITAS A MAO. E a mesma copia que o
+ * `nao-copiar-o-catalogo-pro-codigo` conta na sua propria abertura como o
+ * primeiro dos tres defeitos que ele nasceu pra achar: "as 21 CORES da
+ * forminha, reescritas a mao numa regex em montagem.ts. O dia em que a dona
+ * cadastrasse uma cor nova na tela, a copia nao saberia". Saiu de la e ficou de
+ * pe no painel, porque o detector varria so `lib/`.
+ *
+ * A cor nao e enfeite: a dona monta a forminha antes de rechear, e cor digitada
+ * errada nao casa com o que a cozinha usa. Cadastrar uma cor no catalogo passa a
+ * valer nos dois lados, na conversa e na tela, sozinha.
+ */
+export const CORES_DE_FORMINHA: string[] = coresDoCardapio();

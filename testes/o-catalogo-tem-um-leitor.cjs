@@ -7,8 +7,16 @@
 // a R$ 1,25 e do churros a R$ 34,90.
 //
 // A lista unica (`lib/ia/dados/produtos.ts`) e o leitor. Teste, foto de preco
-// e o proprio JSON podem continuar lendo a fonte. O resto de `lib/` e `app/`
-// pergunta pra lista.
+// e o proprio JSON podem continuar lendo a fonte. O resto de `lib/`, `app/` e
+// `components/` pergunta pra lista.
+//
+// A TELA ENTROU NA VARREDURA EM 30/08/2026.
+//
+// Eram so `lib/` e `app/`, e a tela e justamente onde a copia se esconde
+// melhor: `components/PedidoMontado.tsx` tinha as 21 cores de forminha
+// reescritas a mao. Componente de cliente nao pode importar o JSON de qualquer
+// jeito (o catalogo inteiro viraria bundle de navegador), entao o dado desce
+// pela rota que a tela ja chama.
 //
 // Roda com: node testes/o-catalogo-tem-um-leitor.cjs
 const fs = require("node:fs");
@@ -31,6 +39,7 @@ const varrer = (dir) => {
 };
 varrer(path.join(RAIZ, "lib"));
 varrer(path.join(RAIZ, "app"));
+varrer(path.join(RAIZ, "components"));
 
 const leitores = [];
 for (const arq of arquivos) {
@@ -51,6 +60,6 @@ if (leitores.length) {
   process.exit(1);
 }
 
-console.log("ok    so produtos.ts importa catalogo.json em lib/ e app/");
+console.log("ok    so produtos.ts importa catalogo.json em lib/, app/ e components/");
 console.log("");
 console.log("PASSOU");

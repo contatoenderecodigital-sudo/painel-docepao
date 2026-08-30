@@ -181,15 +181,23 @@ if (naBancadaErrada.length) {
 }
 
 // -----------------------------------------------------------------------------
-// 4. A comanda fala a lingua do catalogo. Os nomes velhos nao voltam.
+// 4. A comanda E A TELA falam a lingua do catalogo. Os nomes velhos nao voltam.
+//
+// A tela entrou aqui em 30/08/2026, e ela era o ultimo lugar onde a lingua velha
+// estava viva: `components/PedidoMontado.tsx` tinha uma tabela `DO_MOTOR` que
+// traduzia doce, salgado e bolo_recheado pro vocabulario do pedido. O motor nao
+// fala essas tres palavras desde a unificacao, e este teste nao olhava a tela.
 // -----------------------------------------------------------------------------
-const comanda = semComentario("lib/departamentos.ts");
-if (/bolo_recheado/.test(comanda) || /^\s*salgado:/m.test(comanda) || /^\s*doce:/m.test(comanda)) {
-  falhas.push(
-    "o `departamentos.ts` voltou a conhecer o vocabulario velho " +
-      "(salgado, doce, bolo_recheado): os pedidos gravados assim eram teste, " +
-      "e manter duas linguas e o defeito que este arquivo existe pra pegar",
-  );
+const OLHAR = ["lib/departamentos.ts", "components/PedidoMontado.tsx"];
+for (const rel of OLHAR) {
+  const texto = semComentario(rel);
+  if (/bolo_recheado/.test(texto) || /^\s*salgado:/m.test(texto) || /^\s*doce:/m.test(texto)) {
+    falhas.push(
+      "o `" + rel + "` voltou a conhecer o vocabulario velho " +
+        "(salgado, doce, bolo_recheado): os pedidos gravados assim eram teste, " +
+        "e manter duas linguas e o defeito que este arquivo existe pra pegar",
+    );
+  }
 }
 
 console.log("");

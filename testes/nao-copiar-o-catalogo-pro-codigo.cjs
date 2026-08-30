@@ -33,8 +33,18 @@
 //   - `dados/`, que E o catalogo e a lista unica;
 //   - `apelidos.ts`, que e dado da casa: sinonimo de verdade ("chique" pra
 //     quiche) nao sai por semelhanca, tem que estar escrito;
-//   - `departamentos.ts`, que mapeia produto pra BANCADA da cozinha, e essa
-//     informacao nao existe no catalogo (esta anotada la com a fonte do audio).
+//   - `departamentos.ts`, cuja lista de nomes e a REDE EMBAIXO, pro nome que o
+//     cardapio nao conhece ("quibe", "esfiha", "vela numero 5"). Desde
+//     30/08/2026 quem responde primeiro lá e a categoria do catalogo, e quem
+//     cobra isso, nos 86 produtos, e o
+//     `a-comanda-sai-da-categoria-do-catalogo.cjs`.
+//
+// A VARREDURA PEGA `lib/`, `app/` E `components/`.
+//
+// Era so `lib/`, e foi por isso que a copia mais cara sobreviveu a este proprio
+// teste: as 21 CORES da forminha, as mesmas que a abertura aqui em cima diz que
+// sairam do `montagem.ts`, estavam reescritas a mao em
+// `components/PedidoMontado.tsx`. Achadas em 30/08/2026, varrendo a tela.
 //
 // Roda com: node testes/nao-copiar-o-catalogo-pro-codigo.cjs
 const fs = require("node:fs");
@@ -87,6 +97,8 @@ const varrer = (dir) => {
   }
 };
 varrer(path.join(RAIZ, "lib"));
+varrer(path.join(RAIZ, "app"));
+varrer(path.join(RAIZ, "components"));
 
 // Fora os comentarios: a explicacao pode e deve citar o cardapio.
 const semComentario = (texto) =>

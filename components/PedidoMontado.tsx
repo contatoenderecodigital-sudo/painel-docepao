@@ -161,13 +161,19 @@ const CAMPOS: { chave: keyof Dados; rotulo: string; dica: string }[] = [
 // explicita ela sai branca no branco e a dona nao consegue ler a opcao.
 const OPCAO = { background: "#3d1219", color: "#fff7eb" } as const;
 
-// As cores de forminha do cardapio, pra dona clicar em vez de digitar. Cor
-// escrita errada nao casa com o que a cozinha usa.
-const CORES_FORMINHA = [
-  "amarelo", "amarelo neon", "azul", "azul bebê", "azul royal", "branca", "dourada",
-  "laranja", "laranja neon", "lilás", "marrom", "pink", "prata", "preta", "rosa",
-  "rosa claro", "roxo", "roxo neon", "verde bandeira", "verde tiffany", "vermelha",
-];
+// AS CORES DE FORMINHA SAEM DO CARDAPIO, JUNTO COM OS PRODUTOS.
+//
+// Aqui estavam as 21 cores REESCRITAS A MAO. E a mesma copia que o teste
+// `nao-copiar-o-catalogo-pro-codigo` cita na sua abertura como o primeiro
+// defeito que ele nasceu pra achar; ela saiu do `montagem.ts` e continuou de pe
+// nesta tela, porque o detector varria so `lib/`.
+//
+// O dia em que a dona cadastrasse uma cor nova, a conversa ofereceria e a tela
+// nao, e a equipe voltaria a digitar cor na mao. Cor digitada errada nao casa
+// com o que a cozinha usa.
+//
+// Vem pela mesma rota que ja traz o cardapio (`/api/cardapio/opcoes`), que le a
+// lista unica no servidor. Assim o catalogo nao vira bundle de navegador.
 
 const campo =
   "min-w-0 bg-white/8 rounded-lg px-2.5 py-2 text-[13px] text-cream placeholder:text-cream/35 focus:outline-none focus:ring-2 focus:ring-cobre/25 border border-white/8";
@@ -230,14 +236,21 @@ function semSaborEscolhido(cardapio: OpcaoCardapio[], it: Item): boolean {
   return !ops.some((sab) => obs.includes(sab.toLowerCase()));
 }
 
-const DO_MOTOR: Record<string, Categoria> = {
-  doce: "docinho",
-  salgado: "salgado_frito",
-  bolo_recheado: "bolo_festa",
-  bolo_caseiro: "bolo_caseiro",
-  adicional_bolo: "papel_de_arroz",
-  pizza: "pizza",
-};
+// AQUI HAVIA A ULTIMA TABELA DA LINGUA VELHA DO MOTOR.
+//
+// Ela traduzia `doce`, `salgado` e `bolo_recheado` pro vocabulario do pedido, e
+// o motor nao fala mais essas tres palavras desde 29/08/2026: a
+// `CATEGORIA_NO_ORCAMENTO` saiu do `orcamento.ts` e o `departamentos.ts` deixou
+// de conhece-las. Esta copia continuou de pe porque o teste da lingua unica
+// varria `lib/` e nao a tela.
+//
+// As outras tres linhas eram identidade (`bolo_caseiro`, `pizza`) ou inalcancavel
+// (`adicional_bolo`: o papel de arroz e traduzido antes, no `categoriaDoPedido`).
+//
+// Sem ela, categoria gravada que a tela nao conhece cai em "outro", que e o
+// rotulo honesto: a equipe ve na tela e corrige, em vez de a tela chutar uma
+// familia e a comanda sair na bancada errada.
+
 // A categoria usa exatamente o mesmo casamento do sabor. Aqui a busca aceitava
 // tambem o nome do cardapio que CONTINHA o gravado, que e a direcao proibida:
 // "empadao" achava "empadao com palmito" e o item ia parar na ficha do produto
@@ -247,7 +260,7 @@ function categoriaDaTela(produto: string, doMotor: string, cardapio: OpcaoCardap
   const achado = doCardapio(cardapio, produto);
   if (achado) return achado.categoria;
   if (CATEGORIAS.some((c) => c.id === doMotor)) return doMotor as Categoria;
-  return DO_MOTOR[doMotor] ?? "outro";
+  return "outro";
 }
 
 // Como vem gravado o item, antes de virar linha da tela. A categoria aqui e a
@@ -288,6 +301,7 @@ function itemDaTela(x: ItemGravado, cardapio: OpcaoCardapio[]): Item {
 export default function PedidoMontado({ clienteId, versao }: { clienteId: string; versao: number }) {
   const [aberto, setAberto] = useState(false);
   const [cardapio, setCardapio] = useState<OpcaoCardapio[]>([]);
+  const [coresForminha, setCoresForminha] = useState<string[]>([]);
   const [foto, setFoto] = useState<string | null>(null);
   const [itens, setItens] = useState<Item[]>([]);
   const [brutos, setBrutos] = useState<ItemGravado[]>([]);
@@ -330,7 +344,10 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
   useEffect(() => {
     fetch("/api/cardapio/opcoes")
       .then((r) => r.json())
-      .then((j) => setCardapio(Array.isArray(j.produtos) ? j.produtos : []))
+      .then((j) => {
+        setCardapio(Array.isArray(j.produtos) ? j.produtos : []);
+        setCoresForminha(Array.isArray(j.cores) ? j.cores.map(String) : []);
+      })
       .catch(() => {});
   }, []);
 
@@ -1039,16 +1056,19 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                     Cor faltando trava o pedido e cor digitada errada nao casa
                     com o que a cozinha usa. Clicar numa cor aqui vale pra este
                     docinho; a IA aplica a mesma pros outros que estao sem. */}
-                {it.categoria === "docinho" && (() => {
+                {/* Sem as cores carregadas nao se desenha a fila vazia: a
+                    equipe leria "Forminha" sem nada em que clicar. O campo de
+                    observacao continua aberto pra ela escrever. */}
+                {it.categoria === "docinho" && coresForminha.length > 0 && (() => {
                   const atual = (it.obs ?? "").toLowerCase();
                   return (
                     <div className="mt-2">
                       <span className="block text-[11px] text-cream/45 mb-1">Forminha</span>
                       <div className="flex flex-wrap gap-1">
-                      {CORES_FORMINHA.map((cor) => {
+                      {coresForminha.map((cor) => {
                         // "azul royal" acendia tambem o "azul": marca so a mais
                         // especifica que aparece na observacao.
-                        const escolhida = [...CORES_FORMINHA]
+                        const escolhida = [...coresForminha]
                           .sort((a, b) => b.length - a.length)
                           .find((c) => atual.includes(c.toLowerCase()));
                         const marcado = escolhida === cor;
