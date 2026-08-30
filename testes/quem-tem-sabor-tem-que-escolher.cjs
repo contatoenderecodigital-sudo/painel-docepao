@@ -92,6 +92,8 @@ fs.writeFileSync(
     "  itens: [{ produto: nome, categoria: categoriaDoPedido(nome), qtd: 2, obs: obs ?? null }] });",
     "",
     "const comSabor = produtosDaCasa().filter((p) => pedeEscolhaDeSabor(p));",
+    "// A lista inteira. Nao cortar, nao escrever 25 nomes: produto novo com",
+    "// sabor nasce coberto no dia em que a dona cadastrar.",
     "const semSabor = produtosDaCasa().filter((p) => !pedeEscolhaDeSabor(p));",
     "const ehPerguntaDeSabor = (t) => /vai de qu|card[aá]pio pra escolher/i.test(String(t));",
     "",

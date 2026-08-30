@@ -406,6 +406,119 @@ export function produtoPorNome(nome: string): ProdutoDaCasa | null {
 }
 
 /**
+ * PEDACOS DE FAMILIA QUE SAEM DA CATEGORIA E DO GRUPO.
+ *
+ * Nao e lista de produto. "bolo", "caseiro", "docinho", "pizza" aparecem aqui
+ * porque o catalogo chama as coisas assim. Cadastrar "bolo_vegano" amanha
+ * coloca "vegano" sozinho.
+ */
+function pedacosDaChave(s: string): string[] {
+  return limpo(s)
+    .split(/[-_\s]+/)
+    .filter((p) => p.length >= 4);
+}
+
+/**
+ * AS PALAVRAS QUE DIZEM DE QUAL FAMILIA E ESTE PRODUTO.
+ *
+ * Sai da categoria, do grupo e do prefixo do nome canonico (o que sobra quando
+ * se tira o `nomeCurto`). "brigadeiro" nao entra: e o nome, nao a familia.
+ */
+export function palavrasDaFamilia(
+  p: Pick<ProdutoDaCasa, "categoria" | "grupo" | "nome" | "nomeCurto">,
+): string[] {
+  const s = new Set<string>([
+    ...pedacosDaChave(p.categoria),
+    ...pedacosDaChave(p.grupo),
+  ]);
+  const nome = limpo(p.nome);
+  const curto = limpo(p.nomeCurto);
+  if (curto && nome !== curto && (nome === curto || nome.endsWith(" " + curto) || nome.endsWith(curto))) {
+    const prefixo = nome.endsWith(" " + curto)
+      ? nome.slice(0, nome.length - curto.length).trim()
+      : nome.slice(0, Math.max(0, nome.length - curto.length)).trim();
+    for (const w of pedacosDaChave(prefixo)) s.add(w);
+  }
+  return [...s];
+}
+
+/** Uniao das palavras de familia de todo o catalogo, pra achar prefixo na frase. */
+export function palavrasDeFamiliaDoCatalogo(): Set<string> {
+  const s = new Set<string>();
+  for (const p of produtosDaCasa()) {
+    for (const w of palavrasDaFamilia(p)) s.add(w);
+  }
+  return s;
+}
+
+/**
+ * COLISAO DE NOME CURTO: mesmo jeito que o cliente fala, categorias diferentes.
+ *
+ * Nao e a lista do brigadeiro. E o que o catalogo produz hoje, e o que ele
+ * produzir amanha quando a dona cadastrar "maracuja" no docinho e no bolo.
+ */
+export function paresDeNomeCurtoColidindo(): { nomeCurto: string; produtos: ProdutoDaCasa[] }[] {
+  const por = new Map<string, ProdutoDaCasa[]>();
+  for (const p of produtosDaCasa()) {
+    const k = limpo(p.nomeCurto);
+    if (!k) continue;
+    const arr = por.get(k) ?? [];
+    arr.push(p);
+    por.set(k, arr);
+  }
+  const pares: { nomeCurto: string; produtos: ProdutoDaCasa[] }[] = [];
+  for (const [nomeCurto, produtos] of por) {
+    const cats = new Set(produtos.map((p) => p.categoria));
+    if (cats.size > 1) pares.push({ nomeCurto, produtos });
+  }
+  return pares;
+}
+
+/**
+ * ENTRE CANDIDATOS DO MESMO NOME, GANHA A FAMILIA DA ETAPA E DA FRASE.
+ *
+ * A dica e a categoria (ou o nome da etapa: "bolo", "docinho"). As palavras da
+ * frase que tambem sao familia (bolo, caseiro, docinho, pizza) votam. Empate
+ * de nota deixa o primeiro: quem resolve de verdade, nesse caso, e a pergunta.
+ */
+export function desempatarPorFamilia(
+  candidatos: ProdutoDaCasa[],
+  dica?: string,
+  frase?: string,
+): ProdutoDaCasa {
+  if (!candidatos.length) {
+    throw new Error("desempatarPorFamilia sem candidato");
+  }
+  if (candidatos.length === 1) return candidatos[0];
+  const toksFrase = new Set(pedacosDaChave(frase ?? ""));
+  const d = limpo(dica ?? "");
+  const nota = (p: ProdutoDaCasa) => {
+    const fam = new Set(palavrasDaFamilia(p));
+    let n = 0;
+    if (d && d === limpo(p.categoria)) n += 8;
+    if (d) {
+      for (const tok of new Set([...pedacosDaChave(d), ...(d.length >= 4 ? [d] : [])])) {
+        if (fam.has(tok) || limpo(p.categoria).split(/[-_]/).includes(tok)) n += 3;
+      }
+    }
+    for (const w of toksFrase) {
+      if (fam.has(w)) n += 5;
+    }
+    return n;
+  };
+  let melhor = candidatos[0];
+  let melhorNota = nota(melhor);
+  for (const p of candidatos.slice(1)) {
+    const n = nota(p);
+    if (n > melhorNota) {
+      melhor = p;
+      melhorNota = n;
+    }
+  }
+  return melhor;
+}
+
+/**
  * ESTE PRODUTO PEDE O CLIENTE ESCOLHER O SABOR?
  *
  * Sai da tabela: tem `sabores[]` e nao tem `saborFixo`. Coxinha nao pede

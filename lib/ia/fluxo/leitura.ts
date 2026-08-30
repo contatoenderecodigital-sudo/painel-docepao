@@ -43,6 +43,7 @@ import {
   produtosDaCasa, produtoNoComeco, produtoPorNome, gruposDaCasa, CATEGORIAS_DE_BOLO,
 } from "../dados/produtos";
 import { ehNomeDeFamilia, ehPizzaQueNaoESalgado, nomeDaFamilia } from "./generico";
+import { identificarProduto } from "./produto";
 
 /**
  * SOBRE O QUE ELE PODE TER PERGUNTADO.
@@ -718,7 +719,7 @@ export function etapaDesteProduto(produto: string): EtapaId | null {
   // produto sem ninguem cortar prefixo. E a etapa continua saindo de
   // `vocabularioDaEtapa`, que e o unico lugar onde categoria vira etapa: aqui
   // nao nasce uma segunda lista dizendo a mesma coisa de outro jeito.
-  const daCasa = produtoNoComeco(produto);
+  const daCasa = produtoNoComeco(produto) ?? produtoPorNome(identificarProduto(produto).produto);
   if (daCasa) {
     for (const etapa of ETAPAS_DE_PRODUTO) {
       if ((CATEGORIAS_DA_ETAPA[etapa] as readonly string[]).includes(daCasa.categoria)) return etapa;
