@@ -723,7 +723,28 @@ antes:
    conhecido. A linha encolheu pra `"- Vai tirar item? use tirar."` e o ensino
    do formato foi pro exemplo do JSON, que nao conta no teto.
 
-### O ambiguo virou PERGUNTA (30/08/2026, pedido do dono)
+### O ambiguo virou PERGUNTA (30/08/2026, pedido do dono) — MEDIDO
+
+**A prova, contra o banco, container `ebc8c2e`:**
+
+```
+cliente >> queria 2 pizzas inteiras, uma de calabresa e uma de frango com catupiry
+cliente >> pensando bem tira a pizza
+padaria >> No seu pedido tem pizza calabresa inteira e pizza frango com catupiry
+           inteira. Qual voce quer tirar?
+cliente >> a de calabresa
+padaria >> Fechando: 1 pizza inteira (frango com catupiry)  *Total: R$ 120,00*
+
+rastro    mandou tirar e serve pra 2 linhas; vou perguntar qual
+          ele respondeu qual tirar, e saiu: pizza inteira [calabresa]
+montagem  1 ~ pizza inteira ~ frango com catupiry
+```
+
+A reescrita deixou a frase mais natural que a do codigo ("pizza calabresa
+inteira" no lugar de "pizza inteira (calabresa)") sem trocar produto nem
+inventar, que e exatamente o que ela pode e o que ela nao pode.
+
+
 
 Palavra dele: *"a IA tem que tratar igual um humano ne, qual item voce quer
 tirar? etc... pq pode ter pego 2 pizzas e dps querer 1"*.
