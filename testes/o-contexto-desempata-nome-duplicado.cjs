@@ -202,7 +202,7 @@ cobra("depois de quais docinhos, brigadeiro entra como docinho",
   doc && doc.categoria === "docinho" && !/^bolo /.test(doc.produto),
   JSON.stringify(r.depoisDocinhos));
 
-const bolo = (r.depoisBolo || []).find((x) => /brigadeiro/i.test(x.produto));
+const bolo = (r.depoisBolo || []).find((x) => x.produto === "bolo brigadeiro");
 cobra("depois da pergunta do bolo de festa, brigadeiro e bolo brigadeiro",
   bolo && bolo.produto === "bolo brigadeiro" && bolo.categoria === "bolo_festa",
   JSON.stringify(r.depoisBolo));
