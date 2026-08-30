@@ -42,7 +42,7 @@ import { APELIDOS } from "../dados/apelidos";
 import {
   produtosDaCasa, produtoNoComeco, produtoPorNome, gruposDaCasa, CATEGORIAS_DE_BOLO,
 } from "../dados/produtos";
-import { ehNomeDeFamilia, nomeDaFamilia } from "./generico";
+import { ehNomeDeFamilia, ehPizzaQueNaoESalgado, nomeDaFamilia } from "./generico";
 
 /**
  * SOBRE O QUE ELE PODE TER PERGUNTADO.
@@ -593,20 +593,25 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     salgado:
       "A etapa é ESCOLHER OS SALGADOS. Só existe salgado aqui: se ele falar de " +
       "docinho ou de bolo, devolva falouDeOutraEtapa em vez de anotar." +
+      " Mini pizza é salgado assado. Pizza, pizza redonda, pizza inteira, pizza " +
+      "meia e calzone não são salgado: anote o item mesmo assim, sem carimbar " +
+      "de salgado. O pedido mistura familias na mesma conversa." +
       recusa("salgado") + semNumero +
       " Pediu pra casa escolher os tipos? delegaEscolha = true, sem itens." +
       lista,
     docinho:
       "A etapa é ESCOLHER OS DOCINHOS. Só existe docinho aqui: se ele falar de " +
       "bolo ou de salgado, devolva falouDeOutraEtapa em vez de anotar. " +
+      "Nome que o cardapio tambem vende como bolo: aqui e o docinho, sem prefixo de bolo. " +
       "Se ele disser a cor da forminha, devolva em forminha." +
       recusa("docinho") + semNumero +
       " Pediu pra casa escolher os tipos? delegaEscolha = true, sem itens." +
       lista,
     bolo:
       "A etapa é ESCOLHER O BOLO. Só sabor de bolo aqui: se ele falar de " +
-      "docinho, devolva falouDeOutraEtapa, mesmo que o nome sirva pros dois " +
-      "(brigadeiro, beijinho). O peso em quilos vai na quantidade." +
+      "docinho, devolva falouDeOutraEtapa, mesmo que o cardapio tenha o mesmo " +
+      "nome nas duas familias. Use o nome do cardapio com o prefixo do bolo. " +
+      "Caseiro so se ele disse caseiro. O peso em quilos vai na quantidade." +
       " Embalagem: prato \"aberto\" ou \"tampa\"." +
       recusa("bolo") + semNumero +
       " Pediu pra casa escolher o sabor? delegaEscolha = true, sem itens." +
@@ -971,6 +976,11 @@ export function leituraQueCabeNaEtapa(
       // estava escolhendo salgado e dizia "e uma torta fria" perdia a torta E
       // ouvia que a padaria nao tinha.
       if (existeNoCardapio(i.produto)) return [i];
+      // Pizza nao tem etapa propria. Na etapa do salgado ela era negada
+      // (familia "pizza" nao esta no cardapio como produto) ou carimbada
+      // salgado_frito. Mini pizza passa pelo vocabulario; a outra pizza entra
+      // e segue o trilho da pizza.
+      if (ehPizzaQueNaoESalgado(i.produto)) return [i];
 
       naoExistem.push(i.produto);
       return [];

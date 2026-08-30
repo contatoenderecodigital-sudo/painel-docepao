@@ -25,6 +25,7 @@ import {
   coresDoCardapio,
   faltaCorDaForminha,
   proximoSaborQueFalta,
+  ehSalgadoDoCardapio,
 } from "./sabor";
 import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia, nomeDaFamilia, familiaDoNome } from "./generico";
 import { paraOMotor } from "./cotar";
@@ -218,9 +219,10 @@ function falaSeTemFamilia(p: PedidoEmMontagem, aviso = ""): Fala | null {
 }
 
 function falaSeTemPizza(p: PedidoEmMontagem, aviso = ""): Fala | null {
-  const tem = p.itens.some(
-    (i) => nomeDaFamilia(i.produto) === "pizza" || familiaDoNome(i.produto) === "pizza",
-  );
+  const tem = p.itens.some((i) => {
+    if (ehSalgadoDoCardapio(i.produto, i.categoria)) return false;
+    return nomeDaFamilia(i.produto) === "pizza" || familiaDoNome(i.produto) === "pizza";
+  });
   if (!tem) return null;
   return falaSeTemFamilia(p, aviso);
 }

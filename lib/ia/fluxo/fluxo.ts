@@ -34,7 +34,7 @@ import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitur
 import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase } from "./leitor-da-frase";
 import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida } from "../texto";
 import { identificarProduto } from "./produto";
-import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, nomeDaFamilia, opcoesDaFamilia } from "./generico";
+import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, ehPizzaQueNaoESalgado, nomeDaFamilia, opcoesDaFamilia } from "./generico";
 import { APELIDOS } from "../dados/apelidos";
 import { produtoNoComeco, produtoPorNome, produtosDaCasa, coresDoCardapio } from "../dados/produtos";
 import { semAcento as semAc } from "../texto";
@@ -260,15 +260,47 @@ export function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
   const daFamilia = categoriaUnicaDaFamilia(nome);
   if (daFamilia) return daFamilia;
 
+  if (ehPizzaQueNaoESalgado(produto)) return "pizza";
+
   if (etapa === "salgado") {
     // O cardapio nao conhece o nome: frito e o padrao da casa, e e o que a
     // leitura anterior fazia quando nao achava na lista dos assados.
     return "salgado_frito";
   }
   if (etapa === "docinho") return "docinho";
-  if (etapa === "bolo") return "bolo_festa";
+  if (etapa === "bolo") {
+    // NA ETAPA DO BOLO NEM TODO BOLO E DE FESTA.
+    //
+    // Estava fixo em "bolo_festa", e o caseiro saia cobrado por quilo. O
+    // catalogo sabe qual e qual depois que o nome ja veio canonico. So
+    // quando ele nao conhece o nome o padrao da etapa vale, e ai de festa
+    // e o palpite da festa (o caseiro tem lista fechada e ja teria casado).
+    const daCasa = produtoNoComeco(nome);
+    if (daCasa?.categoria === "bolo_caseiro") return "bolo_caseiro";
+    return "bolo_festa";
+  }
 
   return doCatalogo;
+}
+
+/**
+ * A DICA QUE O NOME USA PRA DESEMPATAR, QUE NAO E A CATEGORIA DO ITEM.
+ *
+ * Sai da etapa e do que ele escreveu. A etapa do salgado nao vira
+ * `salgado_frito` aqui: isso carimbava pizza e docinho como frito. A do bolo
+ * olha a frase (caseiro, festa, kg) e a base da festa (bolo em quilo).
+ */
+function dicaDaEtapa(etapa: EtapaId, e: PedidoEmMontagem, produto: string, fala: string): string {
+  if (etapa === "docinho") return "docinho";
+  if (etapa === "salgado") return "salgado";
+  if (etapa === "bolo") {
+    const t = semAc(produto + " " + fala);
+    if (/\bcaseiros?\b/.test(t)) return "bolo_caseiro";
+    if (/\bfestas?\b/.test(t) || /\bkg\b/.test(t) || /\bquilos?\b/.test(t)) return "bolo_festa";
+    if (e.ehFesta && e.base && Number(e.base.boloKg) > 0) return "bolo_festa";
+    return "bolo";
+  }
+  return "";
 }
 
 /**
@@ -843,16 +875,13 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       // comparacao falhava, o item entrava duas vezes e o cupom saiu com
       // "misto: bolo 4 leites e 4 leites". Medido na bateria dos cinco jeitos.
       //
-      // A etapa entra como dica pra desempatar quem existe em dois lugares:
-      // "brigadeiro" na etapa do bolo e bolo, na do docinho e docinho.
-      //
+      // A etapa entra como dica pra desempatar quem existe em dois lugares.
       // A CATEGORIA DO ITEM NAO E ESSA DICA. Medido em 30/08/2026: a dica da
       // etapa do salgado virava categoria do item, e pizza/brigadeiro saiam
-      // como salgado_frito. A dica continua da etapa (pra desempatar o NOME).
-      // A categoria do item sai do catalogo do produto ja identificado.
-      const dica =
-        etapa === "bolo" ? "bolo_festa" : etapa === "docinho" ? "docinho" : etapa === "salgado" ? "salgado_frito" : categoriaDaEtapa(etapa, String(i.produto));
-      const quem = identificarProduto(String(i.produto), dica);
+      // como salgado_frito. A dica e a etapa (e o que ele escreveu), e a
+      // categoria do item sai do catalogo do produto ja identificado.
+      const dica = dicaDaEtapa(etapa, e, String(i.produto), falaDoCliente);
+      const quem = identificarProduto(String(i.produto), dica, falaDoCliente);
       const produto = quem.produto;
       const categoria = categoriaDaEtapa(etapa, produto);
 
@@ -1110,6 +1139,23 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
         });
       })
     : [];
+  // A PALAVRA QUE E OUTRO ITEM DO PEDIDO NAO E SABOR.
+  //
+  // Festa misturada: pizza redonda esperando sabor, cliente disse "e
+  // brigadeiro". Brigadeiro e docinho E sabor doce de pizza. Grudar na pizza
+  // fazia "calabresa" depois nao colar, e o pedido misturado perdia o recheio.
+  const palavraEOutroItem = (palavra: string, item: (typeof novo.itens)[number]) => {
+    const a = semAc(palavra);
+    if (!a) return false;
+    return novo.itens.some((i) => {
+      if (i === item) return false;
+      const n = semAc(i.produto);
+      if (n === a || n.endsWith(" " + a)) return true;
+      const casa = produtoPorNome(i.produto) ?? produtoNoComeco(i.produto);
+      return Boolean(casa && (semAc(casa.nome) === a || semAc(casa.nomeCurto) === a));
+    });
+  };
+
   // RECHEIO DE QUEM JA TEM SABOR FIXO NAO VAI PRA QUEM ESTA ESPERANDO LISTA.
   //
   // Medido em 30/08/2026: "50 coxinha" e depois "de frango". A pizza redonda
@@ -1156,9 +1202,11 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
         return afirmouOuNegou(t, cercaDoSabor(alvo)) !== false;
       });
     if (achado) {
-      novo.itens = novo.itens.map((i) =>
-        i === item ? { ...i, obs: [i.obs, achado].filter(Boolean).join(" | ") } : i,
-      );
+      if (!palavraEOutroItem(achado, item)) {
+        novo.itens = novo.itens.map((i) =>
+          i === item ? { ...i, obs: [i.obs, achado].filter(Boolean).join(" | ") } : i,
+        );
+      }
     } else if (/\?/.test(String(falaDoCliente || "")) === false) {
       // ELE INSISTIU NUM SABOR QUE A LISTA NAO TEM.
       //
@@ -1273,9 +1321,10 @@ export async function responder(
         // Trocar um erro de R$ 1,25 por uma linha sem preco nao e conserto. Se o
         // bolo existe, vale o bolo; se nao existe, vale o que o cliente falou, e
         // a padaria pergunta o sabor como ja faz pro que ela nao acha.
-        const comBolo = ehBolo ? identificarProduto("bolo " + p.produto).produto : null;
+        const fala = String(mensagem.texto ?? "");
+        const comBolo = ehBolo ? identificarProduto("bolo " + p.produto, undefined, fala).produto : null;
         const boloDeVerdade = comBolo && produtoPorNome(comBolo) ? comBolo : null;
-        return { ...p, produto: boloDeVerdade ?? identificarProduto(p.produto).produto };
+        return { ...p, produto: boloDeVerdade ?? identificarProduto(p.produto, undefined, fala).produto };
       });
     if (doTextoParaDepois.length) {
       // ENTRA AGORA, NAO DEPOIS.

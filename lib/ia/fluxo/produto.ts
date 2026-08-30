@@ -59,7 +59,17 @@ function familiaNoComeco(t: string): string | null {
     return new RegExp("(^|[^a-z])" + miolo + "s?(?![a-z])").test(s);
   };
   for (const { k, n } of chaves) {
-    if (perto(n, t) || formas.some((f) => perto(n, f))) return k;
+    if (!(perto(n, t) || formas.some((f) => perto(n, f)))) continue;
+    // Mini pizza e salgado. A palavra pizza no meio dela nao e a familia da
+    // pizza de forma: no pedido misturado virava a pizza cara e sumia o
+    // salgado.
+    if (n === "pizza") {
+      const eMini = [t, ...formas].some(
+        (f) => f === "mini pizza" || f.startsWith("mini pizza ") || f.startsWith("mini pizza,"),
+      );
+      if (eMini) continue;
+    }
+    return k;
   }
   return null;
 }

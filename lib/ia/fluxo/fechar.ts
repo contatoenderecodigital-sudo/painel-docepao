@@ -31,7 +31,7 @@ import { motorPadrao } from "../orcamento";
 import type { Estado } from "./fluxo";
 import { prazoDoTopoAperta } from "./falas-do-cliente";
 import { saboresQueFaltam, saboresAlemDoLimite, faltaCorDaForminha, MARCA_SABOR_A_CONFIRMAR } from "./sabor";
-import { nomeDaFamilia } from "./generico";
+import { ehNomeDeFamilia, nomeDaFamilia } from "./generico";
 import { semAcento as semAc } from "../texto";
 import { paraOMotor } from "./cotar";
 import { unidadeDoItem } from "../../tipos";
@@ -142,6 +142,7 @@ export function oQueFaltaPraFechar(e: Estado): string[] {
   for (const i of e.itens) {
     // A frase sai com o nome CANONICO da familia, e nao com a palavra crua: o
     // portao aceita "bolos" e o cliente ouvia "qual bolos voce quer".
+    if (!ehNomeDeFamilia(i.produto)) continue;
     const familia = nomeDaFamilia(i.produto);
     if (familia) falta.push("qual " + familia + " você quer");
   }
