@@ -99,6 +99,29 @@ fs.writeFileSync(
     "  ] }) as never);",
     "saida.osDoisDoMesmo = linhas(f.estado);",
     "",
+    "// 6. A DATA NAO E SABOR. Medido em producao no mesmo dia, e o pedido",
+    "//    fechou com `empadao (pra retirar amanha as 18h | Eliezer)`.",
+    "const g = await responder(semSabor.estado as never,",
+    "  { texto: 'pra retirar amanha as 18h' },",
+    "  pensar({ dados:{ data:'31/08/2026', hora:'18:00' } }) as never);",
+    "saida.dataNaoESabor = linhas(g.estado);",
+    "",
+    "// 7. E O NOME TAMBEM NAO.",
+    "const h = await responder(g.estado as never,",
+    "  { texto: 'Eliezer' },",
+    "  pensar({ dados:{ nome:'Eliezer' } }) as never);",
+    "saida.nomeNaoESabor = linhas(h.estado);",
+    "",
+    "// 8. O QUE NAO PODE QUEBRAR: sabor fora da lista continua chegando.",
+    "//    'pistache' nao esta nas opcoes do empadao e o modelo nao devolve dado",
+    "//    nenhum: a frase esta SOBRANDO de verdade, e ela vira o recado que a",
+    "//    equipe confere. Licao de 26/08, quando o sabor pedido nunca chegava",
+    "//    na comanda.",
+    "const j = await responder(semSabor.estado as never,",
+    "  { texto: 'pistache' },",
+    "  pensar({}) as never);",
+    "saida.saborForaDaLista = linhas(j.estado);",
+    "",
     "console.log(JSON.stringify(saida));",
   ].join("\n"),
 );
@@ -161,6 +184,26 @@ conferir(
   saiu.osDoisDoMesmo,
   ["torta fria [frango]", "empadao [frango]"],
   "o modelo deu dono aos dois, e tirar de um seria inventar no sentido contrario",
+);
+
+console.log("== e frase que a leitura entendeu como outra coisa nao e sabor ==");
+conferir(
+  "a data nao vira o sabor do empadao",
+  saiu.dataNaoESabor,
+  ["empadao"],
+  "medido em producao: o pedido fechou com empadao (pra retirar amanha as 18h) e isso foi pro cupom da cozinha",
+);
+conferir(
+  "e o nome do cliente tambem nao",
+  saiu.nomeNaoESabor,
+  ["empadao"],
+  "o cupom saiu com o nome dele escrito no lugar do recheio",
+);
+conferir(
+  "mas o sabor fora da lista continua chegando",
+  saiu.saborForaDaLista,
+  ["empadao [pistache]"],
+  "licao de 26/08: sem isto o sabor pedido nunca chegava na comanda e a equipe nao tinha o que conferir",
 );
 
 console.log(erros ? "REPROVOU EM " + erros : "PASSOU");

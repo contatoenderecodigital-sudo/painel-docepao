@@ -1537,8 +1537,38 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       const cru = String(falaDoCliente || "").trim();
       const soIsto = semAc(cru);
       const jaTem = semAc(String(item.obs ?? ""));
+
+      // FRASE QUE A LEITURA ENTENDEU COMO OUTRA COISA NAO E SABOR.
+      //
+      // Medido em producao em 30/08/2026, e o pedido fechou assim:
+      //
+      //   padaria >> Qual sabor voce quer no empadao?
+      //   cliente >> pra retirar amanha as 18h
+      //   padaria >> Qual sabor do empadao voce quer?
+      //   cliente >> Eliezer
+      //   pedido  >> 1 empadao (pra retirar amanha as 18h | Eliezer)  R$ 34,90
+      //
+      // A data e o nome viraram o SABOR, e isso foi pro cupom da cozinha.
+      //
+      // As tres guardas de cima passaram: o texto tem entre 3 e 40 letras, nao
+      // cita produto nenhum, e nao estava na observacao. Elas medem a FORMA da
+      // frase, e forma nao distingue "pistache" de "Eliezer".
+      //
+      // Quem distingue e a propria leitura: se o modelo devolveu `dados` nesta
+      // mensagem, ele entendeu a frase como data, hora, nome ou pagamento. Uma
+      // frase que ja tem dono nao esta sobrando pra virar sabor, que e a mesma
+      // regra do carimbo logo acima e da juncao de itens.
+      //
+      // O QUE ISTO CUSTA, e e barato: "de pistache, pra amanha as 18h" perde o
+      // pistache, porque a mensagem tambem trouxe a data. O sabor fora da lista
+      // ja vai pra equipe de qualquer jeito; escrever a data no cupom nao tem
+      // conserto depois que a cozinha leu.
+      const aFraseTemOutroDono = Object.values(l.dados ?? {}).some((v) => String(v ?? "").trim());
+      if (aFraseTemOutroDono && cru) rastro.push("nao usei a frase como sabor: a leitura ja deu outro dono a ela");
+
       if (
         cru &&
+        !aFraseTemOutroDono &&
         soIsto.length >= 3 &&
         soIsto.length <= 40 &&
         !produtosNaFrase(cru).length &&
