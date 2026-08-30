@@ -763,20 +763,7 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "Se ele PERGUNTOU de uma família sem quantidade, devolva falouDeOutraEtapa " +
       "com a etapa dela. Perguntar já diz do que ele quer falar." + String.fromCharCode(10) +
       "Se ele só cumprimentou, devolva {} e não invente nada: quem diz o que " +
-      "quer é ele." +
-      // A ABERTURA TAMBEM ANOTA PRODUTO, ENTAO TAMBEM PRECISA DESTA REGRA.
-      //
-      // Medido ao vivo duas vezes em 30/08/2026. Ele pergunta o preco na
-      // primeira mensagem (nada e anotado, e certo), e na SEGUNDA ja pede:
-      //
-      //   cliente >> quero 2 inteiras, uma de calabresa e uma de frango
-      //   no banco >> 1 pizza inteira (calabresa | frango), R$ 120,00
-      //
-      // Como nada tinha sido anotado ainda, a etapa era a ABERTURA, e nao a do
-      // produto. Eu tinha posto a regra so nas quatro etapas de produto, e por
-      // isso a segunda medicao veio identica a primeira. Bateria que devolve o
-      // mesmo resultado duas vezes e suspeita, nao resultado.
-      porSabor,
+      "quer é ele.",
   };
 
   const jaTem = p.itens.length
