@@ -30,6 +30,7 @@ import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia, nomeDaFamilia, fam
 import { paraOMotor } from "./cotar";
 import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
 import { semAcento } from "../texto";
+import { ehSalgadoDoCardapio } from "./sabor";
 
 /**
  * O NOME DO PAPEL DE ARROZ, NUMA LINHA SO.
@@ -218,9 +219,10 @@ function falaSeTemFamilia(p: PedidoEmMontagem, aviso = ""): Fala | null {
 }
 
 function falaSeTemPizza(p: PedidoEmMontagem, aviso = ""): Fala | null {
-  const tem = p.itens.some(
-    (i) => nomeDaFamilia(i.produto) === "pizza" || familiaDoNome(i.produto) === "pizza",
-  );
+  const tem = p.itens.some((i) => {
+    if (ehSalgadoDoCardapio(i.produto, i.categoria)) return false;
+    return nomeDaFamilia(i.produto) === "pizza" || familiaDoNome(i.produto) === "pizza";
+  });
   if (!tem) return null;
   return falaSeTemFamilia(p, aviso);
 }

@@ -43,7 +43,7 @@
 //  já custou caro aqui: guarda que bloqueia registro faz o modelo apagar o item.
 // ============================================================================
 
-import { produtosDaCasa } from "../dados/produtos";
+import { produtosDaCasa, produtoNoComeco, produtoPorNome } from "../dados/produtos";
 import { formasDoCliente, semAcento } from "../texto";
 
 // O nome so tira acento e baixa a caixa. Quem entende plural, artigo e
@@ -216,8 +216,34 @@ export function chavesDeFamilia(): string[] {
  * nome nao e familia.
  */
 export function nomeDaFamilia(produto: unknown): string | null {
+  const texto = String(produto ?? "");
   const chaves = chavesReduzidas();
-  return formasDoCliente(String(produto ?? "")).find((f) => chaves.has(f)) ?? null;
+  // Mini pizza e produto de salgado. A chave "pizza" nao pode ganhar dela.
+  for (const f of formasDoCliente(texto)) {
+    const daCasa = produtoPorNome(f) ?? produtoNoComeco(f);
+    if (daCasa && String(daCasa.categoria).startsWith("salgado")) return null;
+    if (chaves.has(f)) return f;
+  }
+  return null;
+}
+
+/**
+ * PIZZA DE VERDADE, NAO SALGADINHO.
+ *
+ * Mini pizza e salgado assado e fica na etapa do salgado. Pizza, pizza
+ * redonda, pizza inteira, pizza meia e calzone nao sao essa etapa: carimbar
+ * `salgado_frito` nelas era o pulo da festa pra pizza (ou o contrario).
+ */
+export function ehPizzaQueNaoESalgado(produto: unknown): boolean {
+  const texto = String(produto ?? "");
+  for (const f of formasDoCliente(texto)) {
+    const daCasa = produtoPorNome(f) ?? produtoNoComeco(f);
+    if (daCasa) return daCasa.categoria === "pizza" || daCasa.categoria === "calzone";
+  }
+  if (ehNomeDeFamilia(texto) && nomeDaFamilia(texto) === "pizza") return true;
+  const reduzido = formasDoCliente(texto)[1] || formasDoCliente(texto)[0] || limpo(texto);
+  if (/^calzone\b/.test(reduzido)) return true;
+  return /^pizzas?\b/.test(reduzido) || reduzido.startsWith("pizza ");
 }
 
 /**

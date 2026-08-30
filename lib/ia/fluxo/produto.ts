@@ -59,7 +59,16 @@ function familiaNoComeco(t: string): string | null {
     return new RegExp("(^|[^a-z])" + miolo + "s?(?![a-z])").test(s);
   };
   for (const { k, n } of chaves) {
-    if (perto(n, t) || formas.some((f) => perto(n, f))) return k;
+    if (!(perto(n, t) || formas.some((f) => perto(n, f)))) continue;
+    // Mini pizza e salgado. A palavra pizza no meio dela nao e a familia da
+    // pizza de forma: virava R$ 120 e pulava a conversa da festa.
+    if (n === "pizza") {
+      const eMini = [t, ...formas].some(
+        (f) => f === "mini pizza" || f.startsWith("mini pizza ") || f.startsWith("mini pizza,"),
+      );
+      if (eMini) continue;
+    }
+    return k;
   }
   return null;
 }
@@ -78,8 +87,8 @@ export function identificarProduto(nomeBruto: string, categoria?: string): Ident
   // nomes diferentes no pedido: o "de" fazia o nome não casar com candidato
   // nenhum, e o fluxo devolvia o texto cru. Era exatamente a doença que este
   // arquivo foi criado pra curar, sobrevivendo numa preposição.
-  const t = semAcMin(bruto).replace(/^bolo (de |do |da ) */, "bolo ");
-  if (!t) return { produto: bruto, recheio: null, unidade: "un", unico: false };
+  const t0 = semAcMin(bruto).replace(/^bolo (de |do |da ) */, "bolo ");
+  if (!t0) return { produto: bruto, recheio: null, unidade: "un", unico: false };
 
   const ehEtapaDeBolo = String(categoria || "").startsWith("bolo");
 
@@ -144,23 +153,46 @@ export function identificarProduto(nomeBruto: string, categoria?: string): Ident
     for (const a of lista) cand.push({ canonico, casa: semAcMin(a), deBolo: false, apelido: true });
   }
 
-  const servem = cand
-    .filter((c) => c.casa && (t === c.casa || t.startsWith(c.casa + " ")))
-    // Nome mais longo primeiro: "mini bolha de carne" é "mini bolha" + "carne",
-    // nunca "mini" + "bolha de carne".
-    .sort((a, b) => b.casa.length - a.casa.length);
+  // Artigo na frente: "uma mini pizza" tem que achar o salgado, nao a familia
+  // pizza. A dica da etapa do salgado tambem NAO promove "pizza" a mini pizza.
+  let t = t0;
+  let servem: typeof cand = [];
+  for (const forma of [...new Set([t0, ...formasDoCliente(bruto), ...formasDoCliente(t0)])]) {
+    const desta = cand
+      .filter((c) => c.casa && (forma === c.casa || forma.startsWith(c.casa + " ")))
+      .sort((a, b) => b.casa.length - a.casa.length);
+    if (desta.length) {
+      t = forma;
+      servem = desta;
+      break;
+    }
+  }
+
+  if (servem.length) {
+    const fam = familiaNoComeco(t0);
+    const eMini = [t0, ...formasDoCliente(bruto)].some(
+      (f) => f === "mini pizza" || f.startsWith("mini pizza ") || f.startsWith("mini pizza,"),
+    );
+    if (fam === "pizza" && !eMini) {
+      servem = servem.filter((c) => {
+        const p = produtosDaCasa().find((x) => x.nome === c.canonico);
+        return !p || !String(p.categoria).startsWith("salgado");
+      });
+    }
+  }
 
   if (!servem.length) {
     // NOME DE FAMILIA NAO VIRA O PRODUTO MAIS COMPRIDO.
     //
     // "uma pizza" nao e pizza inteira (R$ 120). "2 pizzas" nao e o file ao molho
     // madeira. Sem isto o apelido ou o casamento por pedaco escolhia o preco.
-    // A padaria pergunta qual: forma, meia ou redonda.
-    const fam = familiaNoComeco(t);
+    // A padaria pergunta qual: forma, meia ou redonda. Mini pizza e outro
+    // produto, e a etapa do salgado nao troca uma pela outra.
+    const fam = familiaNoComeco(t0);
     if (fam) {
       const n = semAcMin(fam);
-      const onde = t.indexOf(n);
-      const resto = t
+      const onde = t0.indexOf(n);
+      const resto = t0
         .slice(onde >= 0 ? onde + n.length : n.length)
         .replace(/^ *(de|da|do|com) +/, "")
         .trim();
