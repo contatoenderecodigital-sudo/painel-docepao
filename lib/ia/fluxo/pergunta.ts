@@ -31,7 +31,6 @@ import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia, nomeDaFamilia, fam
 import { paraOMotor } from "./cotar";
 import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
 import { semAcento } from "../texto";
-import { ehSalgadoDoCardapio } from "./sabor";
 
 /**
  * O NOME DO PAPEL DE ARROZ, NUMA LINHA SO.
@@ -193,7 +192,7 @@ const CARDAPIO_DO_GRUPO: Record<string, string> = {
   cuca: "cucas-paes",
 };
 
-function pecaDoCardapio(produto: string): string | null {
+export function pecaDoCardapio(produto: string): string | null {
   const p = produtoNoComeco(produto) ?? produtoPorNome(produto);
   if (p) {
     if (CARDAPIO_DO_GRUPO[p.grupo]) return CARDAPIO_DO_GRUPO[p.grupo];

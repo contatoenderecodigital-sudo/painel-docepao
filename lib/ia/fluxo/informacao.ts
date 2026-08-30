@@ -156,7 +156,17 @@ function precoDaFamilia(familia: string): string | null {
 
   const exato = doGrupo();
   if (exato.length && new Set(exato.map((x) => x.grupo)).size === 1) {
-    return fraseDaLista(exato, familia);
+    // UM produto nomeado traz os irmaos da mesma unidade: "pizza de forma"
+    // e a inteira, e a meia e a outra peca da forma. Familia inteira
+    // ("pizza") ja vem com redonda e forma juntas, e a faixa por quilo
+    // precisa continuar na frase.
+    const soUm = exato.length === 1;
+    const g = exato[0]!.grupo;
+    const u = exato[0]!.unidade;
+    const irmaos = soUm
+      ? produtosDaCasa().filter((x) => x.grupo === g && x.unidade === u)
+      : exato;
+    return fraseDaLista(irmaos.length ? irmaos : exato, familia);
   }
 
   if (/salgad/.test(f)) {
@@ -250,7 +260,7 @@ function precoDaFamilia(familia: string): string | null {
 
 /** "Cuca sai de R$ 22,90 a R$ 26,90 o quilo." Sai da lista, com o preco dela. */
 function fraseDaLista(
-  lista: { preco: number; unidade: "un" | "kg"; valorTipico?: [number, number] }[],
+  lista: { nome?: string; preco: number; unidade: "un" | "kg"; valorTipico?: [number, number] }[],
   familia: string,
 ): string | null {
   // A unidade muda a frase, e um mesmo grupo pode ter as duas: a pizza redonda
@@ -262,6 +272,22 @@ function fraseDaLista(
     const maior = Math.max(...precos);
     return menor === maior ? brl(menor) : "de " + brl(menor) + " a " + brl(maior);
   };
+  const comNome = lista.filter((x) => x.nome);
+  const precosDistintos = new Set(lista.map((x) => x.preco));
+  const umaUnidade = new Set(lista.map((x) => x.unidade)).size === 1;
+  // Poucos produtos da MESMA unidade, cada um com o valor dele.
+  // "pizza de forma" precisa ouvir inteira e meia. Familia com quilo e
+  // peca (pizza redonda + forma) continua na faixa, que e onde mora o
+  // "costuma sair".
+  if (comNome.length >= 2 && comNome.length <= 4 && precosDistintos.size > 1 && umaUnidade) {
+    const cada = comNome.map((x) => {
+      const unidade = x.unidade === "kg" ? " o quilo" : " a unidade";
+      return x.nome + " sai " + brl(x.preco) + unidade;
+    });
+    const listaNomes =
+      cada.length === 2 ? cada[0] + " e " + cada[1] : cada.slice(0, -1).join(", ") + " e " + cada[cada.length - 1];
+    return "Sim, a gente faz. " + listaNomes.charAt(0).toUpperCase() + listaNomes.slice(1) + ".";
+  }
   const partes: string[] = [];
   if (porUnidade("kg").length) partes.push(faixa(porUnidade("kg")) + " o quilo");
   if (porUnidade("un").length) partes.push(faixa(porUnidade("un")) + " a unidade");

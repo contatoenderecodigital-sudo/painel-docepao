@@ -29,9 +29,9 @@
 // ============================================================================
 
 import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
-import { falaDaEtapa, type Fala } from "./pergunta";
+import { falaDaEtapa, pecaDoCardapio, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitura } from "./leitura";
-import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase } from "./leitor-da-frase";
+import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase, familiaDoQueEleNomeou } from "./leitor-da-frase";
 import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida, formasDoCliente } from "../texto";
 import { identificarProduto } from "./produto";
 import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, ehPizzaQueNaoESalgado, nomeDaFamilia, opcoesDaFamilia } from "./generico";
@@ -1454,6 +1454,48 @@ export async function responder(
       limpa.falouDeOutraEtapa = undefined;
     }
 
+    // PERGUNTA DE OUTRA FAMILIA NAO CONTINUA A ETAPA.
+    //
+    // Print do dono, 30/08/2026, Rodrigo Zanella: a etapa era o bolo, o cliente
+    // perguntou "voces fazem pizza de forma?" e a padaria mandou o cardapio de
+    // bolos de festa, papel de arroz e topo pra equipe orcar. Depois parou e
+    // acendeu "precisa de voce".
+    //
+    // O modelo, preso na etapa, nao devolve perguntou. O assunto do bolo nao
+    // se cumpre sem item de bolo, e a mesma pergunta sai de novo ate a equipe.
+    //
+    // A frase nomeia a familia. Familia com etapa propria (bolo, salgado,
+    // docinho) vira assunto. Familia sem etapa (pizza, cuca) e informacao:
+    // responde o preco do catalogo, manda o cardapio certo, nao gruda.
+    {
+      const falaAgora = String(mensagem.texto ?? "");
+      const famNomeada = familiaDoQueEleNomeou(falaAgora);
+      const famDestaEtapa =
+        etapaAgora.id === "pecas_do_bolo"
+          ? "bolo"
+          : etapaAgora.id === "bolo" || etapaAgora.id === "salgado" || etapaAgora.id === "docinho"
+            ? etapaAgora.id
+            : null;
+      const ehPergunta = Boolean(limpa.perguntou?.sobre) || /\?/.test(falaAgora);
+      if (ehPergunta && famNomeada && famNomeada !== famDestaEtapa) {
+        const nomeado = produtosNaFrase(falaAgora)[0];
+        const etapaDaFam: EtapaId | null =
+          (nomeado ? etapaDesteProduto(nomeado) : null) ||
+          (famNomeada === "bolo" || famNomeada === "salgado" || famNomeada === "docinho"
+            ? famNomeada
+            : null);
+        if (etapaDaFam && etapaDaFam !== etapaAgora.id) {
+          limpa.falouDeOutraEtapa = etapaDaFam;
+        } else if (!etapaDaFam) {
+          const sobre =
+            limpa.perguntou?.sobre && limpa.perguntou.sobre !== "outro" ? limpa.perguntou.sobre : "preco";
+          limpa.perguntou = { sobre, familia: nomeado ?? famNomeada };
+          limpa.falouDeOutraEtapa = undefined;
+          rastro.push("perguntou de " + famNomeada + ", nao da etapa " + etapaAgora.id);
+        }
+      }
+    }
+
     if (limpa.falouDeOutraEtapa && limpa.falouDeOutraEtapa !== etapaAgora.id) {
       // So marca a volta se a etapa de agora ainda nao estava resolvida: quem
       // termina o docinho e vai pro bolo nao precisa "voltar" pro docinho.
@@ -1674,8 +1716,15 @@ export async function responder(
         : respostaDeInformacao(limpa.perguntou);
       if (resposta) {
         rastro.push("ele perguntou sobre " + limpa.perguntou.sobre + "; respondi sem anotar nada");
+        const peca = limpa.perguntou.familia ? pecaDoCardapio(limpa.perguntou.familia) : null;
+        const famPerg = familiaDoQueEleNomeou(String(mensagem.texto ?? ""));
+        const famAssunto = estado.assunto === "pecas_do_bolo" ? "bolo" : estado.assunto;
+        if (famPerg && famAssunto && famPerg !== famAssunto) {
+          estado = { ...estado, assunto: null };
+        }
+        estado = { ...estado, insistiu: 0, ultimaFala: resposta.texto };
         return {
-          fala: { texto: resposta.texto, botoes: [], cardapio: null, podeReescrever: false },
+          fala: { texto: resposta.texto, botoes: [], cardapio: peca, podeReescrever: false },
           estado,
           etapa: etapaAgora.id,
           rastro,
