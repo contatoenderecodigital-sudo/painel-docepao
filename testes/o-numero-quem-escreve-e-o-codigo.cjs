@@ -28,6 +28,7 @@ fs.writeFileSync(
   [
     'import { etapaDaVez } from "../lib/ia/fluxo/etapas.ts";',
     'import { falaDaEtapa } from "../lib/ia/fluxo/pergunta.ts";',
+    'import { dizerComJeito } from "../lib/ia/fluxo/dizer.ts";',
     "const vazio = { ehFesta:false, pessoas:null, base:null, baseAceita:false, itens:[], naoQuer:[], dados:{nome:null,data:null,hora:null,pagamento:null}, pecas:null, topoNome:null, topoIdade:null, tema:null };",
     "const p = (x: Record<string, unknown>) => ({ ...vazio, ...x });",
     "const base = { salgados:200, docinhos:100, boloKg:2, totalCentavos:41880 };",
@@ -47,6 +48,14 @@ fs.writeFileSync(
     "  const f = falaDaEtapa(e, est as never, 41880);",
     "  return { nome, etapa: e.id, texto: f.texto, botoes: f.botoes, cardapio: f.cardapio, podeReescrever: f.podeReescrever };",
     "});",
+    "const falaAberta = {texto:'Pra que dia você quer retirar?',botoes:[],cardapio:null,podeReescrever:true};",
+    "const cliente = (texto:string) => ({chat:{completions:{create:async () => ({",
+    "  choices:[{message:{content:texto}}],usage:{prompt_tokens:1,completion_tokens:1}",
+    "})}}});",
+    "const inventado = await dizerComJeito(cliente('Essa encomenda fica 44,90. Pra que dia você quer retirar?') as never, falaAberta, 'quero encomendar');",
+    "const normal = await dizerComJeito(cliente('Que dia você quer retirar?') as never, falaAberta, 'quero encomendar');",
+    "saida.push({nome:'reescrita_preco',etapa:'dados',texto:inventado,botoes:[],cardapio:null,podeReescrever:true});",
+    "saida.push({nome:'reescrita_normal',etapa:'dados',texto:normal,botoes:[],cardapio:null,podeReescrever:true});",
     "console.log(JSON.stringify(saida));",
   ].join("\n"),
   "utf8",
@@ -73,6 +82,12 @@ for (const x of saida) {
 }
 if (por("base").podeReescrever) falhas.push("a base da festa voltou a poder ser reescrita pela IA");
 if (por("confirmacao").podeReescrever) falhas.push("o resumo do pedido voltou a poder ser reescrito pela IA");
+if (por("reescrita_preco").texto !== "Pra que dia você quer retirar?") {
+  falhas.push("a IA inventou um valor sem R$ e ele chegou ao cliente: " + por("reescrita_preco").texto);
+}
+if (por("reescrita_normal").texto !== "Que dia você quer retirar?") {
+  falhas.push("a trava de valor bloqueou uma reescrita sem numero: " + por("reescrita_normal").texto);
+}
 
 // ------------------------------------------ o numero e o do motor
 const base = por("base");

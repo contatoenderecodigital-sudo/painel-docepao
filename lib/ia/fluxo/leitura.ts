@@ -628,9 +628,8 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "\"papel\". Vale mesmo se ele já disse sim antes: quem muda de ideia manda.",
     oferta:
       "A padaria acabou de oferecer DOCINHO ou BOLO junto com o que ele pediu. " +
-      "Se ele quer, devolva os itens; se ele recusou (só isso, não, mais nada), " +
-      "devolva naoQuer com \"docinho\" e \"bolo\". Se ele falou de outra coisa " +
-      "(dados da retirada, mudar o pedido), leia normalmente: a oferta é " +
+      "Se ele quer, devolva os itens; se recusou, devolva naoQuer com " +
+      "\"docinho\" e \"bolo\". Se falou de outra coisa, leia normalmente: a oferta é " +
       "opcional e não trava a conversa." + String.fromCharCode(10) +
       // O CARDAPIO SAI PELO MESMO CANO DAS OUTRAS ETAPAS, e nao despejado aqui
       // dentro. A primeira versao colava os 42 nomes no meio da regra, e o
@@ -662,10 +661,8 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "A conversa está começando e você ainda não sabe o que ele quer." + String.fromCharCode(10) + 
       "Se ele falou de uma festa ou do número de pessoas, devolva ehFesta = true." + String.fromCharCode(10) + 
       "Se ele pediu um produto direto (100 coxinhas, uma torta), devolva em itens." + String.fromCharCode(10) + 
-      "Se ele PERGUNTOU de uma família sem dizer quantidade (vocês fazem bolo? " +
-      "tem salgadinho? faz docinho?), devolva falouDeOutraEtapa com a etapa " +
-      "daquela família: salgado, docinho ou bolo. Perguntar já é dizer sobre o " +
-      "que ele quer falar." + String.fromCharCode(10) +
+      "Se ele PERGUNTOU de uma família sem quantidade, devolva falouDeOutraEtapa " +
+      "com a etapa dela. Perguntar já diz do que ele quer falar." + String.fromCharCode(10) +
       "Se ele só cumprimentou, devolva {} e não invente nada: quem diz o que " +
       "quer é ele.",
   };
