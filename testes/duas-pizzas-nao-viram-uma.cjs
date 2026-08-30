@@ -89,6 +89,28 @@ const SONDA = [
   "  itens: [{ produto: 'coxinha', qtd: 68 }, { produto: 'coxinha', qtd: 66 }],",
   "});",
   "",
+  "// 5. O MODELO DEVOLVE OS DOIS SABORES NUMA STRING SO, que e o que ele faz",
+  "// de verdade depois que a instrucao da quantidade entrou. Tem que abrir em",
+  "// duas linhas, uma de cada.",
+  "const juntos = await rodar(VAZIO, 'quero 2 inteiras, uma de calabresa e uma de frango com catupiry', {",
+  "  itens: [{ produto: 'pizza inteira', qtd: 2, sabor: 'calabresa | frango com catupiry' }],",
+  "});",
+  "",
+  "// 6. UMA pizza de dois sabores continua UMA: a inteira aceita ate quatro.",
+  "const umaComDois = await rodar(VAZIO, 'quero uma inteira meio calabresa meio frango com catupiry', {",
+  "  itens: [{ produto: 'pizza inteira', qtd: 1, sabor: 'calabresa | frango com catupiry' }],",
+  "});",
+  "",
+  "// 7. Quantidade que NAO bate com o numero de sabores: nao adivinha.",
+  "const naoBate = await rodar(VAZIO, 'quero 5 inteiras de calabresa e frango com catupiry', {",
+  "  itens: [{ produto: 'pizza inteira', qtd: 5, sabor: 'calabresa | frango com catupiry' }],",
+  "});",
+  "",
+  "// 8. Recado NAO e sabor: 'sem cebola' nao pode virar linha.",
+  "const comRecado = await rodar(VAZIO, 'quero 2 inteiras de calabresa, sem cebola', {",
+  "  itens: [{ produto: 'pizza inteira', qtd: 2, sabor: 'calabresa | sem cebola' }],",
+  "});",
+  "",
   "// 3. correcao ENTRE mensagens",
   "const corrigiu = await rodar(",
   "  { ...VAZIO, itens: [{ produto: 'brigadeiro', categoria: 'docinho', qtd: 50, obs: 'forminha rosa' }] },",
@@ -106,6 +128,10 @@ const SONDA = [
   "  duplicata: mostra(duplicata),",
   "  corrigiu: mostra(corrigiu),",
   "  duasFamilias: mostra(duasFamilias),",
+  "  juntos: mostra(juntos),",
+  "  umaComDois: mostra(umaComDois),",
+  "  naoBate: mostra(naoBate),",
+  "  comRecado: mostra(comRecado),",
   "}));",
 ];
 
@@ -164,6 +190,45 @@ if (r.corrigiu.length !== 1 || !/^100~/.test(r.corrigiu[0] ?? "")) {
 }
 if (!/forminha rosa/.test(r.corrigiu.join(" "))) {
   falhas.push("a correcao apagou a observacao que ja estava: " + JSON.stringify(r.corrigiu));
+}
+
+// 5. O MODELO MANDA OS DOIS SABORES NUMA STRING SO, e isso abre em duas linhas.
+//
+// Medido ao vivo em 30/08/2026, depois de a instrucao da quantidade entrar: o
+// dinheiro ficou certo (R$ 240,00) e a COZINHA nao. O banco tinha
+// `2 ~ pizza inteira ~ frango com catupiry`: a calabresa sumiu e sairiam duas
+// pizzas iguais. O codigo tratava "calabresa | frango com catupiry" como UM
+// sabor, e como essa string nao aparece literal na fala, era descartada.
+if (r.juntos.length !== 2) {
+  falhas.push(
+    "os dois sabores numa string so viraram " + r.juntos.length + " linha(s): a " +
+      "cozinha nao sabe o que montar. " + JSON.stringify(r.juntos),
+  );
+}
+if (!/calabresa/.test(r.juntos.join(" ")) || !/frango com catupiry/.test(r.juntos.join(" "))) {
+  falhas.push("um dos sabores sumiu ao abrir: " + JSON.stringify(r.juntos));
+}
+
+// 6, 7 e 8. O QUE NAO PODE MUDAR AO ABRIR.
+if (r.umaComDois.length !== 1) {
+  falhas.push(
+    "UMA pizza de dois sabores virou " + r.umaComDois.length + " linhas: a inteira " +
+      "aceita ate quatro sabores, entao isso cobra DOBRADO de quem pediu uma. " +
+      JSON.stringify(r.umaComDois),
+  );
+}
+if (r.naoBate.length !== 1) {
+  falhas.push(
+    "quantidade que nao bate com o numero de sabores foi adivinhada: " +
+      JSON.stringify(r.naoBate) + ". Com 5 pizzas e 2 sabores nao da pra saber " +
+      "quantas de cada",
+  );
+}
+if (r.comRecado.length !== 1) {
+  falhas.push(
+    "um recado virou linha: \"sem cebola\" nao e sabor, e quem diz o que e sabor " +
+      "e o catalogo. " + JSON.stringify(r.comRecado),
+  );
 }
 
 // 4. familias diferentes

@@ -863,6 +863,42 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
   }
 
   if (l.itens?.length) {
+    // N SABORES COM QUANTIDADE N SAO N LINHAS, UMA DE CADA.
+    //
+    // Medido ao vivo em 30/08/2026, depois de a instrucao da quantidade entrar:
+    //
+    //   cliente >> quero 2 inteiras, uma de calabresa e uma de frango com catupiry
+    //   no banco >> 2 ~ pizza inteira ~ frango com catupiry ~ R$ 240,00
+    //
+    // O dinheiro ficou certo e a COZINHA nao: a calabresa sumiu, e sairiam duas
+    // pizzas iguais. O modelo devolve os dois sabores numa string so
+    // ("calabresa | frango com catupiry"), o codigo trata como UM sabor, essa
+    // string nao aparece literal na fala do cliente, e ela e descartada.
+    //
+    // A conta e sem chute: se ele pediu N e citou N sabores, cada pizza leva um.
+    // Com qtd 1 e dois sabores fica UMA linha, que e a pizza de dois sabores, e
+    // a inteira aceita ate quatro. Com N sabores e qtd diferente de N, tambem
+    // nao mexe: nao da pra saber quantas de cada, e adivinhar seria pior.
+    //
+    // Quem diz o que e sabor e o CATALOGO, e nao a pontuacao: pedaco que nao e
+    // sabor daquele produto e recado ("sem cebola") e continua junto.
+    const abertos: NonNullable<typeof l.itens> = [];
+    for (const bruto of l.itens) {
+      const partes = String(bruto.sabor ?? "")
+        .split("|")
+        .map((x) => x.trim())
+        .filter(Boolean);
+      const doCatalogo = (produtoPorNome(String(bruto.produto ?? ""))?.sabores ?? []).map((x) =>
+        semAc(String(x)),
+      );
+      const saboresDeVerdade = partes.filter((x) => doCatalogo.includes(semAc(x)));
+      const qtdDita = Number(bruto.qtd) || 0;
+      if (saboresDeVerdade.length > 1 && qtdDita === saboresDeVerdade.length) {
+        for (const s of saboresDeVerdade) abertos.push({ ...bruto, qtd: 1, sabor: s });
+      } else {
+        abertos.push(bruto);
+      }
+    }
     const itens = [...novo.itens];
     // QUANTOS ITENS JA EXISTIAM ANTES DESTA LEITURA.
     //
@@ -898,7 +934,9 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
     const restricoesTiradas: string[] = [];
     // O recheio que o produto nao tem, pra virar frase e nao comanda.
     const recheiosTrocados: string[] = [];
-    for (const i of l.itens) {
+    // `abertos`, e nao `l.itens`: e a mesma lista com o item de N sabores ja
+    // aberto em N linhas. Ver o comentario no comeco deste bloco.
+    for (const i of abertos) {
       // O NOME, O APELIDO E O RECHEIO, RESOLVIDOS DE UMA VEZ.
       //
       // O modelo devolve "quiche de frango" como se fosse UM produto, e o
