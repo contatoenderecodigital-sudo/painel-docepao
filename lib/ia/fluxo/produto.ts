@@ -34,6 +34,7 @@ import {
   palavrasDaFamilia,
   palavrasDeFamiliaDoCatalogo,
   desempatarPorFamilia,
+  paresDeNomeCurtoColidindo,
 } from "../dados/produtos";
 // O MESMO normalizador de todo mundo. Aqui era a quinta copia dele, e esta
 // trocava a ordem do toLowerCase com o normalize.
@@ -359,10 +360,14 @@ export function identificarProduto(nomeBruto: string, categoria?: string, frase?
     .replace(/^ *(de|da|do|com) +/, "")
     .trim();
 
+  const colideNoCatalogo = paresDeNomeCurtoColidindo().some((par) =>
+    par.produtos.some((p) => p.nome === escolhido.canonico),
+  );
+
   return {
     produto: escolhido.canonico,
     recheio: resto || null,
     unidade: unidadeDoProduto(escolhido.canonico, escolhido.categoria),
-    unico: !ambiguo,
+    unico: !ambiguo && !colideNoCatalogo,
   };
 }
