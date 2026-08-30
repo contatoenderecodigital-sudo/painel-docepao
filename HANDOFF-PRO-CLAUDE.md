@@ -97,10 +97,15 @@ Portao local: **111 de 111**. Build limpo. Container em `8654e30`.
 > tinha acabado de separar. Detalhe completo no item 77 do
 > `LEITURA-DA-CADEIA.md` e no item 4a do `O-QUE-FALTA.md`.
 >
-> Travado por `testes/a-pizza-de-outro-sabor-e-outra-linha.cjs`, oito casos.
-> **Falta a medicao contra o banco depois do container mostrar o SHA novo** —
-> ate ela existir, isto aqui e conserto que passou no portao, nao conserto
-> provado.
+> Travado por `testes/a-pizza-de-outro-sabor-e-outra-linha.cjs`, oito casos, e
+> **MEDIDO CONTRA O BANCO** no container `d1c2290`: as duas linhas certas e
+> `*Total: R$ 240,00*`.
+>
+> Medir esta conversa abriu outros dois defeitos de dinheiro, os dois ja
+> fechados e medidos no mesmo dia: cancelar UMA de duas linhas do mesmo nome
+> (`f8df73f`) e `"tira a de calabresa"` nao ser entendido por ninguem
+> (`d71f976`). Estao no `O-QUE-FALTA.md` e nos itens 77 a 79 do
+> `LEITURA-DA-CADEIA.md`.
 >
 > O texto abaixo fica como estava, porque e o enunciado do defeito.
 

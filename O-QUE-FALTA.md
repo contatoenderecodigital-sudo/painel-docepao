@@ -618,7 +618,20 @@ comissão, atribuição pelo link (testada no navegador).
 
 ---
 
-## "TIRA A DE CALABRESA" — FECHADO NO CODIGO EM 30/08/2026, FALTA MEDIR
+## "TIRA A DE CALABRESA" — FECHADO E MEDIDO EM 30/08/2026
+
+**A prova, contra o banco, container `d71f976`:**
+
+```
+antes (f8df73f)  1 pizza (calabresa) + 1 pizza (frango)   Total: R$ 240,00
+agora (d71f976)  1 pizza inteira (frango com catupiry)    Total: R$ 120,00
+
+rastro     etapa: dados / tirou do pedido: pizza inteira [calabresa]
+montagem   1 ~ pizza inteira ~ frango com catupiry
+```
+
+Saiu a linha certa, identificada pelo SABOR, e a outra ficou intacta.
+
 
 **Medido em producao em 30/08/2026**, container `f8df73f`, conversa inteira
 contra o banco:
