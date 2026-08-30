@@ -57,6 +57,7 @@ fs.writeFileSync(
     'import { etapaDaVez, roteiroDoPedido } from "../lib/ia/fluxo/etapas.ts";',
     'import { etapaDesteProduto } from "../lib/ia/fluxo/leitura.ts";',
     'import { produtosDaCasa } from "../lib/ia/dados/produtos.ts";',
+    'import { opcaoDaFamiliaNaFrase } from "../lib/ia/fluxo/generico.ts";',
     "",
     "const VAZIO = {",
     "  ehFesta:false, pessoas:null, base:null, baseAceita:false, itens:[], naoQuer:[],",
@@ -80,6 +81,13 @@ fs.writeFileSync(
     "const a2 = await responder(a1.estado as never,",
     "  { texto: 'quero 2 inteiras, uma de calabresa e uma de frango com catupiry' } as never,",
     "  pensar({ itens:[{produto:'pizza inteira', qtd:2}] }) as never);",
+    "",
+    "// 2b. a leitura que o modelo devolve AO VIVO: familia crua, sabor no obs",
+    "const m1 = await responder(VAZIO as never,",
+    "  { texto: 'quero 2 inteiras, uma de calabresa e uma de frango com catupiry' } as never,",
+    "  pensar({ itens:[{produto:'pizza', qtd:2, obs:'calabresa | frango com catupiry'}] }) as never);",
+    "const ambigua = opcaoDaFamiliaNaFrase('pizza', 'pode ser inteira ou meia?');",
+    "const semTipo = opcaoDaFamiliaNaFrase('pizza', 'so 2 pizzas');",
     "",
     "// 3. o legitimo: pao nao fica preso; coxinha segue na etapa do salgado",
     "const b1 = await responder(VAZIO as never,",
@@ -105,6 +113,7 @@ fs.writeFileSync(
     "  paoEtapa: etapaDe(b1.estado), paoItens: linhas(b1.estado as never),",
     "  coxinhaEtapa: etapaDe(c1.estado),",
     "  misturado: linhas(d2.estado as never),",
+    "  modeloCru: linhas(m1.estado as never), ambigua, semTipo,",
     "}));",
   ].join("\n"),
 );
@@ -168,6 +177,24 @@ cobra(
   "pedido misturado nao perde nem o salgado nem a pizza",
   r.misturado.length === 2,
   JSON.stringify(r.misturado),
+);
+
+cobra(
+  "o modelo devolvendo a familia crua ainda escolhe o tipo pela frase",
+  r.modeloCru.some((l) => /pizza inteira x2/.test(l)),
+  JSON.stringify(r.modeloCru),
+);
+
+cobra(
+  "duas opcoes na mesma frase nao e escolha, e duvida",
+  r.ambigua === null,
+  String(r.ambigua),
+);
+
+cobra(
+  "sem nomear o tipo, nada e escolhido pelo cliente",
+  r.semTipo === null,
+  String(r.semTipo),
 );
 
 console.log("");

@@ -44,7 +44,7 @@
 // ============================================================================
 
 import { produtosDaCasa, produtoNoComeco, produtoPorNome } from "../dados/produtos";
-import { formasDoCliente, semAcento } from "../texto";
+import { cercaDaPalavra, formasDoCliente, semAcento } from "../texto";
 
 // O nome so tira acento e baixa a caixa. Quem entende plural, artigo e
 // diminutivo e `formasDoCliente`, usada nas buscas logo abaixo: aqui o texto
@@ -254,6 +254,68 @@ export function familiaDoProduto(produto: unknown): string | null {
     opcoesDaFamilia(chave).some((o) => limpo(o) === nome),
   ) ?? null;
 }
+
+/**
+ * ELE RESPONDEU QUAL, DENTRE AS OPCOES QUE A PADARIA OFERECEU?
+ *
+ * A padaria pergunta "inteira, meia ou redonda?" e o cliente responde
+ * "2 inteiras". Nenhuma dessas palavras e o nome do produto ("pizza
+ * inteira"), e cacar "inteira" solta na frase seria pior que o defeito:
+ * "quero a torta inteira" viraria uma pizza.
+ *
+ * Entao a busca e presa ao contexto: so vale para as opcoes que a padaria
+ * ACABOU de oferecer, e as opcoes saem do catalogo (`opcoesDaFamilia`). O que
+ * se procura e a parte que DISTINGUE uma da outra, ou seja, o nome do produto
+ * sem o prefixo da familia: "inteira", "meia", "redonda".
+ *
+ * Medido contra a producao em 30/08/2026: das tres respostas que a propria
+ * padaria oferece, "inteira" era a unica que ela nao lia. "redonda" e "meia"
+ * tem apelido proprio no catalogo; "inteira" nao tinha, e o pedido do Rodrigo
+ * ficou num laco de quatro mensagens ate morrer sem fechar.
+ *
+ * O plural entra pela gramatica, do mesmo jeito e na mesma ordem do
+ * `formasDoCliente`: a forma fiel primeiro, a reduzida so se a fiel nao achou.
+ */
+export function opcaoDaFamiliaNaFrase(familia: unknown, frase: unknown): string | null {
+  const opcoes = opcoesDaFamilia(familia);
+  if (opcoes.length < 2) return null;
+
+  const t = limpo(frase);
+  if (!t) return null;
+  const semPlural = t.replace(/(aes|oes|aos)\b/g, "ao").replace(/s\b/g, "");
+  const nomeFam = limpo(nomeDaFamilia(familia) ?? String(familia ?? ""));
+
+  const achou: string[] = [];
+  for (const opcao of opcoes) {
+    const inteiro = limpo(opcao);
+    // "pizza inteira" menos "pizza" e "inteira": e o que separa uma da outra.
+    const soOQueDistingue = inteiro.replace(nomeFam, " ").replace(/ +/g, " ").trim();
+    const alvos = [inteiro, soOQueDistingue].filter((a) => a.length >= 3);
+    const bateu = alvos.some((a) => {
+      const cerca = cercaDaPalavra(a);
+      return cerca.test(t) || cerca.test(semPlural);
+    });
+    if (bateu) achou.push(opcao);
+  }
+
+  // DUAS OPCOES NA MESMA FRASE NAO E RESPOSTA, E DUVIDA.
+  //
+  // "pode ser inteira ou meia?" nao escolheu nada. Devolver a primeira seria
+  // a padaria decidindo pelo cliente, que e o defeito que este projeto mais
+  // pagou caro.
+  return achou.length === 1 ? achou[0] : null;
+}
+
+// O LIMITE DESTA FUNCAO, ESCRITO PRA QUEM VIER DEPOIS.
+//
+// Ela nao le a frase inteira: se o cliente escrever "quero uma pizza e a
+// torta inteira", o "inteira" e da torta e ela vai devolver `pizza inteira`.
+// Quem chama so pergunta quando o MODELO ja disse que a linha e daquela
+// familia, entao o caso exige o modelo errar junto.
+//
+// Nao foi resolvido de proposito: o conserto seria olhar a distancia entre as
+// palavras, e isso e leitura de frase, que e trabalho do modelo. O que estava
+// em jogo era um laco que nao fechava pedido nenhum.
 
 /**
  * PIZZA DE VERDADE, NAO SALGADINHO.

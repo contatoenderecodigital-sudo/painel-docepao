@@ -34,7 +34,7 @@ import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitur
 import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase, familiaDoQueEleNomeou } from "./leitor-da-frase";
 import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida, formasDoCliente } from "../texto";
 import { identificarProduto } from "./produto";
-import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, ehPizzaQueNaoESalgado, familiaDoProduto, nomeDaFamilia, opcoesDaFamilia } from "./generico";
+import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, ehPizzaQueNaoESalgado, familiaDoProduto, nomeDaFamilia, opcaoDaFamiliaNaFrase, opcoesDaFamilia } from "./generico";
 import { APELIDOS } from "../dados/apelidos";
 import { produtoNoComeco, produtoPorNome, produtosDaCasa, coresDoCardapio } from "../dados/produtos";
 import { semAcento as semAc } from "../texto";
@@ -899,7 +899,22 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       // ja identificado.
       const dica = dicaDaEtapa(etapa, e, String(i.produto), falaDoCliente);
       const quem = identificarProduto(String(i.produto), dica, falaDoCliente);
-      const produto = quem.produto;
+      // ELE RESPONDEU QUAL, DENTRE AS QUE A PADARIA OFERECEU.
+      //
+      // O modelo devolve a familia crua ("pizza") quando o cliente responde
+      // com a palavra que distingue e nao com o nome do produto. Medido ao
+      // vivo em 30/08/2026: a padaria disse "inteira, meia ou redonda", o
+      // cliente disse "quero 2 inteiras", e o modelo devolveu `pizza` com os
+      // sabores no recado. O tipo nunca era escolhido e a conversa repetia a
+      // pergunta ate morrer.
+      //
+      // A resposta e casada com as opcoes que a padaria ACABOU de oferecer,
+      // que saem do catalogo. Preso ao contexto de proposito: cacar "inteira"
+      // solta na frase transformaria "quero a torta inteira" numa pizza.
+      const escolhida = ehNomeDeFamilia(quem.produto)
+        ? opcaoDaFamiliaNaFrase(quem.produto, falaDoCliente)
+        : null;
+      const produto = escolhida ?? quem.produto;
       const categoria = categoriaDaEtapa(etapa, produto);
 
       // A conta de "de que familia e este produto" mora em familiaDoProduto,
