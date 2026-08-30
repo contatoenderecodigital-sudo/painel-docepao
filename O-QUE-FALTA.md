@@ -199,12 +199,51 @@ A frase guarda o sabor no recado do item. Na primeira vez a padaria mostra o
 cardapio. Se ele insiste, anota "sabor a confirmar" e chama a equipe. Nao vira
 produto com preco. Completar a lista aberta e pergunta pra dona.
 
-### 4. O leitor da frase lê quantidade depois do nome
+### 4. O leitor da frase lê quantidade depois do nome — FEITO, e medido em 30/08
 
 `"muda a coxinha pra 100"` atualiza a quantidade mesmo quando o modelo está em
 outra pergunta e devolve o item velho, ou não devolve item nenhum.
 
-### 4b. O LIXO, MEDIDO EM 30/08/2026
+**Conferido rodando o `responder` de verdade**, com a coxinha em 200 no estado e
+cinco formas de o modelo responder:
+
+```
+modelo devolve NADA          ->  100 ~ coxinha
+modelo devolve o item VELHO  ->  100 ~ coxinha
+modelo acerta                ->  100 ~ coxinha
+"aumenta a coxinha pra 300"  ->  300 ~ coxinha
+"coxinha 150"                ->  150 ~ coxinha
+```
+
+Travado por `testes/o-leitor-da-frase-acha-e-nao-inventa.cjs`, que cobre as tres
+formas e tambem o caso da frase sozinha, sem item nenhum do modelo.
+
+### 4b. O LIXO — FECHADO EM 30/08/2026, e o detector deixou de ter ponto cego
+
+**A lista de pastas saiu do `nada-de-codigo-fantasma.cjs`.** Ele varria quatro
+pastas escritas a mao (`lib/ia/fluxo`, `lib/ia`, `lib/ia/dados`, `lib/banco`) e
+nao enxergava `lib/` na raiz, `lib/whatsapp/` nem `components/`. Agora desce
+sozinho por `lib` e `components`: pasta nova ja nasce coberta.
+
+Ele achou seis funcoes mortas nessas tres pastas, e DUAS eram promessa quebrada
+com o cliente, nao lixo:
+
+| o que estava morto | o que aconteceu |
+| --- | --- |
+| `avisoDeEspera` | **ligado.** A frase do repasse estava chumbada no `fluxo.ts` e prometia atendimento agora a QUALQUER hora. As 23h o cliente lia "vou chamar alguem da equipe" e ninguem vinha ate de manha |
+| `avisoDeProblema` | **ligado.** Mesma coisa quando a IA cai: `app/api/whatsapp/route.ts` prometia "daqui a pouco" de madrugada |
+| `normalizarTelefone` | **ligado.** O helper e o componente que o exporta faziam a MESMA conta, no mesmo arquivo, e o componente nao chamava o helper |
+| `CLUBE_MOCK` | **apagado**, com o tipo `MembroClube` que so existia pra ele. Clube de fidelidade nao existe no sistema |
+| `lerPerfil`, `salvarPerfil` | **decisao dele**, na lista `PENDENTES` com o motivo: metade escrita de uma funcionalidade sem tela |
+
+**O que continua e e decisao dele:** ligar ou apagar o `perfil.ts` (editar o
+perfil comercial do WhatsApp sem entrar no painel da Meta) e o
+`informacoes.ts` (a tabela de todas as perguntas do atendimento, pedida em
+24/08). Os dois sao trabalho certo que nunca ganhou tela.
+
+---
+
+### 4c. O LEVANTAMENTO QUE GEROU ISTO, medido em 30/08/2026
 
 Levantado varrendo o repositorio inteiro, e nao por amostra: 145 arquivos
 `.ts`/`.tsx`, 32 rotas de API, 101 testes, 22 dependencias, `.mjs`, `.sql`,
@@ -261,10 +300,19 @@ mao** e confere export, nao arquivo. Fora dele ficam `lib/` na raiz,
 
 ---
 
-### 5. As duas pequenas, já nomeadas
+### 5. As duas pequenas — FEITO, conferido em 30/08
 
 `obs: metade` indo como lixo pra comanda. O `valor_tipico` da pizza redonda
 passa na pergunta de preço: costuma sair entre R$ 35 e R$ 45.
+
+Conferido lendo quem chama:
+
+- `obsPraComanda`, em `lib/ia/fluxo/restricao.ts`, tira `metade`, `metade de
+  cada` e `meio a meio` da observacao, e e chamada no `fluxo.ts` antes de o item
+  virar linha. Recado de verdade ("sem cebola", "forminha rosa") passa.
+- `valorTipico` sai do catalogo em `produtos.ts` e e consumido em
+  `informacao.ts`, que escreve "Costuma sair entre R$ 35,00 e R$ 45,00" na
+  resposta de preco, sem repetir a faixa quando dois produtos tem a mesma.
 
 ---
 

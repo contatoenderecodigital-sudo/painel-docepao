@@ -784,8 +784,23 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       // palavra do tamanho mora. Nas quatro etapas de produto o `porSabor`
       // sozinho basta, porque la vai o cardapio junto e ele ancora o que e
       // sabor de verdade.
-      " \"2 inteiras, uma de X e uma de Y\" = duas linhas do mesmo produto, uma " +
-      "por sabor. A palavra do tamanho fica no PRODUTO, nunca no sabor.",
+      // TERCEIRA REDACAO DESTA REGRA, e as duas anteriores pediam a coisa errada.
+      //
+      //   cabcdac  "uma linha por sabor"           -> o modelo achou que
+      //            (revertido em 8654e30)             "inteiras" era SABOR
+      //   0f288b7  "duas linhas, uma por sabor,    -> nao estragou a comanda,
+      //            o tamanho fica no produto"         e nao moveu o dinheiro:
+      //                                               medido ao vivo, continuou
+      //                                               1 pizza a R$ 120,00
+      //
+      // As duas falavam de LINHA e de SABOR. O que o modelo erra nao e nenhum
+      // dos dois: e o NUMERO. Ele le "2 inteiras, uma de calabresa e uma de
+      // frango" e devolve qtd 1, porque a pizza inteira aceita ate quatro
+      // sabores e uma pizza de dois sabores e um pedido legitimo.
+      //
+      // Entao a frase agora fala so de quantidade, que e o que esta errado.
+      " O número que ele disse é a quantidade: \"2 inteiras\" são 2, mesmo que " +
+      "ele detalhe os sabores depois.",
   };
 
   const jaTem = p.itens.length

@@ -227,14 +227,6 @@ export type ClienteCRM = {
   pedidos: PedidoResumo[];
 };
 
-export type MembroClube = {
-  nome: string;
-  telefone: string;
-  selos: number;
-  metaSelos: number;
-  totalGasto: number; // centavos
-  ultimaCompra: string; // "há 3 dias"
-};
 
 export const brl = (centavos: number) =>
   "R$ " +

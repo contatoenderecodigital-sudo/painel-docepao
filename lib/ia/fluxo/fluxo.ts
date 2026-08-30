@@ -41,7 +41,7 @@ import { semAcento as semAc } from "../texto";
 import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade, pediuPraFalarComGente } from "./falas-do-cliente";
-import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
+import { retiradaForaDoExpediente, avisoDeEspera } from "@/lib/padaria-aberta";
 import { coresDaForminha, faltaCorDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista, saboresQueFaltam } from "./sabor";
 import { restricoesQueACasaNaoFaz, obsSemRestricao, obsPraComanda, avisoDaRestricao } from "./restricao";
 import { paraOMotor } from "./cotar";
@@ -1703,7 +1703,17 @@ export async function responder(
       rastro.push("ele pediu pra falar com gente; chamei a equipe");
       return {
         fala: {
-          texto: "Claro. Vou chamar alguém da equipe da padaria pra falar com você.",
+          // A FRASE SAI DO `avisoDeEspera`, E NAO DAQUI.
+          //
+          // Estava chumbada, e prometia atendimento agora a qualquer hora. As
+          // 23h o cliente lia "vou chamar alguem da equipe" e ninguem vinha ate
+          // de manha. O `avisoDeEspera` foi escrito exatamente pra isso, em
+          // `lib/padaria-aberta.ts`, e nunca tinha sido ligado: fechada, ele
+          // avisa que a equipe responde na abertura, sem prometer hora.
+          //
+          // Achado em 30/08/2026 alargando o detector de codigo fantasma, que
+          // varria quatro pastas escritas a mao e nao enxergava `lib/` na raiz.
+          texto: "Claro. " + avisoDeEspera(),
           botoes: [],
           cardapio: null,
           podeReescrever: false,

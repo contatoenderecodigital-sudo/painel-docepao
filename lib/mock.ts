@@ -7,7 +7,7 @@
 //
 // Mesma forma de dados das queries reais, de propósito: as telas não mudam.
 
-import type { Pedido, Conversa, MembroClube, ClienteCRM } from "./tipos";
+import type { Pedido, Conversa, ClienteCRM } from "./tipos";
 
 // datas relativas a "hoje" pra demo nunca ficar velha
 const hoje = new Date();
@@ -217,13 +217,6 @@ export const CONVERSAS_MOCK: Conversa[] = [
 // ---------------------------------------------------------------------------
 //  CLUBE — membros e selos
 // ---------------------------------------------------------------------------
-export const CLUBE_MOCK: MembroClube[] = [
-  { nome: "João Pereira", telefone: "(49) 9 9222-2222", selos: 7, metaSelos: 10, totalGasto: 48900, ultimaCompra: "há 2 dias" },
-  { nome: "Carlos Menezes", telefone: "(49) 9 9444-4444", selos: 5, metaSelos: 10, totalGasto: 31200, ultimaCompra: "há 5 dias" },
-  { nome: "Maria de Souza", telefone: "(49) 9 9111-1111", selos: 3, metaSelos: 10, totalGasto: 23440, ultimaCompra: "hoje" },
-  { nome: "Ana Beatriz", telefone: "(49) 9 9333-3333", selos: 1, metaSelos: 10, totalGasto: 5000, ultimaCompra: "há 1 semana" },
-  { nome: "Pedro Alves", telefone: "(49) 9 9555-5555", selos: 9, metaSelos: 10, totalGasto: 67800, ultimaCompra: "ontem" },
-];
 
 // ---------------------------------------------------------------------------
 //  CLIENTES (CRM) — ficha de cada cliente com histórico e preferências

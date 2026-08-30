@@ -47,14 +47,31 @@ const raiz = path.join(__dirname, "..");
 // Achado lendo a persona em 28/08/2026. Mais uma lista minha, e desta vez
 // dentro de um teste: o detector de codigo fantasma tinha o seu proprio ponto
 // cego escrito a mao.
-const PASTAS = ["lib/ia/fluxo", "lib/ia", "lib/ia/dados", "lib/banco"];
-const arquivos = PASTAS.flatMap((rel) => {
-  const dir = path.join(raiz, rel);
-  return fs
-    .readdirSync(dir, { withFileTypes: true })
-    .filter((e) => e.isFile() && e.name.endsWith(".ts"))
-    .map((e) => path.join(rel, e.name));
-});
+// E A LISTA DE PASTAS SAIU, EM 30/08/2026. Ela era a terceira ponta cega.
+//
+// Eram quatro pastas escritas a mao (`lib/ia/fluxo`, `lib/ia`, `lib/ia/dados`,
+// `lib/banco`), e fora delas ficavam `lib/` na raiz, `lib/whatsapp/` e
+// `components/`. Varrendo o repositorio inteiro por fora deste teste apareceram
+// SEIS funcoes mortas que ele nunca ia ver, todas nessas tres:
+//
+//   components/CampoTelefone.tsx   normalizarTelefone
+//   lib/mock.ts                    CLUBE_MOCK
+//   lib/padaria-aberta.ts          avisoDeEspera, avisoDeProblema
+//   lib/whatsapp/perfil.ts         lerPerfil, salvarPerfil
+//
+// Agora ele desce sozinho por `lib/` e `components/`. Pasta nova da a dona ja
+// nasce coberta, e nao ha o que lembrar de acrescentar.
+const desce = (dir, saida = []) => {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const cheio = path.join(dir, e.name);
+    if (e.isDirectory()) desce(cheio, saida);
+    else if (/\.(ts|tsx)$/.test(e.name) && !/\.d\.ts$/.test(e.name)) {
+      saida.push(path.relative(raiz, cheio).split(path.sep).join("/"));
+    }
+  }
+  return saida;
+};
+const arquivos = ["lib", "components"].flatMap((rel) => desce(path.join(raiz, rel)));
 const pasta = raiz;
 
 // ONDE VALE PROCURAR POR USO: O REPOSITORIO INTEIRO.
@@ -142,6 +159,24 @@ const PENDENTES = [
   // Recuperar, ou tirar os tres juntos. Anotado no ONDE-PAREI.
   "dispensarOrcamento",
   "reativarOrcamento",
+
+  // lib/whatsapp/perfil.ts, os dois. Mesma familia do `dispensarOrcamento`:
+  // metade escrita de uma funcionalidade que nao tem tela.
+  //
+  // Eles leem e gravam o perfil comercial do WhatsApp (o "recado" embaixo do
+  // nome, descricao, categoria, endereco). O motivo esta escrito no cabecalho
+  // do arquivo: migrar pro Cloud API tira o aplicativo do celular, e com ele
+  // some o lugar onde a dona editava isso. O caminho oficial passa a ser o
+  // WhatsApp Manager da Meta, um painel tecnico onde ela pode quebrar coisa
+  // sem querer.
+  //
+  // Apagar joga fora trabalho certo; ligar pede uma tela. A decisao e do dono,
+  // e esta anotada no `O-QUE-FALTA.md`.
+  //
+  // ACHADOS EM 30/08/2026, quando a lista de pastas saiu daqui: eles moram em
+  // `lib/whatsapp/`, que este teste nunca varreu.
+  "lerPerfil",
+  "salvarPerfil",
 ];
 const orfaosAchados = [];
 

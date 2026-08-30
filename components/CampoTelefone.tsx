@@ -79,8 +79,17 @@ export default function CampoTelefone({
   const erro = tocado && incompleto;
 
   function aoDigitar(bruto: string) {
-    const nac = nacionalDe(bruto);
-    onChange(nac ? "55" + nac : "");
+    // A CONTA SAI DO `normalizarTelefone`, QUE ESTA LOGO ACIMA NESTE ARQUIVO.
+    //
+    // Estava escrita duas vezes, no mesmo arquivo: o helper exportado fazia
+    // `nac ? "55" + nac : ""` e esta linha fazia igual. O helper aparecia como
+    // codigo morto no detector, porque ninguem o chamava, nem o proprio
+    // componente que o exporta.
+    //
+    // Duas contas do mesmo assunto no mesmo arquivo e a menor distancia
+    // possivel entre duas copias, e ainda assim divergem: bastava alguem
+    // mexer numa. Achado em 30/08/2026 alargando o detector de fantasma.
+    onChange(normalizarTelefone(bruto));
   }
 
   return (

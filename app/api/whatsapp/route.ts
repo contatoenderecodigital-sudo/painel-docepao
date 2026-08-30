@@ -41,6 +41,7 @@ import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
 import { queryUm } from "@/lib/banco/db";
 import crypto from "node:crypto";
 import { RECADO_DE_FOTO } from "@/lib/ia/texto";
+import { avisoDeProblema } from "@/lib/padaria-aberta";
 
 const pausa = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -793,9 +794,16 @@ async function processar(corpo: WebhookPayload) {
             "cliente-esperando:" + clienteId,
             "Um cliente esta esperando falar com alguem da padaria.",
           ).catch((err) => logWhatsapp("aviso dona fluxo caiu", err));
-          const desculpa =
-            "Deu um probleminha aqui do meu lado. Ja avisei a equipe da padaria, " +
-            "eles te respondem por aqui daqui a pouco.";
+          // A DESCULPA SAI DO `avisoDeProblema`, E NAO DAQUI.
+          //
+          // Estava chumbada e prometia "daqui a pouco" a qualquer hora. Quando
+          // a IA cai as 23h, ninguem responde ate de manha, e a promessa quebra
+          // sozinha. O `avisoDeProblema` existe em `lib/padaria-aberta.ts` desde
+          // sempre pra dizer a coisa certa nos dois casos, e nunca foi ligado.
+          //
+          // Achado em 30/08/2026, junto com o `avisoDeEspera`, alargando o
+          // detector de codigo fantasma pra ver `lib/` na raiz.
+          const desculpa = avisoDeProblema();
           await enviarTexto(telefone, desculpa, creds).catch((err) => logWhatsapp("desculpa ao cliente", err));
           await salvarMensagem(negocioId, clienteId, "assistant", desculpa).catch((err) => logWhatsapp("salvar desculpa", err));
           continue;
