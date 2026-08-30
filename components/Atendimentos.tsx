@@ -18,6 +18,7 @@ import PedidoMontado from "./PedidoMontado";
 import type { Conversa, Mensagem, TipoMidia } from "@/lib/tipos";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatarTelefoneBR, linkWhatsapp, brl } from "@/lib/tipos";
+import { horaNaPadaria, dataNaPadaria, rotuloDiaNaPadaria } from "@/lib/fuso-padaria";
 import { avisoDeSessao, buscarDoPainel, AVISO_SESSAO_EXPIRADA } from "@/lib/buscar-do-painel";
 import CampoTelefone, { telefoneCompleto } from "@/components/CampoTelefone";
 import AudioBolha from "@/components/AudioBolha";
@@ -53,22 +54,13 @@ function corDoNome(nome: string) {
   return CORES[h % CORES.length];
 }
 function agora() {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return horaNaPadaria(new Date());
 }
 function hojeISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return dataNaPadaria(new Date());
 }
 function rotuloDia(data?: string): string {
-  if (!data) return "";
-  if (data === hojeISO()) return "Hoje";
-  const o = new Date();
-  o.setDate(o.getDate() - 1);
-  const ontem = `${o.getFullYear()}-${String(o.getMonth() + 1).padStart(2, "0")}-${String(o.getDate()).padStart(2, "0")}`;
-  if (data === ontem) return "Ontem";
-  const [Y, M, D] = data.split("-");
-  return `${D}/${M}/${Y}`;
+  return rotuloDiaNaPadaria(data);
 }
 function renderPreview(corpo: string, params: string[]): string {
   return corpo.replace(/\{\{(\d+)\}\}/g, (_, n) => params[Number(n) - 1] || `{{${n}}}`);

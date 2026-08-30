@@ -10,6 +10,7 @@
 
 import { query, queryUm } from "./db";
 import type { Conversa, TipoMidia } from "../tipos";
+import { TZ_PADARIA } from "../fuso-padaria";
 
 type MsgBruta = {
   id: string;
@@ -74,8 +75,8 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
             'id', m.id,
             'autor', coalesce(m.autor, case when m.papel = 'user' then 'cliente' else 'ia' end),
             'conteudo', m.conteudo,
-            'hora', to_char(m.criado_em at time zone 'America/Sao_Paulo', 'HH24:MI'),
-            'data', to_char(m.criado_em at time zone 'America/Sao_Paulo', 'YYYY-MM-DD'),
+            'hora', to_char(m.criado_em at time zone '${TZ_PADARIA}', 'HH24:MI'),
+            'data', to_char(m.criado_em at time zone '${TZ_PADARIA}', 'YYYY-MM-DD'),
             'tipo', coalesce(m.tipo, 'texto'),
             'mime', m.midia_mime,
             'nome', m.midia_nome,
