@@ -3955,3 +3955,77 @@ Ficou o `qa-concorrencia-mesmo-cliente.cjs` pra quem desconfiar de novo poder
 eu li o `HANDOFF` afirmando que a gravação da pizza estava certa, medi, e estava
 errado. Agora deduzi um defeito que não existe. A leitura errou duas vezes no
 mesmo dia, em direções opostas, e a medição acertou as duas.
+
+---
+
+## 81. Ele responde com a palavra que diferencia, não com o nome do catálogo
+
+O dono leu o achado do item 79 e apontou o caso que eu não tinha medido: *"se
+tiver redonda e inteira ele pergunta qual é e etc... vai perguntando pra tirar
+certinho ne"*.
+
+Medi, e o caso dele expôs um defeito pior que o original. A pergunta saía certa:
+
+```
+PADARIA >> No seu pedido tem pizza inteira (calabresa) e pizza redonda. Qual você quer tirar?
+CLIENTE >> a redonda
+SOBROU  >> as duas
+```
+
+**A padaria perguntava e ignorava a resposta.** Isso é pior que não perguntar:
+gasta o turno do cliente e ainda dá a impressão de que foi feito.
+
+A causa é a mesma do `"tira a pizza"` não achar `pizza inteira`: eu procurava o
+nome do catálogo INTEIRO dentro da frase. O cliente nunca fala assim. Ele diz
+`"a redonda"`, `"a de calabresa"`, `"o bolo"`: a palavra que **diferencia**, e
+só ela.
+
+### O conserto foi trocar a busca por contagem
+
+Contar quantas palavras do item aparecem na frase resolve os dois lados com uma
+regra só, e ainda entrega de graça três coisas que antes eram tratamento
+separado:
+
+| frase | por que dá certo |
+| --- | --- |
+| `a de calabresa` | só uma linha tem "calabresa" → uma vencedora |
+| `a pizza` | as duas têm "pizza" → empate, e empate é ambiguidade |
+| `a redonda` | só a redonda tem "redonda" → uma vencedora |
+
+O "sabor vale mais que o nome" que eu tinha escrito à mão sumiu como regra: ele
+acontece sozinho, porque o sabor é a palavra que apenas uma linha tem.
+
+E o corte de palavras vazias **não é por tamanho**. `"uva"` tem três letras e é
+sabor de trufa: cortar por tamanho perderia a uva junto com o `"de"`.
+
+### E o afunilar saiu sem código novo
+
+A frase guardada **acumula** em vez de ser trocada. Com três pizzas no pedido,
+`"tira a pizza"` mais `"a redonda"` vira `"a pizza a redonda"`, que pontua a
+redonda duas vezes e as outras uma. Sai a certa.
+
+O guarda contra laço fica preciso: **pergunta de novo enquanto a lista diminui.**
+Laço é perguntar sem ter andado, não é perguntar duas vezes.
+
+### O que a medição achou de brinde, e não era o que eu procurava
+
+```
+cliente >> uma pizza inteira de calabresa e uma pizza redonda de 1 kg
+modelo  >> 1x pizza inteira [calabresa] ;; 1x pizza redonda      <- leu certo
+pedido  >> pizza inteira [calabresa] ;; pizza redonda [CALABRESA]
+```
+
+A redonda veio sem sabor e o código carimbou calabresa nela. A regra do "sabor
+solto gruda no item que está esperando" existe por um motivo bom, e as guardas
+dela estão certas. Falta a mesma distinção que consertou a pizza: **sobra de
+palavra de um item não é sabor do outro.** A calabresa já tinha dono na frase.
+
+Terceira vez no mesmo dia que o defeito é "não separar o que já estava do que foi
+dito agora". Está no `O-QUE-FALTA.md`, aberto.
+
+### E o portão pegou uma sujeira minha
+
+Trocar o casamento deixou a `linhaQueOClientePediuPraTirar` sem chamador, e o
+`nada-de-codigo-fantasma` reprovou na hora. A regra da casa é ligar ou apagar, e
+apaguei. **Função que sobrou de refatoração é a que ninguém percebe que
+apodreceu.**

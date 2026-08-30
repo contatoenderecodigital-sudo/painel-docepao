@@ -794,6 +794,40 @@ cereja e cafe.
 
 ---
 
+## DEFEITO ABERTO: o sabor de um item gruda no outro da MESMA frase
+
+**Medido em 30/08/2026**, aparecendo enquanto eu media outra coisa:
+
+```
+cliente >> quero uma pizza inteira de calabresa e uma pizza redonda de 1 kg
+rastro  >> modelo leu: 1x pizza inteira [calabresa] ;; 1x pizza redonda
+pedido  >> pizza inteira [calabresa] ;; pizza redonda [CALABRESA]
+```
+
+O modelo leu certo: a redonda veio **sem sabor**. Quem carimbou foi o codigo.
+
+A regra que faz isso e a do "sabor solto gruda no item que esta esperando", e ela
+existe por um motivo bom: `"de calabresa"` sozinho nao nomeia produto, e sem ela
+a resposta a uma pergunta de sabor caia no vazio (medido em 26/08, numa pizza que
+precisou de seis voltas pra fechar). As guardas dela tambem estao certas: so
+gruda se o sabor for daquele produto, e so se o item ainda nao tem sabor.
+
+**O que falta e a mesma distincao que consertou a pizza:** a palavra `calabresa`
+NAO estava solta, ela ja tinha dono na propria frase. Sobra de palavra de um item
+nao e sabor do outro.
+
+Dano: a cozinha monta uma redonda de calabresa que o cliente nao pediu, e ele le
+"calabresa" na confirmacao. E a padaria deixa de PERGUNTAR o sabor, que era o
+certo. Nao muda preco (a redonda e por quilo), entao nao e defeito de dinheiro
+direto, mas e produto errado saindo do forno.
+
+O conserto e no bloco do `fluxo.ts` que escolhe o item "esperando": ele precisa
+ignorar a palavra que ja foi consumida por outro item DESTA leitura, do mesmo
+jeito que a juncao de itens passou a distinguir `jaEstavam` do que foi dito
+agora.
+
+---
+
 ## DÍVIDA TÉCNICA
 
 - merge de `coolify-postgres` para `servidor`, e aposentar o pm2 do aaPanel

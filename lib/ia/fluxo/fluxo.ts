@@ -1285,13 +1285,31 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
     // de remocao pra ele, parece escolha. Entao a frase CRUA tambem vale, e e
     // ela que resolve na maioria das vezes.
     //
-    // UMA VEZ SO. Resolvendo ou nao, o campo sai. Perguntar de novo faria a
-    // conversa girar em falso, e girar em falso ja matou conversa aqui.
-    const tentativas = [...(l.tirar ?? []).map(String), falaDoCliente];
-    const achou = tentativas.map((t) => linhaQueOClientePediuPraTirar(novo.itens, t)).find((n) => n >= 0);
-    if (achou !== undefined) tirouALinha(achou, "ele respondeu qual tirar, e saiu");
-    else rastro.push("perguntei qual tirar e a resposta nao resolveu; nao vou perguntar de novo");
-    novo.tirandoQual = null;
+    // A FRASE ACUMULA em vez de ser trocada, e e isso que faz a padaria ir
+    // AFUNILANDO igual gente. Com uma pizza de forma, uma meia e uma redonda no
+    // pedido, "tira a pizza" aponta as tres; ele responde "a redonda" e a frase
+    // guardada vira "a pizza a redonda", que pontua a redonda duas vezes e as
+    // outras uma. Sai a certa, e sem regra nova pra isso.
+    const antes = linhasQueOClientePodeEstarTirando(novo.itens, e.tirandoQual).length;
+    const somado = [e.tirandoQual, ...(l.tirar ?? []).map(String), falaDoCliente].join(" ");
+    const quais = linhasQueOClientePodeEstarTirando(novo.itens, somado);
+
+    if (quais.length === 1) {
+      tirouALinha(quais[0], "ele respondeu qual tirar, e saiu");
+      novo.tirandoQual = null;
+    } else if (quais.length > 1 && quais.length < antes) {
+      // AFUNILOU, entao pergunta de novo. Isto NAO e o laco que ja matou
+      // conversa aqui: laco e perguntar de novo sem ter andado. Enquanto a
+      // resposta dele diminui a lista, perguntar e o que gente faz.
+      novo.tirandoQual = somado;
+      rastro.push("ele respondeu e sobraram " + quais.length + " de " + antes + "; pergunto de novo");
+    } else {
+      // Nao andou: ou ele nao disse nada que diferencie, ou mudou de assunto.
+      // Para de perguntar. A conversa segue, e o resumo do fim mostra o pedido
+      // inteiro pra ele conferir.
+      novo.tirandoQual = null;
+      rastro.push("perguntei qual tirar e a resposta nao afunilou; parei de perguntar");
+    }
   } else if (l.tirar?.length) {
     for (const frase of l.tirar) {
       const quais = linhasQueOClientePodeEstarTirando(novo.itens, String(frase));
@@ -1513,55 +1531,67 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
  * nenhuma, e ainda quebra "nada some do pedido". Ambiguidade nao e permissao
  * pra escolher.
  */
+/**
+ * Palavras que nao apontam produto nenhum: artigo, preposicao e o proprio verbo
+ * de tirar. Sem tirar elas, "a" e "de" casariam com tudo.
+ *
+ * Sao curtas de proposito, e por isso o corte NAO e por tamanho: "uva" tem tres
+ * letras e e sabor de trufa. Cortar por tamanho perderia a uva junto com o "de".
+ */
+const PALAVRAS_VAZIAS = new Set([
+  "a", "o", "as", "os", "um", "uma", "uns", "umas", "de", "da", "do", "das", "dos",
+  "com", "sem", "e", "ou", "que", "quero", "queria", "tira", "tirar", "tire", "tirando",
+  "pode", "por", "favor", "na", "no", "nas", "nos", "pra", "para", "ai", "la",
+  "essa", "esse", "aquela", "aquele", "aquilo", "isso", "ja", "nao", "mais",
+]);
+
+const palavrasQueApontam = (t: string): string[] =>
+  semAc(t).split(/[^a-z0-9]+/).filter((p) => p && !PALAVRAS_VAZIAS.has(p));
+
 export function linhasQueOClientePodeEstarTirando(
   itens: { produto: string; obs?: string | null }[],
   frase: string,
 ): number[] {
-  const t = semAc(frase);
-  if (!t) return [];
-  // O sabor pode ter varios pedacos ("calabresa | frango"), e o cliente cita um.
-  const porSabor = itens.flatMap((x, n) =>
-    semAc(String(x.obs ?? ""))
-      .split(/,|\|/)
-      .map((p) => p.trim())
-      .some((p) => p && t.includes(p))
-      ? [n]
-      : [],
-  );
-  if (porSabor.length) return porSabor;
-  const porNome = itens.flatMap((x, n) => (semAc(x.produto) && t.includes(semAc(x.produto)) ? [n] : []));
-  if (porNome.length) return porNome;
-  // ELE CHAMA PELO NOME CURTO, e o catalogo usa o comprido.
+  const ditas = palavrasQueApontam(frase);
+  if (!ditas.length) return [];
+
+  // CONTA PALAVRA, NAO PROCURA O NOME INTEIRO DENTRO DA FRASE.
   //
-  // "tira a pizza" nao acha `pizza inteira` procurando o nome do catalogo
-  // dentro da frase: o nome dele e mais curto que o do produto. E foi assim
-  // que este caso escapou da primeira versao, calado: sem casar com nada, a
-  // frase virava "falou de coisa que nao esta no pedido" e ninguem perguntava
-  // nada, justamente no exemplo que o dono deu (pediu duas pizzas e quer uma).
+  // A primeira versao procurava o nome do catalogo dentro da frase, e por isso
+  // errava dos DOIS lados, os dois medidos em 30/08/2026:
   //
-  // Quem responde e a familia, que ja existe e ja e usada no resto do fluxo,
-  // em vez de uma regra nova de primeira palavra. E ela acerta o alvo certo:
-  // familia e exatamente o nivel em que o cliente fala quando nao especifica.
-  const familias = chavesDeFamilia().filter((f) => t.includes(semAc(f)));
+  //   "tira a pizza"  nao achava `pizza inteira`, porque o nome do cliente e
+  //                   mais curto que o do catalogo. Sem casar com nada, virava
+  //                   "falou de coisa que nao esta no pedido" e ninguem
+  //                   perguntava nada. Era o exemplo que o dono deu.
+  //
+  //   "a redonda"     respondendo QUAL tirar, nao achava `pizza redonda` pelo
+  //                   mesmo motivo, e a pergunta virava conversa perdida: a
+  //                   padaria perguntava e ignorava a resposta.
+  //
+  // Contando palavra, os dois funcionam com a MESMA regra, e ela ainda da de
+  // graca o que faltava: o sabor vale mais que o nome sem precisar de tratamento
+  // separado, porque quem diz "a de calabresa" acerta uma palavra que so uma das
+  // linhas tem, e quem diz "a pizza" acerta uma que as duas tem, o que e empate
+  // e empate e ambiguidade.
+  //
+  // E VALE PRA RESPOSTA ACUMULADA. "a pizza" mais "a redonda" pontua a redonda
+  // duas vezes e a inteira uma, entao afunilar sai sem codigo novo.
+  const pontos = itens.map((x) => {
+    const minhas = new Set(palavrasQueApontam(x.produto + " " + String(x.obs ?? "")));
+    return [...minhas].filter((p) => ditas.includes(p)).length;
+  });
+  const melhor = Math.max(...pontos, 0);
+  if (melhor > 0) return pontos.flatMap((p, n) => (p === melhor ? [n] : []));
+
+  // ELE CHAMOU PELA FAMILIA, e nenhuma palavra do produto apareceu.
+  //
+  // "tira o salgado" com coxinha e risoles no pedido nao acerta palavra nenhuma,
+  // e mesmo assim aponta os dois. Quem responde e a familia, que ja existe e ja
+  // e usada no resto do fluxo.
+  const familias = chavesDeFamilia().filter((f) => ditas.includes(semAc(f)));
   if (!familias.length) return [];
   return itens.flatMap((x, n) => (familias.includes(String(familiaDoProduto(x.produto))) ? [n] : []));
-}
-
-/**
- * A LINHA, quando so ha uma. -1 quando nenhuma casa ou quando casam varias.
- *
- * O -1 dos dois casos NAO quer dizer a mesma coisa, e quem separa os dois e o
- * `linhasQueOClientePodeEstarTirando`: nenhuma casando e ele falou de coisa que
- * nao esta no pedido; varias casando e ambiguidade, e ambiguidade vira
- * PERGUNTA. As duas saidas passam por aqui porque nenhuma delas pode tirar
- * linha, e essa e a unica decisao que esta funcao toma.
- */
-export function linhaQueOClientePediuPraTirar(
-  itens: { produto: string; obs?: string | null }[],
-  frase: string,
-): number {
-  const quais = linhasQueOClientePodeEstarTirando(itens, frase);
-  return quais.length === 1 ? quais[0] : -1;
 }
 
 /**
