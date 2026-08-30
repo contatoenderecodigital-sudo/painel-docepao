@@ -626,6 +626,27 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
   const recusa = (familia: string) =>
     " Se ele recusar " + familia + ", devolva naoQuer com essa palavra.";
 
+  // UMA LINHA POR SABOR, COM A QUANTIDADE DE CADA.
+  //
+  // Medido ao vivo em 30/08/2026, com o container no SHA da main:
+  //
+  //   cliente >> quero 2 inteiras, uma de calabresa e uma de frango
+  //   no banco >> 1 pizza inteira (calabresa | frango), R$ 120,00
+  //
+  // Ele pediu duas e a padaria cobrou uma: R$ 120,00 no lugar de R$ 240,00, e
+  // a cozinha receberia uma pizza so com dois sabores escritos no recado.
+  //
+  // O codigo ja aceita duas linhas. Quem devolvia uma era o modelo, lendo
+  // "2 inteiras, uma de X e uma de Y" como um item so.
+  //
+  // FICA NAS QUATRO ETAPAS DE PRODUTO, E NAO NO BLOCO COMUM. Tentei no comum
+  // primeiro e o teto de 1400 caracteres reprovou `pecas_do_bolo` com 1437.
+  // O teste estava certo: papel de arroz e topo nao tem sabor nenhum, entao a
+  // regra la seria carta a mais sem nada em troca. Vale pra qualquer familia
+  // ("50 de carne e 50 de frango"), e por isso e escrita uma vez so.
+  const porSabor =
+    " \"uma de X e uma de Y\" = uma linha por sabor, com a quantidade de cada.";
+
   // O TIPO E `EtapaId`, E NAO `string`, E ISSO NAO E ENFEITE.
   //
   // Com `Record<string, string>` o compilador aceita qualquer chave e nao cobra
@@ -662,6 +683,7 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "de salgado. O pedido mistura familias na mesma conversa." +
       recusa("salgado") + semNumero +
       " Pediu pra casa escolher os tipos? delegaEscolha = true, sem itens." +
+      porSabor +
       lista,
     docinho:
       "A etapa é ESCOLHER OS DOCINHOS. Só existe docinho aqui: se ele falar de " +
@@ -670,6 +692,7 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "Se ele disser a cor da forminha, devolva em forminha." +
       recusa("docinho") + semNumero +
       " Pediu pra casa escolher os tipos? delegaEscolha = true, sem itens." +
+      porSabor +
       lista,
     bolo:
       "A etapa é ESCOLHER O BOLO. Só sabor de bolo aqui: se ele falar de " +
@@ -679,13 +702,14 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       " Embalagem: prato \"aberto\" ou \"tampa\"." +
       recusa("bolo") + semNumero +
       " Pediu pra casa escolher o sabor? delegaEscolha = true, sem itens." +
+      porSabor +
       lista,
     resto_do_cardapio:
       "A etapa e ESCOLHER QUAL, dentro do que ele ja pediu: pizza, torta, " +
       "empadao, cupcake, pao, cuca, calzone. Ele ja nomeou a familia; falta " +
       "o TIPO ou o RECHEIO. Use o nome do cardapio inteiro (por exemplo " +
       "\"pizza inteira\", nao \"inteira\"). O recheio vai no campo sabor." +
-      semNumero + lista,
+      semNumero + porSabor + lista,
     pecas_do_bolo:
       "A etapa é TOPO E PAPEL DE ARROZ, e o NOME e a IDADE do aniversariante." +
       String.fromCharCode(10) +
