@@ -7,7 +7,7 @@
 
 import type { Pedido } from "@/lib/tipos";
 import { brl, formatarTelefoneBR } from "@/lib/tipos";
-import { deptoDe, qtdDoTicket, DEPARTAMENTOS, type DeptoId } from "@/lib/departamentos";
+import { deptoDe, nomeNoTicket, qtdDoTicket, DEPARTAMENTOS, type DeptoId } from "@/lib/departamentos";
 import { DeptIcone } from "@/components/DeptIcone";
 import { X, Printer } from "lucide-react";
 
@@ -91,7 +91,7 @@ function htmlDoTicket(
   const itens = t.itens
     .map(
       (it) =>
-        `<div class="row"><span class="nm"><b>${qtdLabel(it)}</b> <span class="prod">${pr(it.produto)}</span></span>${t.master ? `<span class="pc">${brl(it.subtotalCentavos)}</span>` : ""}</div>${it.obs ? `<div class="obs">${pr(it.obs)}</div>` : ""}`,
+        `<div class="row"><span class="nm"><b>${qtdLabel(it)}</b> <span class="prod">${pr(nomeNoTicket(it))}</span></span>${t.master ? `<span class="pc">${brl(it.subtotalCentavos)}</span>` : ""}</div>${it.obs ? `<div class="obs">${pr(it.obs)}</div>` : ""}`,
     )
     .join("");
   const rodape = t.master
@@ -202,7 +202,7 @@ function Ticket({
           <div key={i}>
             <div className="flex items-start justify-between gap-2">
               <span className="min-w-0">
-                <b>{qtdLabel(it)}</b> <b className="uppercase">{it.produto}</b>
+                <b>{qtdLabel(it)}</b> <b className="uppercase">{nomeNoTicket(it)}</b>
               </span>
               {master ? <span className="shrink-0 whitespace-nowrap text-right">{brl(it.subtotalCentavos)}</span> : null}
             </div>

@@ -146,6 +146,13 @@ const bf = limpo(cf.find((c) => limpo(c).includes("== BOLO FESTA ==")) || "");
 
 conferir(cf.length === 4, "salgados, torta fria, bolo festa e caixa: quatro papeis");
 conferir(tem(salg, "coxinha") && tem(salg, "esfirra"), "os 150 salgados numa comanda so");
+conferir(tem(salg, "== SALGADOS =="), "o titulo da comanda continua SALGADOS, um papel so");
+conferir(tem(salg, "coxinha (frito)"), "na linha da coxinha esta escrito que e frito");
+conferir(tem(salg, "esfirra (assado)"), "na linha da esfirra esta escrito que e assado");
+conferir(!tem(salg, "coxinha (assado)"), "coxinha nao sai marcada como assado");
+conferir(!tem(salg, "esfirra (frito)"), "esfirra nao sai marcada como frito");
+conferir(!tem(bf, "(frito)") && !tem(bf, "(assado)"), "bolo de festa nao ganha marca de frito nem assado");
+conferir(!tem(tf, "(frito)") && !tem(tf, "(assado)"), "torta fria nao ganha marca de frito nem assado");
 // Cuidado: "TORTA FRIA" aparece SIM na comanda dos salgados, mas na
 // referencia cruzada, que e o certo. O que nao pode e ela estar na LISTA DE
 // ITENS. Por isso a conferencia olha so o trecho antes do aviso.
@@ -202,6 +209,17 @@ conferir(limpo(semData[0]).includes("RETIRADA:"), "e a linha de retirada continu
 const soDoce = montarCupons({ ...festa, itens: [pedidoDela.itens[1]] });
 conferir(soDoce.length === 2, "pedido de um segmento so sai com a comanda dele e o caixa");
 conferir(!limpo(soDoce[0]).includes("CLIENTE TAMBEM PEDIU"), "e sem referencia cruzada inventada");
+
+// Nome do catalogo que ja traz a palavra: "pastel assado" nao vira
+// "pastel assado (assado)". A marca e pra quem o nome sozinho nao diz.
+const jaNoNome = montarCupons({
+  ...festa,
+  itens: [{ produto: "pastel assado", categoria: "salgado_assado", qtd: 20, obs: null, unidade: "un", unitCentavos: 125, subtotalCentavos: 2500 }],
+});
+const papelPastel = limpo(jaNoNome.find((c) => limpo(c).includes("== SALGADOS ==")) || "");
+conferir(tem(papelPastel, "pastel assado"), "pastel assado continua com o nome do catalogo");
+conferir(!tem(papelPastel, "pastel assado (assado)"), "nao repete assado quando o nome ja traz");
+conferir(tem(papelPastel, "== SALGADOS =="), "e ainda sai na comanda SALGADOS");
 
 // ---------------------------------------------------------------------------
 // A OBSERVACAO NAO PODE MUDAR DE SENTIDO NA QUEBRA DE LINHA.

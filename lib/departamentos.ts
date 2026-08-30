@@ -251,6 +251,38 @@ export function qtdDoTicket(item: {
   return `${numero} ${unidadeDoTicket(item)}`;
 }
 
+// FRITO OU ASSADO SAI NO PRODUTO, NAO NO TITULO DA COMANDA.
+//
+// A dona, com a impressora na mao, 30/08/2026: "SALGADOS EH SALGADOS, NAO MUDA
+// NA COMANDA DA COZINHA FABRICAR". Um papel so, "== SALGADOS ==". O que muda e
+// a LINHA: a cozinha precisa ver se vai pra fritadeira ou pro forno.
+//
+// A marca vem da categoria do catalogo (salgado_frito / salgado_assado), nunca
+// de uma lista de nomes. Pizza, bolo e docinho nao ganham nada. Nome que ja
+// traz a palavra ("pastel assado") nao ganha de novo.
+export function nomeNoTicket(item: { produto: string; categoria?: string | null }): string {
+  const nome = String(item.produto ?? "").trim();
+  const marca = marcaFritoAssado(item);
+  if (!marca) return nome;
+  if (temPalavra(nome, "frito") || temPalavra(nome, "assado")) return nome;
+  return `${nome} (${marca})`;
+}
+
+function marcaFritoAssado(item: { produto: string; categoria?: string | null }): "frito" | "assado" | null {
+  const gravada = norm(item.categoria);
+  if (gravada === "salgado_frito") return "frito";
+  if (gravada === "salgado_assado") return "assado";
+  const daCasa = produtoPorNome(String(item.produto ?? ""));
+  const doCatalogo = norm(daCasa?.categoria);
+  if (doCatalogo === "salgado_frito") return "frito";
+  if (doCatalogo === "salgado_assado") return "assado";
+  return null;
+}
+
+function temPalavra(texto: string, palavra: string): boolean {
+  return new RegExp("(^|[^a-z0-9])" + palavra + "([^a-z0-9]|$)", "i").test(norm(texto));
+}
+
 export type ItemAgregado = { produto: string; qtd: number; unidade?: string; horas?: string[] };
 
 // Soma consolidada de todos os itens do dia, por comanda.
