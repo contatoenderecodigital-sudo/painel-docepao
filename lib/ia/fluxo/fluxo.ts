@@ -117,6 +117,25 @@ export type Estado = PedidoEmMontagem & {
    */
   poucoPorSabor?: string;
   /**
+   * ELE MANDOU TIRAR ALGO E A FRASE SERVE PRA MAIS DE UMA LINHA.
+   *
+   * Guarda a FRASE dele, nao a lista de candidatos: os candidatos saem do
+   * pedido na hora de perguntar, entao se a dona mexer no pedido pela tela
+   * entre uma mensagem e outra a pergunta acompanha em vez de citar linha que
+   * nao existe mais.
+   *
+   * DIFERENTE DO `poucoPorSabor` E DOS OUTROS AVISOS: aqueles vivem um turno e
+   * saem na frente da pergunta da etapa. Este SUBSTITUI a pergunta da etapa e
+   * ATRAVESSA a mensagem, porque e pergunta de verdade e precisa de resposta.
+   * Por isso e gravado (`fluxo_tirando`): no WhatsApp cada mensagem e uma
+   * chamada nova, e "eu ja perguntei isso" so existe se estiver no banco.
+   *
+   * Pergunta UMA vez. Se a resposta nao resolver, o campo e limpo e a conversa
+   * anda: a Dora ja prendeu cliente em laco perguntando o sabor pra sempre, e
+   * conversa que nao anda perde pedido igual conversa errada.
+   */
+  tirandoQual?: string | null;
+  /**
    * O RECHEIO QUE O PRODUTO NAO TEM, pra padaria dizer qual e o dele.
    *
    * "coxinha de camarao" saia na comanda como "coxinha ~ camarao" e a
@@ -1252,19 +1271,49 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
   // DEPOIS do bloco dos itens, de proposito: a frase pode fazer as duas coisas
   // ("tira a de calabresa e poe 100 coxinhas"), e o pedido tem que refletir as
   // duas. Removendo antes, o indice da linha mudaria debaixo da juncao.
-  if (l.tirar?.length) {
+  const tirouALinha = (n: number, porque: string) => {
+    const fora = novo.itens[n];
+    rastro.push(porque + ": " + fora.produto + (fora.obs ? " [" + fora.obs + "]" : ""));
+    novo.itens = novo.itens.filter((_, i) => i !== n);
+  };
+
+  if (e.tirandoQual) {
+    // ELE ESTA RESPONDENDO QUAL TIRAR.
+    //
+    // A resposta pode chegar de dois jeitos, e as duas contam: o modelo pode
+    // devolver `tirar` de novo, mas "a de calabresa" sozinha nao parece pedido
+    // de remocao pra ele, parece escolha. Entao a frase CRUA tambem vale, e e
+    // ela que resolve na maioria das vezes.
+    //
+    // UMA VEZ SO. Resolvendo ou nao, o campo sai. Perguntar de novo faria a
+    // conversa girar em falso, e girar em falso ja matou conversa aqui.
+    const tentativas = [...(l.tirar ?? []).map(String), falaDoCliente];
+    const achou = tentativas.map((t) => linhaQueOClientePediuPraTirar(novo.itens, t)).find((n) => n >= 0);
+    if (achou !== undefined) tirouALinha(achou, "ele respondeu qual tirar, e saiu");
+    else rastro.push("perguntei qual tirar e a resposta nao resolveu; nao vou perguntar de novo");
+    novo.tirandoQual = null;
+  } else if (l.tirar?.length) {
     for (const frase of l.tirar) {
-      const n = linhaQueOClientePediuPraTirar(novo.itens, String(frase));
-      if (n < 0) {
-        // NA DUVIDA NAO SAI NADA. Tirar a linha errada custa o mesmo que nao
-        // tirar nenhuma, e ainda quebra "nada some do pedido". O rastro fica
-        // pra isto nao virar silencio: quem ler o log sabe que ele pediu.
-        rastro.push("mandou tirar e nao deu pra saber qual: " + frase);
+      const quais = linhasQueOClientePodeEstarTirando(novo.itens, String(frase));
+      if (quais.length === 1) {
+        tirouALinha(quais[0], "tirou do pedido");
         continue;
       }
-      const fora = novo.itens[n];
-      rastro.push("tirou do pedido: " + fora.produto + (fora.obs ? " [" + fora.obs + "]" : ""));
-      novo.itens = novo.itens.filter((_, i) => i !== n);
+      if (quais.length > 1) {
+        // AMBIGUIDADE VIRA PERGUNTA, e nao silencio nem chute.
+        //
+        // Ele pode ter pedido duas pizzas e agora querer uma. "Tira a pizza"
+        // serve pras duas, e escolher por ele custa o mesmo que nao tirar
+        // nenhuma: ou fica o que ele mandou tirar, ou some o que ele nao
+        // mandou. Gente pergunta "qual delas?", e a padaria tambem.
+        novo.tirandoQual = String(frase);
+        rastro.push("mandou tirar e serve pra " + quais.length + " linhas; vou perguntar qual");
+        continue;
+      }
+      // Nao casou com nada: ele falou de coisa que nao esta no pedido. Isto
+      // NAO e ambiguidade e nao vira pergunta, senao a padaria perguntaria
+      // "qual deles?" sobre uma lista vazia.
+      rastro.push("mandou tirar algo que nao esta no pedido: " + frase);
     }
   }
 
@@ -1464,13 +1513,12 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
  * nenhuma, e ainda quebra "nada some do pedido". Ambiguidade nao e permissao
  * pra escolher.
  */
-export function linhaQueOClientePediuPraTirar(
+export function linhasQueOClientePodeEstarTirando(
   itens: { produto: string; obs?: string | null }[],
   frase: string,
-): number {
+): number[] {
   const t = semAc(frase);
-  if (!t) return -1;
-  const so = (achados: number[]) => (achados.length === 1 ? achados[0] : -1);
+  if (!t) return [];
   // O sabor pode ter varios pedacos ("calabresa | frango"), e o cliente cita um.
   const porSabor = itens.flatMap((x, n) =>
     semAc(String(x.obs ?? ""))
@@ -1480,9 +1528,72 @@ export function linhaQueOClientePediuPraTirar(
       ? [n]
       : [],
   );
-  if (porSabor.length) return so(porSabor);
+  if (porSabor.length) return porSabor;
   const porNome = itens.flatMap((x, n) => (semAc(x.produto) && t.includes(semAc(x.produto)) ? [n] : []));
-  return so(porNome);
+  if (porNome.length) return porNome;
+  // ELE CHAMA PELO NOME CURTO, e o catalogo usa o comprido.
+  //
+  // "tira a pizza" nao acha `pizza inteira` procurando o nome do catalogo
+  // dentro da frase: o nome dele e mais curto que o do produto. E foi assim
+  // que este caso escapou da primeira versao, calado: sem casar com nada, a
+  // frase virava "falou de coisa que nao esta no pedido" e ninguem perguntava
+  // nada, justamente no exemplo que o dono deu (pediu duas pizzas e quer uma).
+  //
+  // Quem responde e a familia, que ja existe e ja e usada no resto do fluxo,
+  // em vez de uma regra nova de primeira palavra. E ela acerta o alvo certo:
+  // familia e exatamente o nivel em que o cliente fala quando nao especifica.
+  const familias = chavesDeFamilia().filter((f) => t.includes(semAc(f)));
+  if (!familias.length) return [];
+  return itens.flatMap((x, n) => (familias.includes(String(familiaDoProduto(x.produto))) ? [n] : []));
+}
+
+/**
+ * A LINHA, quando so ha uma. -1 quando nenhuma casa ou quando casam varias.
+ *
+ * O -1 dos dois casos NAO quer dizer a mesma coisa, e quem separa os dois e o
+ * `linhasQueOClientePodeEstarTirando`: nenhuma casando e ele falou de coisa que
+ * nao esta no pedido; varias casando e ambiguidade, e ambiguidade vira
+ * PERGUNTA. As duas saidas passam por aqui porque nenhuma delas pode tirar
+ * linha, e essa e a unica decisao que esta funcao toma.
+ */
+export function linhaQueOClientePediuPraTirar(
+  itens: { produto: string; obs?: string | null }[],
+  frase: string,
+): number {
+  const quais = linhasQueOClientePodeEstarTirando(itens, frase);
+  return quais.length === 1 ? quais[0] : -1;
+}
+
+/**
+ * COMO A PADARIA CHAMA ESTA LINHA quando precisa perguntar qual delas sai.
+ *
+ * Produto e observacao juntos, porque quando duas linhas casam com a mesma
+ * frase e justamente a observacao que as separa. Sem ela a pergunta sairia
+ * "pizza inteira ou pizza inteira?".
+ *
+ * A observacao vem do fluxo com " | " entre os pedacos, que e separador de
+ * banco e nao de conversa. Na fala vira " e ".
+ *
+ * SEM ARTIGO, de proposito: o genero do produto nao esta no catalogo, e "a
+ * croquete" e "o coxinha" sao erros que a clientela ve na hora. E a mesma razao
+ * ja escrita no aviso de recheio trocado.
+ */
+function comoAPadariaChama(x: { produto: string; obs?: string | null }): string {
+  const obs = String(x.obs ?? "").split(/\s*\|\s*/).map((p) => p.trim()).filter(Boolean);
+  return x.produto + (obs.length ? " (" + obs.join(" e ") + ")" : "");
+}
+
+/** "tem A e B. Qual voce quer tirar?" com quantos forem. */
+export function perguntaDeQualTirar(
+  itens: { produto: string; obs?: string | null }[],
+  quais: number[],
+): string {
+  const nomes = quais.map((n) => comoAPadariaChama(itens[n]));
+  const lista = nomes.length <= 1 ? nomes.join("") : nomes.slice(0, -1).join(", ") + " e " + nomes[nomes.length - 1];
+  // "Qual DELES" supoe masculino, e pizza e feminina. O genero do produto nao
+  // esta no catalogo, entao a frase e escrita sem precisar dele: e a mesma
+  // razao ja anotada no aviso de recheio trocado ("a croquete", "o coxinha").
+  return "No seu pedido tem " + lista + ". Qual você quer tirar?";
 }
 
 export async function responder(
@@ -2409,6 +2520,31 @@ export async function responder(
 
   let fala = falaDaEtapa(proxima, estado, total, proxima.id === etapaAgora.id ? naoTemos : []);
 
+  // ------------------------------------------ QUAL DELES VOCE QUER TIRAR
+  //
+  // ESTA E A UNICA FALA DESTE ARQUIVO QUE SUBSTITUI A PERGUNTA DA ETAPA, e nao
+  // entra na frente dela como os avisos fazem. O motivo e que ela nao e aviso:
+  // e pergunta, e perguntar duas coisas na mesma mensagem faz o cliente
+  // responder uma e a outra se perder. Gente nao faz isso.
+  //
+  // E por substituir, a etapa NAO pode ser marcada como ja perguntada: a
+  // pergunta dela nao foi feita, e ela volta na proxima mensagem.
+  let perguntandoQualTirar = false;
+  if (estado.tirandoQual) {
+    const quais = linhasQueOClientePodeEstarTirando(estado.itens, estado.tirandoQual);
+    if (quais.length > 1) {
+      perguntandoQualTirar = true;
+      // `podeReescrever` fica ligado: aqui nao tem numero nenhum, e a reescrita
+      // e proibida de trocar produto. O que ela faz e tirar o jeito de robo.
+      fala = { ...fala, texto: perguntaDeQualTirar(estado.itens, quais), botoes: [], cardapio: null, opcoes: undefined, podeReescrever: true };
+      rastro.push("perguntei qual tirar: " + estado.tirandoQual);
+    } else {
+      // Deixou de ser ambiguo entre uma mensagem e outra (a dona mexeu no
+      // pedido pela tela, por exemplo). Nao pergunta o que nao tem mais duvida.
+      estado = { ...estado, tirandoQual: null };
+    }
+  }
+
   // ------------------------------- O QUE A CASA NAO FAZ, ELA DIZ QUE NAO FAZ
   //
   // A restricao ja saiu da observacao la em `aplicar`, senao a comanda mandava
@@ -2573,9 +2709,14 @@ export async function responder(
   // `base_da_festa`, o desvio de assunto) continua funcionando igual, e quem
   // precisa saber QUAL pergunta ja saiu usa `etapa:chave`.
   const jaPerguntadas = estado.etapasJaPerguntadas ?? [];
-  const marcas = [proxima.id, ...(fala.chave ? [proxima.id + ":" + fala.chave] : [])].filter(
-    (m) => !jaPerguntadas.includes(m),
-  );
+  // A pergunta da etapa nao foi feita quando o "qual deles" tomou o lugar
+  // dela, entao ela nao pode entrar como perguntada: entrando, a etapa seria
+  // pulada e o dado dela nunca seria pedido.
+  const marcas = perguntandoQualTirar
+    ? []
+    : [proxima.id, ...(fala.chave ? [proxima.id + ":" + fala.chave] : [])].filter(
+        (m) => !jaPerguntadas.includes(m),
+      );
   estado = {
     ...estado,
     ultimaFala: fala.texto || null,

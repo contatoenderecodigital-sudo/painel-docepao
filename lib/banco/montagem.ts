@@ -99,6 +99,9 @@ export type DadosMontagem = {
   fluxo_ofereceu?: string | null; // "sim" depois que ela ofereceu docinho/bolo
   fluxo_assunto?: string | null; // a etapa que ELE pos na mesa, ou "nenhum"
   fluxo_retomar?: string | null; // a etapa pra onde voltar depois do desvio
+  // A frase de "tira X" que serve pra mais de uma linha, esperando ele
+  // dizer qual. Atravessa a mensagem porque e pergunta, nao aviso.
+  fluxo_tirando?: string | null;
   // O que ele pediu fora da hora, guardado ate a conversa chegar na etapa
   // daquele item. JSON, ou "nenhum" quando nao ha nada guardado.
   fluxo_guardados?: string | null;

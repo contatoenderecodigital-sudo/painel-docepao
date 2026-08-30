@@ -723,12 +723,53 @@ antes:
    conhecido. A linha encolheu pra `"- Vai tirar item? use tirar."` e o ensino
    do formato foi pro exemplo do JSON, que nao conta no teto.
 
-### O que ficou aberto
+### O ambiguo virou PERGUNTA (30/08/2026, pedido do dono)
 
-Frase ambigua ("tira a pizza", com duas pizzas no pedido) nao tira nada e nao
-pergunta: fica so no rastro. O certo pela regra da casa e virar PERGUNTA. Nao
-foi feito agora porque exige etapa nova, e o que existe hoje ja e estritamente
-melhor que antes, quando nada saia nunca.
+Palavra dele: *"a IA tem que tratar igual um humano ne, qual item voce quer
+tirar? etc... pq pode ter pego 2 pizzas e dps querer 1"*.
+
+```
+cliente >> queria 2 pizzas inteiras, uma de calabresa e uma de frango com catupiry
+cliente >> tira a pizza
+padaria >> No seu pedido tem pizza inteira (calabresa) e pizza inteira
+           (frango com catupiry). Qual voce quer tirar?
+cliente >> a de calabresa
+pedido  >> pizza inteira [frango com catupiry]
+padaria >> Pra que dia voce quer retirar?
+```
+
+Quatro decisoes que valem mais que o codigo:
+
+1. **Vale pra qualquer produto, nao so pizza.** Medido tambem com duas trufas
+   (morango e uva). A regra e "duas linhas do mesmo nome".
+2. **A pergunta SUBSTITUI a da etapa**, e nao entra na frente dela como os
+   avisos. Perguntar "qual voce quer tirar?" e "pra que dia?" na mesma mensagem
+   faz o cliente responder uma e a outra se perder. E por substituir, a etapa
+   nao e marcada como perguntada: ela volta na mensagem seguinte, como no
+   exemplo acima.
+3. **Pergunta UMA vez.** Resolvendo ou nao, o campo sai. A Dora ja prendeu
+   cliente em laco perguntando o sabor pra sempre, e conversa que nao anda perde
+   pedido igual conversa errada.
+4. **A resposta e resolvida pelo CODIGO, nao pelo modelo.** "a de calabresa" nao
+   parece pedido de remocao pro modelo, parece escolha, entao a frase crua
+   tambem vale. As duas formas estao no teste.
+
+O campo `tirandoQual` e gravado (`fluxo_tirando`), porque no WhatsApp cada
+mensagem e uma chamada nova: pergunta que nao sobrevive ao banco nao existe.
+
+**O achado do caminho:** `"tira a pizza"` nao casava com `pizza inteira`, porque
+o nome do cliente e mais curto que o do catalogo, e isso fazia o caso DO PROPRIO
+EXEMPLO DO DONO virar silencio. Quem responde e a familia, que ja existia no
+fluxo (`familiaDoProduto`), em vez de uma regra nova de primeira palavra.
+
+Travado por `testes/tirar-item-tira-a-linha-certa.cjs`, que subiu de 6 pra 14
+casos. Isca provada: 4 vermelhos, e os de seguranca ja verdes antes.
+
+**Uma armadilha que o teste caiu e vale registrar:** o caso do "qualquer
+produto" nasceu com COXINHA, e a coxinha nao tem lista de sabor no catalogo.
+O teste cobrava uma venda que a padaria nao faz, que e a mesma armadilha da
+cuca de banana no `qa-concorrencia`. Trocado por trufa, que tem morango, uva,
+cereja e cafe.
 
 ---
 

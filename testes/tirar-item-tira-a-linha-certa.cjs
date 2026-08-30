@@ -100,6 +100,55 @@ fs.writeFileSync(
     "  pensar({ tirar:['a de calabresa'], itens:[{produto:'coxinha',qtd:100}] }) as never);",
     "saida.tiraEPoe = linhas(r5.estado);",
     "",
+    "// 6. AMBIGUO VIRA PERGUNTA, e a pergunta cita os dois pra ele escolher.",
+    "//    A fala do codigo, sem passar pela reescrita: o teste olha o texto",
+    "//    que o motor produziu, que e o unico que da pra prender.",
+    "saida.perguntaDoAmbiguo = [r2.fala.texto];",
+    "",
+    "// 7. a resposta dele na mensagem SEGUINTE tira a certa",
+    "const r7 = await responder(r2.estado as never,",
+    "  { texto: 'a de calabresa' },",
+    "  pensar({ tirar:['a de calabresa'] }) as never);",
+    "saida.respondeuQual = linhas(r7.estado);",
+    "",
+    "// 8. a mesma coisa quando o modelo NAO devolve tirar na resposta: quem",
+    "//    resolve e a frase crua dele, porque responder 'a de calabresa' nao",
+    "//    parece pedido de remocao pro modelo, parece so uma escolha.",
+    "const r8 = await responder(r2.estado as never,",
+    "  { texto: 'a de calabresa' },",
+    "  pensar({}) as never);",
+    "saida.respondeuQualSemCampo = linhas(r8.estado);",
+    "",
+    "// 9. NAO PODE VIRAR LACO. Se a resposta nao resolve, pergunta UMA vez e",
+    "//    segue: a Dora ja prendeu cliente em laco perguntando o sabor pra",
+    "//    sempre, e conversa que nao anda perde pedido igual conversa errada.",
+    "const r9 = await responder(r2.estado as never,",
+    "  { texto: 'sei la, tanto faz' },",
+    "  pensar({}) as never);",
+    "saida.naoResolveuNaoRepete = [String(!!r9.estado.tirandoQual)];",
+    "",
+    "// 10. e vale pra QUALQUER produto, nao so pizza: duas trufas de sabores",
+    "//     diferentes tem o mesmo problema e a mesma pergunta.",
+    "//",
+    "//     A primeira versao deste caso usava COXINHA, e estava errada: a",
+    "//     coxinha nao tem lista de sabor no catalogo, entao o teste cobrava",
+    "//     uma venda que a padaria nao faz. E a mesma armadilha do qa-",
+    "//     concorrencia com cuca de banana. A trufa tem morango, uva, cereja e",
+    "//     cafe, e ainda por cima e o produto da licao de 19/08, quando quatro",
+    "//     linhas dela fecharam cem docinhos onde a cliente pediu vinte e cinco.",
+    "const duasTrufas = await responder(VAZIO as never,",
+    "  { texto: 'quero 25 trufa de morango e 25 de uva' },",
+    "  pensar({ itens:[",
+    "    {produto:'trufa',qtd:25,sabor:'morango'},",
+    "    {produto:'trufa',qtd:25,sabor:'uva'},",
+    "  ] }) as never);",
+    "saida.partidaTrufa = linhas(duasTrufas.estado);",
+    "const r10 = await responder(duasTrufas.estado as never,",
+    "  { texto: 'tira a trufa' },",
+    "  pensar({ tirar:['a trufa'] }) as never);",
+    "saida.trufaAmbigua = linhas(r10.estado);",
+    "saida.perguntaDaTrufa = [r10.fala.texto];",
+    "",
     "console.log(JSON.stringify(saida));",
   ].join("\n"),
 );
@@ -162,6 +211,78 @@ conferir(
   saiu.tiraEPoe,
   ["pizza inteira [frango com catupiry]", "coxinha"],
   "a frase faz as duas coisas, e o pedido tem que refletir as duas",
+);
+
+console.log("== o ambiguo vira pergunta, e nao silencio ==");
+// Nao prendo o texto inteiro: prender frase palavra por palavra faz o teste
+// reprovar quando alguem melhora a escrita, e ai o teste vira estorvo. O que
+// PRECISA estar la e o que o cliente usa pra responder: os dois sabores, e uma
+// pergunta.
+const pergunta = String(saiu.perguntaDoAmbiguo[0] || "");
+conferir(
+  "a pergunta cita a calabresa",
+  [/calabresa/i.test(pergunta)],
+  [true],
+  "ele nao tem como escolher o que a padaria nao mostrou: " + JSON.stringify(pergunta),
+);
+conferir(
+  "a pergunta cita o frango com catupiry",
+  [/frango com catupiry/i.test(pergunta)],
+  [true],
+  "so um dos dois citados faz ele achar que o outro nem esta no pedido",
+);
+conferir(
+  "e e uma pergunta de verdade",
+  [/\?/.test(pergunta)],
+  [true],
+  "aviso sem pergunta faz o cliente esperar a padaria agir sozinha",
+);
+conferir(
+  "e enquanto pergunta nao tira nada",
+  saiu.ambiguo,
+  ["pizza inteira [calabresa]", "pizza inteira [frango com catupiry]"],
+  "tirar a errada custa o mesmo que nao tirar nenhuma",
+);
+
+console.log("== e a resposta dele resolve ==");
+conferir(
+  "respondendo qual, sai a certa",
+  saiu.respondeuQual,
+  ["pizza inteira [frango com catupiry]"],
+  "perguntar e nao usar a resposta e pior que nao ter perguntado",
+);
+conferir(
+  "resolve mesmo quando o modelo nao devolve tirar",
+  saiu.respondeuQualSemCampo,
+  ["pizza inteira [frango com catupiry]"],
+  "responder 'a de calabresa' parece escolha, nao pedido de remocao: quem tem que resolver e a frase crua",
+);
+conferir(
+  "resposta que nao resolve nao vira laco",
+  saiu.naoResolveuNaoRepete,
+  ["false"],
+  "a Dora ja prendeu cliente perguntando o sabor pra sempre; conversa que nao anda perde pedido",
+);
+
+console.log("== e vale pra qualquer produto, nao so pizza ==");
+conferir(
+  "duas trufas de sabores diferentes sao duas linhas",
+  saiu.partidaTrufa,
+  ["trufa [morango]", "trufa [uva]"],
+  "sem isto o caso abaixo nao mede nada",
+);
+conferir(
+  "e o ambiguo nelas tambem nao tira nada",
+  saiu.trufaAmbigua,
+  ["trufa [morango]", "trufa [uva]"],
+  "a regra e de duas linhas do mesmo nome, nao da pizza",
+);
+const perguntaTrufa = String(saiu.perguntaDaTrufa[0] || "");
+conferir(
+  "e a pergunta da trufa cita os dois sabores",
+  [/morango/i.test(perguntaTrufa) && /uva/i.test(perguntaTrufa)],
+  [true],
+  "a pergunta saiu generica demais pra ele conseguir responder: " + JSON.stringify(perguntaTrufa),
 );
 
 console.log(erros ? "REPROVOU EM " + erros : "PASSOU");
