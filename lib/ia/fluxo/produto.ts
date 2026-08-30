@@ -59,29 +59,135 @@ function familiaNoComeco(t: string): string | null {
     return new RegExp("(^|[^a-z])" + miolo + "s?(?![a-z])").test(s);
   };
   for (const { k, n } of chaves) {
-    if (perto(n, t) || formas.some((f) => perto(n, f))) return k;
+    if (!(perto(n, t) || formas.some((f) => perto(n, f)))) continue;
+    // Mini pizza e salgado. A palavra pizza no meio dela nao e a familia da
+    // pizza de forma: no pedido misturado virava a pizza cara e sumia o
+    // salgado.
+    if (n === "pizza") {
+      const eMini = [t, ...formas].some(
+        (f) => f === "mini pizza" || f.startsWith("mini pizza ") || f.startsWith("mini pizza,"),
+      );
+      if (eMini) continue;
+    }
+    return k;
   }
   return null;
+}
+
+type Candidato = { canonico: string; casa: string; categoria: string; apelido: boolean };
+
+/**
+ * O QUE A FRASE E A ETAPA DIZEM DESTE NOME.
+ *
+ * Nao e lista de produto. Sao as palavras que o PROPRIO CATALOGO ja usa pra
+ * classificar: o prefixo `bolo`, o `caseiro` que entra no nome de todo bolo
+ * caseiro, `festa` no grupo, `kg` na unidade, `docinho` na categoria. Quem
+ * resolve o sabor e o cardapio; isto so diz EM QUAL FAMILIA procurar.
+ */
+function sinaisDoContexto(texto: string): {
+  bolo: boolean;
+  caseiro: boolean;
+  festa: boolean;
+  kg: boolean;
+  docinho: boolean;
+} {
+  const t = semAcMin(texto);
+  return {
+    bolo: /\bbolos?\b/.test(t),
+    caseiro: /\bcaseiros?\b/.test(t),
+    festa: /\bfestas?\b/.test(t),
+    kg: /\bkg\b/.test(t) || /\bquilos?\b/.test(t),
+    docinho: /\bdocinh/.test(t),
+  };
+}
+
+function daCategoria(lista: Candidato[], cat: string): Candidato[] {
+  return lista.filter((c) => c.categoria === cat);
+}
+
+/**
+ * ENTRE OS QUE CASARAM, QUAL O CONTEXTO PEDE.
+ *
+ * Ordem de quem ganha, a mesma que uma atendente usa:
+ *
+ *   1. o que ele ACABOU DE FALAR (caseiro, festa, kg, docinho, bolo)
+ *   2. a ETAPA (o que a padaria acabou de perguntar)
+ *   3. sem etapa e sem a palavra bolo: o produto de unidade, que e o que o
+ *      cliente compra quando fala o sabor pelado (R$ 1,25, nao o quilo)
+ *
+ * Nunca escolhe o de quilo calado. Se ele disse bolo e o cardapio tem o
+ * mesmo sabor em festa E caseiro, devolve "perguntar": a padaria pergunta
+ * em vez de chutar o preco.
+ */
+function escolherPeloContexto(
+  empatados: Candidato[],
+  dica: string,
+  texto: string,
+): Candidato | "perguntar" {
+  const dicaN = semAcMin(dica);
+  const s = sinaisDoContexto(texto);
+  const naoSalgado = empatados.filter((c) => !String(c.categoria).startsWith("salgado"));
+  const pool = naoSalgado.length && naoSalgado.length < empatados.length ? naoSalgado : empatados;
+  const festa = daCategoria(pool, "bolo_festa");
+  const caseiro = daCategoria(pool, "bolo_caseiro");
+  const docinho = daCategoria(pool, "docinho");
+  const deBolo = pool.filter((c) => ehCategoriaDeBolo(c.categoria));
+
+  if (s.caseiro && caseiro.length) return caseiro[0];
+  if ((s.festa || s.kg) && festa.length) return festa[0];
+  if (s.docinho && docinho.length) return docinho[0];
+
+  if (dicaN === "docinho" && docinho.length) return docinho[0];
+  if (dicaN === "bolo_caseiro" && caseiro.length) return caseiro[0];
+  if (dicaN === "bolo_festa" && festa.length) return festa[0];
+
+  const etapaDeBolo = dicaN === "bolo" || dicaN.startsWith("bolo");
+  const doisBolos = festa.length > 0 && caseiro.length > 0 && !s.caseiro && !s.festa && !s.kg;
+  if ((etapaDeBolo || s.bolo) && doisBolos) return "perguntar";
+
+  if (etapaDeBolo || s.bolo) {
+    if (festa.length && !caseiro.length) return festa[0];
+    if (caseiro.length && !festa.length) return caseiro[0];
+    if (deBolo.length === 1) return deBolo[0];
+    if (deBolo.length) return deBolo[0];
+  }
+
+  if (docinho.length) return docinho[0];
+
+  const canonicos = [...new Set(pool.map((c) => c.canonico))];
+  if (canonicos.length === 1) return pool.find((c) => c.canonico === canonicos[0]) ?? pool[0];
+
+  const porUnidade = pool.filter((c) => {
+    const p = produtosDaCasa().find((x) => x.nome === c.canonico);
+    return p?.unidade === "un";
+  });
+  if (porUnidade.length === 1) return porUnidade[0];
+
+  return pool[0];
 }
 
 /**
  * O QUE É ESTE ITEM, RESOLVIDO CONTRA O CARDÁPIO.
  *
  * `categoria` é a dica de onde a conversa está. Ela decide o desempate quando o
- * nome existe em mais de um lugar: "brigadeiro" na etapa do bolo é bolo, na
- * etapa do docinho é docinho. Sem ela, um nome ambíguo fica como veio, e quem
- * resolve é a pergunta ao cliente.
+ * nome existe em mais de um lugar: na etapa do bolo o sabor e bolo, na do
+ * docinho e docinho. `frase` e o que ele acabou de escrever: a palavra bolo,
+ * caseiro ou kg vale igual a etapa, e sem elas o sabor pelado e o produto
+ * de unidade. Sem dica e sem a palavra bolo, um nome ambiguo nao vira o de
+ * quilo calado.
  */
-export function identificarProduto(nomeBruto: string, categoria?: string): Identidade {
+export function identificarProduto(nomeBruto: string, categoria?: string, frase?: string): Identidade {
   const bruto = String(nomeBruto || "").trim();
   // "bolo DE cenoura" e "bolo cenoura" são o mesmo bolo, e antes viravam dois
   // nomes diferentes no pedido: o "de" fazia o nome não casar com candidato
   // nenhum, e o fluxo devolvia o texto cru. Era exatamente a doença que este
   // arquivo foi criado pra curar, sobrevivendo numa preposição.
-  const t = semAcMin(bruto).replace(/^bolo (de |do |da ) */, "bolo ");
-  if (!t) return { produto: bruto, recheio: null, unidade: "un", unico: false };
+  const t0 = semAcMin(bruto)
+    .replace(/^bolo (de |do |da ) */, "bolo ")
+    .replace(/^bolo caseiro (de |do |da ) */, "bolo caseiro ");
+  if (!t0) return { produto: bruto, recheio: null, unidade: "un", unico: false };
 
-  const ehEtapaDeBolo = String(categoria || "").startsWith("bolo");
+  const textoDoContexto = [bruto, frase].filter(Boolean).join(" ");
 
   // ------------------------------------------------------------ candidatos
   // Cada candidato sabe o nome que o sistema deve escrever (o canônico) e a
@@ -89,7 +195,7 @@ export function identificarProduto(nomeBruto: string, categoria?: string): Ident
   // `apelido` marca o candidato que veio da lista de sinonimos. Ele so vale
   // quando o que o cliente escreveu NAO e um produto do cardapio: ver o porque
   // logo abaixo, na escolha.
-  const cand: { canonico: string; casa: string; deBolo: boolean; apelido: boolean }[] = [];
+  const cand: Candidato[] = [];
 
   // O CANDIDATO SAI DA LISTA UNICA, E NAO DO catalogo.json.
   //
@@ -137,30 +243,56 @@ export function identificarProduto(nomeBruto: string, categoria?: string): Ident
     if (semFamilia) casas.add(semFamilia);
     for (const casa of casas) {
       const c = semAcMin(casa);
-      if (c) cand.push({ canonico: p.nome, casa: c, deBolo, apelido: false });
+      if (c) cand.push({ canonico: p.nome, casa: c, categoria: p.categoria, apelido: false });
     }
   }
   for (const [canonico, lista] of Object.entries(APELIDOS)) {
-    for (const a of lista) cand.push({ canonico, casa: semAcMin(a), deBolo: false, apelido: true });
+    const categoriaDoApelido = produtosDaCasa().find((x) => x.nome === canonico)?.categoria ?? "";
+    for (const a of lista) {
+      cand.push({ canonico, casa: semAcMin(a), categoria: categoriaDoApelido, apelido: true });
+    }
   }
 
-  const servem = cand
-    .filter((c) => c.casa && (t === c.casa || t.startsWith(c.casa + " ")))
-    // Nome mais longo primeiro: "mini bolha de carne" é "mini bolha" + "carne",
-    // nunca "mini" + "bolha de carne".
-    .sort((a, b) => b.casa.length - a.casa.length);
+  // Artigo na frente: "uma mini pizza" tem que achar o salgado, nao a familia
+  // pizza. A dica da etapa do salgado tambem NAO promove "pizza" a mini pizza.
+  let t = t0;
+  let servem: Candidato[] = [];
+  for (const forma of [...new Set([t0, ...formasDoCliente(bruto), ...formasDoCliente(t0)])]) {
+    const desta = cand
+      .filter((c) => c.casa && (forma === c.casa || forma.startsWith(c.casa + " ")))
+      .sort((a, b) => b.casa.length - a.casa.length);
+    if (desta.length) {
+      t = forma;
+      servem = desta;
+      break;
+    }
+  }
+
+  if (servem.length) {
+    const fam = familiaNoComeco(t0);
+    const eMini = [t0, ...formasDoCliente(bruto)].some(
+      (f) => f === "mini pizza" || f.startsWith("mini pizza ") || f.startsWith("mini pizza,"),
+    );
+    if (fam === "pizza" && !eMini) {
+      servem = servem.filter((c) => {
+        const p = produtosDaCasa().find((x) => x.nome === c.canonico);
+        return !p || !String(p.categoria).startsWith("salgado");
+      });
+    }
+  }
 
   if (!servem.length) {
     // NOME DE FAMILIA NAO VIRA O PRODUTO MAIS COMPRIDO.
     //
     // "uma pizza" nao e pizza inteira (R$ 120). "2 pizzas" nao e o file ao molho
     // madeira. Sem isto o apelido ou o casamento por pedaco escolhia o preco.
-    // A padaria pergunta qual: forma, meia ou redonda.
-    const fam = familiaNoComeco(t);
+    // A padaria pergunta qual: forma, meia ou redonda. Mini pizza e outro
+    // produto, e a etapa do salgado nao troca uma pela outra.
+    const fam = familiaNoComeco(t0);
     if (fam) {
       const n = semAcMin(fam);
-      const onde = t.indexOf(n);
-      const resto = t
+      const onde = t0.indexOf(n);
+      const resto = t0
         .slice(onde >= 0 ? onde + n.length : n.length)
         .replace(/^ *(de|da|do|com) +/, "")
         .trim();
@@ -179,9 +311,6 @@ export function identificarProduto(nomeBruto: string, categoria?: string): Ident
     };
   }
 
-  // O nome existe em mais de um lugar? Só é ambíguo de verdade quando os
-  // candidatos discordam sobre SER BOLO OU NÃO: "brigadeiro" é docinho e é
-  // sabor de bolo, e isso muda o preço em quarenta vezes.
   // O NOME DO CARDAPIO GANHA DO APELIDO. SEMPRE.
   //
   // A lista de apelidos mistura duas coisas. Sinonimo de verdade ("esfiha" e
@@ -199,12 +328,14 @@ export function identificarProduto(nomeBruto: string, categoria?: string): Ident
   const noTamanho = servem.filter((c) => c.casa.length === tamanhoDoMelhor);
   const proprios = noTamanho.filter((c) => !c.apelido);
   const empatados = proprios.length ? proprios : noTamanho;
-  const ambiguo = new Set(empatados.map((c) => c.deBolo)).size > 1;
+  const familias = new Set(empatados.map((c) => c.categoria));
+  const ambiguo = familias.size > 1;
 
-  // A etapa desempata. Sem ela, fica o primeiro e quem resolve é a pergunta.
-  const escolhido = ambiguo
-    ? (empatados.find((c) => c.deBolo === ehEtapaDeBolo) ?? empatados[0])
-    : empatados[0];
+  const escolhido = escolherPeloContexto(empatados, String(categoria || ""), textoDoContexto);
+  if (escolhido === "perguntar") {
+    const sabor = t.replace(/^bolo (caseiro )?(de |do |da )?/, "").trim();
+    return { produto: "bolo", recheio: sabor || null, unidade: "un", unico: false };
+  }
 
   const resto = t
     .slice(escolhido.casa.length)
@@ -214,7 +345,7 @@ export function identificarProduto(nomeBruto: string, categoria?: string): Ident
   return {
     produto: escolhido.canonico,
     recheio: resto || null,
-    unidade: unidadeDoProduto(escolhido.canonico, categoria),
+    unidade: unidadeDoProduto(escolhido.canonico, escolhido.categoria),
     unico: !ambiguo,
   };
 }

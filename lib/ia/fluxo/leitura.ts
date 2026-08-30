@@ -599,14 +599,16 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     docinho:
       "A etapa é ESCOLHER OS DOCINHOS. Só existe docinho aqui: se ele falar de " +
       "bolo ou de salgado, devolva falouDeOutraEtapa em vez de anotar. " +
+      "Nome que o cardapio tambem vende como bolo: aqui e o docinho, sem prefixo de bolo. " +
       "Se ele disser a cor da forminha, devolva em forminha." +
       recusa("docinho") + semNumero +
       " Pediu pra casa escolher os tipos? delegaEscolha = true, sem itens." +
       lista,
     bolo:
       "A etapa é ESCOLHER O BOLO. Só sabor de bolo aqui: se ele falar de " +
-      "docinho, devolva falouDeOutraEtapa, mesmo que o nome sirva pros dois " +
-      "(brigadeiro, beijinho). O peso em quilos vai na quantidade." +
+      "docinho, devolva falouDeOutraEtapa, mesmo que o cardapio tenha o mesmo " +
+      "nome nas duas familias. Use o nome do cardapio com o prefixo do bolo. " +
+      "Caseiro so se ele disse caseiro. O peso em quilos vai na quantidade." +
       " Embalagem: prato \"aberto\" ou \"tampa\"." +
       recusa("bolo") + semNumero +
       " Pediu pra casa escolher o sabor? delegaEscolha = true, sem itens." +
