@@ -68,7 +68,11 @@ fs.writeFileSync(
     "  const r = await responder(estado as never, { texto: fala }, pensar);",
     "  estado = r.estado as never;",
     '  console.log("cliente >> " + fala);',
-    '  console.log("padaria >> " + String(r.fala.texto || "").replace(/\\n/g, " ").slice(0, 240));',
+    // SEM CORTAR. A primeira versao cortava em 240 caracteres e escondeu
+    // justamente a linha do bolo e o total no fechamento da festa, que e a
+    // parte que decide se a conta esta certa. Instrumento que corta o dinheiro
+    // mente igual medidor que nao espera resposta.
+    '  console.log("padaria >> " + String(r.fala.texto || "").replace(/\\n/g, " "));',
     // O rastro e o unico jeito de saber QUEM decidiu o que, e e pra isso que
     // esta bancada existe: comparar resultado sem saber a causa nao decide nada.
     '  console.log("  rastro: " + r.rastro.join(" / "));',

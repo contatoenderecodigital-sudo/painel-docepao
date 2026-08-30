@@ -1072,7 +1072,83 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       const escolhida = ehNomeDeFamilia(quem.produto)
         ? opcaoDaFamiliaNaFrase(quem.produto, falaDoCliente)
         : null;
-      const produto = escolhida ?? quem.produto;
+      // O SABOR QUE ELE NAO FALOU NAO ENTRA, NEM QUANDO VEM NO NOME DO PRODUTO.
+      //
+      // Medido na bancada em 30/08/2026, com a IA de verdade:
+      //
+      //   cliente >> o bolo eu quero misto de brigadeiro com ninho
+      //   modelo  >> 1x brigadeiro com maracuja [brigadeiro com ninho]
+      //   pedido  >> 3 kg de bolo brigadeiro com maracuja   R$ 140,70
+      //
+      // Ninho NAO e sabor de bolo de festa (a lista tem brigadeiro e brigadeiro
+      // com maracuja). Em vez de dizer isso, o modelo trocou pelo mais parecido
+      // do cardapio. A cozinha faria maracuja, e o cliente leria maracuja na
+      // confirmacao de um bolo que ele pediu de ninho.
+      //
+      // A casa ja tem a regra certa pra sabor fora da lista: o item fica, o
+      // sabor vai no recado, e na insistencia a equipe confere. Ela nao pegava
+      // este caso porque so olhava o campo `sabor`, e aqui o modelo pos a
+      // invencao no campo do PRODUTO.
+      //
+      // A regra e a mesma dos outros tres consertos de hoje: palavra que ele
+      // nao falou nao entra. Se o nome que o modelo escolheu tem uma palavra
+      // que nao esta na frase, e existe um produto MENOR que esta inteiro na
+      // frase, vale o menor. O que sobrar vira recheio, que e o caminho do
+      // recado e da equipe.
+      const semInvencao = (nome: string): string => {
+        // O QUE JA ESTA NO PEDIDO TAMBEM E COISA QUE ELE FALOU.
+        //
+        // Ele disse "2 pizzas inteiras" num turno e no seguinte so "tira a de
+        // calabresa". Olhando so a frase deste turno, "inteira" pareceria
+        // invencao do modelo, e a guarda derrubava a linha pra "pizza": o pedido
+        // ficava com uma pizza inteira E uma pizza solta, do mesmo sabor.
+        //
+        // E a mesma distincao de todos os outros consertos de hoje, na direcao
+        // contraria: o que ja estava anotado nao precisa ser repetido pra valer.
+        const ditas = new Set(
+          palavrasQueApontam(
+            falaDoCliente + " " + String(i.sabor ?? "") + " " + itens.map((x) => x.produto).join(" "),
+          ),
+        );
+        // A PALAVRA DA FAMILIA NAO E INVENCAO: ELA VEM DA ETAPA.
+        //
+        // Quem responde "brigadeiro" na pergunta do bolo de festa esta pedindo
+        // `bolo brigadeiro`, e o "bolo" veio da pergunta, nao da boca dele. Sem
+        // esta excecao a guarda derrubava o bolo pro DOCINHO brigadeiro, que e
+        // o defeito que ela deveria impedir, na direcao contraria. Pego pelo
+        // `o-contexto-desempata-nome-duplicado.cjs` na primeira rodada.
+        const daFamilia = new Set(chavesDeFamilia().map((f) => semAc(f)));
+        // PLURAL E A MESMA PALAVRA.
+        //
+        // "quero 2 pizzas INTEIRAS" contra o produto "pizza INTEIRA": comparando
+        // a palavra inteira, "inteiras" nao e "inteira", a guarda achava que o
+        // codigo tinha inventado o tipo e derrubava a pizza inteira pra "pizza".
+        // Dois testes pegaram isso na primeira rodada, e um deles era justamente
+        // o das duas pizzas que custou o R$ 120,00 no lugar de R$ 240,00.
+        //
+        // A comparacao aceita uma ser comeco da outra, das duas direcoes, e so
+        // em palavra de quatro letras pra cima: em palavra curta isso casaria
+        // coisas diferentes.
+        const eleFalou = (w: string) =>
+          ditas.has(w) ||
+          [...ditas].some((d) => d.length >= 4 && w.length >= 4 && (d.startsWith(w) || w.startsWith(d)));
+        const doNome = palavrasQueApontam(nome);
+        const inventadas = doNome.filter((w) => !eleFalou(w) && !daFamilia.has(w));
+        if (!inventadas.length) return nome;
+        // O maior pedaco do nome que ele REALMENTE falou. E resolvido pela MESMA
+        // porta do resto (`identificarProduto`, com a dica da etapa), senao
+        // "brigadeiro" na etapa do bolo cairia no docinho de R$ 1,25.
+        const soDitas = doNome.filter((w) => eleFalou(w) || daFamilia.has(w)).join(" ");
+        if (!soDitas.trim()) return nome;
+        const menor = identificarProduto(soDitas, dica, falaDoCliente);
+        if (!menor?.produto || semAc(menor.produto) === semAc(nome)) return nome;
+        rastro.push(
+          "o modelo trocou o sabor: disse " + nome + " e ele nao falou " +
+          inventadas.join(", ") + "; fiquei com " + menor.produto,
+        );
+        return menor.produto;
+      };
+      const produto = semInvencao(escolhida ?? quem.produto);
       const categoria = categoriaDaEtapa(etapa, produto);
 
       // A conta de "de que familia e este produto" mora em familiaDoProduto,
