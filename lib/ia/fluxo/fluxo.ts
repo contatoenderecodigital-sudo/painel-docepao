@@ -422,6 +422,7 @@ function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado 
     // quantidade: "50 coxinha" depois de "de frango" nao vira 100. Com numero
     // na fala, a dele manda e so completa quem ficou sem.
     const paraRepartir = daFamilia.filter(({ i }) => {
+      if (ehNomeDeFamilia(i.produto)) return true;
       const temQtd = Number(i.qtd) > 0;
       if (disseNumero) return !temQtd;
       if (!temQtd) return true;

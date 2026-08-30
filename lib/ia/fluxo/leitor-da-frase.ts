@@ -639,6 +639,12 @@ export function itensNaFrase(fala: string): { produto: string; qtd: number; obs?
   // Onde termina o que ja foi consumido como RECHEIO de um produto anterior. O
   // que cair dentro disso e sabor, e nao um item novo.
   let fimDoRecheioAnterior = -1;
+  // Numero que JA E O NOME do produto anterior nao e quantidade do proximo.
+  //
+  // "4 leites e biz": o 4 e o nome do bolo. Sem isto o biz ganhava qtd 4, e o
+  // bolo misto da festa saia com 4 kg no lugar dos 2 da proposta. Medido no
+  // conserto do rateio da festa, 30/08/2026.
+  const jaUsado: [number, number][] = [];
 
   for (const { nome, onde, tamanho } of acharNaFrase(fala)) {
     // NOME DE FAMILIA DA FESTA NAO E ITEM GUARDADO.
@@ -652,13 +658,19 @@ export function itensNaFrase(fala: string): { produto: string; qtd: number; obs?
 
     // NEGACAO MANDA. "sem coxinha" nao e pedido de coxinha, e adivinhar aqui
     // colocaria no pedido o que ele acabou de recusar.
-    const antes = t.slice(Math.max(0, onde - 24), onde);
+    const inicioAntes = Math.max(0, onde - 24);
+    const antes = t.slice(inicioAntes, onde);
     if (/(^|[^a-z])(sem|nao|nem|tirar?|tira)([^a-z][^.,;]*)?$/.test(antes)) continue;
 
     // A quantidade e o numero mais perto ANTES do nome. "2 kg de 4 leites" da
     // 2; "50 brigadeiro" da 50. Sem numero fica 0, e quem preenche depois e a
     // proposta da festa ou a pergunta da padaria.
-    const nums = [...antes.matchAll(/([0-9]+(?:[.,][0-9]+)?)/g)];
+    //
+    // O 4 de "4 leites" nao conta pro biz: ele ja foi o nome do bolo.
+    const nums = [...antes.matchAll(/([0-9]+(?:[.,][0-9]+)?)/g)].filter((m) => {
+      const pos = inicioAntes + (m.index ?? 0);
+      return !jaUsado.some(([a, b]) => pos >= a && pos < b);
+    });
     const ultimo = nums.length ? nums[nums.length - 1][1] : null;
     let qtd = ultimo ? Number(ultimo.replace(",", ".")) : 0;
 
@@ -738,6 +750,7 @@ export function itensNaFrase(fala: string): { produto: string; qtd: number; obs?
       qtd: qtd > 0 && qtd <= 5000 ? qtd : 0,
       ...(recheio ? { obs: recheio } : recado ? { obs: recado } : {}),
     });
+    jaUsado.push([onde, onde + tamanho]);
   }
   return achados;
 }
