@@ -623,7 +623,7 @@ comissão, atribuição pelo link (testada no navegador).
 - merge de `coolify-postgres` para `servidor`, e aposentar o pm2 do aaPanel
 - revogar o token da API do Coolify quando terminar
 
-### Cancelar UMA de duas linhas do mesmo produto (achado em 30/08/2026)
+### Cancelar UMA de duas linhas do mesmo produto — FECHADO EM 30/08/2026
 
 Defeito de dinheiro, na direcao contraria a da pizza: o cliente **paga por um
 item que cancelou**. Nao e regressao do conserto da pizza, e mais velho que ele
@@ -645,13 +645,23 @@ Mas tudo o que tira item do pedido enxerga so o NOME:
   nome. Quando ele e chamado, leva **as duas**, e ai o dano e o oposto: some
   do pedido o que o cliente nao mandou tirar. Isso fere "nada some do pedido".
 
-Os dois lados erram, e a granularidade certa e produto + categoria +
-observacao. **Nao consertar de improviso:** a chave ignora a observacao de
-proposito, porque ela CRESCE ("calabresa" virando "calabresa, frango") e
-incluir a observacao crua faria a linha que so ficou mais completa contar como
-linha que saiu. Precisa de teste com isca antes, na mesma forma do
-`a-pizza-de-outro-sabor-e-outra-linha.cjs`: a decisao sai pra funcao pura, e o
-teste monta o pedido e olha o que voltou.
+Os dois lados erravam, e da mesma causa: enxergar so o nome.
+
+**O conserto nao foi incluir a observacao crua na chave.** Ela CRESCE
+("calabresa" virando "calabresa | frango com catupiry" quando o cliente
+acrescenta o sabor), e comparando texto a linha que so ficou mais completa
+contaria como linha que saiu, indo direto pro `removerItem`. Isso feriria a
+regra mais antiga do projeto, nada some do pedido.
+
+Quem responde e o `umaDescreveAOutra`, exportado do `montagem.ts`: compara por
+PEDACO, separando por virgula e por barra, e aceita pedaco que cresceu. A linha
+continua no pedido enquanto alguma linha do mesmo nome ainda descrever o que ela
+dizia. E a mesma conta que ja existia dentro do `linhaQueRecebe` e que faltava
+nos outros dois lugares, entao agora e **uma so**, usada em tres.
+
+Travado em `testes/o-que-sai-do-pedido-sai-do-banco.cjs`, que subiu de 9 para 13
+casos. Isca provada: com a regra velha, os dois casos de cancelamento davam
+`saiu []` (a linha cancelada ficava no banco) e as duas armadilhas ja passavam.
 
 **Os dois cérebros saíram da lista em 26/08/2026.** Era a dívida mais cara do
 projeto e custou duas correções entregues como prontas que não faziam nada.

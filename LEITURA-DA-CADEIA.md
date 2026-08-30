@@ -3810,3 +3810,51 @@ que ninguem mandou tirar).
 Nao e regressao deste conserto. Medi: duas coxinhas de recheios diferentes ja
 eram duas linhas antes dele. Esta anotado no `O-QUE-FALTA.md`, com o aviso de
 que a chave ignora a observacao DE PROPOSITO, porque ela cresce.
+
+---
+
+## 78. O mesmo defeito nos dois sentidos, e a conta que estava escrita só num lugar
+
+O conserto da pizza me obrigou a olhar quem TIRA item do pedido, e ali estava o
+defeito irmão, mais velho que ele. Medi antes de acusar: duas coxinhas de
+recheios diferentes já eram duas linhas antes da pizza, então isto não era
+regressão minha.
+
+Com duas linhas do mesmo nome no pedido, cancelar uma delas errava dos dois
+lados, e pelo mesmo motivo, enxergar só o nome:
+
+| quem | o que fazia | o dano |
+| --- | --- | --- |
+| `itensQueSairam` | a chave continuava no `depois`, nada saía | o cliente paga o que cancelou |
+| `removerItem` | filtrava pelo nome, levava as duas | some do pedido o que ninguém mandou tirar |
+
+### Por que a observação tinha ficado de fora da chave, e por que isso estava certo
+
+A resposta óbvia é botar a observação na chave. Ela é errada, e o comentário
+antigo já avisava: **a observação cresce.** `"calabresa"` vira
+`"calabresa | frango com catupiry"` quando o cliente acrescenta o sabor. Numa
+comparação de texto, a linha que só ficou mais completa contaria como linha que
+saiu e iria direto pro `removerItem`. Isso fere a regra mais antiga do projeto.
+
+Foi por isso que escrevi os dois casos-armadilha ANTES do conserto, e confirmei
+que eles já passavam: a linha que só ficou mais completa, e a observação
+reescrita em outra ordem (`"forminha branca, morango"` contra
+`"morango, forminha branca"`, que é o caso que gerou a quarta linha de trufa).
+Um conserto que passasse nos dois casos novos e quebrasse esses dois seria pior
+que o defeito.
+
+### A conta já existia, escrita dentro de outra função
+
+Comparar por pedaço, aceitando pedaço que cresceu, é exatamente o que o
+`linhaQueRecebe` já fazia com `pedacos` e `contem` declarados dentro dele. Não
+faltava inventar regra: faltava a regra estar **acessível**.
+
+Virou `umaDescreveAOutra`, exportada, usada em três lugares (a busca da linha a
+completar, a soma de sabor da pizza e o `itensQueSairam`). Separa por vírgula
+**e** por barra, porque no banco a observação vem com vírgula e a que chega do
+fluxo vem com `" | "`. Lendo só a vírgula, `"calabresa | frango"` seria um pedaço
+só e a pizza que ganha sabor viraria uma pizza a mais.
+
+**Regra sem lugar próprio não é reusada, é reescrita, e a segunda cópia é a que
+fica para trás.** Foi o mesmo achado dos cinco normalizadores de texto, só que
+desta vez cobrando em dinheiro.

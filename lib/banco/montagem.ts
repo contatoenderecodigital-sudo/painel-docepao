@@ -141,6 +141,41 @@ const mesmaLinha = (a: ItemMontagem, b: { produto: string; categoria: CategoriaI
 
 const marca = (o?: string | null) => (o ?? "").trim().toLowerCase();
 
+/**
+ * UMA OBSERVACAO DESCREVE A OUTRA: sao a mesma linha, uma mais completa.
+ *
+ * Esta e a conta que decide se `"calabresa"` e `"calabresa | frango"` sao a
+ * mesma pizza ficando completa ou duas pizzas diferentes. Ela ja estava escrita
+ * dentro do `linhaQueRecebe`, e faltava em outros dois lugares que precisam
+ * exatamente dela, entao virou uma so.
+ *
+ * COMPARA POR PEDACO, NAO POR TEXTO CORRIDO. "forminha branca, morango" e
+ * "morango, forminha branca" sao a MESMA coisa, e comparando texto corrido nao
+ * casam. Foi assim que nasceu a quarta linha de trufa: a Dora reescreveu a
+ * observacao em outra ordem e o pedido fechou com cem trufas onde a cliente
+ * pediu vinte e cinco.
+ *
+ * E PEDACO QUE CRESCE E O MESMO PEDACO. A cliente disse "forminha azul", a Dora
+ * corrigiu pra "forminha azul bebe", e como os dois textos nao sao iguais
+ * nascia uma linha nova: 150 brigadeiros onde ela pediu 75, R$ 187 a mais.
+ *
+ * SEPARA POR VIRGULA E POR BARRA. No banco a observacao vem com virgula; quem
+ * chega do fluxo vem com " | ", que e como o `fluxo.ts` junta os pedacos. Ler
+ * so a virgula faria "calabresa | frango" ser UM pedaco so, e a pizza que ganha
+ * sabor na mensagem seguinte viraria uma pizza a mais.
+ */
+export function umaDescreveAOutra(a?: string | null, b?: string | null): boolean {
+  const pedacos = (t?: string | null) =>
+    marca(t).split(/,|\|/).map((x) => x.trim()).filter(Boolean);
+  const x = pedacos(a);
+  const y = pedacos(b);
+  // Sem observacao dos dois lados nao ha o que distinguir: e a mesma linha.
+  if (!x.length || !y.length) return true;
+  const cabe = (maior: string[], menor: string[]) =>
+    menor.every((p) => maior.some((q) => q === p || q.includes(p) || p.includes(q)));
+  return cabe(x, y) || cabe(y, x);
+}
+
 // Observacao que a IA escreve so pra nao deixar o campo vazio.
 const ENFEITE = /^(sem\s+(sabor|recheio)|a\s+definir|nao\s+informad|n[ãa]o\s+especificad|indefinid|a\s+combinar)/i;
 
@@ -380,13 +415,8 @@ const tipoNovo = item.categoria === "pizza" ? doceOuSalgada(item.obs) : null;
 // So vale pra pizza. No bolo a observacao e trocada a vontade enquanto a
 // cliente decide o recheio, e cobrar containment ali faria a festa fechar com
 // dois bolos, que e exatamente o defeito que pos o bolo em UMA_LINHA_SO.
-const saborSoma = (velha: string | null | undefined) => {
-  if (item.categoria !== "pizza") return true;
-  const antes = marca(velha);
-  const agora = marca(item.obs);
-  if (!antes || !agora) return true;
-  return antes.includes(agora) || agora.includes(antes);
-};
+const saborSoma = (velha: string | null | undefined) =>
+  item.categoria !== "pizza" || umaDescreveAOutra(velha, item.obs);
 
 let i = UMA_LINHA_SO.includes(item.categoria)
   ? itens.findIndex(
@@ -428,32 +458,15 @@ if (i < 0 && mesmoNome.length > 0) {
   // o sabor que chega depois vira uma SEGUNDA linha do mesmo produto e o
   // pedido fica com duas trufas, uma delas sem sabor pra sempre.
   const limpar = (t: string) => (ENFEITE.test(t) ? "" : t);
-  // COMPARA POR PEDACO, NAO POR TEXTO CORRIDO.
-  //
-  // "forminha branca, morango" e "morango, forminha branca" sao a MESMA
-  // coisa, e comparando texto corrido nao casam. Foi assim que nasceu a
-  // quarta linha de trufa: a Dora reescreveu a observacao em outra ordem.
-  const pedacos = (t: string) =>
-    new Set(t.split(",").map((x) => x.trim()).filter(Boolean));
-  // PEDACO QUE CRESCE E O MESMO PEDACO, NAO OUTRO.
-  //
-  // A cliente disse "forminha azul", a Dora corrigiu pra "forminha azul
-  // bebe", e como os dois textos nao sao iguais nascia uma LINHA NOVA. O
-  // pedido da festa fechou com 150 brigadeiros onde ela pediu 75, R$ 187 a
-  // mais, e so nao foi cobrado porque a cliente conferiu e cobrou tres vezes.
-  const contem = (maior: Set<string>, menor: Set<string>) =>
-    [...menor].every((p) => [...maior].some((q) => q === p || q.includes(p) || p.includes(q)));
+  // Quem compara por pedaco e o `umaDescreveAOutra`, la em cima. A conta
+  // estava escrita aqui dentro e faltava em outros dois lugares que precisam
+  // exatamente dela: o `saborSoma` e o `itensQueSairam` do `gravar.ts`.
   const nova = limpar(marca(item.obs));
-  const setNova = pedacos(nova);
   // A linha MAIS parecida primeiro: entre varias, completa a que ja tem mais
   // coisa em comum, senao o recheio cai na linha errada.
   const candidata = mesmoNome
     .map((x) => ({ x, antiga: limpar(marca(x.obs)) }))
-    .filter(({ antiga }) => {
-      if (!antiga || !nova) return true;
-      const setAntiga = pedacos(antiga);
-      return contem(setNova, setAntiga) || contem(setAntiga, setNova);
-    })
+    .filter(({ antiga }) => umaDescreveAOutra(antiga, nova))
     .sort((a, b) => b.antiga.length - a.antiga.length)[0];
   if (candidata) i = itens.indexOf(candidata.x);
 }
@@ -564,14 +577,33 @@ export async function anotarItem(
   return m;
 }
 
+/**
+ * TIRA UMA LINHA DO PEDIDO.
+ *
+ * A OBSERVACAO E PARTE DO ALVO, e sem ela este era o outro lado do defeito de
+ * 30/08/2026. Com duas coxinhas no pedido, uma de frango e uma de calabresa,
+ * pedir pra tirar a de calabresa levava AS DUAS: a filtragem so olhava o nome.
+ * O companheiro deste defeito esta no `itensQueSairam`, e la o dano e o oposto
+ * (a linha cancelada ficava). Os dois vinham da mesma causa, enxergar so o nome.
+ *
+ * Sem observacao continua removendo pelo nome, que e o comportamento de sempre e
+ * o certo quando so existe uma linha daquele produto.
+ */
 export async function removerItem(
   negocioId: string,
   clienteId: string,
   produto: string,
   categoria: CategoriaItem,
+  obs?: string | null,
 ): Promise<Montagem> {
+  const alvo = String(obs ?? "").trim();
   const m = await lerMontagem(negocioId, clienteId);
-  m.itens = m.itens.filter((x) => !mesmaLinha(x, { produto, categoria }));
+  m.itens = m.itens.filter((x) => {
+    if (!mesmaLinha(x, { produto, categoria })) return true;
+    // Sem observacao no alvo, sai pelo nome, como sempre foi.
+    if (!alvo) return false;
+    return !umaDescreveAOutra(x.obs, alvo);
+  });
   await gravar(negocioId, clienteId, m);
   return m;
 }

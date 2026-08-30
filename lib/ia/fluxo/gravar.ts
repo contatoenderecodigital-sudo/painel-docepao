@@ -21,7 +21,7 @@
 //  E POR ISSO O PAINEL E A IMPRESSAO NAO PRECISAM DE UMA LINHA NOVA.
 // ============================================================================
 
-import { anotarItem, anotarDados, lerMontagem, limparMontagem, removerItem } from "@/lib/banco/montagem";
+import { anotarItem, anotarDados, lerMontagem, limparMontagem, removerItem, umaDescreveAOutra } from "@/lib/banco/montagem";
 import { unidadeDoPedido as unidadeDoProduto } from "@/lib/ia/dados/produtos";
 import type { Estado } from "./fluxo";
 import type { EtapaId } from "./etapas";
@@ -152,19 +152,44 @@ function lerPecas(
  * O QUE ESTAVA NO PEDIDO E NAO ESTA MAIS.
  *
  * Funcao pura e exportada pelo mesmo motivo do `estadoDosDados`: da pra provar
- * sem banco nenhum. Compara pela mesma chave que a gravacao usa, produto mais
- * categoria, porque "brigadeiro" docinho e "bolo brigadeiro" convivem.
+ * sem banco nenhum. O nome sozinho nao basta, porque "brigadeiro" docinho e
+ * "bolo brigadeiro" convivem, entao a chave e produto mais categoria.
+ *
+ * E O NOME TAMBEM NAO BASTA QUANDO EXISTEM DUAS LINHAS DELE.
+ *
+ * O pedido aceita duas linhas do mesmo produto com recheios diferentes: e assim
+ * que "100 coxinha de frango e 50 de calabresa" fica certo, e desde 30/08/2026 e
+ * assim que duas pizzas de sabores diferentes param de virar uma. So que a
+ * comparacao olhava so o nome, entao CANCELAR UMA DAS DUAS nao saia nunca: a
+ * chave continuava presente no `depois` e a linha cancelada ficava no banco. O
+ * cliente pagava por um item que tirou.
+ *
+ * A saida nao e comparar a observacao crua, e por isso ela ficou de fora tanto
+ * tempo: a observacao CRESCE. "calabresa" vira "calabresa | frango com
+ * catupiry" quando o cliente acrescenta o sabor, e comparando texto a linha que
+ * so ficou mais completa contaria como linha que saiu, indo pro `removerItem`.
+ * Isso fere a regra mais antiga do projeto, nada some do pedido.
+ *
+ * Quem responde isso e o `umaDescreveAOutra`, a mesma conta que a montagem usa
+ * pra decidir se duas linhas sao a mesma. A linha continua no pedido enquanto
+ * ALGUMA linha do mesmo nome ainda descrever o que ela dizia.
  */
 export function itensQueSairam(
   antes: Estado,
   depois: Estado,
-): { produto: string; categoria: string }[] {
+): { produto: string; categoria: string; obs: string | null }[] {
   const chave = (i: { produto: string; categoria: string }) =>
     String(i.produto).toLowerCase().trim() + "|" + String(i.categoria);
-  const aindaTem = new Set(depois.itens.map(chave));
   return antes.itens
-    .filter((i) => !aindaTem.has(chave(i)))
-    .map((i) => ({ produto: i.produto, categoria: i.categoria }));
+    .filter((i) => {
+      const irmas = depois.itens.filter((x) => chave(x) === chave(i));
+      // O nome sumiu inteiro do pedido: saiu, e e o caso comum.
+      if (!irmas.length) return true;
+      // Sem observacao, a linha E a do nome, e o nome continua la.
+      if (!String(i.obs ?? "").trim()) return false;
+      return !irmas.some((x) => umaDescreveAOutra(x.obs, i.obs));
+    })
+    .map((i) => ({ produto: i.produto, categoria: i.categoria, obs: i.obs ?? null }));
 }
 
 export async function gravarEstado(
@@ -202,7 +227,7 @@ export async function gravarEstado(
   // So sai o que estava no `antes`, que e o que este turno leu do banco. O que a
   // dona acrescentar na tela nao esta ali e nao e tocado.
   for (const i of itensQueSairam(antes, depois)) {
-    await removerItem(negocioId, clienteId, i.produto, i.categoria as never);
+    await removerItem(negocioId, clienteId, i.produto, i.categoria as never, i.obs);
   }
 
   for (const i of depois.itens) {
