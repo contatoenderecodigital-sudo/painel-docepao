@@ -1808,6 +1808,26 @@ export async function responder(
     estado = { ...estado, assunto: null };
   }
 
+  // "PODE FECHAR" VENCE A OFERTA QUE ELE JA RECUSOU.
+  //
+  // Na primeira mensagem o cliente pode mandar item, dados, "so isso" e a
+  // ordem de fechar juntos. A etapa no comeco do turno ainda e a oferta, mas
+  // depois de aplicar a recusa o pedido ja esta na confirmacao. Exigir outra
+  // mensagem ali e ignorar uma ordem clara.
+  //
+  // So vale quando a propria leitura marcou a aprovacao, o turno comecou na
+  // oferta e todas as etapas chegaram ate a confirmacao. O fechamento ainda
+  // passa por `oQueFaltaPraFechar`, entao isto nao inventa dado nem pula sabor.
+  if (
+    !confirmouEscrevendo &&
+    leituraDesteTurno?.confirmou === true &&
+    etapaAgora.id === "oferta" &&
+    proxima.id === "confirmacao"
+  ) {
+    confirmouEscrevendo = true;
+    rastro.push("pediu pra fechar e ja tinha recusado a oferta");
+  }
+
   // O aviso so vale se a conversa continuar na MESMA etapa: se ela ja andou, o
   // cliente resolveu e o "a gente nao faz" chegaria fora de hora.
   // O TOTAL SAI DO MOTOR, E EU ESTAVA MANDANDO ZERO.
