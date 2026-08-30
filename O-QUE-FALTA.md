@@ -67,9 +67,8 @@ velho protegia, com o veredito de cada uma, está em `O-QUE-O-VELHO-PROTEGIA.md`
 node testes/todos.cjs
 ```
 
-**83 testes, 83 verdes, em dois minutos, e nenhum fala com a rede.** (Eram 33 em 26/08.) Antes ele
-travava mais de meia hora num teste de SSH e as trinta provas seguintes nunca
-rodavam.
+**101 testes locais no portao, nenhum fala com a rede.** `qa-painel` saiu do
+portao: ele fala com producao e no Windows procura Chromium em AppData.
 
 Os que falam com o VPS ou com produção saíram para instrumento, e rodam na mão:
 
@@ -79,6 +78,7 @@ node testes/qa-conversa.cjs
 node testes/qa-concorrencia.cjs
 node testes/guardar-conversas.cjs
 node testes/qa-pedido-completo.cjs     (abre navegador, cria pedido de verdade)
+node testes/qa-painel.cjs              (Chrome no painel no ar; Windows)
 ```
 
 ### Os quinze defeitos de dinheiro consertados em 26/08/2026

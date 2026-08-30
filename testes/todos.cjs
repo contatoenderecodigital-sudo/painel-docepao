@@ -72,6 +72,15 @@ const FORA = [
   //   node testes/qa-pedido-completo.cjs
   "qa-pedido-completo.cjs",
 
+  // O `qa-painel` e o mesmo tipo: abre Chrome contra o painel NO AR, faz login
+  // e cria pedido. No Windows ele procura o Chromium em AppData. Neste Linux o
+  // caminho nao existe (ENOENT), e mesmo com Chrome da casa ele testaria o
+  // deploy, nao o codigo desta maquina. Portao que reprova sem defeito no
+  // codigo ensina a ignorar portao.
+  //
+  //   node testes/qa-painel.cjs
+  "qa-painel.cjs",
+
   // A ferramenta mais barata daqui, e por isso mesmo nao e portao: ela fala com
   // producao e cria pedido de verdade na faixa de teste.
   //
