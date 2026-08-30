@@ -954,7 +954,21 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       //
       // O código confere SÓ o sabor, contra o catálogo, que é lista legítima. O
       // recado passa intocado, e nenhuma palavra minha decide o que é o quê.
-      const saborPedido = quem.recheio ?? (i.sabor ? String(i.sabor) : null);
+      // SABOR QUE O MODELO INVENTOU NAO ENTRA.
+      //
+      // Medido em 30/08/2026: o cliente disse "redonda", o modelo devolveu
+      // pizza redonda E pizza inteira/meia de bacon. Os tipos que ele nao
+      // nomeou ja saem. O bacon ainda grudava na redonda porque veio no
+      // campo sabor, e a frase nao tinha bacon nenhum.
+      //
+      // Recheio que veio no NOME ("esfirra de carne") continua: e o catalogo
+      // quem separa. Sabor so no campo do modelo vale quando a frase cita.
+      const saborDoModelo = i.sabor ? String(i.sabor) : null;
+      const saborCitado =
+        saborDoModelo &&
+        semAc(falaDoCliente).includes(semAc(saborDoModelo)) &&
+        afirmouOuNegou(semAc(falaDoCliente), cercaDoSabor(semAc(saborDoModelo))) !== false;
+      const saborPedido = quem.recheio ?? (saborCitado ? saborDoModelo : null);
       const outroRecheio = recheioQueNaoExiste(produto, saborPedido);
       if (outroRecheio) {
         recheiosTrocados.push(produto + " de " + outroRecheio);
@@ -1116,6 +1130,13 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
   //
   // E so quando o item ainda nao tem sabor: quem ja escolheu nao e
   // sobrescrito por uma palavra solta numa mensagem posterior.
+  //
+  // DELEGA A FORMINHA NAO E SABOR DA MINI PIZZA.
+  //
+  // "escolhe voce a forminha" com mini pizza esperando recheio virava
+  // "mini pizza de escolhe voce a forminha". Delegar a cor nao responde
+  // recheio de ninguem.
+  if (l.delegaEscolha !== true && !l.forminha) {
   const esperando = novo.itens.filter((i) => saborQueFalta(i.produto, i.obs));
   const tSolto = semAc(String(falaDoCliente || ""));
   const peloFixo = tSolto
@@ -1166,44 +1187,61 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
         i === item ? { ...i, obs: [i.obs, achado].filter(Boolean).join(" | ") } : i,
       );
     }
-  } else if (esperando.length === 1) {
-    const item = esperando[0];
-    const opcoes = saborQueFalta(item.produto, item.obs)?.opcoes ?? [];
+  } else if (esperando.length >= 1) {
     const t = semAc(String(falaDoCliente || ""));
-    // O nome mais longo primeiro: "frango com catupiry" antes de "frango".
+    const saborDeste = (item: (typeof novo.itens)[number]) => {
+      const opcoes = saborQueFalta(item.produto, item.obs)?.opcoes ?? [];
+      return [...opcoes]
+        .sort((a, b) => b.length - a.length)
+        .find((o) => {
+          const alvo = semAc(o);
+          if (alvo.length <= 2 || !t.includes(alvo)) return false;
+          return afirmouOuNegou(t, cercaDoSabor(alvo)) !== false;
+        });
+    };
+    const candidatos = esperando
+      .map((item) => {
+        const achado = saborDeste(item);
+        return achado ? { item, achado } : null;
+      })
+      .filter((x): x is { item: (typeof novo.itens)[number]; achado: string } => Boolean(x));
+    const citadaNaPergunta = candidatos.filter(({ item }) => {
+      const ultima = semAc(String(e.ultimaFala || ""));
+      const n = semAc(item.produto);
+      return Boolean(n) && n.length >= 4 && ultima.includes(n);
+    });
+    const daPizza = candidatos.filter(
+      ({ item }) => categoriaNoCatalogo(item.produto) === "pizza" || categoriaNoCatalogo(item.produto) === "calzone",
+    );
+    const escolhido =
+      candidatos.length === 1
+        ? candidatos[0]
+        : daPizza.length === 1
+          ? daPizza[0]
+          : citadaNaPergunta.length === 1
+            ? citadaNaPergunta[0]
+            : null;
+    // CALABRESA NA MINI PIZZA QUANDO A REDONDA ESTAVA ESPERANDO.
     //
-    // E A NEGACAO MANDA, COMO EM TODO LUGAR DESTE SISTEMA.
-    //
-    // A checagem era so "a palavra esta na frase?". Entao quem dissesse "sem
-    // calabresa" ou "nao quero calabresa" ganhava CALABRESA na comanda: a
-    // palavra estava la, e ninguem olhava o que vinha na frente dela.
-    //
-    // A pergunta "ele afirmou ou negou isto?" ja existia no leitor da frase, com
-    // o sim e o nao valendo antes E depois da palavra. Escrever uma segunda aqui
-    // seria repetir o erro que este projeto mais cometeu. Achado lendo linha por
-    // linha em 27/08/2026.
-    const achado = [...opcoes]
-      .sort((a, b) => b.length - a.length)
-      .find((o) => {
-        const alvo = semAc(o);
-        if (alvo.length <= 2 || !t.includes(alvo)) return false;
-        // `null` quer dizer "citou e nao disse sim nem nao", que aqui e um sim:
-        // ele esta respondendo a pergunta do sabor.
-        return afirmouOuNegou(t, cercaDoSabor(alvo)) !== false;
-      });
-    if (achado) {
-      if (!palavraEOutroItem(achado, item)) {
+    // Medido na conversa ao vivo: pizza redonda sem sabor, mini pizza no
+    // mesmo pedido, cliente disse "calabresa". A palavra serve nos dois
+    // (catalogo). Sem desempatar, grudava na mini. Pizza nao e salgado de
+    // festa: a palavra vai pra pizza quando as duas esperam.
+    if (escolhido) {
+      const { item, achado } = escolhido;
+      if (!palavraEOutroItem(achado, item) && !semAc(String(item.obs ?? "")).includes(semAc(achado))) {
         novo.itens = novo.itens.map((i) =>
           i === item ? { ...i, obs: [i.obs, achado].filter(Boolean).join(" | ") } : i,
         );
       }
-    } else if (/\?/.test(String(falaDoCliente || "")) === false) {
+    } else if (esperando.length === 1 && /\?/.test(String(falaDoCliente || "")) === false) {
       // ELE INSISTIU NUM SABOR QUE A LISTA NAO TEM.
       //
       // "pistache" sozinho nao nomeia produto e nao esta nas opcoes. Sem isto
       // a resposta caia no vazio, a padaria perguntava de novo, e na
       // insistencia o bloco de equipe exigia obs ja preenchida: o sabor
       // pedido nunca chegava na comanda.
+      const item = esperando[0];
       const cru = String(falaDoCliente || "").trim();
       const soIsto = semAc(cru);
       const jaTem = semAc(String(item.obs ?? ""));
@@ -1219,6 +1257,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
         );
       }
     }
+  }
   }
 
   return novo;

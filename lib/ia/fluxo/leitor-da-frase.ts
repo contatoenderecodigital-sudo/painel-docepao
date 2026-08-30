@@ -326,14 +326,20 @@ function horaNaFrase(t: string): string | null {
   return String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0");
 }
 
-/** "dia 02/09", "02/09/2026", "dia 2". Devolve cru, para dataDeRetirada tratar. */
+/** "dia 02/09", "02/09/2026", "dia 2", "sexta". Devolve cru, para dataDeRetirada tratar. */
 function dataNaFrase(t: string): string | null {
   const comBarra = /(^|[^0-9])([0-3]?[0-9])\s*\/\s*([01]?[0-9])(\s*\/\s*(\d{2,4}))?/.exec(t);
   if (comBarra) {
     return comBarra[2] + "/" + comBarra[3] + (comBarra[5] ? "/" + comBarra[5] : "");
   }
   const soDia = /(^|[^a-z0-9])dia\s+([0-3]?[0-9])($|[^0-9\/])/.exec(t);
-  return soDia ? soDia[2] : null;
+  if (soDia) return soDia[2];
+  // Dia da semana e do mundo, nao da padaria. Sem isto, "sexta as 16h, nome
+  // Marina, pix" chegava com hora e nome e SEM data, e a padaria perguntava o
+  // dia de novo. dataDeRetirada ja vira o nome na proxima sexta.
+  const diaSemana =
+    /(^|[^a-z0-9])(segunda|terca|quarta|quinta|sexta|sabado|domingo)(-feira)?([^a-z0-9]|$)/.exec(t);
+  return diaSemana ? diaSemana[2] + (diaSemana[3] || "") : null;
 }
 
 /** "nome Ana Prass", "em nome de Ana", "no nome da Ana". */

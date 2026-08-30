@@ -103,7 +103,8 @@ cobra("sabor do cardapio nao vira chamado", r.carneMarca === false && r.carneEqu
 cobra("sabor do cardapio fica como sabor, nao some", /carne/i.test(String(r.carneObs || "")), String(r.carneObs));
 cobra("frase sozinha (modelo vazio) guarda o pistache no recado", /pistache/i.test(String(r.fraseObs || "")), String(r.fraseObs));
 cobra("frase sozinha nao some o item", r.fraseItem === 1);
-cobra("modelo so no campo sabor (frase sem de) guarda o pistache", /pistache/i.test(String(r.modeloObs || "")), String(r.modeloObs));
+cobra("modelo so no campo sabor (frase sem o sabor) nao inventa o recado",
+  !/pistache/i.test(String(r.modeloObs || "")), String(r.modeloObs));
 cobra("modelo so no campo sabor nao some o item", r.modeloItem === 1);
 
 console.log("");
