@@ -15,7 +15,8 @@
 //   1. na etapa do bolo, "voces fazem pizza de forma?" (modelo vazio, ou
 //      falouDeOutraEtapa bolo, ou perguntou outro) responde pizza de forma,
 //      manda o cardapio de pizza, nao chama humano
-//   2. ainda na etapa do bolo, "4 leites" continua anotando o bolo
+//   2. ainda na etapa do bolo, "4 leites" anota o bolo, e "chocolate" (sabor
+//      da pergunta) continua o bolo: nao manda pizza nem chama a equipe
 //
 // Roda com: node testes/pergunta-nao-gruda-etapa.cjs
 const path = require("node:path");
@@ -43,7 +44,7 @@ fs.writeFileSync(
     "  ],",
     "  naoQuer:[],",
     "  dados:{nome:null,data:null,hora:null,pagamento:null}, pecas:null, topoNome:null,",
-    "  topoIdade:null, tema:null, forminha:null, prato:null, ofereceu:true,",
+    "  topoIdade:null, tema:null, forminha:'rosa', prato:null, ofereceu:true,",
     "  ultimaFala:ULTIMA, insistiu:1, retomarEm:null, assunto:'bolo',",
     "  etapasJaPerguntadas:['bolo','bolo:sabor'],",
     "};",
@@ -59,6 +60,7 @@ fs.writeFileSync(
     "const pizzaBolo = await responder(NO_BOLO as never, { texto: FRASE } as never, pensar.bolo as never);",
     "const pizzaOutro = await responder(NO_BOLO as never, { texto: FRASE } as never, pensar.outro as never);",
     "const leites = await responder(NO_BOLO as never, { texto: '4 leites' } as never, pensar.vazio as never);",
+    "const chocolate = await responder(NO_BOLO as never, { texto: 'chocolate' } as never, pensar.vazio as never);",
     "",
     "const inteira = produtoPorNome('pizza inteira');",
     "const meia = produtoPorNome('pizza meia');",
@@ -78,6 +80,11 @@ fs.writeFileSync(
     "    produtos: leites.estado.itens.map((i) => i.produto + ':' + i.qtd),",
     "    texto: leites.fala.texto,",
     "    cardapio: leites.fala.cardapio,",
+    "  },",
+    "  chocolate: {",
+    "    texto: chocolate.fala.texto,",
+    "    cardapio: chocolate.fala.cardapio,",
+    "    precisaHumano: chocolate.precisaHumano,",
     "  },",
     "  precos: { inteira: inteira && brl(inteira.preco), meia: meia && brl(meia.preco) },",
     "}));",
@@ -129,13 +136,27 @@ if (r.leites.cardapio === "pizza") {
   falhas.push("4 leites mandou cardapio de pizza");
 }
 
+if (r.chocolate.cardapio === "pizza") {
+  falhas.push("chocolate mandou cardapio de pizza");
+}
+if (r.chocolate.precisaHumano) {
+  falhas.push("chocolate chamou a equipe; sabor de bolo nao para a IA");
+}
+if (/pizza/i.test(r.chocolate.texto) && !/bolo|sabor/i.test(r.chocolate.texto)) {
+  falhas.push("chocolate saiu da etapa do bolo: " + r.chocolate.texto);
+}
+if (!/bolo|sabor/i.test(r.chocolate.texto) && r.chocolate.cardapio !== "bolos-festa") {
+  falhas.push("chocolate nao continuou o bolo: " + r.chocolate.texto + " cardapio=" + r.chocolate.cardapio);
+}
+
 console.log("Pizza:     " + r.pizza.texto);
 console.log("Cardapio:  " + r.pizza.cardapio + "  humano=" + r.pizza.precisaHumano + "  assunto=" + r.pizza.assunto);
 console.log("4 leites:  " + r.leites.produtos.join(", "));
+console.log("chocolate: cardapio=" + r.chocolate.cardapio + " humano=" + r.chocolate.precisaHumano);
 console.log("");
 if (falhas.length) {
   console.log("FALHOU");
   for (const f of falhas) console.log("  - " + f);
   process.exit(1);
 }
-console.log("PASSOU: pergunta de pizza sai da etapa do bolo, e 4 leites continua bolo.");
+console.log("PASSOU: pergunta de pizza sai da etapa do bolo; 4 leites e chocolate continuam bolo.");
