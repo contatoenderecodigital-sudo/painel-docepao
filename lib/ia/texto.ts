@@ -224,3 +224,29 @@ export function comORecadoDaFoto(texto: string): string {
 export function falaDeFotoRecebida(texto: unknown): boolean {
   return /foto de refer|enviou uma foto|\[imagem\]/i.test(String(texto ?? ""));
 }
+
+/**
+ * PALAVRAS QUE NAO APONTAM PRODUTO NENHUM: artigo, preposicao, e o verbo de
+ * tirar. Sem excluir elas, "a" e "de" casariam com qualquer coisa.
+ *
+ * MORA AQUI, e nao no fluxo, porque dois lugares precisam da mesma lista e por
+ * motivos diferentes:
+ *
+ *   - o fluxo, pra saber qual linha do pedido o cliente apontou;
+ *   - o leitor da frase, pra saber que "de 30" e preposicao mais numero, e
+ *     nao nome de produto.
+ *
+ * O segundo custou caro em 30/08/2026: "de 30" e apelido da pizza redonda no
+ * cardapio (ela e a de 30 cm), e o leitor cacava esse apelido dentro de frase
+ * livre. Quem escrevia "orcamento pra festa de aniversario de 30 pessoas"
+ * recebia o PRECO DA PIZZA de volta, com o cardapio de pizza junto.
+ *
+ * Sao curtas de proposito, e por isso o corte nunca pode ser por tamanho:
+ * "uva" tem tres letras e e sabor de trufa.
+ */
+export const PALAVRAS_VAZIAS = new Set([
+  "a", "o", "as", "os", "um", "uma", "uns", "umas", "de", "da", "do", "das", "dos",
+  "com", "sem", "e", "ou", "que", "quero", "queria", "tira", "tirar", "tire", "tirando",
+  "pode", "por", "favor", "na", "no", "nas", "nos", "pra", "para", "ai", "la",
+  "essa", "esse", "aquela", "aquele", "aquilo", "isso", "ja", "nao", "mais",
+]);

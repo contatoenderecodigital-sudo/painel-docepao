@@ -37,7 +37,7 @@ import { identificarProduto } from "./produto";
 import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, ehPizzaQueNaoESalgado, familiaDoProduto, nomeDaFamilia, opcaoDaFamiliaNaFrase, opcoesDaFamilia } from "./generico";
 import { APELIDOS } from "../dados/apelidos";
 import { produtoNoComeco, produtoPorNome, produtosDaCasa, coresDoCardapio } from "../dados/produtos";
-import { semAcento as semAc } from "../texto";
+import { semAcento as semAc, PALAVRAS_VAZIAS } from "../texto";
 import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade, pediuPraFalarComGente } from "./falas-do-cliente";
@@ -1604,19 +1604,6 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
  * nenhuma, e ainda quebra "nada some do pedido". Ambiguidade nao e permissao
  * pra escolher.
  */
-/**
- * Palavras que nao apontam produto nenhum: artigo, preposicao e o proprio verbo
- * de tirar. Sem tirar elas, "a" e "de" casariam com tudo.
- *
- * Sao curtas de proposito, e por isso o corte NAO e por tamanho: "uva" tem tres
- * letras e e sabor de trufa. Cortar por tamanho perderia a uva junto com o "de".
- */
-const PALAVRAS_VAZIAS = new Set([
-  "a", "o", "as", "os", "um", "uma", "uns", "umas", "de", "da", "do", "das", "dos",
-  "com", "sem", "e", "ou", "que", "quero", "queria", "tira", "tirar", "tire", "tirando",
-  "pode", "por", "favor", "na", "no", "nas", "nos", "pra", "para", "ai", "la",
-  "essa", "esse", "aquela", "aquele", "aquilo", "isso", "ja", "nao", "mais",
-]);
 
 const palavrasQueApontam = (t: string): string[] =>
   semAc(t).split(/[^a-z0-9]+/).filter((p) => p && !PALAVRAS_VAZIAS.has(p));

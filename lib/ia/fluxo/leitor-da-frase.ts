@@ -37,7 +37,7 @@
 // ============================================================================
 
 import { coresDaForminha } from "./sabor";
-import { afirmouOuNegou, semAcento } from "../texto";
+import { afirmouOuNegou, semAcento, PALAVRAS_VAZIAS } from "../texto";
 import { APELIDOS } from "../dados/apelidos";
 import { produtosDaCasa, pedeEscolhaDeSabor, produtoPorNome, produtoNoComeco } from "../dados/produtos";
 import { chavesDeFamilia, ehNomeDeFamilia, familiaDaCategoria, familiaDoNome, nomeDaFamilia } from "./generico";
@@ -206,8 +206,27 @@ function acharNaFrase(fala: string): { nome: string; onde: number; tamanho: numb
     // "kiche"). A regua sai dessa medicao, e o teste cobra que nenhum apelido da
     // casa se perca por causa dela.
     //
-    // Apelido de duas palavras passa direto: "de 30", "de forma", "pizza de metro".
-    const serveParaCacar = (a: string) => a.includes(" ") || a.length >= 5;
+    // E APELIDO DE DUAS PALAVRAS TAMBEM NAO SERVE, SE AS DUAS FOREM VAZIAS.
+    //
+    // A linha acima dizia "apelido de duas palavras passa direto: de 30, de
+    // forma, pizza de metro", e essa suposicao custou o pior defeito visivel do
+    // dia 30/08/2026. `"de 30"` e apelido da pizza redonda no cardapio, porque
+    // ela e a de 30 cm. E "de 30" aparece em toda conversa de festa:
+    //
+    //   cliente >> orcamento pra festa de aniversario de 30 pessoas
+    //   padaria >> Pizza redonda sai R$ 41,90 o quilo.  [cardapio de pizza]
+    //
+    // O primeiro contato de uma festa respondido com preco de pizza. Achado
+    // conversando, e o rastro entregou na primeira linha: "achei na frase e
+    // anotei: pizza redonda". Nao foi a IA: foi este `find`.
+    //
+    // A regua certa nao e o numero de palavras, e sim se sobra alguma palavra
+    // que APONTE alguma coisa. "de 30" e preposicao mais numero: nao aponta
+    // nada. "30 cm" tem "cm", "de forma" tem "forma", "pizza de metro" tem
+    // duas: essas continuam cacando, e o teste cobra isso.
+    const apontaAlgo = (a: string) =>
+      a.split(/\s+/).some((w) => w && !PALAVRAS_VAZIAS.has(w) && !/^\d+$/.test(w));
+    const serveParaCacar = (a: string) => apontaAlgo(a) && (a.includes(" ") || a.length >= 5);
     const apelidos = (APELIDOS[nome] ?? APELIDOS[alvo] ?? []).map(semAcMin).filter(serveParaCacar);
     const apelido = apelidos.find((a) => cerca(semRuido(a)).test(t));
     if (apelido) {
