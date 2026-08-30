@@ -49,9 +49,14 @@ const FORA = [
   //   node testes/pausa-nao-vaza.cjs
   //   node testes/qa-conversa.cjs
   //   node testes/qa-concorrencia.cjs
+  //   node testes/qa-concorrencia-mesmo-cliente.cjs
   "pausa-nao-vaza.cjs",
   "qa-conversa.cjs",
   "qa-concorrencia.cjs",
+  // O de cima mede clientes DIFERENTES em paralelo; este mede o MESMO cliente
+  // mandando duas mensagens na mesma respiracao, que e o que ninguem tinha
+  // medido e estava listado em "SEM MEDICAO NENHUMA".
+  "qa-concorrencia-mesmo-cliente.cjs",
   "guardar-conversas.cjs",
 
   // O `qa-pedido-completo` e o caso mais claro de todos: ele abre um navegador

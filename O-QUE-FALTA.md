@@ -594,7 +594,19 @@ Aqui não dá para responder pelo estado, e é honesto dizer que não sei.
 
 - o painel da dona fora do que o `qa-painel` cobre
 - a ponte da impressora
-- vários clientes conversando ao mesmo tempo (`qa-concorrencia`)
+- ~~varios clientes conversando ao mesmo tempo~~ **MEDIDO em 30/08/2026.**
+  O `qa-concorrencia` cobria clientes DIFERENTES em paralelo. O que ninguem
+  tinha medido era o MESMO cliente mandando duas mensagens na mesma
+  respiracao, que no WhatsApp e comum. A suspeita vinha da leitura do
+  codigo: `anotarItem` faz lerMontagem, muda e grava, e o gravar reescreve
+  a linha inteira. Duas chamadas juntas leriam o mesmo estado e a segunda
+  escreveria por cima.
+
+  **Nao se reproduz.** Tres rodadas, container `e914492`, os dois itens
+  sobreviveram nas tres. Nao virou trava nenhuma, e nao devia: por o pedido
+  inteiro atras de um cadeado por causa de defeito que ninguem viu e trocar
+  risco medido por risco novo. Ficou `testes/qa-concorrencia-mesmo-cliente.cjs`
+  pra quem desconfiar de novo poder OLHAR em vez de deduzir.
 - **a tela `/testar` no navegador logado.** O codigo mostra os botoes da fala
   e manda `botaoId`. Abrir a pagina em producao ainda e dele.
 

@@ -3924,3 +3924,34 @@ ele não enxerga nada do que vem antes:
 **Teste que injeta no meio prova o meio, e o dinheiro passa pelas pontas.** É o
 mesmo aviso de "medir a conversa inteira, não o teste", só que desta vez os dois
 guardas certos estavam escritos e me pegaram.
+
+---
+
+## 80. Deduzi uma corrida lendo o código, medi, e ela não estava lá
+
+O `anotarItem` faz `lerMontagem` → muda → `gravar`, e o `gravar` reescreve a
+linha inteira com `on conflict do update set itens = excluded.itens`. Lendo
+isso, a conclusão é imediata: duas mensagens do mesmo cliente ao mesmo tempo
+leem o mesmo estado e a segunda escreve por cima da primeira. Um item some, e
+some em silêncio, que é o pior jeito de sumir.
+
+Estava listado em **SEM MEDIÇÃO NENHUMA** havia semanas, e o `qa-concorrencia`
+que existia media clientes **diferentes** em paralelo, que é outro defeito (o da
+cópia rasa, já consertado).
+
+Medi. Três rodadas contra o container `e914492`, as duas mensagens saindo
+juntas: `["coxinha|200","cuca|3"]` nas três. **Não se reproduz.**
+
+Não pus trava nenhuma. Botar o pedido inteiro atrás de um cadeado por causa de
+um defeito que ninguém viu é trocar risco medido por risco novo, e cadeado no
+caminho de toda mensagem é exatamente o tipo de coisa que quebra sozinha às
+sete da manhã de um sábado.
+
+Três rodadas verdes não provam ausência, provam que não aparece nesta pressão.
+Ficou o `qa-concorrencia-mesmo-cliente.cjs` pra quem desconfiar de novo poder
+**olhar** em vez de deduzir.
+
+**Ler o código gera hipótese, não veredito.** Vale nos dois sentidos: hoje mesmo
+eu li o `HANDOFF` afirmando que a gravação da pizza estava certa, medi, e estava
+errado. Agora deduzi um defeito que não existe. A leitura errou duas vezes no
+mesmo dia, em direções opostas, e a medição acertou as duas.
