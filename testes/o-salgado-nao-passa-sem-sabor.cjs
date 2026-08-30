@@ -236,8 +236,8 @@ cobra("todo salgado de recheio fixo cumpre a etapa", !r.catalogo.fixoQueNaoCumpr
 if (r.catalogo.salgadoQueFechaSemSabor.length) {
   console.log("        fecha sem sabor: " + r.catalogo.salgadoQueFechaSemSabor.join(" | "));
 }
-if (r.catalogo.salgadoQueNaoPergunta.length) {
-  console.log("        nao pergunta: " + r.catalogo.salgadoQueNaoPergunta.join(" | "));
+if (r.catalogo.salgadoQueNaoMandaCardapio.length) {
+  console.log("        nao manda cardapio: " + r.catalogo.salgadoQueNaoMandaCardapio.join(" | "));
 }
 if (r.catalogo.fixoPerguntado.length) {
   console.log("        fixo perguntado: " + r.catalogo.fixoPerguntado.join(" | "));

@@ -42,7 +42,7 @@ import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
-import { coresDaForminha, faltaCorDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista } from "./sabor";
+import { coresDaForminha, faltaCorDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista, saboresQueFaltam } from "./sabor";
 import { restricoesQueACasaNaoFaz, obsSemRestricao, obsPraComanda, avisoDaRestricao } from "./restricao";
 import { paraOMotor } from "./cotar";
 import { respostaDeInformacao } from "./informacao";
@@ -1392,8 +1392,19 @@ export async function responder(
     // de R$ 543,00 e ordem de fechar. O que separa os dois e a etapa, e por isso
     // isto e conferido aqui e nao no prompt.
     if (limpa.confirmou && etapaAgora.id === "confirmacao") {
-      confirmouEscrevendo = true;
-      rastro.push("confirmou escrevendo, sem tocar no botao");
+      // SABOR E FORMINHA NAO FECHAM POR PALAVRA. A confirmação so vale quando
+      // o item ja tem o que a cozinha precisa. Sem isto, pizza/empadao na
+      // etapa da confirmacao (eles nao tem etapa propria) fechavam no "pode
+      // confirmar" e a comanda ia sem recheio.
+      const aindaFaltaSaborOuForminha =
+        saboresQueFaltam(estado.itens).length > 0 ||
+        faltaCorDaForminha(estado.itens, estado.forminha);
+      if (aindaFaltaSaborOuForminha) {
+        rastro.push("confirmou escrevendo mas falta sabor ou forminha; nao fecho");
+      } else {
+        confirmouEscrevendo = true;
+        rastro.push("confirmou escrevendo, sem tocar no botao");
+      }
     } else if (limpa.confirmou) {
       // HEDGE: o modelo marca confirmou em vez de anotar. Fechar e so na
       // etapa da confirmacao (e o atalho da oferta, mais abaixo). Aqui a

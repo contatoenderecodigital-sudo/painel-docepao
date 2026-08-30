@@ -193,7 +193,12 @@ const CARDAPIO_DO_GRUPO: Record<string, string> = {
 
 function pecaDoCardapio(produto: string): string | null {
   const p = produtoNoComeco(produto) ?? produtoPorNome(produto);
-  if (p) return CARDAPIO_DO_GRUPO[p.grupo] ?? null;
+  if (p) {
+    if (CARDAPIO_DO_GRUPO[p.grupo]) return CARDAPIO_DO_GRUPO[p.grupo];
+    if (String(p.categoria).startsWith("salgado")) return "salgados";
+    if (String(p.categoria).startsWith("docinho")) return "docinhos";
+    return null;
+  }
   return familiaDoNome(produto) === "pizza" || nomeDaFamilia(produto) === "pizza" ? "pizza" : null;
 }
 
