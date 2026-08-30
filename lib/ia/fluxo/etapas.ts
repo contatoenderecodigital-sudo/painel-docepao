@@ -160,6 +160,21 @@ export type PedidoEmMontagem = {
    */
   etapasJaPerguntadas?: string[];
   /**
+   * ETAPAS QUE A CONVERSA ADIOU, porque o cliente estava falando de outra coisa.
+   *
+   * Medido conversando em 30/08/2026: a cor da forminha e bloqueio DURO do
+   * docinho (a dona monta a forminha antes de rechear, entao a cor precisa
+   * estar na comanda). O cliente nao respondeu a cor e foi falando do bolo, do
+   * papel e do topo. A padaria repetiu a MESMA pergunta tres vezes seguidas, e
+   * "quero misto de brigadeiro com ninho" virou DOCINHO, porque tudo que ele
+   * dizia era lido como resposta da etapa presa.
+   *
+   * A regra da dona continua valendo: a cor e cobrada, e a etapa volta. O que
+   * muda e que ela nao prende a conversa. Gente pergunta, o cliente muda de
+   * assunto, voce segue e volta depois.
+   */
+  etapasAdiadas?: string[];
+  /**
    * DE QUEM E O ANIVERSARIO, E QUANTOS ANOS FAZ.
    *
    * Pedido do dono, e ele tem razao: "importantissimo". O topo e fabricado com
@@ -895,9 +910,13 @@ export function roteiroDoPedido(p: PedidoEmMontagem): Etapa[] {
 }
 
 export function etapaDaVez(p: PedidoEmMontagem, etapas: Etapa[] = ETAPAS_DA_FESTA): Etapa {
-  for (const e of etapas) {
-    if (e.pulavel?.(p)) continue;
-    if (!e.cumprida(p)) return e;
-  }
-  return etapas[etapas.length - 1];
+  const adiadas = new Set(p.etapasAdiadas ?? []);
+  const faltando = etapas.filter((e) => !e.pulavel?.(p) && !e.cumprida(p));
+  // A ADIADA SAI DA FILA, MAS NAO SAI DO PEDIDO.
+  //
+  // Primeiro passa por quem nao foi adiada: e o assunto que o cliente escolheu
+  // levar adiante. So quando nao sobra mais nada e que a adiada volta, e ai ela
+  // volta como qualquer outra pendencia, cobrada antes de fechar.
+  const primeiro = faltando.find((e) => !adiadas.has(e.id)) ?? faltando[0];
+  return primeiro ?? etapas[etapas.length - 1];
 }

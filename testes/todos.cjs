@@ -31,6 +31,15 @@ const FORA = [
   "comparar-velho-e-novo.cjs",
   "ver-os-botoes-no-celular.cjs",
   "previa-whatsapp.cjs",
+  // A BANCADA roda a conversa com a IA DE VERDADE, aqui na maquina. Gasta
+  // token e pede chave, entao e instrumento e nao portao. Ela existe pra
+  // responder "esta guarda ainda serve?" em segundos, no lugar dos quinze
+  // minutos de portao, build, deploy e espera do container.
+  //   OPENAI_API_KEY=... node testes/bancada.cjs falas.json
+  "bancada.cjs",
+  // O `falar.cjs` conversa uma mensagem por vez pelo WhatsApp de verdade, e a
+  // proxima fala e escolhida DEPOIS de ler a resposta. Fala com o VPS.
+  "falar.cjs",
 
   // ------------------------------------------------------------------------
   // OS QUE FALAM COM O VPS. Instrumento, nao portao.

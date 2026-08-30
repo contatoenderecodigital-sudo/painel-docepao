@@ -738,13 +738,48 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
   // a frase e completa o que o modelo deixou passar.
   // A leitura ja vem juntada com a frase la em cima, entao aqui e so aplicar.
   if (l.pecas) {
+    // QUANDO ELE NOMEIA UMA DAS PECAS, SO VALE O VALOR DAQUELA.
+    //
+    // O modelo TROCA as duas, e isso foi medido duas vezes na mesma conversa de
+    // 30/08/2026, com o rastro do lado:
+    //
+    //   cliente >> nao quero papel de arroz nao
+    //   modelo  >> pecas={"topo":TRUE,"papelDeArroz":false}
+    //
+    //   cliente >> nao, sem topo
+    //   modelo  >> pecas={"topo":false,"papelDeArroz":TRUE}
+    //
+    // Recusar uma e ele marca a OUTRA como aceita. Na producao isso pos um
+    // papel de arroz de R$ 12,00 num pedido que o cliente tinha recusado, e o
+    // topo, que a equipe orca a parte, num bolo que ia sem.
+    //
+    // A regra nao decide nada pelo cliente: ela so recusa o que ele NAO falou.
+    // Se a frase nomeia uma peca, a outra fica como estava. Se nao nomeia
+    // nenhuma ("pode ser", "quero sim"), as duas valem, porque ai ele esta
+    // respondendo a pergunta que a padaria fez e o modelo e quem sabe qual era.
+    const dito = semAc(falaDoCliente);
+    const falouDoTopo = /(^|[^a-z])topo/.test(dito);
+    const falouDoPapel = /papel|arroz/.test(dito);
+    const nomeouUma = falouDoTopo !== falouDoPapel;
+    const vale = (qual: "topo" | "papel") =>
+      !nomeouUma || (qual === "topo" ? falouDoTopo : falouDoPapel);
+
+    const antesTopo = novo.pecas?.topo ?? null;
+    const antesPapel = novo.pecas?.papelDeArroz ?? null;
     novo.pecas = {
-      topo: typeof l.pecas.topo === "boolean" ? l.pecas.topo : (novo.pecas?.topo ?? null),
+      topo: typeof l.pecas.topo === "boolean" && vale("topo") ? l.pecas.topo : antesTopo,
       papelDeArroz:
-        typeof l.pecas.papelDeArroz === "boolean"
+        typeof l.pecas.papelDeArroz === "boolean" && vale("papel")
           ? l.pecas.papelDeArroz
-          : (novo.pecas?.papelDeArroz ?? null),
+          : antesPapel,
     };
+    if (nomeouUma) {
+      const ignorada = falouDoTopo ? "papelDeArroz" : "topo";
+      const veio = falouDoTopo ? l.pecas.papelDeArroz : l.pecas.topo;
+      if (typeof veio === "boolean") {
+        rastro.push("ignorei " + ignorada + "=" + veio + ": ele falou so da outra peca");
+      }
+    }
   }
   if (l.escrito) novo.escrito = String(l.escrito).trim();
   if (l.aniversariante?.nome) novo.topoNome = String(l.aniversariante.nome).trim();
@@ -2484,6 +2519,56 @@ export async function responder(
     }
   }
 
+  // ELE MUDOU ALGUMA COISA NESTA MENSAGEM? (fora a contabilidade da conversa)
+  //
+  // Sobe pra ca porque dois lugares precisam da mesma resposta: adiar a etapa
+  // que prendeu a conversa, e decidir se a insistencia foi "ele nao respondeu"
+  // ou "ele respondeu outra coisa". Era declarado la embaixo e o adiamento nao
+  // alcancava.
+  //
+  // `etapasAdiadas` entra na lista de contabilidade pelo mesmo motivo das
+  // outras tres: e registro de como a conversa andou, nao e o pedido mudando.
+  const soContabilidade = new Set(["ultimaFala", "insistiu", "etapasJaPerguntadas", "etapasAdiadas"]);
+  const semContabilidade = (e: Estado) =>
+    JSON.stringify(Object.fromEntries(
+      Object.entries(e).filter(([k]) => !soContabilidade.has(k)).sort(([a], [b]) => a.localeCompare(b)),
+    ));
+
+  // ------------------------------- A ETAPA QUE ELE NAO QUER RESPONDER AGORA
+  //
+  // Medido conversando em 30/08/2026, festa de 30 pessoas. A cor da forminha e
+  // bloqueio DURO do docinho, entao a conversa parou ali:
+  //
+  //   padaria >> De que cor voce quer a forminha dos docinhos?
+  //   cliente >> quero misto de brigadeiro com ninho
+  //   padaria >> De que cor voce quer a forminha dos docinhos?
+  //   cliente >> nao quero papel de arroz nao
+  //   padaria >> De que cor voce quer a forminha dos docinhos?
+  //
+  // Tres vezes a mesma pergunta. E pior que chato: como TUDO e lido como
+  // resposta da etapa presa, "quero misto de brigadeiro com ninho" virou
+  // DOCINHO, e o bolo nunca entrou no pedido.
+  //
+  // A regra da dona continua: a cor e cobrada, porque ela monta a forminha
+  // antes de rechear. O que muda e que a pergunta nao PRENDE. Ela sai da
+  // frente, a conversa segue no assunto que o cliente escolheu, e a etapa volta
+  // quando nao houver mais nada pela frente, antes de fechar.
+  //
+  // As duas condicoes juntas, e nenhuma sozinha:
+  //
+  //   ja insisti duas vezes  ->  a pergunta ja saiu e ja foi repetida;
+  //   e ele MUDOU alguma coisa no pedido  ->  ele esta conversando, so nao
+  //   sobre isto. Sem esta segunda, quem manda "oi" tres vezes faria a padaria
+  //   desistir de perguntar, e ai o dado se perde de verdade.
+  if ((estadoAtual.insistiu ?? 0) >= 2 && !etapaAgora.cumprida(estado)) {
+    const mudouAlgo = semContabilidade(estadoAtual) !== semContabilidade(estado);
+    const jaAdiadas = estado.etapasAdiadas ?? [];
+    if (mudouAlgo && !jaAdiadas.includes(etapaAgora.id)) {
+      estado = { ...estado, etapasAdiadas: [...jaAdiadas, etapaAgora.id] };
+      rastro.push("adiei a etapa " + etapaAgora.id + ": perguntei duas vezes e ele esta falando de outra coisa");
+    }
+  }
+
   // ------------------------------------------------- a etapa seguinte
   let proxima = etapaDaVez(estado, roteiro());
 
@@ -2810,11 +2895,6 @@ export async function responder(
   //
   // A hora continuava faltando, e por isso a pergunta volta. Voltar esta certo.
   // Desistir e que nao.
-  const soContabilidade = new Set(["ultimaFala", "insistiu", "etapasJaPerguntadas"]);
-  const semContabilidade = (e: Estado) =>
-    JSON.stringify(Object.fromEntries(
-      Object.entries(e).filter(([k]) => !soContabilidade.has(k)).sort(([a], [b]) => a.localeCompare(b)),
-    ));
   const entendeuAlgo = semContabilidade(estadoAtual) !== semContabilidade(estado);
   // DE QUE ETAPA SAIU A PERGUNTA QUE ESTA INDO AGORA.
   //

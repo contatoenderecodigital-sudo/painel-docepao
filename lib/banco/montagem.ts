@@ -102,6 +102,9 @@ export type DadosMontagem = {
   // A frase de "tira X" que serve pra mais de uma linha, esperando ele
   // dizer qual. Atravessa a mensagem porque e pergunta, nao aviso.
   fluxo_tirando?: string | null;
+  // As etapas que a conversa adiou porque o cliente estava falando de outra
+  // coisa. Atravessa a mensagem: sem isto a etapa volta a prender na proxima.
+  fluxo_adiadas?: string | null;
   // O que ele pediu fora da hora, guardado ate a conversa chegar na etapa
   // daquele item. JSON, ou "nenhum" quando nao ha nada guardado.
   fluxo_guardados?: string | null;

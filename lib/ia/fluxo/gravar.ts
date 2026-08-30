@@ -98,6 +98,10 @@ export function estadoDosDados(d: Record<string, string | null | undefined>): Pa
     assunto: d.fluxo_assunto && d.fluxo_assunto !== "nenhum" ? (d.fluxo_assunto as EtapaId) : null,
     retomarEm: d.fluxo_retomar && d.fluxo_retomar !== "nenhum" ? (d.fluxo_retomar as EtapaId) : null,
     tirandoQual: d.fluxo_tirando && d.fluxo_tirando !== "nenhum" ? String(d.fluxo_tirando) : null,
+    etapasAdiadas:
+      d.fluxo_adiadas && d.fluxo_adiadas !== "nenhum"
+        ? String(d.fluxo_adiadas).split(",").filter(Boolean)
+        : [],
     // O QUE ELE PEDIU FORA DA HORA PRECISA SOBREVIVER A MENSAGEM.
     //
     // No WhatsApp cada mensagem e uma chamada nova, com o estado lido do banco.
@@ -323,6 +327,9 @@ export function dadosQueMudaram(antes: Estado, depois: Estado): Record<string, s
   if ((depois.assunto ?? null) !== (antes.assunto ?? null)) mudou.fluxo_assunto = depois.assunto ?? "nenhum";
   if ((depois.retomarEm ?? null) !== (antes.retomarEm ?? null)) mudou.fluxo_retomar = depois.retomarEm ?? "nenhum";
   if ((depois.tirandoQual ?? null) !== (antes.tirandoQual ?? null)) mudou.fluxo_tirando = depois.tirandoQual ?? "nenhum";
+  if ((depois.etapasAdiadas ?? []).join(",") !== (antes.etapasAdiadas ?? []).join(",")) {
+    mudou.fluxo_adiadas = (depois.etapasAdiadas ?? []).join(",") || "nenhum";
+  }
   // O GUARDADO MUDOU? Grava a lista inteira, e "nenhum" quando esvazia.
   //
   // Comparar por JSON e o suficiente: a lista e curta e muda pouco. O que nao
