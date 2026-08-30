@@ -61,18 +61,12 @@ export type RespostaDoFluxo = {
  * e sem git. Ela fica aqui pro dia em que houver cliente comprando e alguma
  * coisa der errado: nesse dia ninguem vai querer esperar build.
  *
- * O QUE ELA FAZ MUDOU, PORQUE O QUE ELA PROMETIA NAO EXISTE MAIS.
+ * O QUE ELA FAZ E SIMPLES: CALA A IA.
  *
  * Estava escrito aqui que desligar "volta pra Dora antiga". A Dora antiga foi
- * APAGADA em 26/08/2026, e ate 27/08 desligar nao ligava nada: a mensagem do
- * cliente era salva, o webhook caia fora do `if` e acabava. Ninguem respondia e
- * ninguem era avisado.
- *
- * O interruptor de emergencia era, na pratica, um botao de calar a padaria.
- *
- * Agora desligar entrega a conversa pra EQUIPE: o painel acende o aviso e o
- * cliente ouve que alguem vai falar com ele. E o que a dona ja faz quando
- * assume uma conversa na mao.
+ * APAGADA em 26/08/2026. O valor `off` nao escolhe outro cerebro, nao chama o
+ * modelo e nao manda resposta automatica. A mensagem do cliente continua salva
+ * no painel para a equipe ver.
  */
 export function ehDoFluxoNovo(_telefone: string): boolean {
   const bruto = String(process.env.FLUXO_NOVO_PARA ?? "").trim();
