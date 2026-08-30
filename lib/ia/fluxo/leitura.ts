@@ -527,8 +527,6 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "- Hoje é " + hojeEmSaoPaulo() + ", e retirada é sempre no futuro." + String.fromCharCode(10) +
     "- Perguntou em vez de pedir? perguntou.sobre = preco (com familia), " +
     "horario, endereco, pagamento, entrega, prazo ou desconto. " +
-    "A familia e a que ELE nomeou, nao a da etapa. " +
-    "\"fazem pizza de forma?\" na etapa do bolo e preco de pizza, nao bolo. " +
     "Não use outro: se não for pergunta, não mande perguntou." + String.fromCharCode(10) +
     // Desconto, preco beneficente e "da uma ajuda?" sao a mesma pergunta, e a
     // resposta e sempre da equipe. A IA nao pode soltar o preco por unidade que
@@ -618,8 +616,6 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "A etapa é ESCOLHER O BOLO. Só sabor de bolo aqui: se ele falar de " +
       "docinho, devolva falouDeOutraEtapa, mesmo que o cardapio tenha o mesmo " +
       "nome nas duas familias. Use o nome do cardapio com o prefixo do bolo. " +
-      "Perguntou de outra familia do cardapio (se a casa faz, o preco), " +
-      "devolva perguntou com essa familia. Nao continue o bolo. " +
       "Caseiro so se ele disse caseiro. O peso em quilos vai na quantidade." +
       " Embalagem: prato \"aberto\" ou \"tampa\"." +
       recusa("bolo") + semNumero +
