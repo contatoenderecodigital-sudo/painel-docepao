@@ -20,6 +20,7 @@ import Link from "next/link";
 import { AlertTriangle, MessageSquare, Check, Loader2, Image as ImgIcon } from "lucide-react";
 import type { Pedido } from "@/lib/tipos";
 import { brl, formatarTelefoneBR, unidadeDoItem } from "@/lib/tipos";
+import { nomeNoTicket } from "@/lib/departamentos";
 import { resolverPendencia, liberarParaAprovacao } from "@/app/(painel)/acoes";
 
 // Mesma leitura da fila de aprovação: "sex 28/08" diz mais que "2026-08-28"
@@ -158,7 +159,7 @@ function Cartao({ pedido, aoResolver }: { pedido: Pedido; aoResolver: () => void
           <div key={i}>
             <div className="flex items-baseline justify-between gap-3 text-[13.5px]">
               <span className="text-cream/90">
-                <span className="font-semibold text-cream">{fmtQtd(it.qtd, it.unidade)}</span> {it.produto}
+                <span className="font-semibold text-cream">{fmtQtd(it.qtd, it.unidade)}</span> {nomeNoTicket(it)}
               </span>
               <span className="text-cream/75 shrink-0">{brl(it.subtotalCentavos)}</span>
             </div>
