@@ -3,11 +3,12 @@
 //  A IA NUNCA calcula preço, ela chama o motor (não erra soma, não alucina).
 //
 //  MULTI-TENANT: `criarMotor(produtos, rendimento)` monta um motor com o
-//  cardápio de QUALQUER padaria. O padrão (Doce Pão) vem do catalogo.json.
+//  cardápio de QUALQUER padaria. O padrão (Doce Pão) vem da lista única.
 // ============================================================================
 
-import catalogo from "./dados/catalogo.json";
-import { produtosDaCasa } from "./dados/produtos";
+import {
+  faixasDoBoloFesta, produtosDaCasa, produtoPorNome, saboresDaPizzaPorTipo,
+} from "./dados/produtos";
 import rendimentoJson from "./dados/rendimento.json";
 import { semAcento, afirmouOuNegou, cercaDaPalavra } from "./texto";
 import { unidadeDoItem } from "../tipos";
@@ -476,7 +477,7 @@ function formatarOrcamento(c: Cotacao, titulo = "Orçamento", paraOCliente = fal
 }
 
 // ---------------------------------------------------------------------------
-//  MOTOR PADRÃO (Doce Pão) — do catalogo.json. Usado quando o negócio não tem
+//  MOTOR PADRÃO (Doce Pão) — da lista única. Usado quando o negócio não tem
 //  cardápio próprio no banco (fallback).
 // ---------------------------------------------------------------------------
 // A CATEGORIA QUE O ORÇAMENTO FALA.
@@ -495,14 +496,19 @@ function formatarOrcamento(c: Cotacao, titulo = "Orçamento", paraOCliente = fal
 
 function produtosDoCatalogo(): Produto[] {
   const p: Produto[] = [];
+  const casa = produtosDaCasa();
+  const precoDaCategoria = (cat: string) => casa.find((x) => x.categoria === cat)?.preco;
   // Genéricos primeiro: o "por pessoas" sugere salgado sem discriminar o tipo.
-  p.push({ nome: "salgado frito", preco: catalogo.salgados.frito.preco, categoria: "salgado_frito" });
-  p.push({ nome: "salgado assado", preco: catalogo.salgados.assado.preco, categoria: "salgado_assado" });
+  // O preço é o do grupo, o mesmo de qualquer item daquela categoria.
+  const frito = precoDaCategoria("salgado_frito");
+  const assado = precoDaCategoria("salgado_assado");
+  if (frito != null) p.push({ nome: "salgado frito", preco: frito, categoria: "salgado_frito" });
+  if (assado != null) p.push({ nome: "salgado assado", preco: assado, categoria: "salgado_assado" });
 
   // TUDO O QUE A CASA VENDE, da lista única. Nome, preço, unidade e categoria
   // saem de lá: aqui não se interpreta mais o catálogo, só se traduz a palavra
   // da categoria e se acrescenta o que só o orçamento usa.
-  for (const c of produtosDaCasa()) {
+  for (const c of casa) {
     p.push({
       nome: c.nome,
       preco: c.preco,
@@ -516,9 +522,10 @@ function produtosDoCatalogo(): Produto[] {
   // (R$ 46,90 / R$ 49,90 / R$ 55,90 o quilo), e o motor precisa conseguir cotar
   // pelo degrau quando o pedido vem da equipe em vez de vir do sabor.
   //
-  // Por isso não estão na lista única: lá só entra o que a casa vende com nome
-  // e preço, e o degrau não tem nome de venda.
-  for (const f of catalogo.bolos_recheados.faixas) {
+  // Por isso não estão na lista única de venda: lá só entra o que a casa vende
+  // com nome e preço, e o degrau não tem nome de venda. A leitura continua na
+  // lista única, que é quem abre o JSON.
+  for (const f of faixasDoBoloFesta()) {
     p.push({ nome: "bolo recheado " + f.faixa.toLowerCase(), preco: f.preco, categoria: "bolo_festa", unidade: "kg" });
   }
   // CADA SABOR DE PIZZA COM NOME PROPRIO, igual ao bolo recheado.
@@ -530,12 +537,16 @@ function produtosDoCatalogo(): Produto[] {
   //
   // Com o sabor no nome, cada linha e uma linha, e o preco continua o mesmo,
   // porque na pizza o sabor nao muda o valor.
-  for (const s of [
-    ...((catalogo.pizza.sabores_salgados ?? []) as string[]),
-    ...((catalogo.pizza.sabores_doces ?? []) as string[]),
-  ]) {
-    p.push({ nome: "pizza inteira " + String(s).toLowerCase(), preco: catalogo.pizza.inteira.preco, categoria: "pizza" });
-    p.push({ nome: "pizza meia " + String(s).toLowerCase(), preco: catalogo.pizza.meia.preco, categoria: "pizza" });
+  const inteira = produtoPorNome("pizza inteira");
+  const meia = produtoPorNome("pizza meia");
+  const { doces, salgados } = saboresDaPizzaPorTipo();
+  for (const s of [...salgados, ...doces]) {
+    if (inteira) {
+      p.push({ nome: "pizza inteira " + String(s).toLowerCase(), preco: inteira.preco, categoria: "pizza" });
+    }
+    if (meia) {
+      p.push({ nome: "pizza meia " + String(s).toLowerCase(), preco: meia.preco, categoria: "pizza" });
+    }
   }
   return p;
 }

@@ -43,7 +43,7 @@ import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
 import { coresDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista } from "./sabor";
-import { restricoesQueACasaNaoFaz, obsSemRestricao, avisoDaRestricao } from "./restricao";
+import { restricoesQueACasaNaoFaz, obsSemRestricao, obsPraComanda, avisoDaRestricao } from "./restricao";
 import { paraOMotor } from "./cotar";
 import { respostaDeInformacao } from "./informacao";
 import { respostaDaSituacao } from "./situacao";
@@ -906,6 +906,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
         obsItem = obsSemRestricao(obsItem, produto);
         restricoesTiradas.push(...tiradas);
       }
+      obsItem = obsPraComanda(obsItem);
 
       // O PESO DO BOLO E QUANTIDADE, NAO OBSERVACAO.
       //
@@ -964,7 +965,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
           .map((x) => x.trim())
           .filter(Boolean);
         const semRepetir = pedacos.filter((x, n) => pedacos.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === n);
-        itens[achou] = { ...itens[achou], ...linha, obs: semRepetir.join(" | ") || null };
+        itens[achou] = { ...itens[achou], ...linha, obs: obsPraComanda(semRepetir.join(" | ")) };
       } else itens.push(linha);
     }
     novo.itens = itens;

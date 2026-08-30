@@ -133,6 +133,31 @@ export function obsSemRestricao(obs: unknown, produto?: unknown): string | null 
 }
 
 /**
+ * A CONTA DO PEDIDO NAO E RECADO PRA COZINHA.
+ *
+ * "coxinha e risoles, metade de cada" ja virou quantidade nas duas linhas.
+ * O modelo ainda devolve `obs: metade`, e isso ia impresso na comanda como se
+ * a cozinha tivesse que produzir metade de alguma coisa.
+ *
+ * `metade` aqui e fração, dado do mundo, igual a um numero: nao e lista de
+ * produto. Recado de verdade ("sem cebola", "forminha rosa") passa.
+ */
+export function obsPraComanda(obs: unknown): string | null {
+  const bruto = String(obs ?? "").trim();
+  if (!bruto) return null;
+  const limpo = bruto
+    .split(/[,|]/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .filter((p) => {
+      const t = semAcMin(p);
+      return t !== "metade" && t !== "metade de cada" && t !== "meio a meio";
+    })
+    .join(" | ");
+  return limpo || null;
+}
+
+/**
  * O QUE DIZER PRO CLIENTE, quando a restrição foi tirada da observação.
  *
  * NÃO PROMETE E NÃO RECUSA. É o mesmo padrão que a dona já usa para desconto e

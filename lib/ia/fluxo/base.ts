@@ -31,8 +31,7 @@
 // ============================================================================
 
 import { motorPadrao } from "../orcamento";
-import catalogo from "../dados/catalogo.json";
-import { produtosDaCasa } from "../dados/produtos";
+import { minimoPorSaborDoCatalogo, produtosDaCasa } from "../dados/produtos";
 import type { PedidoEmMontagem } from "./etapas";
 import { formasDoCliente } from "../texto";
 
@@ -125,13 +124,7 @@ export function calcularBase(p: PedidoEmMontagem): Base | null {
 
 /** O que a casa sugere por sabor, e quantos sabores cabem num cento. */
 export function minimoPorSabor(): { sugerir: number; saboresNoCento: number } {
-  const m = (catalogo as unknown as {
-    _minimo_por_sabor?: { sugerir?: number; sabores_por_cento_sugeridos?: number };
-  })._minimo_por_sabor;
-  return {
-    sugerir: Number(m?.sugerir) > 0 ? Number(m?.sugerir) : 0,
-    saboresNoCento: Number(m?.sabores_por_cento_sugeridos) > 0 ? Number(m?.sabores_por_cento_sugeridos) : 0,
-  };
+  return minimoPorSaborDoCatalogo();
 }
 
 /**

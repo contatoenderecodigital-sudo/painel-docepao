@@ -105,6 +105,20 @@ export type ProdutoDaCasa = {
    * `valor_tipico` e ninguem lia: quem perguntava o preco ouvia so o quilo.
    */
   valorTipico?: [number, number];
+  /**
+   * QUANTAS PESSOAS ESTE PRODUTO SERVE, quando o cardapio imprime isso.
+   *
+   * A pizza de forma (inteira e meia) traz a faixa no PDF. Sem este campo, o
+   * `fatos.ts` lia o JSON cru so pra montar a frase autorizada.
+   */
+  servePessoas?: number[];
+  /**
+   * PESO QUE COSTUMA SAIR, quando o produto e por quilo e nao tem peso minimo.
+   *
+   * A pizza redonda costuma dar de 0,8 a 1,2 kg. Estava no catalogo em
+   * `peso_tipico_kg` e so o `fatos.ts` lia, pelo JSON cru.
+   */
+  pesoTipicoKg?: number[];
 };
 
 /**
@@ -192,6 +206,8 @@ type ItemBruto = {
   recheios?: string[];
   sabores?: string[];
   valor_tipico?: number[];
+  peso_tipico_kg?: number[];
+  sabores_ate?: number;
 };
 
 /** A cuca é do padeiro mas não é pão: grupo próprio, como o cardápio mostra. */
@@ -310,8 +326,8 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
   // ---------------------------------------------------------------- pizza
   const pz = (catalogo as unknown as {
     pizza: {
-      inteira: { preco: number };
-      meia: { preco: number };
+      inteira: { preco: number; sabores_ate?: number; serve?: number[] };
+      meia: { preco: number; sabores_ate?: number; serve?: number[] };
       sabores_salgados?: string[];
       sabores_doces?: string[];
     };
@@ -322,23 +338,26 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
   saboresDaPizza = saboresPizza;
   saboresPorTipo = { doces: pz.sabores_doces ?? [], salgados: pz.sabores_salgados ?? [] };
 
-  const pzc = pz as unknown as {
-    inteira: { preco: number; sabores_ate?: number };
-    meia: { preco: number; sabores_ate?: number };
-  };
-  for (const [nome, preco, ate] of [
-    ["pizza inteira", pzc.inteira.preco, pzc.inteira.sabores_ate],
-    ["pizza meia", pzc.meia.preco, pzc.meia.sabores_ate],
+  const faixaNumerica = (v?: number[]) =>
+    Array.isArray(v) && v.length
+      ? v.map(Number).filter((n) => Number.isFinite(n))
+      : undefined;
+
+  for (const [nome, bloco] of [
+    ["pizza inteira", pz.inteira],
+    ["pizza meia", pz.meia],
   ] as const) {
+    const serve = faixaNumerica(bloco.serve);
     põe({
       nome,
-      preco,
+      preco: bloco.preco,
       unidade: "un",
       categoria: "pizza",
       grupo: "pizza",
       sabores: saboresPizza,
       saborFixo: false,
-      saboresAte: Number(ate) > 0 ? Number(ate) : undefined,
+      saboresAte: Number(bloco.sabores_ate) > 0 ? Number(bloco.sabores_ate) : undefined,
+      servePessoas: serve && serve.length ? serve : undefined,
     });
   }
 
@@ -367,13 +386,12 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
       grupo: grupoDeOutros(o),
       sabores,
       saborFixo: !sabores.length,
-      saboresAte: Number((o as { sabores_ate?: number }).sabores_ate) > 0
-        ? Number((o as { sabores_ate?: number }).sabores_ate)
-        : undefined,
+      saboresAte: Number(o.sabores_ate) > 0 ? Number(o.sabores_ate) : undefined,
       valorTipico:
         Array.isArray(o.valor_tipico) && o.valor_tipico.length === 2
           ? [Number(o.valor_tipico[0]), Number(o.valor_tipico[1])]
           : undefined,
+      pesoTipicoKg: faixaNumerica(o.peso_tipico_kg),
     });
   }
 
@@ -588,4 +606,36 @@ export function coresDoCardapio(): string[] {
   const cores = (catalogo as unknown as { forminhas_docinho?: { cores?: string[] } })
     .forminhas_docinho?.cores;
   return (cores ?? []).map(String).filter(Boolean);
+}
+
+/**
+ * OS DEGRAUS DE PRECO DO BOLO DE FESTA.
+ *
+ * No catalogo se chamam A, B e C. Nao sao produto: nenhum cliente pede
+ * "bolo recheado b". O motor de orcamento precisa cotar pelo degrau quando o
+ * pedido vem da equipe pelo preco, nao pelo sabor.
+ */
+export function faixasDoBoloFesta(): { faixa: string; preco: number }[] {
+  const faixas = (catalogo as unknown as {
+    bolos_recheados?: { faixas?: { faixa: string; preco: number }[] };
+  }).bolos_recheados?.faixas ?? [];
+  return faixas
+    .map((f) => ({ faixa: String(f.faixa), preco: Number(f.preco) }))
+    .filter((f) => f.faixa && Number.isFinite(f.preco));
+}
+
+/**
+ * O MINIMO POR SABOR QUE A DONA DITOU.
+ *
+ * `sugerir: 20` e `sabores_por_cento_sugeridos: 5`, e `recusar: false`. O no
+ * estava no catalogo e o `base.ts` lia o JSON cru so pra isto.
+ */
+export function minimoPorSaborDoCatalogo(): { sugerir: number; saboresNoCento: number } {
+  const m = (catalogo as unknown as {
+    _minimo_por_sabor?: { sugerir?: number; sabores_por_cento_sugeridos?: number };
+  })._minimo_por_sabor;
+  return {
+    sugerir: Number(m?.sugerir) > 0 ? Number(m?.sugerir) : 0,
+    saboresNoCento: Number(m?.sabores_por_cento_sugeridos) > 0 ? Number(m?.sabores_por_cento_sugeridos) : 0,
+  };
 }

@@ -24,6 +24,7 @@ import { query, queryUm } from "./db";
 import { coresDaForminha } from "../ia/fluxo/sabor";
 import { ehNomeDeFamilia, familiaDaCategoria, familiaDoNome } from "../ia/fluxo/generico";
 import { produtosDaCasa, saboresDaPizzaPorTipo, categoriaDoPedido } from "../ia/dados/produtos";
+import { obsPraComanda } from "../ia/fluxo/restricao";
 import { semAcento } from "../ia/texto";
 import { unidadeDoItem } from "../tipos";
 
@@ -269,7 +270,7 @@ function observacaoLimpa(obs?: string | null): string | null {
     vistos.add(chave);
     unicos.push(t);
   }
-  const limpo = unicos.join(", ").trim();
+  const limpo = obsPraComanda(unicos.join(", ").trim());
   return limpo || null;
 }
 
