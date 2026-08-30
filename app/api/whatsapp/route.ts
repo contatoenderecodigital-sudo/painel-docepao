@@ -595,13 +595,17 @@ async function processar(corpo: WebhookPayload) {
       //
       //  O QUE ESTAVA ESCRITO AQUI ERA MENTIRA, e perigosa: dizia que sem a
       //  variavel "a Dora antiga atende como sempre". A Dora antiga foi apagada
-      //  em 26/08/2026. Desligar nao passava a bola pra ninguem: o codigo caia
-      //  fora deste `if` e acabava, em silencio.
+      //  em 26/08/2026.
       //
-      //  Agora o desligamento entrega a conversa pra equipe, logo abaixo.
+      //  `off` agora significa o que o nome diz: nao chama modelo e nao manda
+      //  resposta automatica. A mensagem do cliente ja foi salva no painel.
       // ================================================================
-      if (ehDoFluxoNovo(telefone)) {
-        try {
+      if (!ehDoFluxoNovo(telefone)) {
+        console.log("[fluxo] IA desligada; mensagem salva sem resposta automatica");
+        continue;
+      }
+
+      try {
           // ================================================================
           //  ELA ESPERA VOCE TERMINAR DE FALAR
           //
@@ -788,32 +792,6 @@ async function processar(corpo: WebhookPayload) {
           await salvarMensagem(negocioId, clienteId, "assistant", desculpa).catch(() => {});
           continue;
         }
-      }
-
-      // O INTERRUPTOR DE EMERGENCIA NAO PODE SER UM BOTAO DE CALAR A PADARIA.
-      //
-      // `FLUXO_NOVO_PARA=off` desliga a IA em segundos, sem deploy, e existe pro
-      // dia em que ela fizer besteira com cliente na linha. A documentacao dela
-      // diz que isso "volta pra Dora antiga", e a Dora antiga foi APAGADA em
-      // 26/08/2026.
-      //
-      // Entao ate aqui o desligamento nao ligava nada: a mensagem era salva, o
-      // codigo caia fora do `if` e ACABAVA. Ninguem respondia, ninguem era
-      // avisado, e o cliente ficava falando sozinho sem saber. Achado lendo este
-      // arquivo linha por linha em 27/08/2026.
-      //
-      // O proposito do interruptor continua valendo. O que muda e o que ele faz:
-      // em vez de silencio, a conversa vai pra equipe e o cliente ouve isso.
-      await definirHandoff(negocioId, clienteId, true).catch(() => {});
-      avisarDona(
-        "cliente-esperando:" + clienteId,
-        "A IA esta desligada (FLUXO_NOVO_PARA) e um cliente escreveu.",
-      ).catch(() => {});
-      const semIA =
-        "Oi! Agora quem te responde e alguem da equipe da padaria. " +
-        "Ja avisei eles, e daqui a pouco te falam por aqui.";
-      await enviarTexto(telefone, semIA, creds).catch(() => {});
-      await salvarMensagem(negocioId, clienteId, "assistant", semIA).catch(() => {});
       } // fim do laco das mensagens deste pacote
     }
   }

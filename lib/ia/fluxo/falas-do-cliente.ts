@@ -150,7 +150,7 @@ export function tirarCumprimento(texto: string): string {
 }
 
 /**
- * SEM EMOJI, NUNCA.
+ * SEM EMOJI E SEM TRAVESSAO, NUNCA.
  *
  * Regra do dono desde o primeiro dia, e mesmo assim escapou um "🙂" no print de
  * 23/08/2026: a instrucao "sem emoji" estava no prompt da reescrita, e prompt
@@ -163,6 +163,9 @@ export function semEmoji(texto: string): string {
   return String(texto ?? "")
     .replace(/\p{Extended_Pictographic}/gu, "")
     .replace(/[️⃣]/g, "")
+    // A IA pode usar estes dois sinais mesmo sem eles existirem no texto do
+    // codigo. A regra da casa e virgula ou ponto, nunca travessao.
+    .replace(/[\u2013\u2014]/g, ",")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/[ \t]+([,.!?])/g, "$1")
     .trim();

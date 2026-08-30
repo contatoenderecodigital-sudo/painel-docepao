@@ -599,8 +599,8 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     docinho:
       "A etapa é ESCOLHER OS DOCINHOS. Só existe docinho aqui: se ele falar de " +
       "bolo ou de salgado, devolva falouDeOutraEtapa em vez de anotar. " +
-      "Se ele disser a COR da forminha (rosa, azul, dourada, verde tiffany), " +
-      "devolva em forminha." + recusa("docinho") + semNumero +
+      "Se ele disser a cor da forminha, devolva em forminha." +
+      recusa("docinho") + semNumero +
       " Pediu pra casa escolher os tipos? delegaEscolha = true, sem itens." +
       lista,
     bolo:
@@ -628,9 +628,8 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "\"papel\". Vale mesmo se ele já disse sim antes: quem muda de ideia manda.",
     oferta:
       "A padaria acabou de oferecer DOCINHO ou BOLO junto com o que ele pediu. " +
-      "Se ele quer, devolva os itens; se ele recusou (só isso, não, mais nada), " +
-      "devolva naoQuer com \"docinho\" e \"bolo\". Se ele falou de outra coisa " +
-      "(dados da retirada, mudar o pedido), leia normalmente: a oferta é " +
+      "Se ele quer, devolva os itens; se recusou, devolva naoQuer com " +
+      "\"docinho\" e \"bolo\". Se falou de outra coisa, leia normalmente: a oferta é " +
       "opcional e não trava a conversa." + String.fromCharCode(10) +
       // O CARDAPIO SAI PELO MESMO CANO DAS OUTRAS ETAPAS, e nao despejado aqui
       // dentro. A primeira versao colava os 42 nomes no meio da regra, e o
@@ -651,9 +650,8 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "bolo, tirar item), devolva falouDeOutraEtapa com a etapa: salgado, " +
       "docinho, bolo ou pecas_do_bolo.",
     confirmacao:
-      "A etapa é CONFIRMAR O PEDIDO. Se ele confirmou de qualquer jeito (pode " +
-      "fechar, isso mesmo, confirmo, tá certo, pode ser, fechado), devolva " +
-      "confirmou = true. Se ele pediu para mudar algo, devolva falouDeOutraEtapa " +
+      "A etapa é CONFIRMAR O PEDIDO. Só se ele aprovou o pedido que acabou de " +
+      "ver, devolva confirmou = true. Se ele pediu para mudar algo, devolva falouDeOutraEtapa " +
       "com a etapa do que ele quer mudar.",
     // O pedido ja esta com a equipe e esta etapa nunca e a da vez (`cumprida`
     // devolve true sempre). Fica aqui porque o tipo cobra, e cobrar e o ponto:
@@ -661,13 +659,10 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     registrado: "",
     abertura:
       "A conversa está começando e você ainda não sabe o que ele quer." + String.fromCharCode(10) + 
-      "Se ele falou de FESTA, aniversário, formatura, coffee break ou de um " +
-      "número de pessoas, devolva ehFesta = true." + String.fromCharCode(10) + 
+      "Se ele falou de uma festa ou do número de pessoas, devolva ehFesta = true." + String.fromCharCode(10) + 
       "Se ele pediu um produto direto (100 coxinhas, uma torta), devolva em itens." + String.fromCharCode(10) + 
-      "Se ele PERGUNTOU de uma família sem dizer quantidade (vocês fazem bolo? " +
-      "tem salgadinho? faz docinho?), devolva falouDeOutraEtapa com a etapa " +
-      "daquela família: salgado, docinho ou bolo. Perguntar já é dizer sobre o " +
-      "que ele quer falar." + String.fromCharCode(10) +
+      "Se ele PERGUNTOU de uma família sem quantidade, devolva falouDeOutraEtapa " +
+      "com a etapa dela. Perguntar já diz do que ele quer falar." + String.fromCharCode(10) +
       "Se ele só cumprimentou, devolva {} e não invente nada: quem diz o que " +
       "quer é ele.",
   };

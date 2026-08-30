@@ -48,6 +48,7 @@ fs.writeFileSync(
     "    semEmoji('Fechou \\u2705 seu pedido \\u{1F382} sai amanhã'),",
     "    semEmoji('Tudo certo \\u2764\\uFE0F'),",
     "    semEmoji('R$ 418,80 no total'),",
+    "    semEmoji('Pedido certo \\u2014 pode fechar.'),",
     "  ],",
     "}));",
   ].join("\n"),
@@ -107,6 +108,9 @@ if (r.emoji[0] !== "Boa noite, tudo bem? O que você gostaria?") {
 }
 if (r.emoji[3] !== "R$ 418,80 no total") {
   falhas.push("a peneira de emoji mexeu num texto que nao tinha emoji: " + r.emoji[3]);
+}
+if (r.emoji[4] !== "Pedido certo, pode fechar.") {
+  falhas.push("o travessao passou na resposta: " + r.emoji[4]);
 }
 
 // ------------------------- e a peneira roda em TUDO que sai pro cliente

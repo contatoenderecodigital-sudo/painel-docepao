@@ -48,7 +48,7 @@ const REGRAS =
   "- Não fale de preço, quantidade ou produto que não esteja na mensagem." + String.fromCharCode(10) +
   "- Não prometa prazo, desconto nem nada que não esteja lá." + String.fromCharCode(10) +
   "- Uma pergunta só, no máximo duas frases curtas." + String.fromCharCode(10) +
-  "- Sem emoji." + String.fromCharCode(10) +
+  "- Sem emoji nem travessão." + String.fromCharCode(10) +
   "- Responda só com o texto, sem aspas e sem explicação.";
 
 /**
@@ -127,11 +127,16 @@ export async function dizerComJeito(
     const saiu = String(r.choices?.[0]?.message?.content ?? "").trim().replace(/^["']|["']$/g, "");
     if (!saiu) return texto;
 
-    // ELA INVENTOU DINHEIRO? VAI O TEXTO DO CODIGO.
+    // ELA INVENTOU NUMERO? VAI O TEXTO DO CODIGO.
     //
-    // O original nao tinha valor nenhum (senao nem estaria aqui), entao valor
-    // na reescrita so pode ter saido da cabeca dela.
-    if (/R\$\s?[0-9]/.test(saiu)) {
+    // Texto com dinheiro do motor nem chega na reescrita. Nos demais, todo
+    // numero que sai precisa existir no original: assim "fica 44,90" nao passa
+    // so porque o modelo esqueceu o R$. A comparacao e de formato, nao de uma
+    // lista de palavras.
+    const numeros = (t: string) => t.match(/[0-9]+(?:[.,][0-9]+)*/g) ?? [];
+    const noOriginal = new Set(numeros(texto));
+    const inventouNumero = numeros(saiu).some((n) => !noOriginal.has(n));
+    if ((/R\$\s?[0-9]/.test(saiu) && !/R\$\s?[0-9]/.test(texto)) || inventouNumero) {
       console.warn("[fala] a reescrita inventou valor; mandei o texto do codigo:", saiu.slice(0, 80));
       return texto;
     }

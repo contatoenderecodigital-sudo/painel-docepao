@@ -685,7 +685,15 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     //
     // Agora vale a mesma regra dos detalhes opcionais: perguntou, ele falou
     // outra coisa, a padaria segue. Ver `PERGUNTA-E-BOTAO.md`.
-    cumprida: (p) => p.ofereceu || jaPerguntouEEleNaoRespondeu(p, "oferta"),
+    // "SO ISSO, PODE FECHAR" JA RESPONDEU A OFERTA.
+    //
+    // Na primeira mensagem ainda nao existe a marca de pergunta feita. Se o
+    // cliente ja recusou as duas familias, perguntar se quer uma delas de novo
+    // ignora a resposta e impede o fechamento que ele acabou de pedir.
+    cumprida: (p) =>
+      p.ofereceu ||
+      (recusou(p, "docinho|doce") && recusou(p, "bolo")) ||
+      jaPerguntouEEleNaoRespondeu(p, "oferta"),
     // Nao se oferece o que ele ja pediu, e nao se oferece na festa: la a
     // proposta ja traz salgado, docinho e bolo juntos.
     pulavel: (p) =>
