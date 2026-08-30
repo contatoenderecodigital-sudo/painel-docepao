@@ -3674,3 +3674,78 @@ frito` já é o gabarito: espera esfirra, proíbe frito.
 sugestão do próprio sistema, com a mesma desculpa e textos diferentes, e cada
 conserto pontual achou só uma. O que achou as três foi o rastro, que hoje não
 existe mais. Ver o item 75.
+
+---
+
+## 76. O rastro voltou, e desmentiu as duas suposições em que eu tinha feito deploy
+
+O defeito: `2 inteiras, uma de calabresa e uma de frango` fechava como UMA pizza,
+R$ 120,00 no lugar de R$ 240,00.
+
+### O que o handoff dizia, e por que estava errado
+
+> "O código grava certo. Alimentando a leitura com `qtd: 2` ele monta duas
+> linhas. O problema está na LEITURA do modelo, não no fluxo."
+
+Medi antes de escrever em cima disso, alimentando o `responder` com cada forma
+possível de resposta:
+
+```
+modelo devolve qtd 2         ->  2 ~ pizza inteira ~ frango  (perdeu a calabresa)
+modelo devolve DUAS linhas   ->  1 ~ pizza inteira ~ calabresa | frango
+```
+
+**Nenhuma forma conseguia produzir duas pizzas.** A junção de itens casa pelo
+nome do produto, e o laço acumula no mesmo array: dois itens ditos na mesma
+respiração caíam um em cima do outro. Por isso mexer só na instrução nunca movia
+o dinheiro.
+
+### E as duas coisas que eu supus depois disso também estavam erradas
+
+Consertei a junção, escrevi a abertura de sabores, subi, medi. **Não moveu.**
+Consertei de novo com outra hipótese, subi, medi. **Não moveu.**
+
+Duas rodadas de deploy inteiras gastas adivinhando o que o modelo devolve. Aí eu
+parei e devolvi ao sistema o instrumento que ele tinha perdido:
+
+```
+[fluxo-novo] etapa: abertura / modelo leu: 2x pizza [calabresa e frango com catupiry]
+```
+
+Uma linha, e ela desmentiu as duas hipóteses de uma vez:
+
+| eu supus | o modelo faz |
+| --- | --- |
+| produto `pizza inteira` | **`pizza`**, nome de família, e `produtoPorNome("pizza")` devolve `null` |
+| sabores separados por `\|` | separados por **" e "** |
+
+Minha abertura procurava sabor no catálogo de um produto que não existe, por um
+separador que não vem. Ela nunca teve chance.
+
+### O rastro tinha morrido, e ninguém anotou
+
+O `DIARIO-DA-IA.md` chama o rastro do instrumento mais produtivo do projeto, e
+ainda manda usar. As linhas `[rastro]` eram do cérebro velho, que trabalhava com
+ferramentas, e foram junto na demolição de 26/08. Ficaram três dias em que
+"ler o rastro antes de culpar a IA" era um conselho impossível de seguir.
+
+> **Duas rodadas de deploy custam mais que uma linha de log.**
+
+### E a armadilha que só apareceu com o dado real na mão
+
+`"frango"` casa **dentro** de `"frango com catupiry"`. Procurando os sabores do
+catálogo dentro da string, sem consumir o que já casou, esta frase daria TRÊS
+sabores onde há dois, e a conta de abrir uma pizza por sabor sairia errada.
+
+Por isso a busca vai do mais longo pro mais curto, consumindo o trecho. E não se
+separa por pontuação nenhuma: pergunta-se ao catálogo quais sabores estão ali,
+o que serve pra qualquer separador que o modelo escolher amanhã.
+
+### O que não pode mudar, e está no teste
+
+| caso | resultado |
+| --- | --- |
+| 2 pizzas, dois sabores | **duas linhas**, uma de cada |
+| 1 pizza, dois sabores | **uma linha**: a inteira aceita até quatro, dividir cobraria dobrado |
+| 5 pizzas, dois sabores | não abre: não dá pra saber quantas de cada |
+| `calabresa e sem cebola` | não abre: recado não é sabor, e quem diz isso é o catálogo |

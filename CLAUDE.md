@@ -121,6 +121,27 @@ pro dia em que o modelo escorregar. Nunca o mecanismo principal.
 
 ---
 
+## A PADARIA AINDA NÃO ESTÁ ONLINE
+
+**Não existe cliente de verdade neste sistema ainda.** Toda conversa no banco é
+teste, e o dono usa o painel pra LER esses testes.
+
+Isso muda o que é defeito. Em 30/08/2026 eu vi a caixa da equipe cheia de
+"QA Automatizado" e "precisa de você", medi que todos eram das faixas de
+instrumento, e comecei a filtrar teste pra fora da caixa e do sino. **O conserto
+ia esconder o teste dele da própria tela dele.** Foi revertido.
+
+Onde o filtro de teste VALE: no dinheiro. Resultados e CRM não podem contar
+conversa de teste como faturamento, e por isso `so-cliente-de-verdade.ts` é usado
+lá e só lá.
+
+Onde ele NÃO vale: em tudo que serve pra ele olhar o que a IA fez. Caixa de
+atendimento, fila de aprovação e sino mostram tudo, de propósito.
+
+Quando a padaria entrar no ar, isto muda, e a decisão é dele.
+
+---
+
 ## AS REGRAS QUE NÃO SE QUEBRAM
 
 **Nada some do pedido.** Se falta o cliente informar algo, é só pedir pra ele.

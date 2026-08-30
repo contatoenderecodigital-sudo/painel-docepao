@@ -884,17 +884,49 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
     // sabor daquele produto e recado ("sem cebola") e continua junto.
     const abertos: NonNullable<typeof l.itens> = [];
     for (const bruto of l.itens) {
-      const partes = String(bruto.sabor ?? "")
-        .split("|")
-        .map((x) => x.trim())
-        .filter(Boolean);
-      const doCatalogo = (produtoPorNome(String(bruto.produto ?? ""))?.sabores ?? []).map((x) =>
-        semAc(String(x)),
-      );
-      const saboresDeVerdade = partes.filter((x) => doCatalogo.includes(semAc(x)));
+      // O QUE O MODELO DEVOLVE DE VERDADE, LIDO NO RASTRO EM 30/08/2026:
+      //
+      //   modelo leu: 2x pizza [calabresa e frango com catupiry]
+      //
+      // Duas coisas que eu tinha SUPOSTO errado, e as duas custaram um deploy:
+      //
+      //   1. o produto vem como NOME DE FAMILIA ("pizza"), e nao "pizza
+      //      inteira". `produtoPorNome("pizza")` devolve null, entao procurar os
+      //      sabores pelo nome do item nao acha nada.
+      //   2. os sabores vem juntos por " e ", e nao por "|". Split em "|" nunca
+      //      separava.
+      //
+      // Por isso aqui NAO SE SEPARA POR PONTUACAO: procura-se quais sabores do
+      // CATALOGO aparecem dentro da string. Serve pra qualquer separador que o
+      // modelo escolher, hoje ou amanha.
+      const nome = String(bruto.produto ?? "");
+      const doItem = produtoPorNome(nome)?.sabores ?? [];
+      // Nome de familia nao e produto: os sabores saem dos produtos dela.
+      const daFamilia = doItem.length
+        ? doItem
+        : produtosDaCasa()
+            .filter((x) => semAc(x.nome).startsWith(semAc(nome) + " "))
+            .flatMap((x) => x.sabores ?? []);
+
+      // DO MAIS LONGO PRO MAIS CURTO, E CONSUMINDO O QUE CASOU.
+      //
+      // "frango" tambem casa DENTRO de "frango com catupiry". Sem consumir o
+      // trecho, esta frase daria TRES sabores onde ha dois, e a conta de abrir
+      // (um por pizza) sairia errada.
+      const lista = [...new Set(daFamilia.map(String))].sort((a, b) => b.length - a.length);
+      let resto = semAc(String(bruto.sabor ?? ""));
+      const achados: string[] = [];
+      for (const s of lista) {
+        const alvo = semAc(s);
+        if (alvo && resto.includes(alvo)) {
+          achados.push(s);
+          resto = resto.replace(alvo, " ");
+        }
+      }
+
       const qtdDita = Number(bruto.qtd) || 0;
-      if (saboresDeVerdade.length > 1 && qtdDita === saboresDeVerdade.length) {
-        for (const s of saboresDeVerdade) abertos.push({ ...bruto, qtd: 1, sabor: s });
+      if (achados.length > 1 && qtdDita === achados.length) {
+        for (const s of achados) abertos.push({ ...bruto, qtd: 1, sabor: s });
       } else {
         abertos.push(bruto);
       }
