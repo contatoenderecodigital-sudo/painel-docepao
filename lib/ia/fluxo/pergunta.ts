@@ -21,12 +21,10 @@ import { brl, motorPadrao } from "../orcamento";
 import type { Etapa, PedidoEmMontagem } from "./etapas";
 import { saudacaoDaHora, prazoDoTopoAperta } from "./falas-do-cliente";
 import {
-  saboresQueFaltam,
   saboresAlemDoLimite,
-  saboresDeSalgadoQueFaltam,
-  ehSalgadoDoCardapio,
   coresDoCardapio,
   faltaCorDaForminha,
+  proximoSaborQueFalta,
 } from "./sabor";
 import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia, nomeDaFamilia, familiaDoNome } from "./generico";
 import { paraOMotor } from "./cotar";
@@ -444,12 +442,7 @@ function falaDasPecas(p: PedidoEmMontagem): Fala {
  * opcoes do proprio cardapio, entao ela nunca oferece o que a casa nao faz.
  */
 function perguntaDoSabor(p: PedidoEmMontagem, familia: string): Fala | null {
-  if (familia === "salgado") {
-    return falaDoSaborQueFalta(saboresDeSalgadoQueFaltam(p.itens)[0]);
-  }
-  return falaDoSaborQueFalta(
-    saboresQueFaltam(p.itens.filter((i) => String(i.categoria || "").startsWith(familia)))[0],
-  );
+  return falaDoSaborQueFalta(proximoSaborQueFalta(p.itens, familia));
 }
 
 /**
@@ -469,41 +462,24 @@ function falaDoSaborQueFalta(
 ): Fala | null {
   if (!semSabor) return null;
   const peca = pecaDoCardapio(semSabor.produto);
-  const doSalgado = ehSalgadoDoCardapio(semSabor.produto);
-  // Salgado: pergunta E cardapio, igual a forminha do docinho. Trava com a
-  // pergunta, nunca em silencio. A peca e sempre a dos salgados, mesmo quando
-  // as opcoes cabem no texto: o cliente escolhe vendo o que a casa faz.
-  if (doSalgado) {
-    return {
-      texto:
-        "O " + semSabor.produto + " vai de quê? Te mandei o cardápio pra escolher." +
-        (semSabor.opcoes.length ? " Tem " + semSabor.opcoes.join(", ") + "." : ""),
-      botoes: [],
-      cardapio: "salgados",
-      podeReescrever: true,
-      opcoes: semSabor.opcoes,
-      chave: "sabor",
-    };
-  }
-  if (semSabor.opcoes.length > 6 && peca) {
-    return {
-      texto: "O " + semSabor.produto + " vai de quê? Te mandei o cardápio pra escolher.",
-      botoes: [],
-      cardapio: peca,
-      podeReescrever: true,
-      opcoes: semSabor.opcoes,
-    };
-  }
+  // A peca sai do grupo do catalogo. Salgado, pizza, empadao, cuca, cupcake:
+  // o mesmo desenho. Sem peca, a lista cabe no texto (quiche, esfirra curta).
+  const lista =
+    semSabor.opcoes.length && (!peca || semSabor.opcoes.length <= 6)
+      ? " Tem " + semSabor.opcoes.join(", ") + "."
+      : "";
+  const foto = peca ? " Te mandei o cardápio pra escolher." : "";
   return {
-    texto: "O " + semSabor.produto + " vai de quê? Tem " + semSabor.opcoes.join(", ") + ".",
+    texto: "O " + semSabor.produto + " vai de quê?" + foto + lista,
     botoes: [],
-    cardapio: null,
+    cardapio: peca,
     podeReescrever: true,
     opcoes: semSabor.opcoes,
+    chave: "sabor",
   };
 }
 
-function falaDeSaborEmAberto(p: PedidoEmMontagem): Fala | null {
+function falaDeSaborEmAberto(p: PedidoEmMontagem, etapaId?: string): Fala | null {
   const demais = saboresAlemDoLimite(p.itens)[0];
   if (demais) {
     return {
@@ -517,7 +493,9 @@ function falaDeSaborEmAberto(p: PedidoEmMontagem): Fala | null {
       opcoes: demais.escolhidos,
     };
   }
-  return falaDoSaborQueFalta(saboresQueFaltam(p.itens)[0]);
+  const familia =
+    etapaId === "salgado" || etapaId === "docinho" || etapaId === "bolo" ? etapaId : null;
+  return falaDoSaborQueFalta(proximoSaborQueFalta(p.itens, familia));
 }
 
 /**
@@ -813,17 +791,15 @@ export function falaDaEtapa(
   const aviso = naoTemos.length
     ? "Não achei " + naoTemos.join(" nem ") + " no cardápio com esse nome. "
     : "";
-  // Recheio de salgado primeiro, e com o cardapio dos salgados. Pizza nao e
-  // esta etapa: se os dois faltam, a esfirra segura a conversa aqui.
-  const doSalgado = perguntaDoSabor(p, "salgado");
-  if (doSalgado) return doSalgado;
+  // Tipo de pizza (inteira/meia/redonda) e produto, nao sabor. Escolhe o
+  // produto primeiro; o sabor vem na pergunta unificada logo abaixo.
   const daPizza = falaSeTemPizza(p, aviso);
   if (daPizza) return daPizza;
   // Recheio e sabor de QUALQUER produto do catalogo, nao so salgado.
-  // Sem isto, empadão/pizza/cuca iam pra "que dia voce busca" com o sabor em
-  // aberto. Confirmacao e registrado ficam com a ordem deles (resumo, fim).
+  // Um de cada vez: na etapa da familia, o da familia; senão o primeiro.
+  // Confirmacao e registrado ficam com a ordem deles (resumo, fim).
   if (etapa.id !== "confirmacao" && etapa.id !== "registrado") {
-    const doSabor = falaDeSaborEmAberto(p);
+    const doSabor = falaDeSaborEmAberto(p, etapa.id);
     if (doSabor) return doSabor;
   }
   switch (etapa.id) {
@@ -888,7 +864,7 @@ export function falaDaEtapa(
       const daFamilia = falaSeTemFamilia(p);
       if (daFamilia) return daFamilia;
 
-      const doSabor = falaDeSaborEmAberto(p);
+      const doSabor = falaDeSaborEmAberto(p, etapa.id);
       if (doSabor) return doSabor;
 
       const daForminha = falaDaForminha(p);

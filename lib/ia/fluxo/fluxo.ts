@@ -42,7 +42,7 @@ import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
-import { coresDaForminha, faltaCorDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista, saboresDeSalgadoQueFaltam } from "./sabor";
+import { coresDaForminha, faltaCorDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista } from "./sabor";
 import { restricoesQueACasaNaoFaz, obsSemRestricao, obsPraComanda, avisoDaRestricao } from "./restricao";
 import { paraOMotor } from "./cotar";
 import { respostaDeInformacao } from "./informacao";
@@ -1918,20 +1918,6 @@ export async function responder(
     }
   } else if (estado.assunto === proxima.id && proxima.cumprida(estado)) {
     estado = { ...estado, assunto: null };
-  }
-
-  // RECHEIO DE SALGADO NAO PULA DE ETAPA.
-  //
-  // `jaPerguntei` no assunto, a oferta e a confirmacao empurravam a conversa
-  // pra frente com esfirra sem sabor. Recheio de salgado nao e detalhe
-  // opcional: a etapa fica aqui, com o cardapio, ate ele escolher. Pizza nao
-  // entra nesta trava.
-  if (saboresDeSalgadoQueFaltam(estado.itens).length) {
-    const daSalgado = roteiro().find((x) => x.id === "salgado");
-    if (daSalgado) {
-      proxima = daSalgado;
-      rastro.push("falta o sabor do salgado; fico na etapa");
-    }
   }
 
   // "PODE FECHAR" VENCE A OFERTA QUE ELE JA RECUSOU.

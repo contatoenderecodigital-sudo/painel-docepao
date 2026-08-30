@@ -406,6 +406,22 @@ export function produtoPorNome(nome: string): ProdutoDaCasa | null {
 }
 
 /**
+ * ESTE PRODUTO PEDE O CLIENTE ESCOLHER O SABOR?
+ *
+ * Sai da tabela: tem `sabores[]` e nao tem `saborFixo`. Coxinha nao pede
+ * (recheio ja vem). Pizza redonda pede. Empadao pede. Cuca recheada pede.
+ * Pao frances nao pede.
+ *
+ * Quem fecha o pedido e quem pergunta le isto. Nao existe uma lista paralela
+ * de "salgado que pede recheio".
+ */
+export function pedeEscolhaDeSabor(
+  p: Pick<ProdutoDaCasa, "saborFixo" | "sabores"> | null | undefined,
+): boolean {
+  return Boolean(p && !p.saborFixo && p.sabores.length > 0);
+}
+
+/**
  * O PRODUTO QUE ESTÁ NO COMEÇO DESTE TEXTO.
  *
  * O nome que chega do atendimento quase nunca é só o produto: vem com o

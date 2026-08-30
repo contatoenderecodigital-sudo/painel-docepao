@@ -31,7 +31,7 @@
 //  pode fechar assim.
 // ============================================================================
 
-import { produtosDaCasa, produtoNoComeco, produtoPorNome, coresDoCardapio } from "../dados/produtos";
+import { produtosDaCasa, produtoNoComeco, produtoPorNome, coresDoCardapio, pedeEscolhaDeSabor } from "../dados/produtos";
 export { coresDoCardapio };
 import { semAcento, afirmouOuNegou, cercaDaPalavra } from "../texto";
 import { identificarProduto } from "./produto";
@@ -69,7 +69,7 @@ export function saborCabeNaLista(produto: string, sabor: string): boolean {
  */
 function comEscolha(): { nome: string; opcoes: string[] }[] {
   return produtosDaCasa()
-    .filter((p) => !p.saborFixo && p.sabores.length > 0)
+    .filter((p) => pedeEscolhaDeSabor(p))
     .map((p) => ({ nome: p.nome, opcoes: p.sabores }));
 }
 
@@ -120,7 +120,7 @@ export function saborQueFalta(produto: string, obs?: string | null): { nome: str
   const daCasa =
     produtoNoComeco(produto) ?? produtoPorNome(produto) ??
     produtoNoComeco(canonico) ?? produtoPorNome(canonico);
-  const item = daCasa && !daCasa.saborFixo && daCasa.sabores.length
+  const item = daCasa && pedeEscolhaDeSabor(daCasa)
     ? { nome: daCasa.nome, opcoes: daCasa.sabores }
     : // Nome que o catalogo nao resolve: sobra o casamento pelo comeco, que
       // ainda pega "esfirra de carne" escrito por extenso.
@@ -308,11 +308,29 @@ export function ehSalgadoDoCardapio(produto: string, categoria?: string | null):
   return cat.startsWith("salgado");
 }
 
-/** Recheio em aberto so nos salgados que o catalogo manda perguntar. */
-export function saboresDeSalgadoQueFaltam(
+/**
+ * QUAL SABOR PERGUNTAR AGORA.
+ *
+ * Um de cada vez. Se a etapa da vez tem familia (salgado, docinho, bolo),
+ * pergunta o que falta NAQUELA familia. Se nao tem (oferta, dados, pizza,
+ * empadao, cuca), pergunta o primeiro que ainda esta em aberto.
+ *
+ * Nao existe um caminho so de salgado que empurre pizza pra etapa errada.
+ */
+export function proximoSaborQueFalta(
   itens: { produto: string; categoria?: string; obs?: string | null }[],
-): { produto: string; opcoes: string[] }[] {
-  return saboresQueFaltam(itens.filter((i) => ehSalgadoDoCardapio(i.produto, i.categoria)));
+  familia?: string | null,
+): { produto: string; opcoes: string[] } | undefined {
+  const todos = saboresQueFaltam(itens);
+  if (!todos.length) return undefined;
+  if (!familia) return todos[0];
+  const daFamilia = todos.find((f) => {
+    if (familia === "salgado") return ehSalgadoDoCardapio(f.produto);
+    const linha = itens.find((i) => i.produto === f.produto);
+    const casa = produtoPorNome(f.produto) ?? produtoNoComeco(f.produto);
+    return String(casa?.categoria || linha?.categoria || "").startsWith(familia);
+  });
+  return daFamilia ?? todos[0];
 }
 
 /**

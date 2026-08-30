@@ -13,6 +13,7 @@
 //
 // Pizza nao e esta etapa. Empadao pede sabor pelo portao da casa inteira, e
 // nao segura a etapa do salgado: a categoria dele no catalogo nao e salgado.
+// Os dois caminhos leem a mesma funcao: saboresQueFaltam.
 //
 // Roda com: node testes/o-salgado-nao-passa-sem-sabor.cjs
 const path = require("node:path");
@@ -28,7 +29,7 @@ fs.writeFileSync(
     "import { falaDaEtapa } from '../lib/ia/fluxo/pergunta.ts';",
     "import { oQueFaltaPraFechar } from '../lib/ia/fluxo/fechar.ts';",
     "import { responder } from '../lib/ia/fluxo/fluxo.ts';",
-    "import { ehSalgadoDoCardapio, saboresDeSalgadoQueFaltam } from '../lib/ia/fluxo/sabor.ts';",
+    "import { ehSalgadoDoCardapio, saboresQueFaltam } from '../lib/ia/fluxo/sabor.ts';",
     "",
     "const dados = { nome: 'Joao', data: '10/09/2026', hora: '16:00', pagamento: 'pix' };",
     "const base = {",
@@ -145,9 +146,12 @@ fs.writeFileSync(
     "  pizza: {",
     "    etapa: rPizza.etapa,",
     "    ehSalgado: ehSalgadoDoCardapio('pizza redonda', 'salgado_frito'),",
-    "    faltaSalgado: saboresDeSalgadoQueFaltam(pizza).length,",
+    "    faltaSabor: saboresQueFaltam(pizza).length,",
+    "    pergunta: rPizza.fala.texto,",
+    "    cardapio: rPizza.fala.cardapio,",
     "    coxinhaMaisPizzaEtapa: rCoxinhaMaisPizza.etapa,",
     "    coxinhaMaisPizzaPerguntaSalgado: /esfirra|salgado vai de/i.test(String(rCoxinhaMaisPizza.fala.texto)),",
+    "    coxinhaMaisPizzaPerguntaPizza: /pizza/i.test(String(rCoxinhaMaisPizza.fala.texto)) && /vai de qu/i.test(String(rCoxinhaMaisPizza.fala.texto)),",
     "  },",
     "  catalogo: {",
     "    pedemEscolha: pedemEscolha.map((p) => p.nome),",
@@ -211,11 +215,15 @@ cobra("a fala do pulo pergunta e manda o cardapio",
 cobra("no resumo tambem pergunta, nao fecha calado", /vai de qu/i.test(String(r.pulos.falaConf)));
 
 console.log("");
-console.log("== pizza nao e esta etapa ==");
+console.log("== pizza nao e a etapa do salgado, mas pede sabor igual ==");
 cobra("pizza redonda nao conta como salgado do catalogo", r.pizza.ehSalgado === false);
-cobra("pizza sem sabor nao e falta de salgado", r.pizza.faltaSalgado === 0);
+cobra("pizza redonda sem sabor e falta da casa inteira", r.pizza.faltaSabor > 0);
+cobra("pizza redonda nao fica na etapa do salgado", r.pizza.etapa !== "salgado");
+cobra("pizza redonda pergunta o sabor", /vai de qu/i.test(String(r.pizza.pergunta)));
+cobra("pizza redonda manda o cardapio da pizza", r.pizza.cardapio === "pizza");
 cobra("coxinha + pizza nao pergunta recheio de salgado", r.pizza.coxinhaMaisPizzaPerguntaSalgado === false);
 cobra("coxinha + pizza sai da etapa do salgado", r.pizza.coxinhaMaisPizzaEtapa !== "salgado");
+cobra("coxinha + pizza pergunta o sabor da pizza", r.pizza.coxinhaMaisPizzaPerguntaPizza === true);
 
 console.log("");
 console.log("== o catalogo inteiro dos salgados ==");

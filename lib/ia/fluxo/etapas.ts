@@ -83,7 +83,8 @@ export type Etapa = {
   pulavel?: (p: PedidoEmMontagem) => boolean;
 };
 
-import { saboresQueFaltam, saboresDeSalgadoQueFaltam, ehSalgadoDoCardapio } from "./sabor";
+import { saboresQueFaltam, ehSalgadoDoCardapio } from "./sabor";
+import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
 import { ehNomeDeFamilia } from "./generico";
 import { formasDoCliente } from "../texto";
 
@@ -277,12 +278,27 @@ const jaPerguntouEEleNaoRespondeu = (p: PedidoEmMontagem, oQue: string) =>
  */
 const semForminha = (p: PedidoEmMontagem) => !p.forminha;
 
-/** Falta escolher recheio ou sabor em algum item desta familia? */
+/** Categoria que o catalogo conhece, nao a que o modelo inventou na linha. */
+const categoriaNoCardapio = (produto: string, categoria?: string | null) => {
+  const casa = produtoPorNome(produto) ?? produtoNoComeco(produto);
+  return String(casa?.categoria || categoria || "");
+};
+
+/**
+ * Falta escolher recheio ou sabor em algum item desta familia?
+ *
+ * A familia sai do catalogo. Filtrar pela categoria da linha deixava esfirra
+ * como `outro` e empadao como `outro` passarem a etapa cumprida.
+ */
 const faltaSabor = (p: PedidoEmMontagem, pref: string) =>
-  saboresQueFaltam(p.itens.filter((i) => String(i.categoria || "").startsWith(pref))).length > 0;
+  saboresQueFaltam(
+    pref === "salgado"
+      ? p.itens.filter((i) => ehSalgadoDoCardapio(i.produto, i.categoria))
+      : p.itens.filter((i) => categoriaNoCardapio(i.produto, i.categoria).startsWith(pref)),
+  ).length > 0;
 
 const temCategoria = (p: PedidoEmMontagem, pref: string) =>
-  p.itens.some((i) => String(i.categoria || "").startsWith(pref));
+  p.itens.some((i) => categoriaNoCardapio(i.produto, i.categoria).startsWith(pref));
 
 /**
  * SALGADO E O QUE O CATALOGO DIZ QUE E SALGADO.
@@ -294,8 +310,7 @@ const temCategoria = (p: PedidoEmMontagem, pref: string) =>
 const temSalgado = (p: PedidoEmMontagem) =>
   p.itens.some((i) => ehSalgadoDoCardapio(i.produto, i.categoria));
 
-const faltaSaborDoSalgado = (p: PedidoEmMontagem) =>
-  saboresDeSalgadoQueFaltam(p.itens).length > 0;
+const faltaSaborDoSalgado = (p: PedidoEmMontagem) => faltaSabor(p, "salgado");
 
 /**
  * GENERICO NAO E PRODUTO: E UMA ESCOLHA QUE AINDA FALTA.
@@ -513,8 +528,10 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       !semForminha(p) &&
       !temGenerico(p, "docinho"),
     // Mesma regra do salgado: iniciativa so com base aceita.
-    pulavel: (p) =>
-      recusou(p, "docinho|doce") || (!temCategoria(p, "docinho") && !(p.ehFesta && p.baseAceita)),
+    pulavel: (p) => {
+      if (faltaSabor(p, "docinho")) return false;
+      return recusou(p, "docinho|doce") || (!temCategoria(p, "docinho") && !(p.ehFesta && p.baseAceita));
+    },
   },
   {
     id: "bolo",
@@ -582,8 +599,10 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // entao quem encomendava um bolo avulso nunca era perguntado do sabor: a
     // comanda saia com "1 kg de bolo" e a cozinha sem saber o que assar.
     // Mesma regra do salgado: iniciativa so com base aceita.
-    pulavel: (p) =>
-      recusou(p, "bolo") || (!temCategoria(p, "bolo") && !(p.ehFesta && p.baseAceita)),
+    pulavel: (p) => {
+      if (faltaSabor(p, "bolo")) return false;
+      return recusou(p, "bolo") || (!temCategoria(p, "bolo") && !(p.ehFesta && p.baseAceita));
+    },
   },
   {
     id: "pecas_do_bolo",

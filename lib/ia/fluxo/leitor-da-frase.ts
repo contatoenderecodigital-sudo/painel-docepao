@@ -39,7 +39,7 @@
 import { coresDaForminha } from "./sabor";
 import { afirmouOuNegou, semAcento } from "../texto";
 import { APELIDOS } from "../dados/apelidos";
-import { produtosDaCasa } from "../dados/produtos";
+import { produtosDaCasa, pedeEscolhaDeSabor } from "../dados/produtos";
 import { chavesDeFamilia, ehNomeDeFamilia } from "./generico";
 import type { Leitura } from "./leitura";
 
@@ -599,7 +599,7 @@ function recheiosDoCatalogo(): string[] {
 function pedeSaborAberto(nome: string): boolean {
   const n = semAcMin(nome);
   const p = produtosDaCasa().find((x) => semAcMin(x.nome) === n || semAcMin(x.nomeCurto) === n);
-  return Boolean(p && !p.saborFixo && p.sabores.length);
+  return pedeEscolhaDeSabor(p);
 }
 
 /**
