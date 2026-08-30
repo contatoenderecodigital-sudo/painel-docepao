@@ -693,7 +693,11 @@ function aplicarDelegacao(e: Estado, etapa: EtapaId): Estado {
   return { ...e, itens, forminha, baseAceita: aceita };
 }
 
-function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Estado {
+// O `rastro` entra aqui porque foi ele que achou o defeito do "tira a de
+// calabresa": sem ele eu teria culpado a IA, e a IA estava fazendo a unica
+// coisa que sabia fazer. Decisao tomada aqui dentro e decisao que precisa
+// aparecer no log.
+function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rastro: string[] = []): Estado {
   let novo: Estado = { ...e };
 
   if (l.ehFesta === true) novo.ehFesta = true;
@@ -1243,6 +1247,27 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
     if (recheiosTrocados.length) novo.recheiosTrocados = [...new Set(recheiosTrocados)];
   }
 
+  // ------------------------------------------------------ o que ele mandou tirar
+  //
+  // DEPOIS do bloco dos itens, de proposito: a frase pode fazer as duas coisas
+  // ("tira a de calabresa e poe 100 coxinhas"), e o pedido tem que refletir as
+  // duas. Removendo antes, o indice da linha mudaria debaixo da juncao.
+  if (l.tirar?.length) {
+    for (const frase of l.tirar) {
+      const n = linhaQueOClientePediuPraTirar(novo.itens, String(frase));
+      if (n < 0) {
+        // NA DUVIDA NAO SAI NADA. Tirar a linha errada custa o mesmo que nao
+        // tirar nenhuma, e ainda quebra "nada some do pedido". O rastro fica
+        // pra isto nao virar silencio: quem ler o log sabe que ele pediu.
+        rastro.push("mandou tirar e nao deu pra saber qual: " + frase);
+        continue;
+      }
+      const fora = novo.itens[n];
+      rastro.push("tirou do pedido: " + fora.produto + (fora.obs ? " [" + fora.obs + "]" : ""));
+      novo.itens = novo.itens.filter((_, i) => i !== n);
+    }
+  }
+
   novo = atualizarBasePeloTotalDito(novo, l);
   if (l.delegaEscolha === true) novo = aplicarDelegacao(novo, etapa);
 
@@ -1423,6 +1448,43 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
 /**
  * UMA MENSAGEM ENTRA, UMA RESPOSTA SAI.
  */
+/**
+ * QUAL LINHA DO PEDIDO ELE MANDOU TIRAR. -1 quando nao da pra ter certeza.
+ *
+ * O modelo devolve a frase ("a de calabresa", "o bolo") e quem escolhe a linha
+ * e isto aqui, porque decisao que custa dinheiro nao mora no prompt.
+ *
+ * O SABOR VALE MAIS QUE O NOME, e essa e a regra toda. Quando existem duas
+ * linhas do mesmo produto, o sabor e a UNICA coisa que as separa, e e por ele
+ * que o cliente chama: "a de calabresa" nem cita a pizza. Entao procura-se
+ * primeiro por sabor; so quando nenhum sabor casa e que o nome do produto
+ * responde.
+ *
+ * -1 QUANDO DUAS LINHAS CASAM. Tirar a errada custa o mesmo que nao tirar
+ * nenhuma, e ainda quebra "nada some do pedido". Ambiguidade nao e permissao
+ * pra escolher.
+ */
+export function linhaQueOClientePediuPraTirar(
+  itens: { produto: string; obs?: string | null }[],
+  frase: string,
+): number {
+  const t = semAc(frase);
+  if (!t) return -1;
+  const so = (achados: number[]) => (achados.length === 1 ? achados[0] : -1);
+  // O sabor pode ter varios pedacos ("calabresa | frango"), e o cliente cita um.
+  const porSabor = itens.flatMap((x, n) =>
+    semAc(String(x.obs ?? ""))
+      .split(/,|\|/)
+      .map((p) => p.trim())
+      .some((p) => p && t.includes(p))
+      ? [n]
+      : [],
+  );
+  if (porSabor.length) return so(porSabor);
+  const porNome = itens.flatMap((x, n) => (semAc(x.produto) && t.includes(semAc(x.produto)) ? [n] : []));
+  return so(porNome);
+}
+
 export async function responder(
   estadoAtual: Estado,
   mensagem: { texto: string; botaoId?: string | null },
@@ -1790,7 +1852,7 @@ export async function responder(
       }
       lida.itens = comNumero.length ? comNumero : undefined;
     }
-    estado = aplicar(estado, lida, etapaAgora.id, falaCru);
+    estado = aplicar(estado, lida, etapaAgora.id, falaCru, rastro);
 
     // ELE PEDIU GENTE. O modelo vazio nao impede: a frase basta.
     if (pediuPraFalarComGente(falaCru)) {

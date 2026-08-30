@@ -99,6 +99,26 @@ export type Leitura = {
   /** O que ele disse que NAO quer, pra nao oferecer de novo. */
   naoQuer?: string[];
   /**
+   * O QUE ELE PEDIU PRA TIRAR DO PEDIDO, NAS PALAVRAS DELE.
+   *
+   * Isto NAO e o `naoQuer`, que fala de FAMILIA ("nao quero docinho") e de peca
+   * do bolo. E tirar uma linha que ja esta no pedido.
+   *
+   * Medido em producao em 30/08/2026: o cliente pediu duas pizzas, disse "tira
+   * a de calabresa" e fechou pagando pelas duas, R$ 240,00. O rastro mostrou o
+   * modelo devolvendo `1x pizza inteira [frango com catupiry]`, que era o que
+   * sobra, porque nao existia outro jeito de ele dizer isso. E o fluxo estava
+   * certo em ignorar: item que SOME da leitura nao pode virar remocao, senao o
+   * pedido se esvazia sozinho toda vez que o modelo esquece de repetir uma
+   * linha.
+   *
+   * VEM A FRASE, NAO A LINHA. O modelo devolve a intencao com as palavras do
+   * cliente ("a de calabresa", "o bolo") e quem decide QUAL linha sai e o
+   * codigo, casando contra o pedido de verdade. Deixar o modelo apontar a linha
+   * seria por decisao de dinheiro no prompt.
+   */
+  tirar?: string[];
+  /**
    * Topo e papel de arroz. So vale na etapa das pecas.
    *
    * Os dois sao opcionais de proposito: quem responde "quero o topo" nao disse
@@ -587,6 +607,21 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     // e leitura e da IA. A mesma solucao que dia, hora e pagamento ja usam: sao
     // seguros em qualquer etapa porque nao competem com produto nenhum.
     "- Mudou a quantidade do que já pediu? mande o item com o total NOVO." + String.fromCharCode(10) +
+    // TIRAR VALE EM QUALQUER ETAPA, pelo mesmo motivo de mudar a quantidade.
+    //
+    // E vem a FRASE dele, nao a linha: quem decide qual linha sai e o codigo,
+    // casando contra o pedido de verdade. Sem isto o cliente que pediu duas
+    // pizzas e tirou uma fechava pagando pelas duas, porque o unico jeito de o
+    // modelo falar disso era repetir o que sobra, e repetir o que sobra e
+    // indistinguivel de esquecer uma linha.
+    // CURTA DE PROPOSITO, e o exemplo do JSON faz o resto do ensino.
+    //
+    // A primeira versao explicava tudo aqui e estourou o teto de 1400 em tres
+    // etapas. A mais apertada, `pecas_do_bolo`, tinha 35 caracteres de folga, e
+    // o proprio teto avisa que cortar ali e reintroduzir defeito conhecido pra
+    // ganhar caractere. O exemplo em `pensar-openai.ts` ja mostra
+    // `"tirar": ["a de calabresa"]`, e exemplo ensina formato melhor que frase.
+    "- Vai tirar item? use tirar." + String.fromCharCode(10) +
     "- Hoje é " + hojeEmSaoPaulo() + ", e retirada é sempre no futuro." + String.fromCharCode(10) +
     "- Perguntou em vez de pedir? perguntou.sobre = preco (com familia), " +
     "horario, endereco, pagamento, entrega, prazo ou desconto." + String.fromCharCode(10) +

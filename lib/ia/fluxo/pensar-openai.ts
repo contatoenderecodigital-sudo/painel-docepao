@@ -61,6 +61,7 @@ const FORMATO = `Responda SÓ com um JSON, sem texto em volta, neste formato:
   "aceitouBase": false,
   "delegaEscolha": false,
   "naoQuer": ["salgado"],
+  "tirar": ["a de calabresa"],
   "confirmou": true,
   "pecas": { "topo": true, "papelDeArroz": true },
   "aniversariante": { "nome": "Arthur", "idade": "5 anos" },
@@ -201,6 +202,14 @@ export function pensarComOpenAI(
       if (lido.confirmou === true) limpo.confirmou = true;
       if (Array.isArray(lido.naoQuer) && lido.naoQuer.length) {
         limpo.naoQuer = lido.naoQuer.map(String).filter(Boolean);
+      }
+      // O QUE ELE MANDOU TIRAR DO PEDIDO, nas palavras dele. Quem escolhe a
+      // linha e o `linhaQueOClientePediuPraTirar`, no fluxo: aqui so passa o
+      // texto adiante. Esquecer esta linha faria o campo novo morrer no
+      // caminho com o modelo tendo acertado, que e o defeito que o
+      // `o-cliente-sempre-tem-saida.cjs` existe pra pegar, e pegou.
+      if (Array.isArray(lido.tirar) && lido.tirar.length) {
+        limpo.tirar = lido.tirar.map(String).filter(Boolean);
       }
       // SO O QUE ELE FALOU ENTRA.
       //

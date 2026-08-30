@@ -618,6 +618,95 @@ comissão, atribuição pelo link (testada no navegador).
 
 ---
 
+## "TIRA A DE CALABRESA" — FECHADO NO CODIGO EM 30/08/2026, FALTA MEDIR
+
+**Medido em producao em 30/08/2026**, container `f8df73f`, conversa inteira
+contra o banco:
+
+```
+cliente >> queria 2 pizzas inteiras, uma de calabresa e uma de frango com catupiry
+cliente >> na verdade tira a de calabresa, quero so a de frango com catupiry
+padaria >> Fechando: 1 pizza (calabresa) R$ 120,00 + 1 pizza (frango) R$ 120,00
+           *Total: R$ 240,00*
+```
+
+Ele tirou uma e pagou pelas duas.
+
+**O rastro diz de quem e a culpa, e nao e da IA:**
+
+```
+etapa: abertura / modelo leu: 1x pizza [calabresa] ;; 1x pizza [frango com catupiry]
+etapa: dados    / modelo leu: 1x pizza inteira [frango com catupiry]
+```
+
+Na mensagem do cancelamento o modelo devolveu **o que sobra**, que e a unica
+coisa que ele consegue dizer. O fluxo tratou isso como atualizacao da linha do
+frango, e a linha da calabresa ficou intacta.
+
+**E o fluxo esta certo em fazer isso.** Item que some da leitura NAO pode virar
+remocao: e a regra "nada some do pedido", e ela existe porque o modelo omite
+item o tempo todo.
+
+O que falta e o caminho explicito. Hoje nao existe:
+
+- a `Leitura` nao tem campo de remocao. O `naoQuer` e sobre FAMILIA ("nao quero
+  docinho") e sobre peca do bolo (topo, papel), nao sobre tirar uma linha.
+- `situacao: "cancelar"` e cancelar o PEDIDO INTEIRO, e vai pra equipe.
+- o leitor de frases (`falas-do-cliente.ts`) le "muda pra 100", recomecar, falar
+  com gente e resposta ao valor. Nao le "tira".
+
+**O desenho que respeita as duas regras da casa:** o modelo devolve a INTENCAO
+(o que o cliente pediu pra tirar, nas palavras dele) e o CODIGO decide qual
+linha sai, casando contra o pedido real. Casou em exatamente uma linha, sai.
+Ambiguo ou sem casar, **nao sai nada e vira pergunta** — porque decisao que
+custa dinheiro nao mora no prompt, e o que falta vira pergunta.
+
+Os dois lados da gravacao ja estavam prontos pra isso desde hoje: o
+`itensQueSairam` sabe dizer QUAL linha saiu, e o `removerItem` sabe tirar so
+ela. Faltava o comeco da corrente.
+
+### O que entrou
+
+- `Leitura.tirar?: string[]`, com as palavras do cliente.
+- Uma linha no bloco comum da instrucao, valida em qualquer etapa como a
+  correcao de quantidade ja era.
+- `linhaQueOClientePediuPraTirar(itens, frase)` no `fluxo.ts`, exportada e pura.
+  **O sabor vale mais que o nome**, e essa e a regra toda: quando existem duas
+  linhas do mesmo produto, o sabor e a unica coisa que as separa e e por ele que
+  o cliente chama ("a de calabresa" nem cita a pizza). So quando nenhum sabor
+  casa e que o nome responde.
+- **-1 quando duas linhas casam.** Ambiguidade nao e permissao pra escolher:
+  tirar a errada custa o mesmo que nao tirar nenhuma. Fica no rastro pra nao
+  virar silencio.
+- O `rastro` passou a entrar no `aplicar`. Foi ele que achou este defeito.
+
+Travado por `testes/tirar-item-tira-a-linha-certa.cjs`, seis casos.
+
+### As duas coisas que o portao pegou e o meu teste nao
+
+Vale mais que o conserto, porque e o retrato de um teste que mede a camada
+errada. O meu injeta a leitura direto no fluxo, entao ele pula tudo o que vem
+antes:
+
+1. **`o-cliente-sempre-tem-saida.cjs`:** o limpador do `pensar-openai.ts` e
+   lista fechada, e campo que nao esta escrito la e jogado fora. O `tirar`
+   morreria no caminho **com o modelo tendo acertado**, que e o defeito mais
+   caro de achar que existe.
+2. **`o-docinho-so-e-docinho-na-etapa-dele.cjs`:** a instrucao que eu escrevi
+   estourou o teto de 1400 em tres etapas. A mais apertada tinha 35 caracteres
+   de folga, e o proprio teto avisa que cortar ali e reintroduzir defeito
+   conhecido. A linha encolheu pra `"- Vai tirar item? use tirar."` e o ensino
+   do formato foi pro exemplo do JSON, que nao conta no teto.
+
+### O que ficou aberto
+
+Frase ambigua ("tira a pizza", com duas pizzas no pedido) nao tira nada e nao
+pergunta: fica so no rastro. O certo pela regra da casa e virar PERGUNTA. Nao
+foi feito agora porque exige etapa nova, e o que existe hoje ja e estritamente
+melhor que antes, quando nada saia nunca.
+
+---
+
 ## DÍVIDA TÉCNICA
 
 - merge de `coolify-postgres` para `servidor`, e aposentar o pm2 do aaPanel

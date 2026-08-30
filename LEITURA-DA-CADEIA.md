@@ -3858,3 +3858,69 @@ só e a pizza que ganha sabor viraria uma pizza a mais.
 **Regra sem lugar próprio não é reusada, é reescrita, e a segunda cópia é a que
 fica para trás.** Foi o mesmo achado dos cinco normalizadores de texto, só que
 desta vez cobrando em dinheiro.
+
+---
+
+## 79. O defeito que só a medição achou, e as duas camadas que o meu teste pulou
+
+Consertei a pizza, medi contra o banco e deu certo. Aí escrevi uma segunda
+conversa só pra provar o conserto do cancelamento, e ela reprovou por um motivo
+que nada no repositório previa:
+
+```
+cliente >> queria 2 pizzas inteiras, uma de calabresa e uma de frango
+cliente >> na verdade tira a de calabresa, quero so a de frango
+padaria >> Fechando: 1 pizza (calabresa) + 1 pizza (frango)  Total R$ 240,00
+```
+
+Ele tirou uma e pagou pelas duas.
+
+### O rastro disse de quem era a culpa, e não era da IA
+
+```
+etapa: abertura / modelo leu: 1x pizza [calabresa] ;; 1x pizza [frango]
+etapa: dados    / modelo leu: 1x pizza inteira [frango com catupiry]
+```
+
+Na mensagem do cancelamento o modelo devolveu **o que sobra**. Era a única coisa
+que ele conseguia dizer: não existia campo pra remoção. O `naoQuer` é sobre
+família e peça do bolo; `situacao: "cancelar"` é cancelar o pedido inteiro.
+
+E o fluxo estava **certo** em ignorar. Item que some da leitura não pode virar
+remoção, senão o pedido se esvazia sozinho toda vez que o modelo esquece de
+repetir uma linha. Faltava o caminho explícito.
+
+Sem o rastro eu teria consertado o fluxo pra apagar o que o modelo omite, e isso
+teria quebrado "nada some do pedido" em toda conversa longa.
+
+### Onde a decisão foi parar, e por quê
+
+Eu cogitei ler a frase no código, que é o que o projeto prega. Mas o próprio
+`leitura.ts` já tinha resolvido essa discussão, no comentário da correção de
+quantidade: `"muda pra 100"` é troca e `"mais 100"` é soma, a diferença são cem
+coxinhas, e isso é **leitura**, que é da IA.
+
+A divisão que sobrou é a certa: o modelo devolve a **intenção** com as palavras
+do cliente, e o **código** decide qual linha sai, casando contra o pedido de
+verdade. O sabor vale mais que o nome, porque quando existem duas linhas do
+mesmo produto o sabor é a única coisa que as separa e é por ele que o cliente
+chama. E duas linhas casando é ambiguidade, não permissão pra escolher.
+
+### As duas camadas que o meu teste pulou, e o portão pegou
+
+Isto vale mais que o conserto. Meu teste injeta a leitura direto no fluxo, então
+ele não enxerga nada do que vem antes:
+
+1. **O limpador é lista fechada.** Campo que não está escrito no
+   `pensar-openai.ts` é jogado fora. O `tirar` morreria no caminho **com o
+   modelo tendo acertado** — o defeito mais caro que existe, porque some sem
+   erro nenhum. Quem pegou foi o `o-cliente-sempre-tem-saida.cjs`.
+2. **A instrução tem teto.** A minha estourou 1400 caracteres em três etapas. A
+   mais apertada tinha 35 de folga, e o teste avisa no próprio arquivo que
+   cortar ali é reintroduzir defeito conhecido pra ganhar caractere. A linha
+   encolheu pra `"- Vai tirar item? use tirar."` e o ensino do formato foi pro
+   exemplo do JSON, que não conta no teto.
+
+**Teste que injeta no meio prova o meio, e o dinheiro passa pelas pontas.** É o
+mesmo aviso de "medir a conversa inteira, não o teste", só que desta vez os dois
+guardas certos estavam escritos e me pegaram.
