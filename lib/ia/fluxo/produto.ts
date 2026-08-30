@@ -30,6 +30,10 @@ import {
   produtosDaCasa,
   ehCategoriaDeBolo,
   unidadeDoPedido as unidadeDoProduto,
+  produtoPorNome,
+  palavrasDaFamilia,
+  palavrasDeFamiliaDoCatalogo,
+  desempatarPorFamilia,
 } from "../dados/produtos";
 // O MESMO normalizador de todo mundo. Aqui era a quinta copia dele, e esta
 // trocava a ordem do toLowerCase com o normalize.
@@ -84,25 +88,11 @@ type Candidato = { canonico: string; casa: string; categoria: string; apelido: b
  * caseiro, `festa` no grupo, `kg` na unidade, `docinho` na categoria. Quem
  * resolve o sabor e o cardapio; isto so diz EM QUAL FAMILIA procurar.
  */
-function sinaisDoContexto(texto: string): {
-  bolo: boolean;
-  caseiro: boolean;
-  festa: boolean;
-  kg: boolean;
-  docinho: boolean;
-} {
-  const t = semAcMin(texto);
-  return {
-    bolo: /\bbolos?\b/.test(t),
-    caseiro: /\bcaseiros?\b/.test(t),
-    festa: /\bfestas?\b/.test(t),
-    kg: /\bkg\b/.test(t) || /\bquilos?\b/.test(t),
-    docinho: /\bdocinh/.test(t),
-  };
-}
-
-function daCategoria(lista: Candidato[], cat: string): Candidato[] {
-  return lista.filter((c) => c.categoria === cat);
+function palavraDeFamiliaNaFrase(texto: string, palavra: string): boolean {
+  const n = semAcMin(palavra);
+  if (!n) return false;
+  const t = " " + semAcMin(texto) + " ";
+  return t.includes(" " + n + " ") || t.includes(" " + n + "s ");
 }
 
 /**
@@ -110,14 +100,12 @@ function daCategoria(lista: Candidato[], cat: string): Candidato[] {
  *
  * Ordem de quem ganha, a mesma que uma atendente usa:
  *
- *   1. o que ele ACABOU DE FALAR (caseiro, festa, kg, docinho, bolo)
+ *   1. palavra de familia UNICA na frase (sai da categoria e do grupo)
  *   2. a ETAPA (o que a padaria acabou de perguntar)
- *   3. sem etapa e sem a palavra bolo: o produto de unidade, que e o que o
- *      cliente compra quando fala o sabor pelado (R$ 1,25, nao o quilo)
+ *   3. sem etapa e sem palavra de familia: o produto de unidade
  *
  * Nunca escolhe o de quilo calado. Se ele disse bolo e o cardapio tem o
- * mesmo sabor em festa E caseiro, devolve "perguntar": a padaria pergunta
- * em vez de chutar o preco.
+ * mesmo nome curto em duas categorias de bolo, devolve "perguntar".
  */
 function escolherPeloContexto(
   empatados: Candidato[],
@@ -125,42 +113,63 @@ function escolherPeloContexto(
   texto: string,
 ): Candidato | "perguntar" {
   const dicaN = semAcMin(dica);
-  const s = sinaisDoContexto(texto);
+  const t = semAcMin(texto);
+  const kg = /\bkg\b/.test(t) || /\bquilos?\b/.test(t);
   const naoSalgado = empatados.filter((c) => !String(c.categoria).startsWith("salgado"));
   const pool = naoSalgado.length && naoSalgado.length < empatados.length ? naoSalgado : empatados;
-  const festa = daCategoria(pool, "bolo_festa");
-  const caseiro = daCategoria(pool, "bolo_caseiro");
-  const docinho = daCategoria(pool, "docinho");
-  const deBolo = pool.filter((c) => ehCategoriaDeBolo(c.categoria));
+  const daCasaDe = (c: Candidato) => produtoPorNome(c.canonico);
 
-  if (s.caseiro && caseiro.length) return caseiro[0];
-  if ((s.festa || s.kg) && festa.length) return festa[0];
-  if (s.docinho && docinho.length) return docinho[0];
-
-  if (dicaN === "docinho" && docinho.length) return docinho[0];
-  if (dicaN === "bolo_caseiro" && caseiro.length) return caseiro[0];
-  if (dicaN === "bolo_festa" && festa.length) return festa[0];
-
-  const etapaDeBolo = dicaN === "bolo" || dicaN.startsWith("bolo");
-  const doisBolos = festa.length > 0 && caseiro.length > 0 && !s.caseiro && !s.festa && !s.kg;
-  if ((etapaDeBolo || s.bolo) && doisBolos) return "perguntar";
-
-  if (etapaDeBolo || s.bolo) {
-    if (festa.length && !caseiro.length) return festa[0];
-    if (caseiro.length && !festa.length) return caseiro[0];
-    if (deBolo.length === 1) return deBolo[0];
-    if (deBolo.length) return deBolo[0];
+  for (const c of pool) {
+    const p = daCasaDe(c);
+    if (!p) continue;
+    const unicas = palavrasDaFamilia(p).filter((w) =>
+      pool.every((o) => {
+        if (o.canonico === c.canonico) return true;
+        const q = daCasaDe(o);
+        return !q || !palavrasDaFamilia(q).includes(w);
+      }),
+    );
+    for (const w of unicas) {
+      if (palavraDeFamiliaNaFrase(texto, w)) return c;
+    }
   }
 
-  if (docinho.length) return docinho[0];
+  if (kg) {
+    const porKg = pool.filter((c) => daCasaDe(c)?.unidade === "kg");
+    if (porKg.length) return porKg[0];
+  }
+
+  const exata = pool.filter((c) => semAcMin(c.categoria) === dicaN);
+  if (exata.length) return exata[0];
+
+  const deBolo = pool.filter((c) => ehCategoriaDeBolo(c.categoria));
+  const etapaDeBolo =
+    dicaN === "bolo" || dicaN.startsWith("bolo") || palavraDeFamiliaNaFrase(texto, "bolo");
+  const catsBolo = new Set(deBolo.map((c) => c.categoria));
+  if (
+    (etapaDeBolo || palavraDeFamiliaNaFrase(texto, "bolo")) &&
+    catsBolo.size > 1 &&
+    !palavraDeFamiliaNaFrase(texto, "caseiro") &&
+    !palavraDeFamiliaNaFrase(texto, "festa") &&
+    !kg
+  ) {
+    return "perguntar";
+  }
+
+  const produtos = pool.map(daCasaDe).filter((p): p is NonNullable<typeof p> => Boolean(p));
+  if (produtos.length) {
+    const g = desempatarPorFamilia(produtos, dica || undefined, texto);
+    const c = pool.find((x) => x.canonico === g.nome);
+    if (c && (dicaN || palavraDeFamiliaNaFrase(texto, "bolo") || kg)) return c;
+    if (c && dicaN) return c;
+  }
+
+  if (etapaDeBolo && deBolo.length) return deBolo[0];
 
   const canonicos = [...new Set(pool.map((c) => c.canonico))];
   if (canonicos.length === 1) return pool.find((c) => c.canonico === canonicos[0]) ?? pool[0];
 
-  const porUnidade = pool.filter((c) => {
-    const p = produtosDaCasa().find((x) => x.nome === c.canonico);
-    return p?.unidade === "un";
-  });
+  const porUnidade = pool.filter((c) => daCasaDe(c)?.unidade === "un");
   if (porUnidade.length === 1) return porUnidade[0];
 
   return pool[0];
@@ -259,7 +268,15 @@ export function identificarProduto(nomeBruto: string, categoria?: string, frase?
   let servem: Candidato[] = [];
   for (const forma of [...new Set([t0, ...formasDoCliente(bruto), ...formasDoCliente(t0)])]) {
     const desta = cand
-      .filter((c) => c.casa && (forma === c.casa || forma.startsWith(c.casa + " ")))
+      .filter((c) => {
+        const familia = palavrasDeFamiliaDoCatalogo();
+        const partes = forma.split(/ +/).filter(Boolean);
+        while (partes.length > 1 && (familia.has(partes[0]) || /^(de|da|do|com)$/.test(partes[0]))) {
+          partes.shift();
+        }
+        const miolo = partes.join(" ");
+        return Boolean(c.casa) && (forma === c.casa || forma.startsWith(c.casa + " ") || miolo === c.casa || miolo.startsWith(c.casa + " "));
+      })
       .sort((a, b) => b.casa.length - a.casa.length);
     if (desta.length) {
       t = forma;
