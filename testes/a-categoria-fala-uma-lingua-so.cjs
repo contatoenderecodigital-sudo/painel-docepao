@@ -191,7 +191,7 @@ if (naBancadaErrada.length) {
 const OLHAR = ["lib/departamentos.ts", "components/PedidoMontado.tsx"];
 for (const rel of OLHAR) {
   const texto = semComentario(rel);
-  if (/bolo_recheado/.test(texto) || /^\s*salgado:/m.test(texto) || /^\s*doce:/m.test(texto)) {
+  if (/bolo_recheado/.test(texto) || /^\s*salgado:/m.test(texto) || /^\s*doce:/m.test(texto) || /\bDO_MOTOR\b/.test(texto)) {
     falhas.push(
       "o `" + rel + "` voltou a conhecer o vocabulario velho " +
         "(salgado, doce, bolo_recheado): os pedidos gravados assim eram teste, " +

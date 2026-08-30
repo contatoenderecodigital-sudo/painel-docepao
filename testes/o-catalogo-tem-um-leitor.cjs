@@ -40,6 +40,12 @@ const varrer = (dir) => {
 varrer(path.join(RAIZ, "lib"));
 varrer(path.join(RAIZ, "app"));
 varrer(path.join(RAIZ, "components"));
+if (!arquivos.length) {
+  console.log("ERRO  a varredura nao leu arquivo nenhum: o caminho quebrou");
+  console.log("");
+  console.log("REPROVOU");
+  process.exit(1);
+}
 
 const leitores = [];
 for (const arq of arquivos) {

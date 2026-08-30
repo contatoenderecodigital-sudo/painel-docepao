@@ -100,7 +100,23 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
   const PRECOS: Record<string, Produto> = {};
   for (const p of produtos) PRECOS[semAcento(p.nome)] = p;
 
-  // acha o 1º produto de uma categoria (pro "por pessoas")
+  // ACHA O 1o PRODUTO DE UMA CATEGORIA (pro "por pessoas").
+  //
+  // CASA PELO COMECO, ENTAO QUEM CHAMA TEM QUE PASSAR A CATEGORIA INTEIRA.
+  //
+  // Com um pedaco, quem responde e a ORDEM DO CATALOGO, e ela nao e decisao de
+  // ninguem: e o jeito que as linhas estao no arquivo. O `bolo` ja tinha sido
+  // consertado por isso; o `salgado` continuou de pe e foi medido em
+  // 30/08/2026, numa festa de 25 pessoas:
+  //
+  //     hoje                      250 salgado frito    R$ 523,50
+  //     com as duas linhas do catalogo trocadas de lugar
+  //                               250 salgado assado   R$ 586,00
+  //
+  // R$ 62,50 de diferenca na proposta, sem ninguem ter mudado preco nenhum. O
+  // cliente veria outro numero e nada no codigo teria mudado.
+  //
+  // Quem cobra isso e `a-base-da-festa-nao-depende-da-ordem-do-catalogo.cjs`.
   const primeiroDaCategoria = (cat: string) =>
     produtos.find((p) => p.categoria.toLowerCase().startsWith(cat));
 
@@ -374,7 +390,11 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
     let estimativa = false;
 
     if (quer.salgado && rend.salgadoPorPessoa) {
-      const prod = primeiroDaCategoria("salgado");
+      // O FRITO, DITO COM TODAS AS LETRAS. Ele e o que a base sugere hoje, e era
+      // por acidente: "salgado" alcanca as duas categorias e ganhava a que vem
+      // primeiro no catalogo. O frito e o de R$ 1,00, e qual dos dois o cliente
+      // quer e a etapa do salgado que pergunta.
+      const prod = primeiroDaCategoria("salgado_frito");
       if (prod) {
         let unidades = Math.round(n * rend.salgadoPorPessoa);
         if (rend.minSalgado && unidades < rend.minSalgado) {

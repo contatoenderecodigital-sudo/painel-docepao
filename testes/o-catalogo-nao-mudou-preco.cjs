@@ -102,16 +102,21 @@ console.log("");
 const mudaram = [];
 const sumiram = [];
 const nasceram = [];
+const linguaVelha = [];
+const VELHO = new Set(["salgado", "doce", "bolo_recheado"]);
 
 for (const nome of nomes) {
+  const agora = cotarUm(nome);
+  if (agora && VELHO.has(agora.categoria)) {
+    linguaVelha.push(nome + " => " + agora.categoria);
+  }
   if (!(nome in foto)) {
     // Produto novo no catalogo nao e erro, mas precisa ser dito em voz alta:
     // ele entra sem rede, porque nao existe foto dele.
-    nasceram.push(nome + " => " + JSON.stringify(cotarUm(nome)));
+    nasceram.push(nome + " => " + JSON.stringify(agora));
     continue;
   }
   const antes = foto[nome];
-  const agora = cotarUm(nome);
   if (JSON.stringify(antes) !== JSON.stringify(agora)) {
     mudaram.push("  " + nome + "\n      antes: " + JSON.stringify(antes) + "\n      agora: " + JSON.stringify(agora));
   }
@@ -130,6 +135,15 @@ if (mudaram.length) {
   console.log("");
 } else {
   console.log("ok    nenhum produto mudou de preco, unidade ou casamento de nome");
+}
+
+if (linguaVelha.length) {
+  erros++;
+  console.log("ERRO  " + linguaVelha.length + " produto(s) sairam com categoria velha (salgado/doce/bolo_recheado):");
+  for (const x of linguaVelha.slice(0, 8)) console.log("        " + x);
+  console.log("");
+} else {
+  console.log("ok    nenhuma cotacao voltou a lingua velha de categoria");
 }
 
 if (sumiram.length) {
