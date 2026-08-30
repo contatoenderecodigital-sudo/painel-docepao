@@ -287,6 +287,35 @@ export function saboresQueFaltam(
 }
 
 /**
+ * ESTE ITEM E SALGADO DE FESTA, PELO CATALOGO.
+ *
+ * A etapa do salgado filtra por `categoria.startsWith("salgado")`. Quem anota
+ * a categoria e o modelo, e ele erra: esfirra entra como `outro` e a etapa
+ * se considera fora do assunto. A conversa pula pra oferta, para os dados, e o
+ * cliente escolhe o dia SEM ter dito se a esfirra e de carne ou de frango.
+ *
+ * Pizza nunca entra aqui, mesmo com categoria errada. Ela nao e esta etapa.
+ *
+ * Quem decide e a tabela: `salgado_frito` e `salgado_assado`. Coxinha entra
+ * (sabor fixo, nao pergunta). Esfirra entra (tem `sabores[]`). Empadao nao
+ * entra: a categoria dele no catalogo e `empadao`.
+ */
+export function ehSalgadoDoCardapio(produto: string, categoria?: string | null): boolean {
+  const daCasa = produtoNoComeco(produto) ?? produtoPorNome(produto);
+  if (daCasa) return String(daCasa.categoria).startsWith("salgado");
+  const cat = String(categoria || "");
+  if (cat.startsWith("pizza")) return false;
+  return cat.startsWith("salgado");
+}
+
+/** Recheio em aberto so nos salgados que o catalogo manda perguntar. */
+export function saboresDeSalgadoQueFaltam(
+  itens: { produto: string; categoria?: string; obs?: string | null }[],
+): { produto: string; opcoes: string[] }[] {
+  return saboresQueFaltam(itens.filter((i) => ehSalgadoDoCardapio(i.produto, i.categoria)));
+}
+
+/**
  * TEM DOCINHO NO PEDIDO E AINDA NAO TEM COR DE FORMINHA?
  *
  * Audio da dona, 29/07/2026: na hora que a pessoa escolhe docinho, a padaria

@@ -83,7 +83,7 @@ export type Etapa = {
   pulavel?: (p: PedidoEmMontagem) => boolean;
 };
 
-import { saboresQueFaltam } from "./sabor";
+import { saboresQueFaltam, saboresDeSalgadoQueFaltam, ehSalgadoDoCardapio } from "./sabor";
 import { ehNomeDeFamilia } from "./generico";
 import { formasDoCliente } from "../texto";
 
@@ -285,6 +285,19 @@ const temCategoria = (p: PedidoEmMontagem, pref: string) =>
   p.itens.some((i) => String(i.categoria || "").startsWith(pref));
 
 /**
+ * SALGADO E O QUE O CATALOGO DIZ QUE E SALGADO.
+ *
+ * A categoria da linha pode vir errada do modelo. Sem olhar o catalogo, a
+ * esfirra anotada como `outro` fazia a etapa se pular, e o pedido ia pra
+ * oferta com o recheio em aberto.
+ */
+const temSalgado = (p: PedidoEmMontagem) =>
+  p.itens.some((i) => ehSalgadoDoCardapio(i.produto, i.categoria));
+
+const faltaSaborDoSalgado = (p: PedidoEmMontagem) =>
+  saboresDeSalgadoQueFaltam(p.itens).length > 0;
+
+/**
  * GENERICO NAO E PRODUTO: E UMA ESCOLHA QUE AINDA FALTA.
  *
  * "salgado", "docinho" e "bolo" e o que a proposta anota quando o cliente
@@ -441,12 +454,16 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     rotulo: "escolhendo os salgados",
     pergunta: "Quais salgados você quer?",
     espera: { tipo: "escolha_do_cardapio", cardapio: "salgados" },
-    // SABOR EM ABERTO E BURACO NO PEDIDO.
+    // SABOR EM ABERTO E BURACO NO PEDIDO. NAO E DETALHE OPCIONAL.
     //
     // Risolis e mini bolha sao fritos e mesmo assim pedem recheio; coxinha nao
     // pede, porque o recheio dela e fixo. Quem separa os dois e o catalogo.
+    //
+    // Recheio de salgado NAO pula com `jaPerguntou`. Forminha do docinho tambem
+    // nao: trava com a pergunta, nunca em silencio. Quem ignorou uma vez
+    // continua ouvindo, ate escolher.
     cumprida: (p) =>
-      temCategoria(p, "salgado") && !faltaSabor(p, "salgado") && !temGenerico(p, "salgado"),
+      temSalgado(p) && !faltaSaborDoSalgado(p) && !temGenerico(p, "salgado"),
     // Fora da festa ninguem oferece salgado a quem pediu uma torta.
     // Na festa ela pergunta por iniciativa propria (a proposta ja combinou o
     // total). No pedido comum ela so entra se o cliente TIVER pedido salgado:
@@ -474,8 +491,12 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     //
     // Agora a padaria so puxa uma familia sozinha quando o cliente ACEITOU uma
     // base que a inclui. Fora disso, ela fala do que ele falou.
-    pulavel: (p) =>
-      recusou(p, "salgado") || (!temCategoria(p, "salgado") && !(p.ehFesta && p.baseAceita)),
+    pulavel: (p) => {
+      // Com recheio em aberto a etapa nao sai da mesa, nem se a categoria da
+      // linha estiver errada, nem se ele ja tiver sido perguntado uma vez.
+      if (faltaSaborDoSalgado(p)) return false;
+      return recusou(p, "salgado") || (!temSalgado(p) && !(p.ehFesta && p.baseAceita));
+    },
   },
   {
     id: "docinho",
