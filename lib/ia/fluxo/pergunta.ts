@@ -512,7 +512,11 @@ function falaDoDocinho(p: PedidoEmMontagem, aviso: string): Fala {
   const semSabor = perguntaDoSabor(p, "docinho");
   if (semSabor) return semSabor;
 
-  const temDocinho = p.itens.some((i) => String(i.categoria || "").startsWith("docinho"));
+  const temDocinho = p.itens.some((i) => {
+    if (String(i.categoria || "").startsWith("docinho")) return true;
+    const pCasa = produtoPorNome(i.produto) ?? produtoNoComeco(i.produto);
+    return String(pCasa?.categoria || "").startsWith("docinho");
+  });
 
   if (!temDocinho) {
     return {

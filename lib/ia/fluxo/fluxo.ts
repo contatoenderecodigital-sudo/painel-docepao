@@ -36,13 +36,13 @@ import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida } from "../texto";
 import { identificarProduto } from "./produto";
 import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, nomeDaFamilia, opcoesDaFamilia } from "./generico";
 import { APELIDOS } from "../dados/apelidos";
-import { produtoNoComeco, produtoPorNome, produtosDaCasa } from "../dados/produtos";
+import { produtoNoComeco, produtoPorNome, produtosDaCasa, coresDoCardapio } from "../dados/produtos";
 import { semAcento as semAc } from "../texto";
 import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
-import { coresDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista } from "./sabor";
+import { coresDaForminha, faltaCorDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista } from "./sabor";
 import { restricoesQueACasaNaoFaz, obsSemRestricao, obsPraComanda, avisoDaRestricao } from "./restricao";
 import { paraOMotor } from "./cotar";
 import { respostaDeInformacao } from "./informacao";
@@ -230,52 +230,17 @@ const DO_BOTAO: Record<string, (e: Estado) => Estado> = {
 // da sonda, e por isso ficou verde com o conserto desfeito: media a copia.
 export function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
   const nome = semAc(produto);
-  if (etapa === "salgado") {
-    // FRITO OU ASSADO QUEM DIZ E A LISTA UNICA, e nao uma leitura do catalogo
-    // cru feita aqui.
-    //
-    // Este trecho remontava `catalogo.salgados.assado.itens` na mao pra decidir,
-    // e o galho do BOLO, cinco linhas abaixo, ja fazia do jeito certo desde que
-    // aquele defeito apareceu. O mesmo arquivo tinha os dois jeitos lado a lado.
-    //
-    // Nao ha divergencia hoje, mas o dia em que a dona mover um salgado de frito
-    // pra assado na tela, a comanda continuaria mandando ele pra bancada antiga:
-    // o preco vem da lista unica e a bancada viria daqui.
-    const daCasa = produtoNoComeco(nome);
-    if (daCasa?.categoria === "salgado_assado" || daCasa?.categoria === "salgado_frito") {
-      return daCasa.categoria;
-    }
-    // O cardapio nao conhece o nome: frito e o padrao da casa, e e o que a
-    // leitura anterior fazia quando nao achava na lista dos assados.
-    return "salgado_frito";
-  }
-  if (etapa === "docinho") return "docinho";
-  if (etapa === "bolo") {
-    // NA ETAPA DO BOLO NEM TODO BOLO É DE FESTA.
-    //
-    // Estava fixo em "bolo_festa", e por isso um bolo caseiro pedido na etapa
-    // do bolo saía cobrado por QUILO (o de festa é por quilo, o caseiro é por
-    // unidade) e ia pra comanda do bolo de festa, na bancada errada.
-    //
-    // O catálogo sabe qual é qual. Só quando ele não conhece o nome é que o
-    // padrão da etapa vale, e aí de festa é o palpite certo: o caseiro tem
-    // lista fechada e já teria casado.
-    const daCasa = produtoNoComeco(nome);
-    if (daCasa?.categoria === "bolo_caseiro") return "bolo_caseiro";
-    return "bolo_festa";
-  }
 
-  // FORA DAS ETAPAS DE FAMILIA, QUEM DIZ A CATEGORIA E O CATALOGO.
+  // O CATALOGO MANDA, MESMO DENTRO DA ETAPA DE OUTRA FAMILIA.
   //
-  // Teste da Kemilly, 23/08/2026: ela abriu com "quero encomendar bolo,
-  // beijinhos e cajuzinhos pra minha festa de 30 anos". Os tres foram lidos
-  // certo pela IA e entraram como "outro", porque a etapa era a abertura e eu
-  // so sabia dar categoria dentro da etapa da familia. No painel da dona
-  // apareceu "Outro / bolo / 0 quilos", e o dono viu na hora: "a IA nao pode
-  // fazer isso".
+  // Medido em 30/08/2026, conversa ao vivo: a etapa era a do salgado, o cliente
+  // pediu pizza redonda, e `categoriaDaEtapa("salgado", ...)` devolvia
+  // `salgado_frito` porque o nome nao estava na lista de frito/assado. A base
+  // da festa (200 salgadinhos) caiu em cima da pizza, em quilo. Brigadeiro na
+  // mesma etapa virou salgado_frito e entrou no mesmo rateio.
   //
-  // O nome do produto ja diz de que familia ele e, e essa informacao mora no
-  // catalogo. Nao havia motivo pra depender da etapa.
+  // Pizza nao e salgado de festa. Brigadeiro e docinho. A etapa so desempata
+  // o que o cardapio nao conhece.
   const doCatalogo = categoriaDoCatalogo(nome);
   if (doCatalogo !== "outro") return doCatalogo;
 
@@ -292,7 +257,18 @@ export function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
   //
   // So vale quando a familia aponta pra UMA categoria. "salgado" sozinho aponta
   // pra frito e assado, e escolher ali seria chutar a bancada.
-  return categoriaUnicaDaFamilia(nome) ?? doCatalogo;
+  const daFamilia = categoriaUnicaDaFamilia(nome);
+  if (daFamilia) return daFamilia;
+
+  if (etapa === "salgado") {
+    // O cardapio nao conhece o nome: frito e o padrao da casa, e e o que a
+    // leitura anterior fazia quando nao achava na lista dos assados.
+    return "salgado_frito";
+  }
+  if (etapa === "docinho") return "docinho";
+  if (etapa === "bolo") return "bolo_festa";
+
+  return doCatalogo;
 }
 
 /**
@@ -340,6 +316,52 @@ function categoriaDoCatalogo(nome: string): string {
   // O que o cardápio não conhece volta como "outro", que é honesto: melhor a
   // dona ver "outro" na tela e corrigir do que o sistema chutar família errada.
   return "outro";
+}
+
+function categoriaNoCatalogo(produto: string): string | null {
+  const p = produtoPorNome(produto) ?? produtoNoComeco(semAc(produto));
+  return p?.categoria ?? null;
+}
+
+/**
+ * A BASE DA FESTA SO CAI EM PRODUTO DAQUELA PERNA.
+ *
+ * `salgados: 200` e CONTA de salgadinho. Medido em 30/08/2026: o filtro era
+ * `categoria.startsWith("salgado")`, e a pizza tinha acabado de receber
+ * `salgado_frito` porque a etapa era a do salgado. Resultado: 200 kg de pizza
+ * redonda. Brigadeiro no mesmo saco, categoria errada, comido pelo rateio.
+ *
+ * Pizza, padaria, docinho e bolo nunca entram no balde de salgado. Sem nome no
+ * cardapio, so nome de familia de salgado (a linha generica da proposta).
+ */
+function entraNoRateioDaFamilia(
+  i: { produto: string; categoria?: string },
+  familia: string,
+): boolean {
+  const cat = categoriaNoCatalogo(i.produto);
+  if (familia === "salgado") {
+    if (cat) return cat === "salgado_frito" || cat === "salgado_assado";
+    const fam = nomeDaFamilia(i.produto);
+    return Boolean(fam && fam.startsWith("salgado"));
+  }
+  if (familia === "docinho") {
+    if (cat) return cat === "docinho";
+    return String(i.categoria || "").startsWith("docinho");
+  }
+  if (familia === "bolo") {
+    if (cat) return cat.startsWith("bolo");
+    return String(i.categoria || "").startsWith("bolo");
+  }
+  return String(i.categoria || cat || "").startsWith(familia);
+}
+
+function nomeouEsteItemNaFala(fala: string, produto: string): boolean {
+  if (oClienteNomeouEsteProduto(fala, produto)) return true;
+  const n = semAc(produto);
+  return produtosNaFrase(fala).some((p) => {
+    const a = semAc(p);
+    return a === n || n.startsWith(a + " ") || a.startsWith(n + " ");
+  });
 }
 
 /** Aplica no estado o que a IA leu. Nada entra sem passar por aqui. */
@@ -392,31 +414,37 @@ function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado 
     if (!total) continue;
     const daFamilia = itens
       .map((i, idx) => ({ i, idx }))
-      .filter(({ i }) => String(i.categoria || "").startsWith(familia));
+      .filter(({ i }) => entraNoRateioDaFamilia(i, familia));
     if (!daFamilia.length) continue;
 
-    // Sem numero na fala dele, TODAS as linhas da familia entram na divisao,
-    // mesmo as que ja tem quantidade: aquele numero nao veio dele. Com numero na
-    // fala, respeita o que ele disse e so completa quem ficou sem.
-    const semQtd = disseNumero ? daFamilia.filter(({ i }) => !(Number(i.qtd) > 0)) : daFamilia;
-    if (!semQtd.length) continue;
+    // Sem numero nesta fala, reparte o que ele ACABOU de nomear (o modelo manda
+    // 1) e o que ficou em zero. Nao volta a dividir o que ele ja tinha dito
+    // quantidade: "50 coxinha" depois de "de frango" nao vira 100. Com numero
+    // na fala, a dele manda e so completa quem ficou sem.
+    const paraRepartir = daFamilia.filter(({ i }) => {
+      const temQtd = Number(i.qtd) > 0;
+      if (disseNumero) return !temQtd;
+      if (!temQtd) return true;
+      return nomeouEsteItemNaFala(falaDoCliente, i.produto);
+    });
+    if (!paraRepartir.length) continue;
 
-    const jaEscolhido = disseNumero
-      ? daFamilia.reduce((s, { i }) => s + (Number(i.qtd) > 0 ? Number(i.qtd) : 0), 0)
-      : 0;
+    const jaEscolhido = daFamilia
+      .filter((x) => !paraRepartir.includes(x))
+      .reduce((s, { i }) => s + (Number(i.qtd) > 0 ? Number(i.qtd) : 0), 0);
     const sobra = Math.max(0, total - jaEscolhido);
     if (!sobra) continue;
 
-    const cada = Math.floor(sobra / semQtd.length);
-    const resto = sobra - cada * semQtd.length;
-    semQtd.forEach(({ idx }, ordem) => {
+    const cada = Math.floor(sobra / paraRepartir.length);
+    const resto = sobra - cada * paraRepartir.length;
+    paraRepartir.forEach(({ idx }, ordem) => {
       const novaQtd = cada + (ordem === 0 ? resto : 0);
       // So conta como mudanca se o numero for outro: repartir 100 numa linha que
       // ja tinha 100 nao mudou nada.
       if (Number(itens[idx].qtd) !== novaQtd) mudou = true;
       itens[idx] = { ...itens[idx], qtd: novaQtd };
     });
-    rastro.push("reparti " + sobra + " de " + familia + " entre " + semQtd.length + " escolha(s)");
+    rastro.push("reparti " + sobra + " de " + familia + " entre " + paraRepartir.length + " escolha(s)");
 
     // O MINIMO POR SABOR SO FAZ SENTIDO EM PECA, NUNCA EM QUILO.
     //
@@ -425,7 +453,7 @@ function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado 
     // Por isso a conta olha so salgado e docinho, que sao os dois que a dona
     // citou e os dois que se vendem por cento.
     if (familia === "salgado" || familia === "docinho") {
-      porSabor.push(...semQtd.map(({ idx }) => Number(itens[idx].qtd) || 0));
+      porSabor.push(...paraRepartir.map(({ idx }) => Number(itens[idx].qtd) || 0));
     }
   }
 
@@ -493,9 +521,13 @@ function totalDitoDaFamilia(e: Estado, chave: string): number {
 }
 
 function temProdutoDeVerdade(e: Estado, pref: string): boolean {
-  return e.itens.some(
-    (i) => String(i.categoria || "").startsWith(pref) && !ehNomeDeFamilia(i.produto),
-  );
+  return e.itens.some((i) => {
+    if (ehNomeDeFamilia(i.produto)) return false;
+    if (pref === "salgado" || pref === "docinho" || pref === "bolo") {
+      return entraNoRateioDaFamilia(i, pref);
+    }
+    return String(i.categoria || "").startsWith(pref);
+  });
 }
 
 /**
@@ -560,6 +592,24 @@ function atualizarBasePeloTotalDito(e: Estado, l: Leitura): Estado {
  * familia nao e sobrescrito: a delegacao nao apaga o que ele nomeou.
  */
 function aplicarDelegacao(e: Estado, etapa: EtapaId): Estado {
+  let itens = [...e.itens];
+  let forminha = e.forminha;
+  let mudou = false;
+
+  // "ESCOLHE VOCE A COR DA FORMINHA" NAO E ESCOLHA DE DOCINHO.
+  //
+  // Medido em 30/08/2026: brigadeiro ja estava no pedido, o cliente disse
+  // "escolhe voce a cor da forminha, confio", e a padaria perguntou "quais
+  // docinhos" de novo. A delegacao so montava SORTIDO de produto, e pulava a
+  // familia que ja tinha item. A cor sai do catalogo, primeira da lista da dona.
+  if (faltaCorDaForminha(itens, forminha)) {
+    const cores = coresDoCardapio();
+    if (cores.length && (etapa === "docinho" || itens.some((i) => String(i.categoria || "").startsWith("docinho") || categoriaNoCatalogo(i.produto) === "docinho"))) {
+      forminha = cores[0];
+      mudou = true;
+    }
+  }
+
   const chaves = new Set<string>();
   for (const i of e.itens) {
     const n = nomeDaFamilia(i.produto);
@@ -573,27 +623,25 @@ function aplicarDelegacao(e: Estado, etapa: EtapaId): Estado {
       if (e.base.boloKg > 0) chaves.add("bolo");
     }
   }
-  if (!chaves.size) return e;
-
-  let itens = [...e.itens];
-  let mudou = false;
-  for (const chave of chaves) {
-    const pref = prefixoDaFamilia(chave);
-    if (temProdutoDeVerdade({ ...e, itens }, pref)) continue;
-    const cats = categoriasDaFamilia(chave);
-    if (!cats.length) continue;
-    const total = totalDitoDaFamilia({ ...e, itens }, chave);
-    const sortido = sortidoDaCasa(cats, total);
-    if (!sortido.length) continue;
-    itens = itens.filter(
-      (i) => !(String(i.categoria || "").startsWith(pref) || prefixoDaFamilia(nomeDaFamilia(i.produto) ?? "") === pref),
-    );
-    itens.push(...sortido);
-    mudou = true;
+  if (chaves.size) {
+    for (const chave of chaves) {
+      const pref = prefixoDaFamilia(chave);
+      if (temProdutoDeVerdade({ ...e, itens }, pref)) continue;
+      const cats = categoriasDaFamilia(chave);
+      if (!cats.length) continue;
+      const total = totalDitoDaFamilia({ ...e, itens }, chave);
+      const sortido = sortidoDaCasa(cats, total);
+      if (!sortido.length) continue;
+      itens = itens.filter(
+        (i) => !(String(i.categoria || "").startsWith(pref) || prefixoDaFamilia(nomeDaFamilia(i.produto) ?? "") === pref),
+      );
+      itens.push(...sortido);
+      mudou = true;
+    }
   }
   if (!mudou) return e;
   const aceita = etapa === "base_da_festa" ? true : e.baseAceita;
-  return { ...e, itens, baseAceita: aceita };
+  return { ...e, itens, forminha, baseAceita: aceita };
 }
 
 function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Estado {
@@ -796,7 +844,13 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       //
       // A etapa entra como dica pra desempatar quem existe em dois lugares:
       // "brigadeiro" na etapa do bolo e bolo, na do docinho e docinho.
-      const dica = categoriaDaEtapa(etapa, String(i.produto));
+      //
+      // A CATEGORIA DO ITEM NAO E ESSA DICA. Medido em 30/08/2026: a dica da
+      // etapa do salgado virava categoria do item, e pizza/brigadeiro saiam
+      // como salgado_frito. A dica continua da etapa (pra desempatar o NOME).
+      // A categoria do item sai do catalogo do produto ja identificado.
+      const dica =
+        etapa === "bolo" ? "bolo_festa" : etapa === "docinho" ? "docinho" : etapa === "salgado" ? "salgado_frito" : categoriaDaEtapa(etapa, String(i.produto));
       const quem = identificarProduto(String(i.produto), dica);
       const produto = quem.produto;
       const categoria = categoriaDaEtapa(etapa, produto);
@@ -810,12 +864,27 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       const jaTemGenericoDestaFamilia =
         famDoItem === "pizza" &&
         itens.some((x) => ehNomeDeFamilia(x.produto) && nomeDaFamilia(x.produto) === "pizza");
+      const jaTemTipoDePizza =
+        famDoItem === "pizza" &&
+        itens.some((x) => opcoesDaFamilia("pizza").some((o) => semAc(o) === semAc(x.produto)));
+      const eTipoDePizza = opcoesDaFamilia("pizza").some((o) => semAc(o) === semAc(produto));
       if (
-        jaTemGenericoDestaFamilia &&
-        opcoesDaFamilia("pizza").some((o) => semAc(o) === semAc(produto)) &&
+        (jaTemGenericoDestaFamilia || jaTemTipoDePizza) &&
+        eTipoDePizza &&
         !oClienteNomeouEsteProduto(falaDoCliente, produto)
       ) {
         continue;
+      }
+      if (eTipoDePizza && oClienteNomeouEsteProduto(falaDoCliente, produto)) {
+        const soAFamilia = itens.filter(
+          (x) => ehNomeDeFamilia(x.produto) && nomeDaFamilia(x.produto) === "pizza",
+        );
+        if (soAFamilia.length) {
+          for (const g of soAFamilia) {
+            const gi = itens.indexOf(g);
+            if (gi >= 0) itens.splice(gi, 1);
+          }
+        }
       }
 
       let obsItem = i.obs ?? null;
@@ -999,7 +1068,12 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
   if (novo.forminha) {
     const marca = "forminha " + novo.forminha;
     novo.itens = novo.itens.map((i) => {
-      if (!String(i.categoria || "").startsWith("docinho")) return i;
+      if (
+        !String(i.categoria || "").startsWith("docinho") &&
+        categoriaNoCatalogo(i.produto) !== "docinho"
+      ) {
+        return i;
+      }
       const obs = String(i.obs ?? "")
         .split(" | ")
         .filter((x) => x && !/^forminha /i.test(x))
@@ -1023,7 +1097,39 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
   // E so quando o item ainda nao tem sabor: quem ja escolheu nao e
   // sobrescrito por uma palavra solta numa mensagem posterior.
   const esperando = novo.itens.filter((i) => saborQueFalta(i.produto, i.obs));
-  if (esperando.length === 1) {
+  const tSolto = semAc(String(falaDoCliente || ""));
+  const peloFixo = tSolto
+    ? novo.itens.filter((i) => {
+        const p = produtoPorNome(i.produto) ?? produtoNoComeco(i.produto);
+        if (!p?.saborFixo || !p.sabores.length) return false;
+        return p.sabores.some((s) => {
+          const alvo = semAc(s);
+          if (alvo.length <= 2 || !tSolto.includes(alvo)) return false;
+          return afirmouOuNegou(tSolto, cercaDoSabor(alvo)) !== false;
+        });
+      })
+    : [];
+  // RECHEIO DE QUEM JA TEM SABOR FIXO NAO VAI PRA QUEM ESTA ESPERANDO LISTA.
+  //
+  // Medido em 30/08/2026: "50 coxinha" e depois "de frango". A pizza redonda
+  // pedia sabor, a coxinha e de frango no catalogo, e o recheio grudou na
+  // pizza. Quem tem recheio fixo e bate com a frase recebe primeiro.
+  if (peloFixo.length === 1) {
+    const item = peloFixo[0];
+    const p = produtoPorNome(item.produto) ?? produtoNoComeco(item.produto);
+    const achado = [...(p?.sabores ?? [])]
+      .sort((a, b) => b.length - a.length)
+      .find((o) => {
+        const alvo = semAc(o);
+        if (alvo.length <= 2 || !tSolto.includes(alvo)) return false;
+        return afirmouOuNegou(tSolto, cercaDoSabor(alvo)) !== false;
+      });
+    if (achado && !semAc(String(item.obs ?? "")).includes(semAc(achado))) {
+      novo.itens = novo.itens.map((i) =>
+        i === item ? { ...i, obs: [i.obs, achado].filter(Boolean).join(" | ") } : i,
+      );
+    }
+  } else if (esperando.length === 1) {
     const item = esperando[0];
     const opcoes = saborQueFalta(item.produto, item.obs)?.opcoes ?? [];
     const t = semAc(String(falaDoCliente || ""));
