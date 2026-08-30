@@ -20,6 +20,7 @@ import { unidadeDoPedido as unidadeDoProduto, categoriaDoPedido as categoriaDoPr
 import { enviarTexto, enviarImagemPorLink, urlDoCardapio, RECADOS_CARDAPIO, baixarMidia, marcarLidaEDigitando, type CredsEnvio,
   enviarBotoes,
 } from "@/lib/whatsapp/api";
+import { statusesDoWebhook } from "@/lib/whatsapp/status";
 import { avisarDono, avisarDona } from "@/lib/alertas";
 import { transcrever } from "@/lib/whatsapp/transcrever";
 import {
@@ -42,6 +43,10 @@ import crypto from "node:crypto";
 import { RECADO_DE_FOTO } from "@/lib/ia/texto";
 
 const pausa = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function logWhatsapp(onde: string, e: unknown) {
+  console.error("[whatsapp] " + onde + ":", e);
+}
 
 // Começo do texto que a reação vira no histórico (montarEntrada monta ele).
 // Serve pra reconhecer a reação de volta na hora de decidir se o cliente
@@ -216,26 +221,29 @@ async function processar(corpo: WebhookPayload) {
       const valor = ch.value;
       // STATUS DE ENVIO: entregue, lida ou falhou. Antes isso era descartado,
       // e falha de entrega (janela de 24h fechada, numero errado) passava batido.
-      if (!valor?.messages?.length) {
-        for (const st of valor?.statuses ?? []) {
-          const id = st.id;
-          const situacao = st.status;
-          if (!id || !situacao) continue;
-          if (situacao === "failed") {
-            const erro = st.errors?.[0]?.title || st.errors?.[0]?.message || "falha no envio";
-            console.error("[whatsapp] mensagem falhou:", id, erro);
-            // Mensagem que nao chega e pior que mensagem nao enviada: a equipe
-            // segue achando que avisou o cliente.
-            avisarDono(
-              "envio-falhou",
-              "Uma mensagem nao chegou no cliente pelo WhatsApp. Motivo: " + String(erro).slice(0, 160) +
-                ". Vale conferir no painel e falar com ele por outro caminho.",
-            ).catch(() => {});
-            await marcarStatusMensagem(id, "failed", erro).catch(() => {});
-          } else if (situacao === "delivered" || situacao === "read") {
-            await marcarStatusMensagem(id, situacao).catch(() => {});
-          }
+      //
+      // O recibo vinha num webhook proprio. Quando a Meta junta status e
+      // mensagem no mesmo pacote, olhar `statuses` so se `messages` estiver
+      // vazio pulava o UPDATE. Recibo nao se inventa: so deixa de jogar fora.
+      for (const st of statusesDoWebhook(valor)) {
+        const id = st.id;
+        const situacao = st.situacao;
+        if (situacao === "failed") {
+          const erro = st.erro || "falha no envio";
+          console.error("[whatsapp] mensagem falhou:", id, erro);
+          avisarDono(
+            "envio-falhou",
+            "Uma mensagem nao chegou no cliente pelo WhatsApp. Motivo: " + String(erro).slice(0, 160) +
+              ". Vale conferir no painel e falar com ele por outro caminho.",
+          ).catch((e) => logWhatsapp("aviso de envio falhou", e));
+          await marcarStatusMensagem(id, "failed", erro).catch((e) => logWhatsapp("gravar falha de envio", e));
+        } else if (situacao === "delivered" || situacao === "read") {
+          await marcarStatusMensagem(id, situacao).catch((e) => logWhatsapp("gravar status " + situacao, e));
+        } else {
+          console.error("[whatsapp] status ignorado (nao e recibo de entrega/lida/falha):", situacao, id);
         }
+      }
+      if (!valor?.messages?.length) {
         continue;
       }
 
@@ -430,7 +438,7 @@ async function processar(corpo: WebhookPayload) {
         if (await iaPausada(negocioId, clienteId)) {
           // A equipe assumiu: a Dora nao responde, mas alguem precisa saber
           // que o cliente escreveu, senao ele fica falando sozinho.
-          await definirHandoff(negocioId, clienteId, true).catch(() => {});
+          await definirHandoff(negocioId, clienteId, true).catch((e) => logWhatsapp("handoff da equipe", e));
           continue;
         }
       } catch (e) {
@@ -552,14 +560,14 @@ async function processar(corpo: WebhookPayload) {
               qtd: Number(it.qtd) || 0,
               unidade: (it.unidade === "kg" || it.unidade === "un" ? it.unidade : doCardapio) as "kg" | "un",
               obs: it.obs ?? null,
-            }).catch(() => {});
+            }).catch((e) => logWhatsapp("devolver item pro rascunho", e));
           }
           await anotarDados(negocioId, clienteId, {
             retirada_data: emAberto.retiradaData ?? undefined,
             retirada_hora: emAberto.retiradaHora ?? undefined,
             forma_pagamento: emAberto.formaPagamento ?? undefined,
             cliente_nome: emAberto.quemRetira ?? undefined,
-          }).catch(() => {});
+          }).catch((e) => logWhatsapp("devolver dados pro rascunho", e));
         }
       } catch (e) {
         console.error("[whatsapp] falha ao devolver o pedido pro rascunho:", e);
@@ -694,17 +702,17 @@ async function processar(corpo: WebhookPayload) {
           // saiu do lugar: tem coisa que a padaria resolve numa frase e ela nao
           // resolve em dez.
           if (novo.precisaHumano) {
-            await definirHandoff(negocioId, clienteId, true).catch(() => {});
+            await definirHandoff(negocioId, clienteId, true).catch((e) => logWhatsapp("handoff humano", e));
             avisarDona(
               "cliente-esperando:" + clienteId,
               "Um cliente esta esperando falar com alguem da padaria.",
-            ).catch(() => {});
+            ).catch((e) => logWhatsapp("aviso dona humano", e));
           }
           await pausa(tempoDeDigitar(novo.texto));
           const wamid = novo.botoes.length
             ? await enviarBotoes(telefone, novo.texto, novo.botoes, creds)
             : await enviarTexto(telefone, novo.texto, creds);
-          await salvarMensagem(negocioId, clienteId, "assistant", novo.texto, { wamid: wamid ?? undefined }).catch(() => {});
+          await salvarMensagem(negocioId, clienteId, "assistant", novo.texto, { wamid: wamid ?? undefined }).catch((e) => logWhatsapp("salvar resposta", e));
           await registrarUsoIA(
             negocioId,
             process.env.OPENAI_MODEL_FLUXO || "gpt-4.1-mini",
@@ -712,7 +720,7 @@ async function processar(corpo: WebhookPayload) {
             "whatsapp-fluxo-novo",
             clienteId,
             telefone,
-          ).catch(() => {});
+          ).catch((e) => logWhatsapp("registrar uso da IA", e));
           if (novo.cardapio) {
             // A peca vai DEPOIS do texto aqui, ao contrario do fluxo antigo: no
             // novo o texto ja diz "te mandei o cardapio", entao a imagem chega
@@ -733,7 +741,7 @@ async function processar(corpo: WebhookPayload) {
               "assistant",
               "Cardápio de " + String(novo.cardapio).replace(/-/g, " "),
               { tipo: "imagem", url: urlDoCardapio(novo.cardapio as never) },
-            ).catch(() => {});
+            ).catch((e) => logWhatsapp("salvar cardapio na conversa", e));
 
             // O RECADO QUE ACOMPANHA A PECA, QUE ESTAVA MORTO.
             //
@@ -756,7 +764,7 @@ async function processar(corpo: WebhookPayload) {
               await enviarTexto(telefone, recado, creds).catch((e: unknown) =>
                 console.error("[fluxo-novo] falha ao mandar o recado do cardapio:", e),
               );
-              await salvarMensagem(negocioId, clienteId, "assistant", recado).catch(() => {});
+              await salvarMensagem(negocioId, clienteId, "assistant", recado).catch((e) => logWhatsapp("salvar recado do cardapio", e));
             }
           }
           // CONTINUE, E NAO RETURN: com o laco das mensagens, `return` sairia do
@@ -779,17 +787,17 @@ async function processar(corpo: WebhookPayload) {
             "A Dora nao conseguiu responder um cliente agora. Motivo: " +
               String((e as Error)?.message ?? e).slice(0, 160),
             creds,
-          ).catch(() => {});
-          await definirHandoff(negocioId, clienteId, true).catch(() => {});
+          ).catch((err) => logWhatsapp("aviso dono fluxo caiu", err));
+          await definirHandoff(negocioId, clienteId, true).catch((err) => logWhatsapp("handoff fluxo caiu", err));
           avisarDona(
             "cliente-esperando:" + clienteId,
             "Um cliente esta esperando falar com alguem da padaria.",
-          ).catch(() => {});
+          ).catch((err) => logWhatsapp("aviso dona fluxo caiu", err));
           const desculpa =
             "Deu um probleminha aqui do meu lado. Ja avisei a equipe da padaria, " +
             "eles te respondem por aqui daqui a pouco.";
-          await enviarTexto(telefone, desculpa, creds).catch(() => {});
-          await salvarMensagem(negocioId, clienteId, "assistant", desculpa).catch(() => {});
+          await enviarTexto(telefone, desculpa, creds).catch((err) => logWhatsapp("desculpa ao cliente", err));
+          await salvarMensagem(negocioId, clienteId, "assistant", desculpa).catch((err) => logWhatsapp("salvar desculpa", err));
           continue;
         }
       } // fim do laco das mensagens deste pacote

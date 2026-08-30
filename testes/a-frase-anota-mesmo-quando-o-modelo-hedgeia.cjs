@@ -37,6 +37,7 @@ fs.writeFileSync(
     "",
     "const a = await responder({ ...VAZIO }, { texto: 'quero 50 coxinha' }, vazio);",
     "const b = await responder({ ...VAZIO }, { texto: 'quero 50 coxinha' }, confirmou);",
+    "const dois = await responder({ ...VAZIO }, { texto: 'quero 50 coxinha e 30 beijinho' }, confirmou);",
     "const c = await responder({ ...VAZIO }, { texto: 'quero 50 coxinha' }, perguntouPreco);",
     "const d = await responder({ ...VAZIO }, { texto: 'quanto e a coxinha?' }, vazio);",
     "const e = await responder({ ...VAZIO }, { texto: 'quanto e a coxinha?' }, perguntouPreco);",
@@ -46,6 +47,9 @@ fs.writeFileSync(
     "console.log(JSON.stringify({",
     "  vazio: linha(a),",
     "  confirmou: linha(b),",
+    "  confirmouFechou: b.confirmouEscrevendo === true,",
+    "  dois: linha(dois),",
+    "  doisFechou: dois.confirmouEscrevendo === true,",
     "  perguntou: linha(c),",
     "  perguntaVazio: linha(d),",
     "  perguntaModelo: linha(e),",
@@ -78,6 +82,9 @@ const temCoxinha50 = (linhas) => (linhas || []).some((x) => /^coxinha:50$/i.test
 
 cobra("modelo vazio anota 50 coxinha", temCoxinha50(r.vazio), JSON.stringify(r.vazio));
 cobra("modelo so confirmou e mesmo assim anota 50 coxinha", temCoxinha50(r.confirmou), JSON.stringify(r.confirmou));
+cobra("confirmou no pedido novo NAO fecha sozinho", r.confirmouFechou === false, String(r.confirmouFechou));
+cobra("modelo so confirmou e anota coxinha e beijinho", temCoxinha50(r.dois) && (r.dois || []).some((x) => /^beijinho:30$/i.test(x)), JSON.stringify(r.dois));
+cobra("dois itens com confirmou tambem NAO fecha sozinho", r.doisFechou === false, String(r.doisFechou));
 cobra("modelo perguntou preco e mesmo assim anota 50 coxinha", temCoxinha50(r.perguntou), JSON.stringify(r.perguntou));
 cobra("quanto e a coxinha, modelo vazio, NAO inventa linha", (r.perguntaVazio || []).length === 0, JSON.stringify(r.perguntaVazio));
 cobra("quanto e a coxinha, modelo perguntou, NAO inventa linha", (r.perguntaModelo || []).length === 0, JSON.stringify(r.perguntaModelo));

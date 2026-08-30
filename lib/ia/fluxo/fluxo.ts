@@ -1287,6 +1287,11 @@ export async function responder(
     if (limpa.confirmou && etapaAgora.id === "confirmacao") {
       confirmouEscrevendo = true;
       rastro.push("confirmou escrevendo, sem tocar no botao");
+    } else if (limpa.confirmou) {
+      // HEDGE: o modelo marca confirmou em vez de anotar. Fechar e so na
+      // etapa da confirmacao (e o atalho da oferta, mais abaixo). Aqui a
+      // frase ainda aplica os itens; "certo?" nao apaga o pedido.
+      rastro.push("modelo marcou confirmou fora da confirmacao; nao fecho, anoto o que a frase trouxe");
     }
 
     // O CODIGO LE A FRASE, NAO SO O MODELO.

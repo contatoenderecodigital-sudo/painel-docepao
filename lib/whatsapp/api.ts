@@ -78,7 +78,26 @@ export async function marcarLidaEDigitando(
     }),
   });
   if (!r.ok) {
-    console.error("[whatsapp] falha ao marcar lida/digitando:", r.status, await r.text());
+    const corpo = await r.text();
+    let codigo = "";
+    try {
+      codigo = String((JSON.parse(corpo) as { error?: { code?: number } })?.error?.code ?? "");
+    } catch {
+      codigo = "";
+    }
+    // 131009 e a Meta recusando ESTE message_id: id de teste, mensagem ja
+    // marcada, ou o recurso de digitando nao liberado na conta. Nao invento
+    // recibo e nao mudo o turno. Renovar o digitando no mesmo id costuma
+    // cair aqui porque a primeira chamada ja marcou lida.
+    if (codigo === "131009") {
+      console.error(
+        "[whatsapp] Meta recusou marcar lida/digitando (#131009) neste message_id. " +
+          "Nao invento recibo. Corpo:",
+        corpo.slice(0, 300),
+      );
+      return;
+    }
+    console.error("[whatsapp] falha ao marcar lida/digitando:", r.status, corpo);
   }
 }
 

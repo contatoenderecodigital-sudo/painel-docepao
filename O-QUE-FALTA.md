@@ -1,9 +1,44 @@
 # O que falta fazer
 
-Arquivo vivo do painel da Doce Pão. Atualizado em 26/08/2026.
+Arquivo vivo do painel da Doce Pão. Atualizado em 30/08/2026.
 
 Regra dele: **não dizer "falta pouco".** Dizer o que está feito e o que está
 aberto, com nome, e com a prova ao lado quando houver.
+
+---
+
+## O QUE E SO DELE AGORA (codigo nao fecha)
+
+- **impressora fisica**: a ponte e o papel da cozinha. Conferir na padaria.
+- **perguntas da dona**: `PERGUNTAR-PRA-DONA.md`. Sem as respostas, sabor
+  aberto continua no recado + equipe na insistencia, sem inventar produto.
+- **medir conversa ao vivo**: `uma-conversa-contra-o-banco.cjs` e o medidor de
+  25 minutos. Recibo de entrega no banco so se prova numa conversa real.
+- **JPG das pecas do cardapio**: o HTML sai de `scripts/gerar-cardapio.mjs`.
+  PNG/JPG pede Chrome da casa, captura full size.
+
+---
+
+## FECHADO NO CODIGO ATE 30/08/2026 (nao refazer)
+
+- lista unica: so `lib/ia/dados/produtos.ts` le o `catalogo.json`
+- categoria uma lingua so: motor e pedido falam `salgado_frito` / `docinho` /
+  `bolo_festa`. Papel da cozinha continua `== SALGADOS ==` pra frito e assado
+- `nomeNoTicket`, forminha do catalogo, tipo da pizza (forma/redonda/meia)
+- hedge: a frase anota mesmo quando o modelo so manda `confirmou` ou `certo?`
+- sabor fora da lista: item fica, recado na obs, equipe so na insistencia
+- regras 25 a 27 da demolicao: `delegaEscolha` monta o sortido; mudar o total
+  da festa atualiza a base sem recalcular pelas pessoas
+- `FLUXO_NOVO_PARA=off` cala a IA; a IA nunca confirma pedido sozinha
+
+### O portao
+
+```
+node testes/todos.cjs
+```
+
+Testes locais, nenhum fala com a rede. Os que falam com o VPS saem para
+instrumento.
 
 ---
 
@@ -149,37 +184,20 @@ divergentes; elas divergem depois, caladas, e o defeito aparece meses adiante.
 
 A ordem abaixo é por raiz, e não por sintoma.
 
-### 1. Sete arquivos ainda remontam o catálogo cru  ⟵ A RAIZ
+### 1. Sete arquivos ainda remontam o catalogo cru — FEITO
 
-```
-app/api/cardapio/opcoes/route.ts    salgados, doces, bolos, pizza
-lib/ia/orcamento.ts                 salgados, bolos_recheados, pizza
-lib/ia/fluxo/leitura.ts             salgados, doces, bolos_recheados
-lib/ia/fluxo/informacao.ts          salgados, doces, bolos_recheados
-lib/ia/fluxo/fluxo.ts               salgados, bolos_recheados
-lib/ia/fatos.ts                     pizza, outros_produtos
-lib/banco/montagem.ts               pizza
-```
+So `lib/ia/dados/produtos.ts` le o JSON. O gerador de pecas tambem le, de
+proposito, pra imprimir o cardapio.
 
-É a doença que fez o bolo de café custar R$ 1,25 e o churros R$ 34,90. **Cada
-migração feita até aqui achou defeito que ninguém sabia que existia**, então a
-migração não é arrumação: é o método que acha os defeitos.
+### 2. Dois vocabularos de categoria — FEITO
 
-**Medir a divergência ANTES de trocar**, sempre: o que o arquivo decide hoje
-contra o que a lista única diz. O que divergir é defeito vivo.
+Uma lingua do motor ate a comanda. Papel `SALGADOS` unico.
 
-### 2. Dois vocabulários de categoria
+### 3. O sabor que ela não achou some — FEITO no codigo
 
-A lista única diz `docinho`, o banco grava `doce`, e `departamentos.ts` mantém
-uma tabela de tradução de vinte linhas costurando os dois. Enquanto existirem
-dois, toda regra nova precisa saber os dois.
-
-### 3. O sabor que ela não achou some
-
-A frase já foi consertada ("não achei chocolate no cardápio" em vez de "a gente
-não faz"), mas o sabor pedido não fica registrado em lugar nenhum. A dona disse
-*"se o cliente pedir outro sabor, a gente vai colocando"*, e pra ir colocando
-ela precisa VER o que pediram.
+A frase guarda o sabor no recado do item. Na primeira vez a padaria mostra o
+cardapio. Se ele insiste, anota "sabor a confirmar" e chama a equipe. Nao vira
+produto com preco. Completar a lista aberta e pergunta pra dona.
 
 ### 4. O leitor da frase lê quantidade depois do nome
 
@@ -232,14 +250,16 @@ resultado sai misturado.
 O achado que define o trabalho: eram **dezessete** arquivos importando
 `catalogo.json` direto, cada um remontando a estrutura do seu jeito.
 
-**Já ligados na lista única** (`lib/ia/dados/produtos.ts`):
+**Ja ligados na lista unica** (`lib/ia/dados/produtos.ts`): o motor, o fluxo,
+fatos, rotas de cardapio, montagem, sabor, forminha. O JSON cru so e lido em
+`produtos.ts` (e no gerador de pecas).
 
-- o motor de preço (`lib/ia/orcamento.ts`)
-- a categoria do produto no fluxo (`lib/ia/fluxo/fluxo.ts`)
-- `categoriaDoPedido` e `unidadeDoPedido`, que vieram do cérebro apagado
+Os dois vocabularos de categoria **sairam**: o motor grava o nome do catalogo.
+O papel `== SALGADOS ==` nao foi fatiado. Foto de preco trava regressao:
 
-**Faltam os leitores que ainda remontam o JSON** (orcamento monta o motor,
-fatos.ts, rotas de cardapio). Um por vez, com a foto de preco no meio.
+```
+node testes/o-catalogo-nao-mudou-preco.cjs
+```
 
 Já comparei os dois, em 26/08/2026, antes de migrar: **82 dos 86 produtos
 concordam.** As quatro divergências são todas na mesma direção (a lista única
@@ -272,12 +292,9 @@ node testes/o-catalogo-nao-mudou-preco.cjs
 Ela fotografa preço, unidade, categoria e casamento de nome dos 83 produtos.
 Refazer a foto só com `--tirar-foto`, e só depois de olhar o que mudou.
 
-**E os dois vocabulários de categoria continuam de pé.** O orçamento diz
-`salgado`, `doce`, `bolo_recheado`; o pedido e a comanda dizem `salgado_frito`,
-`docinho`, `bolo_festa`. Hoje a tradução é uma tabela visível de quatro linhas
-em `lib/ia/orcamento.ts` (`CATEGORIA_NO_ORCAMENTO`), em vez de estar espalhada.
-Unificar de vez **muda a comanda de cozinha**, então precisa da foto verde antes
-e depois.
+**E os dois vocabulários de categoria unificaram.** O orçamento fala a lingua
+do pedido. Unificar o titulo do papel da cozinha **nao**: frito e assado
+continuam no mesmo `== SALGADOS ==`.
 
 ### 3. As regras que a dona falou e a IA não sabe
 
@@ -314,43 +331,15 @@ Citação de origem em `O-QUE-A-DONA-FALOU.md`. Decisões do dono em 26/08:
   faixa de preço que ela usa pra conferir com o caixa também está lá:
   `94 un x R$ 1,25 = R$ 117,50`.
 
-**Falta:**
+**Falta (nao e codigo desta rodada):**
 
-- **Lista de sabor é ABERTA**: hoje o sistema recusa o que não está no catálogo,
-  e a resposta da casa é *"se o cliente pedir outro sabor, a gente vai
-  colocando"*. É venda perdida por regra nossa.
-- **Pizza: perguntar de forma ou redonda** quando ele não disser. São produtos
-  bem diferentes: de forma 60x40 cm, R$ 120 inteira e R$ 60 meia, até 4 sabores;
-  redonda 30 cm, R$ 41,90 o quilo, até 2 sabores, sai entre R$ 35 e R$ 45.
-
-  **Medido em 26/08/2026, e é caro:**
-
-  | o cliente escreve | o sistema cota |
-  | --- | --- |
-  | `pizza` | R$ 120,00 (a de forma) |
-  | `uma pizza` | R$ 120,00 |
-  | `pizza de calabresa` | R$ 120,00 |
-
-  Quem quer a redonda de R$ 40 recebe uma conta de R$ 120 sem nunca ter
-  escolhido, e a diferença aparece só na hora de pagar. É o mesmo defeito da
-  cuca virando cuca recheada, que custava R$ 4, multiplicado por vinte.
-
-  A causa imediata é `"uma pizza"` na lista de apelidos apontando para
-  `pizza inteira`, e o próprio cabeçalho do arquivo diz que ali só entra "mesmo
-  produto, mesmo preço, só escrito de outro jeito".
-
-  **Tentei tirar o apelido e ficou PIOR:** sem ele, `uma pizza` cai no casamento
-  por aproximação e cota **R$ 1,25**. Desfiz. R$ 120 errado é menos ruim que
-  R$ 1,25, e o conserto não é no apelido.
-
-  **O conserto certo é uma pergunta no fluxo**, do mesmo jeito que o genérico
-  (`salgado`, `docinho`, `bolo`) hoje segura a etapa até o cliente escolher. A
-  diferença é que pizza **não tem etapa própria**, então não existe hoje um
-  lugar que pergunte. É isso que precisa ser construído.
-
-  Áudio da dona, 19/08/2026: *"se a pessoa não falar em pizza de forma, tipo, eu
-  quero encomendar duas pizzas, ah, então seriam as de forma ou seriam as
-  redondas? Também tem isso que ela vai ter que questionar."*
+- **Lista de sabor e ABERTA, e a dona confirma o que entra no cardapio.** No
+  codigo o item nao some: o sabor pedido vai no recado, a padaria mostra o
+  cardapio, e na insistencia anota "sabor a confirmar" e chama a equipe. Nao
+  vira produto com preco. Completar a lista e resposta dela em
+  `PERGUNTAR-PRA-DONA.md`.
+- **Pizza forma ou redonda:** a pergunta de tipo ja existe no fluxo. Medir
+  uma conversa real ainda e dele.
 
 ### 4. Restrição que a casa não faz — FEITO em 26/08
 
@@ -390,16 +379,20 @@ bolha têm sabores exclusivos entre a versão simples e a mais cara.
 **Precisa perguntar qual dos dois:** cupcake pequeno / recheado, cupcake grande /
 recheado, cachorro-quente / mini. E o produto citado **sem sabor nenhum**.
 
-### 6. A IA confirma em vez de anotar
+### 6. A IA confirma em vez de anotar — FEITO no codigo
 
-Quando o cliente diz tudo numa mensagem, às vezes ela responde "você quer X,
-certo?" e **não anota nada**. Se a conversa cair ali, não sobra registro.
+A frase aplica os itens mesmo quando o modelo devolve `{}`, `confirmou` ou
+`perguntou`. `confirmou` so fecha na etapa da confirmacao (ou no atalho da
+oferta ja recusada). "quanto e a coxinha?" nao inventa linha.
 
-### 7. Regerar as oito peças de cardápio
+Prova: `testes/a-frase-anota-mesmo-quando-o-modelo-hedgeia.cjs`.
 
-Nascem do catálogo por `scripts/gerar-cardapio.mjs` (HTML em `.cardapios/`,
-imagem em `public/cardapios/*.jpg`). Arrumar o catálogo e regerar conserta as
-duas pontas de uma vez.
+### 7. Regerar as oito pecas de cardapio
+
+O HTML nasce de `scripts/gerar-cardapio.mjs` em `.cardapios/` (gitignored).
+Rodar o script de novo quando o catalogo mudar. Virar JPG e com Chrome da
+casa: captura full size em `public/cardapios/<nome>.jpg`. Sem Chrome neste
+ambiente, as imagens publicadas ficam com a versao que ja estava no repo.
 
 Dois agrupamentos que o dono mandou separar:
 
@@ -410,27 +403,30 @@ Dois agrupamentos que o dono mandou separar:
 
 ## DEPOIS — o atendimento no painel ("WhatsApp 2")
 
-### 8. Recibo de entrega e leitura nunca gravou
+### 8. Recibo de entrega e leitura
 
-Está codado e nunca registrou nada. O `wamid` volta do envio, mas o status de
-entregue e visualizado não chega ao banco.
+O evento de status agora e lido mesmo quando vem no mesmo pacote da mensagem.
+O UPDATE loga quando o `wamid` nao casa. Recibo **nao se inventa**. Se ainda
+nao gravar numa conversa real, o log diz se o evento chegou e o id nao bateu.
 
-### 9. Marcar lida e "digitando" dá 400
+### 9. Marcar lida e "digitando" da 400 (#131009)
 
-Erro `#131009` da Meta.
+E recusa da Meta neste `message_id` (id de teste, mensagem ja marcada, ou
+recurso nao liberado na conta). O log nomeia o 131009. Nao invento tique azul.
 
 ### 10. Nenhuma tela mostra recibo
 
-Mesmo quando gravar, não há onde ver.
+Mesmo quando gravar, nao ha onde ver. Tela e trabalho de UI, nao desta rodada.
 
-### 11. Erro engolido em silêncio
+### 11. Erro engolido em silencio — FEITO no caminho do WhatsApp
 
-Vários `.catch(() => {})` no caminho do WhatsApp. Falha que ninguém vê é falha
-que ninguém conserta.
+`.catch(() => {})` saiu de `app/api/whatsapp/route.ts`, `lib/whatsapp/api.ts`,
+`lib/whatsapp/transcrever.ts` e `lib/banco/conversas.ts`. Falha vai pro log.
 
-### 12. O que a Meta dá e não usamos
+### 12. O que a Meta da e nao usamos
 
-Levantamento em `WHATSAPP-O-QUE-A-META-DA.md`.
+Levantamento em `WHATSAPP-O-QUE-A-META-DA.md`. Decisao dele, nao pendencia
+de codigo.
 
 ---
 

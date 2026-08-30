@@ -77,7 +77,7 @@ const FORMATO = `Responda SÓ com um JSON, sem texto em volta, neste formato:
 
 Mande SÓ os campos que a mensagem mudou. Campo que não mudou, não mande.
 Se a mensagem não mudou nada no pedido, mande {}.
-Pedido novo vai em itens, nunca só em confirmou. Delegou a escolha? delegaEscolha true, sem itens.`;
+Pedido novo vai em itens, nunca só em confirmou. confirmou só fecha o pedido já mostrado. Se a frase tem produto e quantidade, itens obrigatório, mesmo que você queira perguntar "certo?". Delegou a escolha? delegaEscolha true, sem itens.`;
 
 /**
  * Monta a funcao que o fluxo chama pra pensar.

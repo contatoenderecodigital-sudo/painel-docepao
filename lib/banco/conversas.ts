@@ -136,18 +136,33 @@ export async function marcarStatusMensagem(
   status: "delivered" | "read" | "failed",
   erro?: string | null,
 ): Promise<void> {
+  let linhas: { id: string }[] = [];
   if (status === "delivered") {
-    await query("update mensagens set entregue_em = coalesce(entregue_em, now()) where wamid = $1", [wamid]);
-    return;
-  }
-  if (status === "read") {
-    await query(
-      "update mensagens set lida_em = coalesce(lida_em, now()), entregue_em = coalesce(entregue_em, now()) where wamid = $1",
+    linhas = await query<{ id: string }>(
+      "update mensagens set entregue_em = coalesce(entregue_em, now()) where wamid = $1 returning id",
       [wamid],
     );
-    return;
+  } else if (status === "read") {
+    linhas = await query<{ id: string }>(
+      "update mensagens set lida_em = coalesce(lida_em, now()), entregue_em = coalesce(entregue_em, now()) where wamid = $1 returning id",
+      [wamid],
+    );
+  } else {
+    linhas = await query<{ id: string }>(
+      "update mensagens set falha = $2 where wamid = $1 returning id",
+      [wamid, erro ?? "falha no envio"],
+    );
   }
-  await query("update mensagens set falha = $2 where wamid = $1", [wamid, erro ?? "falha no envio"]);
+  // Sem match o recibo NAO se inventa: o evento chegou e o id nao e o que
+  // gravamos no envio. Logar e o que deixa o proximo conserto deixar de ser chute.
+  if (!linhas.length) {
+    console.error(
+      "[whatsapp] status",
+      status,
+      "chegou e nenhuma mensagem casou com o wamid. Nao invento recibo. wamid:",
+      String(wamid).slice(0, 80),
+    );
+  }
 }
 
 // De qual anuncio o cliente veio. So grava na primeira vez: a Meta manda o

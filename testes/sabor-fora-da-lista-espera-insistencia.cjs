@@ -45,6 +45,7 @@ fs.writeFileSync(
     "const comCarne = await responder({ ...VAZIO }, { texto: '50 esfirra de carne' }, pensarCarne);",
     "",
     "const soFrase = await responder({ ...VAZIO }, { texto: '50 esfirra de pistache' }, async () => ({}));",
+    "const soModelo = await responder({ ...VAZIO }, { texto: '50 esfirra' }, pensarPistache);",
     "",
     "console.log(JSON.stringify({",
     "  perguntouNoComeco: Boolean(saborQueFalta('esfirra', obs1)),",
@@ -62,6 +63,8 @@ fs.writeFileSync(
     "  carneObs: (comCarne.estado.itens[0] && comCarne.estado.itens[0].obs) || '',",
     "  fraseObs: (soFrase.estado.itens[0] && soFrase.estado.itens[0].obs) || '',",
     "  fraseItem: soFrase.estado.itens.length,",
+    "  modeloObs: (soModelo.estado.itens[0] && soModelo.estado.itens[0].obs) || '',",
+    "  modeloItem: soModelo.estado.itens.length,",
     "}));",
   ].join("\n"),
   "utf8",
@@ -100,6 +103,8 @@ cobra("sabor do cardapio nao vira chamado", r.carneMarca === false && r.carneEqu
 cobra("sabor do cardapio fica como sabor, nao some", /carne/i.test(String(r.carneObs || "")), String(r.carneObs));
 cobra("frase sozinha (modelo vazio) guarda o pistache no recado", /pistache/i.test(String(r.fraseObs || "")), String(r.fraseObs));
 cobra("frase sozinha nao some o item", r.fraseItem === 1);
+cobra("modelo so no campo sabor (frase sem de) guarda o pistache", /pistache/i.test(String(r.modeloObs || "")), String(r.modeloObs));
+cobra("modelo so no campo sabor nao some o item", r.modeloItem === 1);
 
 console.log("");
 if (falhas.length) {

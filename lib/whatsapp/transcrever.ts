@@ -61,7 +61,7 @@ export async function transcrever(
       "transcricao",
       medir.clienteId ?? null,
       medir.contato ?? null,
-    ).catch(() => {});
+    ).catch((e) => console.error("[whatsapp] falha ao registrar o custo da transcricao:", e));
     void custoCent;
   }
   return text.trim();
