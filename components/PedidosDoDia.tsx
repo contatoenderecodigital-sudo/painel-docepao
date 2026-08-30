@@ -23,6 +23,7 @@ import { NumberTicker } from "@/components/ui/number-ticker";
 import { DeptIcone } from "@/components/DeptIcone";
 import AjudaInfo from "@/components/AjudaInfo";
 import PedidoDetalhe from "@/components/PedidoDetalhe";
+import { dataNaPadaria } from "@/lib/fuso-padaria";
 import { Image as ImageIcon, Printer, Check, Eye } from "lucide-react";
 
 const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -34,14 +35,8 @@ function iso(d: Date) {
 // "Hoje" é o hoje DA PADARIA, não o do servidor. Este componente renderiza
 // primeiro no servidor, que roda em UTC: das 21h em diante ele abria a tela já
 // no dia seguinte e a cozinha via a produção de amanhã achando que era de hoje.
-const ISO_PADARIA = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/Sao_Paulo",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
 function hojeNaPadaria() {
-  return ISO_PADARIA.format(new Date());
+  return dataNaPadaria(new Date());
 }
 function addDias(base: string, n: number) {
   const [a, m, d] = base.split("-").map(Number);
