@@ -293,6 +293,26 @@ function dicaDaEtapa(etapa: EtapaId, e: PedidoEmMontagem, produto: string, fala:
 }
 
 /**
+ * A DICA QUE O NOME USA PRA DESEMPATAR, QUE NAO E A CATEGORIA DO ITEM.
+ *
+ * Sai da etapa e do que ele escreveu. A etapa do salgado nao vira
+ * `salgado_frito` aqui: isso carimbava pizza e docinho como frito. A do bolo
+ * olha a frase (caseiro, festa, kg) e a base da festa (bolo em quilo).
+ */
+function dicaDaEtapa(etapa: EtapaId, e: PedidoEmMontagem, produto: string, fala: string): string {
+  if (etapa === "docinho") return "docinho";
+  if (etapa === "salgado") return "salgado";
+  if (etapa === "bolo") {
+    const t = semAc(produto + " " + fala);
+    if (/\bcaseiros?\b/.test(t)) return "bolo_caseiro";
+    if (/\bfestas?\b/.test(t) || /\bkg\b/.test(t) || /\bquilos?\b/.test(t)) return "bolo_festa";
+    if (e.ehFesta && e.base && Number(e.base.boloKg) > 0) return "bolo_festa";
+    return "bolo";
+  }
+  return "";
+}
+
+/**
  * DE QUE FAMILIA E ESTE PRODUTO, SEGUNDO O CARDAPIO.
  *
  * Casa pelo comeco do nome, sem acento: "esfirra de carne" e uma esfirra. O que
@@ -864,13 +884,12 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
       // comparacao falhava, o item entrava duas vezes e o cupom saiu com
       // "misto: bolo 4 leites e 4 leites". Medido na bateria dos cinco jeitos.
       //
-      // A etapa entra como dica pra desempatar quem existe em dois lugares:
-      // "brigadeiro" na etapa do bolo e bolo, na do docinho e docinho.
-      //
+      // A etapa entra como dica pra desempatar quem existe em dois lugares.
       // A CATEGORIA DO ITEM NAO E ESSA DICA. Medido em 30/08/2026: a dica da
       // etapa do salgado virava categoria do item, e pizza/brigadeiro saiam
-      // como salgado_frito. A dica continua da etapa (pra desempatar o NOME).
-      // A categoria do item sai do catalogo do produto ja identificado.
+      // como salgado_frito. A dica continua da etapa (e do que ele escreveu),
+      // pra desempatar o NOME. A categoria do item sai do catalogo do produto
+      // ja identificado.
       const dica = dicaDaEtapa(etapa, e, String(i.produto), falaDoCliente);
       const quem = identificarProduto(String(i.produto), dica, falaDoCliente);
       const produto = quem.produto;
@@ -1130,6 +1149,23 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
         });
       })
     : [];
+  // A PALAVRA QUE E OUTRO ITEM DO PEDIDO NAO E SABOR.
+  //
+  // Festa misturada: pizza redonda esperando sabor, cliente disse "e
+  // brigadeiro". Brigadeiro e docinho E sabor doce de pizza. Grudar na pizza
+  // fazia "calabresa" depois nao colar, e o pedido misturado perdia o recheio.
+  const palavraEOutroItem = (palavra: string, item: (typeof novo.itens)[number]) => {
+    const a = semAc(palavra);
+    if (!a) return false;
+    return novo.itens.some((i) => {
+      if (i === item) return false;
+      const n = semAc(i.produto);
+      if (n === a || n.endsWith(" " + a)) return true;
+      const casa = produtoPorNome(i.produto) ?? produtoNoComeco(i.produto);
+      return Boolean(casa && (semAc(casa.nome) === a || semAc(casa.nomeCurto) === a));
+    });
+  };
+
   // RECHEIO DE QUEM JA TEM SABOR FIXO NAO VAI PRA QUEM ESTA ESPERANDO LISTA.
   //
   // Medido em 30/08/2026: "50 coxinha" e depois "de frango". A pizza redonda
@@ -1176,9 +1212,11 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
         return afirmouOuNegou(t, cercaDoSabor(alvo)) !== false;
       });
     if (achado) {
-      novo.itens = novo.itens.map((i) =>
-        i === item ? { ...i, obs: [i.obs, achado].filter(Boolean).join(" | ") } : i,
-      );
+      if (!palavraEOutroItem(achado, item)) {
+        novo.itens = novo.itens.map((i) =>
+          i === item ? { ...i, obs: [i.obs, achado].filter(Boolean).join(" | ") } : i,
+        );
+      }
     } else if (/\?/.test(String(falaDoCliente || "")) === false) {
       // ELE INSISTIU NUM SABOR QUE A LISTA NAO TEM.
       //

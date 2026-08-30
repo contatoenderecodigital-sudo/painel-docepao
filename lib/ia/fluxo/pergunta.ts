@@ -25,6 +25,7 @@ import {
   coresDoCardapio,
   faltaCorDaForminha,
   proximoSaborQueFalta,
+  ehSalgadoDoCardapio,
 } from "./sabor";
 import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia, nomeDaFamilia, familiaDoNome } from "./generico";
 import { paraOMotor } from "./cotar";
