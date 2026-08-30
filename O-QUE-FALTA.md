@@ -794,7 +794,7 @@ cereja e cafe.
 
 ---
 
-## DEFEITO ABERTO: o sabor de um item gruda no outro da MESMA frase
+## O sabor de um item grudava no outro da MESMA frase — FECHADO EM 30/08/2026
 
 **Medido em 30/08/2026**, aparecendo enquanto eu media outra coisa:
 
@@ -821,10 +821,25 @@ Dano: a cozinha monta uma redonda de calabresa que o cliente nao pediu, e ele le
 certo. Nao muda preco (a redonda e por quilo), entao nao e defeito de dinheiro
 direto, mas e produto errado saindo do forno.
 
-O conserto e no bloco do `fluxo.ts` que escolhe o item "esperando": ele precisa
-ignorar a palavra que ja foi consumida por outro item DESTA leitura, do mesmo
-jeito que a juncao de itens passou a distinguir `jaEstavam` do que foi dito
-agora.
+**Consertado, e VALE PRA LOJA INTEIRA**, que foi o pedido do dono: *"tem q usar
+nisso pra tudo ne, nao so pra pizzas, todos produtos da loja categorias etc"*.
+
+A regra e uma so: **o modelo diz a quem a palavra pertence quando devolve
+`sabor` naquele item; palavra com dono nao esta solta.** O bloco que escolhe o
+item "esperando" passou a ignora-la.
+
+Onde duas listas do catalogo se encostam, este defeito existia calado:
+`torta fria` e `empadao` dividem `frango`; `pizza inteira` e `pizza redonda`
+dividem os 31 sabores; bolo e cupcake dividem `brigadeiro`.
+
+E o que NAO mudou, porque e a razao de o bloco existir: quando o modelo nao da
+dono a ninguem, a palavra continua solta e continua grudando. E assim que
+`"de frango"` responde a pergunta da padaria, licao de 26/08 que custou seis
+voltas numa conversa so.
+
+Travado por `testes/sabor-de-um-item-nao-gruda-no-outro.cjs`, seis casos, e **o
+mais duro deles nem tem pizza**. Isca provada: tres vermelhos (os de vazamento),
+tres verdes desde antes (os que nao podiam quebrar).
 
 ---
 

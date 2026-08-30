@@ -1387,6 +1387,47 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
   // recheio de ninguem.
   if (l.delegaEscolha !== true && !l.forminha) {
   const esperando = novo.itens.filter((i) => saborQueFalta(i.produto, i.obs));
+
+  // PALAVRA QUE JA TEM DONO NESTA FRASE NAO ESTA SOLTA.
+  //
+  // Medido em 30/08/2026, e NAO e defeito de pizza:
+  //
+  //   cliente >> 2 kg de torta fria de frango e 1 kg de empadao
+  //   modelo  >> 2x torta fria [frango] ;; 1x empadao      <- leu CERTO
+  //   pedido  >> torta fria [frango] ;; empadao [FRANGO]
+  //
+  // O empadao foi pedido sem sabor. Quem carimbou foi este bloco: `frango` esta
+  // na frase, esta na lista do empadao, e o empadao estava esperando. As tres
+  // guardas passaram, e mesmo assim a resposta e errada.
+  //
+  // Falta a distincao que ja consertou a juncao de itens e a remocao: a palavra
+  // NAO estava solta, ela tinha dono na propria frase. O modelo disse a quem
+  // ela pertence quando devolveu `sabor` naquele item. Sobra de palavra de um
+  // item nao e sabor do outro.
+  //
+  // VALE PRA LOJA INTEIRA, e nao pra uma familia. Torta fria e empadao dividem
+  // `frango`; pizza inteira e redonda dividem os 31 sabores; bolo e cupcake
+  // dividem brigadeiro. Onde duas listas do catalogo se encostam, este defeito
+  // existia calado.
+  //
+  // E o que NAO muda: quando o modelo nao da dono a ninguem, a palavra continua
+  // solta e continua grudando. E assim que "de frango" responde a pergunta da
+  // padaria, que e a razao de este bloco existir.
+  const donoNaFrase = new Set(
+    (l.itens ?? []).flatMap((i) =>
+      semAc(String(i.sabor ?? ""))
+        .split(/,|\||\se\s/)
+        .map((p) => p.trim())
+        .filter(Boolean),
+    ),
+  );
+  // Casa por pedaco que cresce, senao `frango` escaparia de `frango com
+  // catupiry` e o vizinho levaria a metade da palavra.
+  const jaTemDono = (opcao: string) => {
+    const alvo = semAc(opcao);
+    return !!alvo && [...donoNaFrase].some((d) => d === alvo || d.includes(alvo) || alvo.includes(d));
+  };
+
   const tSolto = semAc(String(falaDoCliente || ""));
   const peloFixo = tSolto
     ? novo.itens.filter((i) => {
@@ -1445,6 +1486,8 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         .find((o) => {
           const alvo = semAc(o);
           if (alvo.length <= 2 || !t.includes(alvo)) return false;
+          // O sabor que o modelo ja deu a outro item desta frase nao esta solto.
+          if (jaTemDono(o)) return false;
           return afirmouOuNegou(t, cercaDoSabor(alvo)) !== false;
         });
     };
