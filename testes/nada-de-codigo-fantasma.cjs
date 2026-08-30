@@ -160,23 +160,6 @@ const PENDENTES = [
   "dispensarOrcamento",
   "reativarOrcamento",
 
-  // lib/whatsapp/perfil.ts, os dois. Mesma familia do `dispensarOrcamento`:
-  // metade escrita de uma funcionalidade que nao tem tela.
-  //
-  // Eles leem e gravam o perfil comercial do WhatsApp (o "recado" embaixo do
-  // nome, descricao, categoria, endereco). O motivo esta escrito no cabecalho
-  // do arquivo: migrar pro Cloud API tira o aplicativo do celular, e com ele
-  // some o lugar onde a dona editava isso. O caminho oficial passa a ser o
-  // WhatsApp Manager da Meta, um painel tecnico onde ela pode quebrar coisa
-  // sem querer.
-  //
-  // Apagar joga fora trabalho certo; ligar pede uma tela. A decisao e do dono,
-  // e esta anotada no `O-QUE-FALTA.md`.
-  //
-  // ACHADOS EM 30/08/2026, quando a lista de pastas saiu daqui: eles moram em
-  // `lib/whatsapp/`, que este teste nunca varreu.
-  "lerPerfil",
-  "salvarPerfil",
 ];
 const orfaosAchados = [];
 

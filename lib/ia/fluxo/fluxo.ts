@@ -1422,6 +1422,30 @@ export async function responder(
     const crua = await pensar({ instrucao, mensagem: mensagem.texto });
     chamouIA = true;
 
+    // O QUE O MODELO DEVOLVEU, NO RASTRO.
+    //
+    // O `DIARIO-DA-IA.md` chama o rastro do instrumento mais produtivo do
+    // projeto: "em uma hora isso achou tres defeitos que os relatorios de teste
+    // nao achavam, e nos tres a IA estava fazendo certo". Aquelas linhas eram do
+    // cerebro velho, que trabalhava com ferramentas, e foram junto na demolicao
+    // de 26/08/2026. Ninguem anotou a perda, e o diario continua recomendando.
+    //
+    // Sem isto, saber o que o modelo respondeu so da pra ADIVINHAR. Em
+    // 30/08/2026 eu adivinhei duas vezes seguidas no mesmo defeito da pizza:
+    // escrevi um conserto pra uma resposta que eu supus, deployei, medi, e o
+    // banco continuou igual porque a resposta era outra.
+    //
+    // So os ITENS, e so o que decide linha (produto, quantidade, sabor): e o
+    // que basta pra ler um defeito de pedido, e nao enche o log com a conversa.
+    if (crua?.itens?.length) {
+      rastro.push(
+        "modelo leu: " +
+          crua.itens
+            .map((i) => (i.qtd ?? "?") + "x " + i.produto + (i.sabor ? " [" + i.sabor + "]" : ""))
+            .join(" ;; "),
+      );
+    }
+
     const { limpa, barrados, naoExistem, paraDepois } = leituraQueCabeNaEtapa(etapaAgora.id, crua);
     if (barrados.length) rastro.push("barrado nesta etapa: " + barrados.join(", "));
 

@@ -267,15 +267,23 @@ sem uso.
 
 | arquivo | linhas | o que e |
 | --- | --- | --- |
-| `lib/ia/fatos.ts` | 135 | resto: era a guarda contra a IA inventar politica da casa, e ficou orfa quando o cerebro velho foi apagado. Quem faz isso hoje e o `informacao.ts` |
+| ~~`lib/ia/fatos.ts`~~ | 135 | **NAO E ORFAO.** O teste `politica-nao-se-inventa.cjs` exercita ele |
 | `components/AjustarPedido.tsx` | 98 | resto: o `AguardandoConfirmacao` ja lanca o valor do topo |
-| `lib/ia/fluxo/informacoes.ts` | 279 | **construido e nunca ligado**: a tabela de todas as perguntas do atendimento, pedida pelo dono em 24/08 |
+| ~~`lib/ia/fluxo/informacoes.ts`~~ | 279 | **NAO E ORFAO, e eu quase apaguei.** O teste `nada-fica-sem-ser-perguntado.cjs` usa a tabela como GABARITO: cobra que toda informacao obrigatoria tenha quem pergunte no fluxo, que o tipo declarado bata com o tratamento, e que nenhum dos dois lados tenha coisa que o outro nao tem. E o mecanismo que impede a tabela e o fluxo de divergirem |
 | `lib/whatsapp/perfil.ts` | 137 | **construido e nunca ligado**: deixa a dona editar o perfil comercial do WhatsApp sem entrar no painel da Meta |
 
 Os dois primeiros se apagam. Os dois ultimos sao **decisao dele**: apagar joga
 trabalho fora, ligar pede uma tela.
 
-**DOIS DETECTORES MEUS ERRARAM NESTA VARREDURA, e vale saber como:**
+**TRES ERROS DO MEU DETECTOR NESTA VARREDURA, e o terceiro e o pior:**
+
+**Ele so olhava `.ts` e `.tsx`, entao TESTE NAO CONTAVA COMO USO.** Dois dos
+quatro "orfaos" tem teste que os exercita: o `informacoes.ts` e usado como
+GABARITO pelo `nada-fica-sem-ser-perguntado.cjs`, e o `fatos.ts` pelo
+`politica-nao-se-inventa.cjs`. Eu cheguei a apagar o primeiro e o portao pegou:
+dois testes vermelhos, um deles justamente o que segura o build.
+
+Arquivo com teste nao e codigo morto: e codigo cuja unica porta e a prova.
 
 O primeiro acusou **cinco rotas mortas** e tres estavam vivas: o regex para
 `[id]` estava quebrado, e `midia`, `pedido` e `pedido/foto` sao usadas pelas

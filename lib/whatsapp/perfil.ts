@@ -16,40 +16,18 @@
 // até a gente trazer o id do app pra cá.
 
 import { carregarCredsWhatsapp } from "@/lib/banco/negocios";
+// O TIPO E A LISTA DE CATEGORIAS MORAM NUM MODULO PURO.
+//
+// A tela precisa dos dois, e este arquivo fala com o BANCO: importar daqui
+// arrastava `lib/banco/negocios` e o driver `pg` inteiro pro bundle do
+// navegador, e o `next build` reprovava com module-not-found. O portao passou
+// verde: ele confere TIPO, e isto e empacotamento.
+import { CATEGORIAS, type PerfilWhatsapp } from "./perfil-campos";
+export { CATEGORIAS, type PerfilWhatsapp };
 
 const BASE = "https://graph.facebook.com/v21.0";
 
-export interface PerfilWhatsapp {
-  about: string;
-  description: string;
-  address: string;
-  email: string;
-  website: string;
-  vertical: string;
-  fotoUrl: string | null;
-}
 
-// Categorias aceitas pela Meta. A lista é fechada — mandar outra coisa dá erro.
-export const CATEGORIAS: { valor: string; rotulo: string }[] = [
-  { valor: "UNDEFINED", rotulo: "Não definida" },
-  { valor: "OTHER", rotulo: "Outro" },
-  { valor: "AUTO", rotulo: "Automotivo" },
-  { valor: "BEAUTY", rotulo: "Beleza e estética" },
-  { valor: "APPAREL", rotulo: "Roupas e acessórios" },
-  { valor: "EDU", rotulo: "Educação" },
-  { valor: "ENTERTAIN", rotulo: "Entretenimento" },
-  { valor: "EVENT_PLAN", rotulo: "Eventos" },
-  { valor: "FINANCE", rotulo: "Finanças" },
-  { valor: "GROCERY", rotulo: "Mercado e alimentos" },
-  { valor: "GOVT", rotulo: "Governo" },
-  { valor: "HOTEL", rotulo: "Hotelaria" },
-  { valor: "HEALTH", rotulo: "Saúde" },
-  { valor: "NONPROFIT", rotulo: "Sem fins lucrativos" },
-  { valor: "PROF_SERVICES", rotulo: "Serviços profissionais" },
-  { valor: "RETAIL", rotulo: "Varejo" },
-  { valor: "RESTAURANT", rotulo: "Restaurante / padaria" },
-  { valor: "TRAVEL", rotulo: "Viagens" },
-];
 
 const VAZIO: PerfilWhatsapp = {
   about: "",

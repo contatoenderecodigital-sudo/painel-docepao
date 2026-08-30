@@ -1,6 +1,7 @@
 import AvisoDoDia from "@/components/AvisoDoDia";
 import ToggleIA from "@/components/ToggleIA";
 import LogoUpload from "@/components/LogoUpload";
+import PerfilWhatsapp from "@/components/PerfilWhatsapp";
 import AjudaInfo from "@/components/AjudaInfo";
 import { lerSessao } from "@/lib/auth";
 import { bancoConfigurado } from "@/lib/banco/db";
@@ -51,6 +52,9 @@ export default async function Page() {
             querer. */}
         {sessao?.papel === "owner" && <LogoUpload inicial={logoAtual} />}
         <AvisoDoDia texto={texto} atualizadoEm={atualizadoEm} ativoHoje={ativoHoje} />
+        {/* O perfil comercial do WhatsApp. O `lib/whatsapp/perfil.ts` fazia
+            isto desde sempre e nunca tinha sido ligado: faltava a porta. */}
+        <PerfilWhatsapp />
       </div>
     </div>
   );
