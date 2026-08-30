@@ -357,11 +357,14 @@ export function respostaDeInformacao(p: Pergunta): { texto: string; precisaHuman
       };
 
     case "outro":
-      return {
-        texto:
-          "Essa eu não sei te responder de cabeça. Já vou chamar alguém da equipe pra te passar certinho.",
-        precisaHumano: true,
-      };
+      // NAO E CHAMADO PRA EQUIPE.
+      //
+      // O modelo usa "outro" quando nao classifica a pergunta, e tambem quando
+      // a frase e curta ou mistura pizza com salgado. Tratar isso como
+      // "precisa de voce" acendia o painel em toda conversa de teste, sem a
+      // padaria ter perguntado o que faltava. Devolve null: a etapa pergunta
+      // de novo, com o cardapio, que e o que uma atendente faria.
+      return null;
 
     default:
       return null;

@@ -526,13 +526,17 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "- Mudou a quantidade do que já pediu? mande o item com o total NOVO." + String.fromCharCode(10) +
     "- Hoje é " + hojeEmSaoPaulo() + ", e retirada é sempre no futuro." + String.fromCharCode(10) +
     "- Perguntou em vez de pedir? perguntou.sobre = preco (com familia), " +
-    "horario, endereco, pagamento, entrega, prazo, desconto ou outro." + String.fromCharCode(10) +
+    "horario, endereco, pagamento, entrega, prazo ou desconto. " +
+    "Não use outro: se não for pergunta, não mande perguntou." + String.fromCharCode(10) +
     // Desconto, preco beneficente e "da uma ajuda?" sao a mesma pergunta, e a
     // resposta e sempre da equipe. A IA nao pode soltar o preco por unidade que
     // a dona usa nesses casos: negociacao virando tabela custa margem.
     "- Pediu desconto, falou que e beneficente ou pediu ajuda = desconto." + String.fromCharCode(10) +
     "- Reclamou do que comprou = situacao \"reclamacao\". Quer cancelar = " +
     "\"cancelar\". Pergunta de pedido já feito = \"status\"." + String.fromCharCode(10) +
+    "- Pedido misturado (festa e pizza, pizza e salgado) continua pedido. " +
+    "Não vira situacao nem perguntou." + String.fromCharCode(10) +
+    "- Frase curta ou {} não chama a equipe. Quem não leu pergunta de novo o que falta." + String.fromCharCode(10) +
     "- Pergunta e reclamação NÃO viram item.";
 
   // NA FESTA, O NUMERO JA FOI COMBINADO.

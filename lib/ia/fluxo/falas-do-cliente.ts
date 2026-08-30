@@ -67,6 +67,35 @@ export function mandouRecomecar(fala: string): boolean {
 }
 
 /**
+ * ELE PEDIU GENTE, COM TODAS AS LETRAS.
+ *
+ * Chamar a equipe e ultimo recurso: entrega, restricao que a cozinha decide,
+ * o interruptor FLUXO_NOVO_PARA, e ESTE caso. Nao e o destino de modelo vazio,
+ * de etapa repetida, nem de "oi" no chat de teste.
+ *
+ * Nao e lista de produto: e um ato de fala, o mesmo tipo de recomecar. A
+ * regex descreve o pedido de pessoa, nao um catalogo paralelo.
+ */
+export function pediuPraFalarComGente(fala: string): boolean {
+  const t = semAcMin(fala);
+  if (!t.trim()) return false;
+  const pediu =
+    /falar com (a |o )?(dona|equipe|atendente|gente|alguem|uma pessoa)|chama[r]? (a |o )?(dona|equipe|atendente)|quero (um |uma )?(atendente|humano)|passar pra (dona|equipe|atendente)/;
+  if (!pediu.test(t)) return false;
+  const negou = [
+    "falar com a dona",
+    "falar com a equipe",
+    "falar com gente",
+    "falar com alguem",
+    "chamar a dona",
+    "chama a dona",
+    "atendente",
+  ].some((termo) => afirmouOuNegou(t, cercaDaPalavra(termo)) === false);
+  if (negou) return false;
+  return true;
+}
+
+/**
  * COMO A GENTE CUMPRIMENTA, NUMA LISTA SO.
  *
  * Havia duas, uma em cada funcao, e elas ja discordavam: "como vai" era

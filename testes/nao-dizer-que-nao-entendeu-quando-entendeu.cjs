@@ -76,7 +76,7 @@ fs.writeFileSync(
     "  for (const [texto, leitura] of falas) {",
     "    const r = await responder(e as never, { texto } as never, (async () => leitura) as never);",
     "    e = r.estado as never;",
-    "    passos.push({ texto, precisaHumano: r.precisaHumano === true, insistiu: e.insistiu });",
+    "    passos.push({ texto: r.fala.texto, precisaHumano: r.precisaHumano === true, insistiu: e.insistiu, cardapio: r.fala.cardapio });",
     "  }",
     "  return { passos, forminha: e.forminha };",
     "};",
@@ -142,15 +142,16 @@ cobra(
 cobra("a ultima resposta entendida foi anotada", r.entendido.forminha === "rosa",
   "forminha = " + JSON.stringify(r.entendido.forminha));
 
+const naoEntendi = (t) => /nao estou conseguindo entender/i.test(String(t || ""));
 cobra(
-  "quem nao responde nada continua caindo pra equipe",
-  r.teimoso.passos.some((p) => p.precisaHumano),
+  "quem nao responde nada ouve a pergunta de novo, nao o chamado pra equipe",
+  r.teimoso.passos.every((p) => !p.precisaHumano) && r.teimoso.passos.every((p) => !naoEntendi(p.texto)),
   JSON.stringify(r.teimoso.passos),
 );
 
 cobra(
-  "a mesma pergunta nao sai pra sempre, mesmo entendendo",
-  r.semFim.some((p) => p.precisaHumano),
+  "a mesma pergunta nao chama a equipe mesmo entendendo varias vezes",
+  r.semFim.every((p) => !p.precisaHumano) && r.semFim.every((p) => !naoEntendi(p.texto)),
   JSON.stringify(r.semFim),
 );
 

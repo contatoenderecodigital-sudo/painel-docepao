@@ -165,15 +165,12 @@ if (/Topo:/.test(String(r.desistiu.obs ?? ""))) {
   falhas.push("tirou o topo e a comanda continuou mandando fazer topo: " + r.desistiu.obs);
 }
 
-// ------------------------------ 5. a mesma pergunta nao sai tres vezes
-if (r.teimosia[0].texto === r.teimosia[1].texto && r.teimosia[1].texto === r.teimosia[2].texto) {
-  falhas.push("a mesma pergunta saiu tres vezes igual; foi o que a Kemilly viu com o tema");
+// ------------------------------ 5. a mesma pergunta nao vira chamado pra equipe
+if (r.teimosia.some((p) => /nao estou conseguindo entender/i.test(String(p.texto || "")))) {
+  falhas.push("disse que nao entendeu; a pergunta da etapa tinha que voltar");
 }
-if (!r.teimosia[2].precisaHumano) {
-  falhas.push("insistiu tres vezes e nao chamou a equipe: o cliente fica preso na mesma pergunta");
-}
-if (r.teimosia[0].precisaHumano || r.teimosia[1].precisaHumano) {
-  falhas.push("chamou a equipe cedo demais; o aviso do painel so pode acender quando ela desiste de verdade");
+if (r.teimosia.some((p) => p.precisaHumano)) {
+  falhas.push("chamou a equipe porque a resposta nao virou dado; gente e ultimo recurso");
 }
 
 console.log("Abertura: " + r.abertura.map((i) => i.produto + "=" + i.categoria).join(", "));

@@ -40,7 +40,7 @@ import { produtoNoComeco, produtoPorNome, produtosDaCasa, coresDoCardapio } from
 import { semAcento as semAc } from "../texto";
 import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
-import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
+import { dataDeRetirada, disseQuantidade, pediuPraFalarComGente } from "./falas-do-cliente";
 import { retiradaForaDoExpediente } from "@/lib/padaria-aberta";
 import { coresDaForminha, faltaCorDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista, saboresQueFaltam } from "./sabor";
 import { restricoesQueACasaNaoFaz, obsSemRestricao, obsPraComanda, avisoDaRestricao } from "./restricao";
@@ -1559,6 +1559,25 @@ export async function responder(
     }
     estado = aplicar(estado, lida, etapaAgora.id, falaCru);
 
+    // ELE PEDIU GENTE. O modelo vazio nao impede: a frase basta.
+    if (pediuPraFalarComGente(falaCru)) {
+      rastro.push("ele pediu pra falar com gente; chamei a equipe");
+      return {
+        fala: {
+          texto: "Claro. Vou chamar alguém da equipe da padaria pra falar com você.",
+          botoes: [],
+          cardapio: null,
+          podeReescrever: false,
+        },
+        estado,
+        etapa: etapaAgora.id,
+        rastro,
+        chamouIA,
+        confirmouEscrevendo: false,
+        precisaHumano: true,
+      };
+    }
+
     // ---------------------------------------- A CONVERSA NAO E UM PEDIDO
     //
     // A ROTA C, e ela vem ANTES de tudo: reclamacao, cancelamento e pergunta
@@ -1570,7 +1589,14 @@ export async function responder(
     //
     // Reclamacao e cancelamento sao SEMPRE da equipe: mexem com dinheiro, com
     // producao que talvez ja tenha comecado, e com a cara da padaria no bairro.
-    if (limpa.situacao) {
+    //
+    // Pedido misturado NAO e situacao. O modelo, vendo festa e pizza na mesma
+    // frase, devolvia reclamacao ou perguntou.outro e o painel acendia
+    // "Precisa de voce" sem ninguem ter pedido gente. Se a frase tem produto,
+    // a leitura ja anotou: segue o pedido.
+    const temProdutoNesteTurno =
+      (lida.itens ?? []).length > 0 || produtosNaFrase(falaCru).length > 0;
+    if (limpa.situacao && !temProdutoNesteTurno) {
       const r = respostaDaSituacao(limpa.situacao, estado.itens.length > 0 || Boolean(estado.dados.data));
       rastro.push("situacao: " + limpa.situacao + (r.precisaHumano ? "; chamei a equipe" : ""));
       return {
@@ -2250,26 +2276,20 @@ export async function responder(
   } else if (insistiu === 1 && fala.opcoes?.length && !fala.texto.includes(fala.opcoes[0])) {
     fala = { ...fala, texto: fala.texto + "\n\nAs opções são: " + fala.opcoes.join(", ") + "." };
     rastro.push("repeti a pergunta; mostrei as opcoes");
-  } else if ((insistiu >= 2 && !entendeuAlgo) || insistiu >= 4) {
-    // O TETO DE QUATRO E TRAVA DE SEGURANCA, NAO REGRA.
+  } else if (insistiu >= 2) {
+    // REPETIR NAO E CHAMAR A EQUIPE.
     //
-    // Enquanto o cliente for entendido, a padaria continua perguntando o que
-    // falta, que e o certo. Mas se a mesma pergunta sair quatro vezes, alguma
-    // coisa esta presa e a equipe resolve numa frase o que a Dora nao resolve
-    // em dez. Sem este teto, "entendeu algo" viraria um jeito de nunca desistir.
-    fala = {
-      ...fala,
-      texto:
-        "Acho que não estou conseguindo entender direito por aqui. " +
-        "Vou chamar uma pessoa da equipe pra te ajudar, tá bom?",
-      botoes: [],
-      cardapio: null,
-      podeReescrever: false,
-    };
-    precisaHumano = true;
+    // O modelo devolve {}, o teste manda "oi", a etapa nao anda: a pergunta
+    // que falta volta, COM o cardapio que a etapa ja tem. Dizer "nao estou
+    // conseguindo entender" e acender Precisa de voce era o padrao do painel
+    // de QA, e o dono viu: a IA nao tentou pensar.
+    //
+    // Gente so entra no ultimo recurso: entrega, restricao, interruptor, ou
+    // ele pediu pra falar com a dona.
     rastro.push(
       "insisti " + insistiu + " vezes na mesma pergunta" +
-      (entendeuAlgo ? " (entendi o cliente, mas travou)" : "") + "; chamei a equipe",
+      (entendeuAlgo ? " (entendi o cliente)" : "") +
+      "; perguntei de novo, nao chamei a equipe",
     );
   }
 
