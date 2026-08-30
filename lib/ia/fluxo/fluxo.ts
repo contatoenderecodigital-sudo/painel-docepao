@@ -2396,6 +2396,31 @@ export async function responder(
   //
   // Entao topo vira OBSERVACAO do bolo, que e onde a cozinha le o que escrever
   // na peca, e o valor fica pendente pra dona lancar na tela.
+  // O PAPEL DE ARROZ E UM POR BOLO, E NUNCA ZERO.
+  //
+  // Medido em 30/08/2026: o cliente disse "quero sim o papel de arroz" e o
+  // pedido ficou com `0 ~ papel de arroz`. O leitor da frase acha o produto
+  // escrito com todas as letras e anota SEM quantidade (ele nao disse um
+  // numero, e nem diria), entao a linha nasce com zero. O injetor logo abaixo
+  // via que a linha ja existia e nao mexia.
+  //
+  // O dinheiro estava protegido: o `fechar.ts` nao fecha com quantidade zero.
+  // Mas o efeito e pior pra venda que cobrar errado -- a padaria passa a
+  // perguntar "quantos papel de arroz voce quer?" e a conversa NUNCA fecha,
+  // porque ninguem responde isso. Medido: o pedido inteiro morreu ali.
+  //
+  // Papel de arroz e peca do bolo, e peca de bolo e uma. Nao e escolha do
+  // cliente, e a natureza do produto.
+  const papelSemQuantidade = estado.itens.findIndex(
+    (i) => /papel de arroz/i.test(i.produto) && !(Number(i.qtd) > 0),
+  );
+  if (estado.pecas?.papelDeArroz === true && papelSemQuantidade >= 0) {
+    estado = {
+      ...estado,
+      itens: estado.itens.map((i, n) => (n === papelSemQuantidade ? { ...i, qtd: 1 } : i)),
+    };
+    rastro.push("o papel de arroz estava com quantidade zero; e um por bolo");
+  }
   if (estado.pecas?.papelDeArroz === true && !estado.itens.some((i) => /papel de arroz/i.test(i.produto))) {
     estado = {
       ...estado,

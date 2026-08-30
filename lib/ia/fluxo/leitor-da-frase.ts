@@ -684,6 +684,39 @@ export function itensDeOutraEtapaNaFrase(
  * Numero antes do nome ("50 brigadeiro") e numero depois ("muda a coxinha pra
  * 100"). Os dois. Sem numero fica zero, que e resposta da festa.
  */
+/**
+ * "UMA TORTA" E UMA TORTA. O leitor so enxergava digito.
+ *
+ * Medido em 30/08/2026: `"quero uma torta fria"` devolvia qtd 0, e o pedido
+ * chegava no fechamento com uma linha de quantidade zero, que o motor cota por
+ * R$ 0,00. O mesmo valia pra "um bolo", "dois cupcakes", "meia duzia".
+ *
+ * So troca o que vem ANTES do nome do produto, que e onde a quantidade mora.
+ * "uma" solta no meio de uma frase nao vira 1 em lugar nenhum.
+ *
+ * SEM BARRA INVERTIDA DE BORDA, como manda o aviso do topo deste arquivo: as
+ * fronteiras sao (^|[^a-z]) e ($|[^a-z]), escritas na mao.
+ */
+const POR_EXTENSO: [string, string][] = [
+  ["meia duzia", "6"], ["meia-duzia", "6"], ["uma duzia", "12"], ["duzia", "12"],
+  ["um cento", "100"], ["cento", "100"],
+  ["uma", "1"], ["um", "1"], ["duas", "2"], ["dois", "2"], ["tres", "3"],
+  ["quatro", "4"], ["cinco", "5"], ["seis", "6"], ["sete", "7"], ["oito", "8"],
+  ["nove", "9"], ["dez", "10"], ["quinze", "15"], ["vinte", "20"],
+  ["trinta", "30"], ["quarenta", "40"], ["cinquenta", "50"], ["cem", "100"],
+];
+
+function numeroPorExtenso(t: string): string {
+  let saida = t;
+  for (const [palavra, numero] of POR_EXTENSO) {
+    saida = saida.replace(
+      new RegExp("(^|[^a-z])" + palavra + "($|[^a-z])", "gi"),
+      (_m, a: string, b: string) => a + numero + b,
+    );
+  }
+  return saida;
+}
+
 export function itensNaFrase(fala: string): { produto: string; qtd: number; obs?: string }[] {
   const t = semAcMin(fala);
   if (!t.trim()) return [];
@@ -712,7 +745,7 @@ export function itensNaFrase(fala: string): { produto: string; qtd: number; obs?
     // NEGACAO MANDA. "sem coxinha" nao e pedido de coxinha, e adivinhar aqui
     // colocaria no pedido o que ele acabou de recusar.
     const inicioAntes = Math.max(0, onde - 24);
-    const antes = t.slice(inicioAntes, onde);
+    const antes = numeroPorExtenso(t.slice(inicioAntes, onde));
     if (/(^|[^a-z])(sem|nao|nem|tirar?|tira)([^a-z][^.,;]*)?$/.test(antes)) continue;
 
     // A quantidade e o numero mais perto ANTES do nome. "2 kg de 4 leites" da
