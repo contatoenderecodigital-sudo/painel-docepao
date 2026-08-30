@@ -864,6 +864,36 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
 
   if (l.itens?.length) {
     const itens = [...novo.itens];
+    // QUANTOS ITENS JA EXISTIAM ANTES DESTA LEITURA.
+    //
+    // A juncao logo abaixo existe pra CORRIGIR o que ja estava anotado ("muda
+    // pra 100 brigadeiro"), e ela casa so pelo nome do produto. Como o laco
+    // acumula dentro do mesmo array, dois itens ditos na MESMA frase caiam um
+    // em cima do outro:
+    //
+    //   cliente >> quero 2 inteiras, uma de calabresa e uma de frango
+    //   no banco >> 1 pizza inteira (calabresa | frango), R$ 120,00
+    //
+    // Ele pediu duas, a padaria cobrou uma, e a cozinha recebeu uma pizza so
+    // com dois sabores no recado, sem saber o que montar. Medido ao vivo em
+    // 30/08/2026, e medido de novo aqui: com o modelo devolvendo as DUAS
+    // linhas certinhas, o codigo juntava as duas assim mesmo.
+    //
+    // O `HANDOFF-PRO-CLAUDE.md` dizia que o codigo gravava certo e que o
+    // problema era so o modelo. Medi antes de escrever em cima disso, e nao
+    // era: nenhuma forma de resposta do modelo conseguia produzir duas pizzas.
+    //
+    // POR QUE A MARCA E O TEMPO, E NAO O SABOR
+    //
+    // Separar por sabor parece obvio e cobraria DOBRADO de quem pede uma pizza
+    // de dois sabores: a inteira aceita ate quatro, e "uma de calabresa e uma
+    // de frango" tambem pode ser UMA pizza. Quem desempata e o modelo: se ele
+    // devolveu dois itens, sao dois; se devolveu um com dois sabores, e um.
+    //
+    // Entao a juncao passa a valer so contra o que ja estava anotado ANTES
+    // desta leitura. Corrigir continua corrigindo; falar de duas coisas na
+    // mesma frase para de virar uma.
+    const jaEstavam = itens.length;
     // O que a casa nao faz e foi tirado das observacoes deste turno.
     const restricoesTiradas: string[] = [];
     // O recheio que o produto nao tem, pra virar frase e nao comanda.
@@ -1085,9 +1115,23 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = ""): Est
 
       // A busca pelo item que ja existe usa o nome NORMALIZADO, senao "chique"
       // e "quiche" viram duas linhas do mesmo produto no pedido.
-      const achou = itens.findIndex(
-        (x) => x.produto.toLowerCase().trim() === produto.toLowerCase().trim(),
-      );
+      const achou = itens.findIndex((x, n) => {
+        if (x.produto.toLowerCase().trim() !== produto.toLowerCase().trim()) return false;
+        // O QUE JA ESTAVA ANOTADO: junta pelo nome, como sempre. E correcao.
+        if (n < jaEstavam) return true;
+        // NESTA MESMA LEITURA: so junta se for o MESMO sabor.
+        //
+        // A primeira versao disto nao juntava nada dentro do turno, e quebrou
+        // quatro testes da festa de uma vez: o modelo devolve o mesmo produto
+        // duas vezes quando reparte a base, e o risolis virou duas linhas de 66.
+        //
+        // Duplicata de verdade continua juntando. O que passa a nao juntar e
+        // sabor DIFERENTE, que e o caso das duas pizzas.
+        const laSabor = semAc(String(x.obs ?? ""));
+        const aqui = saborPedido ? semAc(saborPedido) : "";
+        if (!aqui) return true;
+        return laSabor.includes(aqui);
+      });
       // Repetir o mesmo item SUBSTITUI a quantidade, nao soma: "na verdade
       // quero 200" e correcao, nao pedido de mais 200. Somar ja dobrou pedido
       // de festa.

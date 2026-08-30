@@ -108,8 +108,33 @@ sem saber o que montar.
 
 ### O que ja se sabe, medido, pra nao refazer
 
-1. **O codigo grava certo.** Alimentando a leitura com `qtd: 2` ele monta
-   duas linhas. O problema esta na LEITURA do modelo, nao no fluxo.
+1. ~~**O codigo grava certo.** Alimentando a leitura com `qtd: 2` ele monta
+   duas linhas. O problema esta na LEITURA do modelo, nao no fluxo.~~
+
+   **ISTO ESTAVA ERRADO, e custou a tentativa revertida.** Medido em
+   30/08/2026, alimentando o `responder` com cada forma possivel de resposta
+   do modelo:
+
+   ```
+   modelo devolve qtd 2         ->  2 ~ pizza inteira ~ frango  (perdeu a calabresa)
+   modelo devolve DUAS linhas   ->  1 ~ pizza inteira ~ calabresa | frango
+   ```
+
+   **Nenhuma forma conseguia produzir duas pizzas.** A juncao de itens casa
+   pelo NOME do produto (`fluxo.ts`, `itens.findIndex`), e o laco acumula no
+   mesmo array: dois itens ditos na mesma respiracao caiam um em cima do
+   outro. Por isso mexer so na instrucao nunca movia o dinheiro, e por isso a
+   tentativa de `cabcdac` pareceu nao ter efeito nenhum alem de estragar a
+   comanda.
+
+   O conserto e no `fluxo.ts`: a juncao passa a valer contra o que ja estava
+   anotado ANTES desta leitura, e dentro do mesmo turno so junta quando o
+   SABOR tambem e o mesmo (senao a festa quebra: ao repartir a base, o mesmo
+   produto volta duas vezes e aquilo e duplicata de verdade).
+
+   **Separar por sabor seria pior:** a pizza inteira aceita ate quatro
+   sabores, entao "uma de calabresa e uma de frango" tambem pode ser UMA
+   pizza. Quem desempata e o modelo: dois itens sao dois.
 
 2. **A etapa e a ABERTURA**, e nao a do produto. Ele pergunta o preco na
    primeira mensagem e nada e anotado (isso esta certo: perguntar nao e

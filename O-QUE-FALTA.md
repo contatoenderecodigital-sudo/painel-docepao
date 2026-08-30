@@ -204,6 +204,63 @@ produto com preco. Completar a lista aberta e pergunta pra dona.
 `"muda a coxinha pra 100"` atualiza a quantidade mesmo quando o modelo está em
 outra pergunta e devolve o item velho, ou não devolve item nenhum.
 
+### 4b. O LIXO, MEDIDO EM 30/08/2026
+
+Levantado varrendo o repositorio inteiro, e nao por amostra: 145 arquivos
+`.ts`/`.tsx`, 32 rotas de API, 101 testes, 22 dependencias, `.mjs`, `.sql`,
+`.html` e `.css`.
+
+**O que NAO tem lixo, medido:** zero rota de API morta (as 32 sao chamadas;
+duas de fora do repositorio, pelo hub e por um relogio que ainda nao existe),
+zero teste morto (os 16 fora do portao tem motivo escrito), zero dependencia
+sem uso.
+
+**O que tem:**
+
+| o que | quanto | onde |
+| --- | --- | --- |
+| normalizador de texto definido de novo | **5 vezes** | `texto.ts` (canonico), `departamentos.ts`, `Atendimentos.tsx`, `PedidoMontado.tsx`, `fatos.ts` |
+| arquivo orfao, ninguem importa | **4**, 649 linhas | abaixo |
+| funcao morta, ninguem chama nem o proprio arquivo | **6** | `CampoTelefone.normalizarTelefone`, `mock.CLUBE_MOCK`, `padaria-aberta.avisoDeEspera` e `.avisoDeProblema`, `perfil.lerPerfil` e `.salvarPerfil` |
+| export a toa, vive por dentro | **12** | `carregarNotasClientes`, `HORAS_PARA_LISTAR`, `carregarDispensados`, `janelaDe`, `clienteBateNaBusca`, `itensNaFrase`, `categoriasDaEtapa`, `daFamiliaDaCasa`, `passouDoLimiteDeSabores`, `MODELOS_IA`, `USD_BRL`, `padariaAberta` |
+
+**Os quatro orfaos NAO sao a mesma coisa, e a diferenca decide o que fazer:**
+
+| arquivo | linhas | o que e |
+| --- | --- | --- |
+| `lib/ia/fatos.ts` | 135 | resto: era a guarda contra a IA inventar politica da casa, e ficou orfa quando o cerebro velho foi apagado. Quem faz isso hoje e o `informacao.ts` |
+| `components/AjustarPedido.tsx` | 98 | resto: o `AguardandoConfirmacao` ja lanca o valor do topo |
+| `lib/ia/fluxo/informacoes.ts` | 279 | **construido e nunca ligado**: a tabela de todas as perguntas do atendimento, pedida pelo dono em 24/08 |
+| `lib/whatsapp/perfil.ts` | 137 | **construido e nunca ligado**: deixa a dona editar o perfil comercial do WhatsApp sem entrar no painel da Meta |
+
+Os dois primeiros se apagam. Os dois ultimos sao **decisao dele**: apagar joga
+trabalho fora, ligar pede uma tela.
+
+**DOIS DETECTORES MEUS ERRARAM NESTA VARREDURA, e vale saber como:**
+
+O primeiro acusou **cinco rotas mortas** e tres estavam vivas: o regex para
+`[id]` estava quebrado, e `midia`, `pedido` e `pedido/foto` sao usadas pelas
+telas. O segundo acusou `passouDoLimiteDeSabores` como morta, e ela e chamada
+DENTRO do proprio arquivo pelo `saboresAlemDoLimite`: o limite de sabor da
+pizza esta valendo. Por isso a tabela acima separa "morta" de "export a toa".
+
+Falso positivo em detector e pior que buraco: quem ve tres acusacoes erradas
+para de acreditar na quarta, que e verdadeira.
+
+**Como refazer a conta** (nao confie neste numero, refaca):
+
+```
+grep -rn "normalize(\"NFD\")" --include=*.ts --include=*.tsx lib/ components/ app/
+grep -rn "^import .*catalogo.json" --include=*.ts . | grep -v node_modules
+```
+
+O `detector de codigo fantasma` (`testes/nada-de-codigo-fantasma.cjs`) tem o
+mesmo vicio que a gente esta cacando: ele varre **quatro pastas escritas a
+mao** e confere export, nao arquivo. Fora dele ficam `lib/` na raiz,
+`components/` e `app/`.
+
+---
+
 ### 5. As duas pequenas, já nomeadas
 
 `obs: metade` indo como lixo pra comanda. O `valor_tipico` da pizza redonda

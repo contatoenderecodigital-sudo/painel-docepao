@@ -763,7 +763,29 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "Se ele PERGUNTOU de uma família sem quantidade, devolva falouDeOutraEtapa " +
       "com a etapa dela. Perguntar já diz do que ele quer falar." + String.fromCharCode(10) +
       "Se ele só cumprimentou, devolva {} e não invente nada: quem diz o que " +
-      "quer é ele.",
+      "quer é ele." +
+      // A ABERTURA TAMBEM ANOTA PRODUTO, E O TIPO NAO E SABOR.
+      //
+      // Quem pergunta o preco antes de pedir chega aqui com o pedido vazio,
+      // entao a etapa da vez e esta, e nao a do produto. Foi assim no caso do
+      // Rodrigo: ele pergunta na primeira mensagem e pede na segunda.
+      //
+      // A PRIMEIRA TENTATIVA FOI SO COLAR O `porSabor` AQUI (cabcdac), e ela
+      // piorou: sem cardapio na etapa, o modelo nao tinha como saber que
+      // "inteiras" e o tamanho da pizza, e escreveu isso como SABOR.
+      //
+      //   antes  >> pizza inteira ~ calabresa | frango com catupiry
+      //   depois >> pizza inteira ~ calabresa | inteira | frango com catupiry
+      //
+      // A cozinha ia receber ordem de montar uma pizza sabor "inteira".
+      // Revertido em 8654e30.
+      //
+      // Por isso a frase daqui diz as DUAS coisas: quantas linhas, e onde a
+      // palavra do tamanho mora. Nas quatro etapas de produto o `porSabor`
+      // sozinho basta, porque la vai o cardapio junto e ele ancora o que e
+      // sabor de verdade.
+      " \"2 inteiras, uma de X e uma de Y\" = duas linhas do mesmo produto, uma " +
+      "por sabor. A palavra do tamanho fica no PRODUTO, nunca no sabor.",
   };
 
   const jaTem = p.itens.length
