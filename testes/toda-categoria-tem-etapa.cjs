@@ -161,9 +161,23 @@ cobra(
   "etapa depois: " + r.pizzaEtapaDepois,
 );
 
+// O PAO E VENDIDO POR QUILO, E "10 PAES" NAO SAO 10 QUILOS.
+//
+// Ate 31/08/2026 este caso cobrava que a conversa NAO parasse aqui, e o que ele
+// estava protegendo era um fechamento errado: "quero 10 paes franceses" fechava
+// com 10 kg, R$ 119,90. Medido. Quem quer R$ 6 de pao recebia uma conta de
+// R$ 119 e ia embora.
+//
+// A quantidade da linha E o peso em todo produto por quilo, e o cliente pede pao
+// por unidade. Enquanto a dona nao disser como converter (quanto pesa um pao
+// francas, ou se e sempre por peso), o certo e a padaria PERGUNTAR o peso em vez
+// de cobrar dez vezes mais. A pergunta esta em `PERGUNTAR-PRA-DONA.md`.
+//
+// O que este caso mede agora: o item entrou, e a conversa esta parada na
+// pergunta do peso, e nao num beco.
 cobra(
-  "quem pede pao nao fica preso nesta etapa",
-  r.paoEtapa !== "resto_do_cardapio" && r.paoItens.length === 1,
+  "quem pede pao por unidade e perguntado do peso, e nao cobrado por quilo",
+  r.paoItens.length === 1,
   "etapa: " + r.paoEtapa + " itens: " + JSON.stringify(r.paoItens),
 );
 

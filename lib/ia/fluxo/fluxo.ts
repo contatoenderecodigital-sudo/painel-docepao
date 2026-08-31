@@ -1692,7 +1692,18 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       // R$ 93,80. Bolo e vendido por quilo, entao o numero de quilos que ele
       // falou E a quantidade.
       let qtd = Number(i.qtd) || 0;
-      if (String(categoria).startsWith("bolo")) {
+      // O PESO VALE PRA TODO PRODUTO VENDIDO POR QUILO, e nao so pro bolo.
+      //
+      // Sao 31 no cardapio: cuca, cuca recheada, pao frances, pao de X,
+      // cachorro-quente, empadao, torta fria, torta doce, torta especial, bolo
+      // salgado, calzone e pizza redonda, alem dos quinze bolos de festa.
+      //
+      // Medido em 31/08/2026: "quero um empadao de frango" fechava com 1 kg
+      // calado, R$ 34,90, e quem queria dois pagava metade. Mesmo defeito que o
+      // cliente pegou no bolo, nas outras onze familias.
+      const vendidoPorQuilo =
+        unidadeDoPedido(String(produto), String(categoria || "")) === "kg";
+      if (vendidoPorQuilo) {
         const dito = falaDoCliente + " " + String(i.obs ?? "");
         // GRAMA E "E MEIO" TAMBEM SAO PESO, E OS DOIS CUSTAVAM DINHEIRO.
         //
@@ -1744,12 +1755,8 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         // Zerar ali quebrou dois testes que ja existiam, e os dois protegiam a
         // mesma regra: nada some do pedido.
         const pesoDaFesta = Number(e.base?.boloKg) || 0;
-        if (
-          categoria === "bolo_festa" &&
-          !peso &&
-          !ehNomeDeFamilia(produto) &&
-          !(e.ehFesta && pesoDaFesta > 0)
-        ) {
+        const daFesta = categoria === "bolo_festa" && e.ehFesta && pesoDaFesta > 0;
+        if (!peso && !ehNomeDeFamilia(produto) && !daFesta) {
           if (qtd > 0) {
             rastro.push(
               "ninguem falou o peso do " + produto + "; nao chuto 1 kg, a padaria pergunta",

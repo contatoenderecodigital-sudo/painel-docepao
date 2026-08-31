@@ -24,7 +24,7 @@ cliente e o tempo dele.
 
 ## A LISTA, na ordem em que ele deve perguntar
 
-Numeradas pra ele poder mandar por áudio e ela responder pelo número. Sete, e
+Numeradas pra ele poder mandar por áudio e ela responder pelo número. Oito, e
 nenhuma delas tem resposta nos 55 áudios. A número 6 nasceu de um cliente de
 verdade e é a mais urgente: sem ela, quem quer pagar na hora não paga.
 
@@ -104,7 +104,30 @@ equipe" e chama gente. **Ela não inventa chave**, porque chave errada é client
 pagando pra outra pessoa, e isso não tem desfazer.
 
 
-**7. Sabor fora do catálogo: a IA anota e a equipe confirma, ou ela pergunta antes?**
+**7. "Quero 10 pães franceses": são 10 unidades ou 10 quilos?**
+
+Achado medindo em 31/08/2026, e custa dinheiro nos dois sentidos.
+
+O cardápio diz que pão francês, pão de X, cachorro-quente e cuca são **por
+quilo**, e o sistema guarda a quantidade como peso. Então hoje:
+
+```
+"quero 10 pães franceses"   ->  10 kg  ->  R$ 119,90
+"quero 10 cachorro-quente"  ->  10 kg  ->  R$ 199,00
+```
+
+Quem quer R$ 6 de pão recebe uma conta de R$ 119 e vai embora. Mas ninguém pede
+pão em quilo: pede "me vê 10 pãezinhos".
+
+Preciso saber como ela quer que a Dora anote:
+
+1. sempre perguntar os quilos, mesmo quando o cliente fala em unidades?
+2. ou converter, e aí quanto pesa um pão francês, um pão de X e um cachorro-quente?
+
+Enquanto ela não responder, a Dora pergunta o peso em vez de cobrar dez vezes
+mais. Perguntar incomoda; cobrar R$ 119 de quem queria R$ 6 perde o cliente.
+
+**8. Sabor fora do catálogo: a IA anota e a equipe confirma, ou ela pergunta antes?**
 
 Ela disse que a lista é aberta:
 

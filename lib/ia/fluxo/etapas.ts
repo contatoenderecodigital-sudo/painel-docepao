@@ -87,6 +87,7 @@ export type Etapa = {
 import { saboresQueFaltam, ehSalgadoDoCardapio } from "./sabor";
 import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
 import { ehNomeDeFamilia } from "./generico";
+import { unidadeDoPedido } from "../dados/produtos";
 import { categoriasSemEtapaPropria } from "./leitura";
 import { formasDoCliente } from "../texto";
 
@@ -409,8 +410,30 @@ const temGenerico = (p: PedidoEmMontagem, pref: string) =>
  *
  * Na festa o peso vem da proposta que ele aceitou, entao nao chega aqui zerado.
  */
-const faltaPesoDoBolo = (p: PedidoEmMontagem) =>
-  p.itens.some((i) => String(i.categoria || "") === "bolo_festa" && !(Number(i.qtd) > 0));
+const faltaPesoDoBolo = (p: PedidoEmMontagem) => faltaPeso(p, "bolo_festa");
+
+/**
+ * QUALQUER PRODUTO VENDIDO POR QUILO SEM O PESO DITO.
+ *
+ * Sao 31 no cardapio, e nao so o bolo: cuca, cuca recheada, pao frances, pao de
+ * X, cachorro-quente, empadao, torta fria, torta doce, torta especial, bolo
+ * salgado, calzone e pizza redonda. Em todos, a quantidade da linha E o peso.
+ *
+ * Medido em 31/08/2026, depois de o defeito aparecer no bolo com um cliente de
+ * verdade: "quero um empadao de frango" fechava com 1 kg calado, R$ 34,90. Quem
+ * queria dois pagava metade.
+ *
+ * A categoria e opcional: sem ela, vale pra casa inteira.
+ */
+const faltaPeso = (p: PedidoEmMontagem, categoria?: string) =>
+  p.itens.some((i) => {
+    if (categoria && String(i.categoria || "") !== categoria) return false;
+    if (Number(i.qtd) > 0) return false;
+    // Nome de familia ainda vai virar produto: o peso se pergunta depois de
+    // saber o que e.
+    if (ehNomeDeFamilia(i.produto)) return false;
+    return unidadeDoPedido(String(i.produto), String(i.categoria || "")) === "kg";
+  });
 
 /**
  * ELE RECUSOU ESTA FAMILIA?
@@ -708,8 +731,14 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // Ela so entra quando ja existe item DELE que falta resolver: familia sem
     // tipo escolhido, ou sabor em aberto. Quem pediu dez paes nunca ouve
     // pergunta nenhuma daqui.
-    cumprida: (p) => !temGenericoDoResto(p) && !faltaSaborDoResto(p),
-    pulavel: (p) => !temGenericoDoResto(p) && !faltaSaborDoResto(p),
+    // O PESO ENTRA AQUI PELO MESMO MOTIVO QUE ENTROU NO BOLO.
+    //
+    // Onze produtos desta etapa sao vendidos POR QUILO (cuca, pao, empadao,
+    // torta, calzone, pizza redonda). Sem o peso dito, todos fechavam com 1 kg
+    // calado. Medido em 31/08/2026: "quero um empadao de frango" saia R$ 34,90,
+    // e quem queria dois pagava metade.
+    cumprida: (p) => !temGenericoDoResto(p) && !faltaSaborDoResto(p) && !faltaPeso(p),
+    pulavel: (p) => !temGenericoDoResto(p) && !faltaSaborDoResto(p) && !faltaPeso(p),
   },
   {
     id: "pecas_do_bolo",

@@ -29,7 +29,7 @@ import {
 } from "./sabor";
 import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia, nomeDaFamilia, familiaDoNome } from "./generico";
 import { paraOMotor } from "./cotar";
-import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
+import { produtoNoComeco, produtoPorNome, unidadeDoPedido } from "../dados/produtos";
 import { semAcento, listaEmPortugues, pedacosDaObs } from "../texto";
 import { lerObs } from "@/lib/banco/obs-do-bolo";
 
@@ -947,6 +947,35 @@ export function falaDaEtapa(
       // esta generico, pega as opcoes do catalogo e manda a peca junto.
       const daFamilia = falaSeTemFamilia(p, aviso);
       if (daFamilia) return daFamilia;
+
+      // QUANTOS QUILOS? ONZE PRODUTOS DESTA ETAPA SAO VENDIDOS POR PESO.
+      //
+      // Cuca, cuca recheada, pao frances, pao de X, cachorro-quente, empadao,
+      // torta fria, torta doce, torta especial, calzone e pizza redonda. Em
+      // todos, a quantidade da linha E o peso, e sem ninguem falar o peso o
+      // pedido fechava com 1 kg calado.
+      //
+      // Medido em 31/08/2026, depois de o mesmo defeito aparecer no bolo com um
+      // cliente de verdade: "quero um empadao de frango" saia R$ 34,90, e quem
+      // queria dois pagava metade.
+      //
+      // A pergunta vem depois do sabor, que e a ordem em que uma atendente
+      // pergunta: primeiro o que e, depois o tamanho.
+      const semPesoAqui = p.itens.find(
+        (i) =>
+          !(Number(i.qtd) > 0) &&
+          !ehNomeDeFamilia(i.produto) &&
+          unidadeDoPedido(String(i.produto), String(i.categoria || "")) === "kg",
+      );
+      if (semPesoAqui) {
+        return {
+          texto: aviso + "Quantos quilos de " + semPesoAqui.produto + " você quer?",
+          botoes: [],
+          cardapio: null,
+          podeReescrever: false,
+          chave: "peso",
+        };
+      }
       // Sem familia em aberto, o que falta e recheio. A pergunta sai com as
       // opcoes do proprio cardapio daquele item, e nao de uma lista fixa.
       //
