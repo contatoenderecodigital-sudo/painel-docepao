@@ -1741,6 +1741,46 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         obsItem = [saborPedido, obsItem].filter(Boolean).join(" | ");
       }
 
+      // A RESTRIÇÃO QUE É SABOR DO CARDÁPIO RESOLVE A FAMÍLIA SOZINHA.
+      //
+      // Medido conversando com a produção em 31/08/2026, logo depois de ela
+      // aprender a responder que a casa faz:
+      //
+      //   padaria >> Fazemos sim: temos bolo 0% lactose, R$ 55,90 o quilo.
+      //   cliente >> quero um sem lactose de 1 kg entao
+      //   pedido  >> 1 bolo (sem lactose | 1 kg)      e ela perguntou o sabor
+      //
+      // "sem lactose" NÃO é observação: é o nome de um bolo de festa da casa.
+      // Enquanto o produto ficava sendo a família, a padaria perguntava o sabor
+      // que ele acabou de escolher, e o peso ficava preso na observação, porque
+      // marcador de família não recebe peso.
+      //
+      // O nome sai do catálogo, pela mesma função que responde a pergunta dele.
+      // Só vale pra família em aberto: quem já escolheu "brigadeiro sem lactose"
+      // continua no caminho da mistura, que faz "bolo brigadeiro com 0% lactose".
+      if (ehNomeDeFamilia(produto)) {
+        const daRestricao = produtoDaRestricaoNaFrase(
+          falaDoCliente + " " + String(i.obs ?? "") + " " + String(i.sabor ?? ""),
+        );
+        if (daRestricao && categoriasDaFamilia(produto).includes(String(categoria || ""))) {
+          rastro.push("\"" + produto + "\" com restricao que a casa faz: e " + daRestricao);
+          produto = daRestricao;
+          // O NOME JA DIZ, ENTAO A OBSERVACAO NAO REPETE.
+          //
+          // Sem isto o cupom sai "bolo 0% lactose (sem lactose)". Nao da pra
+          // usar `obsSemRestricao` aqui: ela guarda a restricao quando o produto
+          // JA E assim, que e o certo em todo lugar menos neste, onde a
+          // restricao acabou de virar o nome. Entao o pedaco sai pelo mesmo
+          // detector que escolheu o nome.
+          obsItem = (obsItem ?? "")
+            .split(/[,|]/)
+            .map((p) => p.trim())
+            .filter(Boolean)
+            .filter((p) => produtoDaRestricaoNaFrase(p) !== daRestricao)
+            .join(" | ") || null;
+        }
+      }
+
       // A PROMESSA QUE A CASA NÃO CUMPRE SAI DA OBSERVAÇÃO.
       //
       // Medição de 20/08/2026: o pedido fechou com "30 brigadeiro (sem lactose,
@@ -1827,7 +1867,25 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
           if (peso) rastro.push("a padaria tinha perguntado o peso; li \"" + falaDoCliente + "\" como quilos");
         }
 
-        if (peso > 0 && peso <= 30) qtd = peso;
+        if (peso > 0 && peso <= 30) {
+          qtd = peso;
+          // O PESO VIROU QUANTIDADE, ENTAO NAO E MAIS RECADO PRA COZINHA.
+          //
+          // Medido em 31/08/2026: "quero um sem lactose de 1 kg" fechava com a
+          // linha "1 bolo 0% lactose (1 kg)". O quilo ja esta na quantidade, e
+          // repetido na observacao ele vira instrucao de producao: a cozinha le
+          // "1 kg" num bolo que ja diz 1 kg, e no dia em que os dois numeros
+          // discordarem alguem vai seguir o errado.
+          //
+          // A conta do pedido nao e recado pra cozinha: e a mesma regra que tira
+          // o "metade" da comanda.
+          obsItem = (obsItem ?? "")
+            .split(/[,|]/)
+            .map((p) => p.trim())
+            .filter(Boolean)
+            .filter((p) => !/^[0-9]+(?:[.,][0-9]+)?\s*(kg|quilos?|gramas?|g)(\s*e\s*meio)?$/i.test(p))
+            .join(" | ") || null;
+        }
         // SEM PESO DITO, O BOLO DE FESTA NAO TEM QUANTIDADE: A PADARIA PERGUNTA.
         //
         // Cliente real em 31/08/2026, e ele teve que corrigir a padaria:

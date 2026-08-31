@@ -58,6 +58,40 @@ const CASOS = [
   },
 ];
 
+// E O PEDIDO: A RESTRICAO QUE E SABOR DO CARDAPIO RESOLVE A FAMILIA SOZINHA.
+//
+// Medido na producao logo depois de ela aprender a responder que faz:
+//
+//   padaria >> Fazemos sim: temos bolo 0% lactose, R$ 55,90 o quilo.
+//   cliente >> quero um sem lactose de 1 kg entao
+//   pedido  >> 1 bolo (sem lactose | 1 kg)     e ela perguntou o sabor de novo
+//
+// "sem lactose" nao e observacao: e o nome de um bolo da casa. Enquanto ficava
+// na familia, a padaria perguntava o sabor que ele acabou de escolher.
+const PEDIDOS = [
+  {
+    nome: "so a restricao ja escolhe o bolo, e o peso vira quantidade",
+    fala: "quero um sem lactose de 1 kg entao",
+    leitura: { itens: [{ produto: "bolo", qtd: 1, obs: "sem lactose | 1 kg" }] },
+    linhas: ["1x bolo 0% lactose ~ SEM OBS"],
+    dano: "a padaria perguntava o sabor que ele acabou de dizer, e o peso ficava preso na obs",
+  },
+  {
+    nome: "com sabor junto continua virando mistura",
+    fala: "quero um brigadeiro sem lactose de 2 kg",
+    leitura: { itens: [{ produto: "bolo brigadeiro", qtd: 2, obs: "sem lactose" }] },
+    linhas: ["2x bolo brigadeiro com 0% lactose ~ SEM OBS"],
+    dano: "o caminho da mistura ja funcionava e nao pode quebrar",
+  },
+  {
+    nome: "recado de verdade continua na comanda",
+    fala: "quero um sem lactose de 1 kg com o nome do Miguel",
+    leitura: { itens: [{ produto: "bolo", qtd: 1, obs: "sem lactose | nome Miguel" }] },
+    linhas: ["1x bolo 0% lactose ~ nome Miguel"],
+    dano: "limpar demais apaga o que a cozinha precisa ler",
+  },
+];
+
 const sonda = path.join(__dirname, "_sonda-pergunta-restricao.mts");
 fs.writeFileSync(
   sonda,
@@ -76,7 +110,20 @@ fs.writeFileSync(
     "  const r = await responder(base as never, { texto: c.fala }, (async () => leitura) as never);",
     "  saiu.push({ texto: String(r.fala.texto || ''), equipe: !!r.precisaHumano, itens: r.estado.itens.length });",
     "}",
-    "console.log(JSON.stringify(saiu));",
+    "const PEDIDOS = " + JSON.stringify(PEDIDOS) + ";",
+    "const doPedido = [];",
+    "for (const c of PEDIDOS) {",
+    "  const base = {",
+    "    ehFesta:false, pessoas:null, base:null, baseAceita:false, naoQuer:[], itens:[],",
+    "    dados:{nome:null,data:null,hora:null,pagamento:null}, pecas:null, topoNome:null,",
+    "    topoIdade:null, tema:null, forminha:null, prato:null, ultimaFala:'E o bolo, qual sabor?',",
+    "    insistiu:0, retomarEm:null, assunto:null, etapasJaPerguntadas:['bolo'],",
+    "    etapasAdiadas:[], pecasMandadas:[],",
+    "  };",
+    "  const r = await responder(base as never, { texto: c.fala }, (async () => c.leitura) as never);",
+    "  doPedido.push(r.estado.itens.map((i) => i.qtd + 'x ' + i.produto + ' ~ ' + (i.obs ?? 'SEM OBS')));",
+    "}",
+    "console.log(JSON.stringify({ saiu, doPedido }));",
   ].join("\n"),
 );
 
@@ -89,7 +136,8 @@ try {
   try { fs.unlinkSync(sonda); } catch {}
 }
 
-const saiu = JSON.parse(bruto.trim().split("\n").pop());
+const lido = JSON.parse(bruto.trim().split("\n").pop());
+const saiu = lido.saiu;
 let erros = 0;
 console.log("== a pergunta da restricao tem resposta ==");
 CASOS.forEach((c, n) => {
@@ -108,6 +156,16 @@ CASOS.forEach((c, n) => {
     problemas.push(c.equipe ? "nao chamou a equipe" : "chamou a equipe sem precisar");
   }
   if (r.itens !== 0) problemas.push("perguntar virou pedido: " + r.itens + " linha(s)");
+  console.log((problemas.length ? "ERRO  " : "ok    ") + c.nome + (problemas.length ? "  ->  " + problemas.join("; ") + "; " + c.dano : ""));
+  if (problemas.length) erros++;
+});
+
+PEDIDOS.forEach((c, n) => {
+  const linhas = lido.doPedido[n];
+  const problemas = [];
+  if (JSON.stringify(linhas) !== JSON.stringify(c.linhas)) {
+    problemas.push("o pedido ficou " + JSON.stringify(linhas) + ", esperado " + JSON.stringify(c.linhas));
+  }
   console.log((problemas.length ? "ERRO  " : "ok    ") + c.nome + (problemas.length ? "  ->  " + problemas.join("; ") + "; " + c.dano : ""));
   if (problemas.length) erros++;
 });
