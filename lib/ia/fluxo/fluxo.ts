@@ -2871,7 +2871,7 @@ export async function responder(
 
       const perguntouOTotal =
         limpa.perguntou.sobre === "preco" && !limpa.perguntou.familia && estado.itens.length > 0;
-      const resposta = perguntouOTotal
+      let resposta = perguntouOTotal
         ? {
             texto:
               "Do jeito que está, seu pedido fica em " +
@@ -2887,6 +2887,40 @@ export async function responder(
         : respostaDeInformacao(limpa.perguntou);
       if (resposta) {
         rastro.push("ele perguntou sobre " + limpa.perguntou.sobre + "; respondi sem anotar nada");
+        // PERGUNTOU POR UM SABOR QUE O PRODUTO NAO TEM? DIZ QUAL ELE E.
+        //
+        // Medido conversando com o servidor em 31/08/2026:
+        //
+        //   cliente >> tem coxinha de camarao?
+        //   padaria >> Coxinha sai de R$ 1,00 a R$ 1,25 a unidade.
+        //
+        // Ele perguntou SE TEM e ouviu o preco. A resposta certa esta no
+        // cardapio: coxinha e de frango, e camarao a casa nao faz. O caminho da
+        // informacao so recebe a familia ("coxinha"), e o sabor da pergunta se
+        // perdia antes de chegar nele.
+        //
+        // A mesma frase que o pedido ja usa quando ele PEDE o sabor errado
+        // ("A gente faz coxinha de frango"), agora tambem quando ele PERGUNTA.
+        // O preco continua vindo atras: quem pergunta por um sabor costuma
+        // querer saber o preco tambem.
+        //
+        // O RESOLVEDOR PRECISA DO PEDACO DO PRODUTO, e nao da pergunta inteira:
+        // `identificarProduto("tem coxinha de camarao?")` devolve a frase toda
+        // como se fosse o nome. Aqui a pergunta ja trouxe a familia ("coxinha"),
+        // entao basta cortar dali pra frente e tirar a pontuacao.
+        const familiaPerguntada = semAc(String(limpa.perguntou.familia ?? ""));
+        const textoCru = semAc(String(mensagem.texto ?? ""));
+        const onde = familiaPerguntada ? textoCru.indexOf(familiaPerguntada) : -1;
+        const soOProduto = onde >= 0 ? textoCru.slice(onde).replace(/[?!.,;]+$/, "").trim() : "";
+        const quemEle = soOProduto ? identificarProduto(soOProduto) : { produto: "", recheio: null };
+        const naoTem = quemEle.recheio ? recheioQueNaoExiste(quemEle.produto, quemEle.recheio) : null;
+        if (naoTem) {
+          rastro.push("ele perguntou por " + quemEle.produto + " de " + quemEle.recheio + ", que a casa nao faz");
+          resposta = {
+            ...resposta,
+            texto: "A gente faz " + quemEle.produto + " de " + naoTem + ". " + resposta.texto,
+          };
+        }
         const peca = limpa.perguntou.familia ? pecaDoCardapio(limpa.perguntou.familia) : null;
         const famPerg = familiaDoQueEleNomeou(String(mensagem.texto ?? ""));
         const famAssunto = estado.assunto === "pecas_do_bolo" ? "bolo" : estado.assunto;
