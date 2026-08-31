@@ -3767,6 +3767,30 @@ export async function responder(
       Boolean(produtoPorNome(nome) || produtoNoComeco(nome) || ehNomeDeFamilia(nome));
     estado = { ...estado, itens: comORecheioDoCardapio(estado.itens, rastro) };
 
+    // QUANTIDADE DE PRODUTO VENDIDO POR UNIDADE E INTEIRA.
+    //
+    // Nao existe meia coxinha na comanda. Quem produz recebe um numero pra
+    // contar, e "50,5 coxinha" nao e um numero pra contar. Peso continua
+    // aceitando fracao, que e o que "2,5 kg de bolo" precisa.
+    //
+    // A UNIDADE EM SI NAO PRECISA DE TRAVA, e eu quase escrevi uma sem
+    // necessidade. Fui conferir antes: o estado do fluxo NAO guarda unidade, e
+    // quem grava (`gravar.ts`) e quem imprime (`fila.ts`) perguntam os dois a
+    // `unidadeDoPedido`, que le o catalogo. Ja e fonte unica. Guarda que protege
+    // o que nao pode acontecer so faz o codigo parecer mais fragil do que e.
+    estado = {
+      ...estado,
+      itens: estado.itens.map((i) => {
+        const nome = String(i.produto || "");
+        const qtd = Number(i.qtd) || 0;
+        if (unidadeDoPedido(nome, String(i.categoria || "")) !== "un") return i;
+        if (!(qtd > 0) || Number.isInteger(qtd)) return i;
+        const inteira = Math.round(qtd);
+        rastro.push(nome + " e vendido por unidade; arredondei " + qtd + " para " + inteira);
+        return { ...i, qtd: inteira };
+      }),
+    };
+
     const forasteiros = estado.itens.filter((i) => !daCasa(String(i.produto || "")));
     if (forasteiros.length) {
       estado = { ...estado, itens: estado.itens.filter((i) => daCasa(String(i.produto || ""))) };
