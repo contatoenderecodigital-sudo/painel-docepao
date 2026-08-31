@@ -288,3 +288,17 @@ const NUMEROS_ESCRITOS: [string, number][] = [
 export function numerosEscritos(com: { umEUma: boolean }): [string, number][] {
   return com.umEUma ? [...NUMEROS_ESCRITOS, ...UM_E_UMA] : NUMEROS_ESCRITOS;
 }
+
+/**
+ * A LISTA DO JEITO QUE SE FALA, E NAO DO JEITO QUE O CODIGO JUNTA.
+ *
+ * "carne, frango" e lista de sistema. "carne e frango" e uma pessoa falando, e
+ * a padaria e uma pessoa falando. Do pedido de festa de 30/08/2026, em que o
+ * dono leu as respostas da Dora uma por uma e apontou justamente o que soava a
+ * robo.
+ */
+export function listaEmPortugues(itens: (string | null | undefined)[]): string {
+  const xs = itens.map((x) => String(x ?? "").trim()).filter(Boolean);
+  if (xs.length <= 1) return xs[0] ?? "";
+  return xs.slice(0, -1).join(", ") + " e " + xs[xs.length - 1];
+}

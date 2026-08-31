@@ -102,6 +102,10 @@ export function estadoDosDados(d: Record<string, string | null | undefined>): Pa
       d.fluxo_adiadas && d.fluxo_adiadas !== "nenhum"
         ? String(d.fluxo_adiadas).split(",").filter(Boolean)
         : [],
+    pecasMandadas:
+      d.fluxo_pecas_mandadas && d.fluxo_pecas_mandadas !== "nenhum"
+        ? String(d.fluxo_pecas_mandadas).split(",").filter(Boolean)
+        : [],
     // O QUE ELE PEDIU FORA DA HORA PRECISA SOBREVIVER A MENSAGEM.
     //
     // No WhatsApp cada mensagem e uma chamada nova, com o estado lido do banco.
@@ -329,6 +333,12 @@ export function dadosQueMudaram(antes: Estado, depois: Estado): Record<string, s
   if ((depois.tirandoQual ?? null) !== (antes.tirandoQual ?? null)) mudou.fluxo_tirando = depois.tirandoQual ?? "nenhum";
   if ((depois.etapasAdiadas ?? []).join(",") !== (antes.etapasAdiadas ?? []).join(",")) {
     mudou.fluxo_adiadas = (depois.etapasAdiadas ?? []).join(",") || "nenhum";
+  }
+  // SEM ISTO A MEMORIA DURA UMA MENSAGEM. No WhatsApp cada mensagem e uma
+  // chamada nova com o estado lido do banco: a peca mandada agora seria
+  // esquecida antes da proxima pergunta, e o cardapio ia de novo.
+  if ((depois.pecasMandadas ?? []).join(",") !== (antes.pecasMandadas ?? []).join(",")) {
+    mudou.fluxo_pecas_mandadas = (depois.pecasMandadas ?? []).join(",") || "nenhum";
   }
   // O GUARDADO MUDOU? Grava a lista inteira, e "nenhum" quando esvazia.
   //

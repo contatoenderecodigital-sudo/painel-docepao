@@ -256,6 +256,57 @@ function diaDaSemanaViraData(texto: string, agora: Date): string | null {
  * Devolve null pro que nao da pra entender. Null faz a padaria perguntar de
  * novo, que e melhor que anotar uma data inventada.
  */
+/**
+ * "DIA 12" E UMA DATA, E QUALQUER PESSOA ENTENDE QUAL.
+ *
+ * Do pedido de festa de 30/08/2026:
+ *
+ *   padaria >> Para que dia você quer buscar?
+ *   cliente >> dia 12
+ *   padaria >> Para que dia você quer buscar?     (a MESMA frase, de novo)
+ *   cliente >> 12 do mes que vem
+ *
+ * O leitor exigia dia E mes ("12/09") ou nome de dia da semana. "dia 12" caia
+ * fora dos dois e voltava null, entao a padaria repetiu a pergunta palavra por
+ * palavra, sem dizer o que faltava. Quem le a mesma pergunta duas vezes acha
+ * que esta falando com robo quebrado, e ele estava.
+ *
+ * O dia 12 seguinte nao e ambiguo pra ninguem: e este mes se ainda nao passou,
+ * e o mes que vem se passou. Sempre pra frente, que e a mesma regra do dia da
+ * semana logo abaixo.
+ *
+ * SO ONDE O ASSUNTO JA E DATA. Isto roda no campo `data` da leitura, ou seja,
+ * o modelo ja classificou a frase como data. Um numero solto no meio de uma
+ * conversa de quantidade nao chega aqui.
+ */
+function soODiaViraData(texto: string, agora: Date): string | null {
+  const t = String(texto ?? "").trim().toLowerCase();
+  // Hora nao e data: "as 18" e "18h" falam de horario, e o campo errado ja
+  // custou pedido neste projeto.
+  if (/\d\s*(h|hs|horas?|:)/.test(t)) return null;
+  const m = t.match(/(?:^|\bdia\s+|\bno\s+dia\s+|\bpro\s+dia\s+)(\d{1,2})(?!\s*\d)(?![/\-.:])/);
+  if (!m) return null;
+  const dia = Number(m[1]);
+  if (dia < 1 || dia > 31) return null;
+
+  const hoje = new Date(agora.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  hoje.setHours(0, 0, 0, 0);
+
+  // Este mes se ainda nao passou, senao o proximo em que o dia exista: quem
+  // pede dia 31 em fevereiro esta falando de marco.
+  for (let salto = 0; salto <= 12; salto++) {
+    const quando = new Date(hoje.getFullYear(), hoje.getMonth() + salto, dia);
+    if (quando.getDate() !== dia) continue;
+    if (quando < hoje) continue;
+    return (
+      String(dia).padStart(2, "0") + "/" +
+      String(quando.getMonth() + 1).padStart(2, "0") + "/" +
+      quando.getFullYear()
+    );
+  }
+  return null;
+}
+
 export function dataDeRetirada(bruto: string | null | undefined, agora = new Date()): string | null {
   const t = String(bruto ?? "").trim();
   if (!t) return null;
@@ -282,7 +333,7 @@ export function dataDeRetirada(bruto: string | null | undefined, agora = new Dat
   //
   // O nome so vale quando numero nao ha.
   const m = t.match(/(\d{1,2})[/\-.](\d{1,2})(?:[/\-.](\d{2,4}))?/);
-  if (!m) return diaDaSemanaViraData(t, agora);
+  if (!m) return soODiaViraData(t, agora) ?? diaDaSemanaViraData(t, agora);
 
   const dia = Number(m[1]);
   const mes = Number(m[2]);

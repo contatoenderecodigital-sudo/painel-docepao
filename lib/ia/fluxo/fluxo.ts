@@ -37,7 +37,7 @@ import { identificarProduto } from "./produto";
 import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, ehPizzaQueNaoESalgado, familiaDoProduto, nomeDaFamilia, opcaoDaFamiliaNaFrase, opcoesDaFamilia } from "./generico";
 import { APELIDOS } from "../dados/apelidos";
 import { produtoNoComeco, produtoPorNome, produtosDaCasa, coresDoCardapio, unidadeDoPedido } from "../dados/produtos";
-import { semAcento as semAc, PALAVRAS_VAZIAS } from "../texto";
+import { semAcento as semAc, PALAVRAS_VAZIAS, listaEmPortugues } from "../texto";
 import { escreverObs, lerObs, mexerNaObs, type Embalagem } from "@/lib/banco/obs-do-bolo";
 import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
@@ -3319,6 +3319,47 @@ export async function responder(
     };
   }
   rastro.push("proxima: " + proxima.id);
+
+  // A MESMA PECA DE CARDAPIO NAO VAI DUAS VEZES.
+  //
+  // Do pedido de festa de 30/08/2026, quatro minutos de conversa:
+  //
+  //   23:10  Quais sabores de salgados voce prefere?     [peca salgados]
+  //   23:12  Qual recheio voce quer no risolis?          [peca salgados]
+  //   23:14  Qual sabor voce quer para o mini bolha?     [peca salgados]
+  //
+  // A mesma imagem tres vezes, empurrando pra cima a conversa que o cliente
+  // precisava reler. Palavra do dono: "inves dele falar os produtos q faltou
+  // sabor e digitar pra eles os sabores q tem, ele mandou outro cardapio igual".
+  //
+  // Na segunda vez a peca sai e as opcoes entram no texto, que e o que uma
+  // pessoa faria: ela ja te mandou o cardapio, agora ela te fala os sabores.
+  //
+  // AQUI, E NAO NA PERGUNTA, de proposito: toda pergunta que anexa peca passa
+  // por este ponto, e assim nenhuma delas precisa lembrar da regra sozinha.
+  if (fala.cardapio) {
+    const mandadas = estado.pecasMandadas ?? [];
+    if (mandadas.includes(fala.cardapio)) {
+      const opcoes = (fala.opcoes ?? []).filter(Boolean);
+      const jaCita = opcoes.length > 0 && opcoes.every((o) => semAc(fala.texto).includes(semAc(String(o))));
+      const texto = fala.texto
+        // A frase que promete a imagem sai junto com a imagem, senao a padaria
+        // diz "te mandei o cardapio" e nao manda nada.
+        .replace(/\s*(Te mandei|Já te enviei|Te enviei)[^.!?]*[.!?]/gi, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+      fala = {
+        ...fala,
+        cardapio: null,
+        texto: (opcoes.length && !jaCita ? texto + " Tem " + listaEmPortugues(opcoes.map(String)) + "." : texto)
+          .replace(/\s{2,}/g, " ")
+          .trim(),
+      };
+      rastro.push("a peca " + mandadas.join("/") + " ja foi mandada nesta conversa; escrevi os sabores no texto");
+    } else {
+      estado = { ...estado, pecasMandadas: [...mandadas, fala.cardapio] };
+    }
+  }
 
   return { fala, estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo, precisaHumano, motivoHumano };
 }

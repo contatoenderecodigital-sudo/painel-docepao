@@ -175,6 +175,19 @@ export type PedidoEmMontagem = {
    */
   etapasAdiadas?: string[];
   /**
+   * AS PECAS DE CARDAPIO QUE JA FORAM MANDADAS NESTA CONVERSA.
+   *
+   * Do pedido de festa de 30/08/2026: a peca de salgados foi mandada as 23:10,
+   * de novo as 23:12 e de novo as 23:14, a mesma imagem tres vezes em quatro
+   * minutos. Palavra do dono: "inves dele falar os produtos q faltou sabor e
+   * digitar pra eles os sabores q tem, ele mandou outro cardapio igual".
+   *
+   * Ele tem razao: mandar de novo o que a pessoa ja tem na tela nao ajuda, e
+   * ainda empurra a conversa pra cima. A segunda vez a padaria escreve os
+   * sabores no texto, que e o que uma pessoa faria.
+   */
+  pecasMandadas?: string[];
+  /**
    * DE QUEM E O ANIVERSARIO, E QUANTOS ANOS FAZ.
    *
    * Pedido do dono, e ele tem razao: "importantissimo". O topo e fabricado com

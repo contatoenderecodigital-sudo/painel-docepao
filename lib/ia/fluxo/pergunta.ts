@@ -30,7 +30,7 @@ import {
 import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia, nomeDaFamilia, familiaDoNome } from "./generico";
 import { paraOMotor } from "./cotar";
 import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
-import { semAcento } from "../texto";
+import { semAcento, listaEmPortugues } from "../texto";
 
 /**
  * O NOME DO PAPEL DE ARROZ, NUMA LINHA SO.
@@ -475,7 +475,7 @@ function falaDoSaborQueFalta(
   // o mesmo desenho. Sem peca, a lista cabe no texto (quiche, esfirra curta).
   const lista =
     semSabor.opcoes.length && (!peca || semSabor.opcoes.length <= 6)
-      ? " Tem " + semSabor.opcoes.join(", ") + "."
+      ? " Tem " + listaEmPortugues(semSabor.opcoes) + "."
       : "";
   const foto = peca ? " Te mandei o cardápio pra escolher." : "";
   return {
@@ -884,7 +884,27 @@ export function falaDaEtapa(
 
     case "dados": {
       const d = falaDosDados(p);
-      return { texto: d.texto, botoes: d.botoes, cardapio: null, podeReescrever: true };
+      // A PERGUNTA DE DADO SAI EXATAMENTE COMO ESTA ESCRITA AQUI.
+      //
+      // Do pedido de festa de 30/08/2026, o que o cliente leu na tela contra o
+      // que este arquivo escreve:
+      //
+      //   codigo  >> O pedido fica no nome de quem?
+      //   chegou  >> Qual nome está no pedido?
+      //
+      //   codigo  >> Pra que dia você quer retirar?
+      //   chegou  >> Para que dia você quer buscar?
+      //
+      // Palavra do dono sobre a primeira: "horrivel essa pergunta (...) parece
+      // q eh um pedido pronto ja o jeito q ela falou". Ele esta certo: "qual
+      // nome esta no pedido" e quem confere cadastro, e a padaria esta anotando
+      // agora.
+      //
+      // Sao quatro perguntas de uma palavra de resposta (dia, hora, nome,
+      // pagamento). A reescrita nao tem o que melhorar nelas, e ja custou caro
+      // uma vez: foi ela que trocou o assunto da pergunta no teste da Kemilly e
+      // gravou TOPO = SIM num "sim" que era sobre a embalagem.
+      return { texto: d.texto, botoes: d.botoes, cardapio: null, podeReescrever: false };
     }
 
     case "confirmacao": {
