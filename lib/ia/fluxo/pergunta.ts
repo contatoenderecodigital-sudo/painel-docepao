@@ -30,7 +30,8 @@ import {
 import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia, nomeDaFamilia, familiaDoNome } from "./generico";
 import { paraOMotor } from "./cotar";
 import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
-import { semAcento, listaEmPortugues } from "../texto";
+import { semAcento, listaEmPortugues, pedacosDaObs } from "../texto";
+import { lerObs } from "@/lib/banco/obs-do-bolo";
 
 /**
  * O NOME DO PAPEL DE ARROZ, NUMA LINHA SO.
@@ -602,11 +603,20 @@ function falaDoBolo(p: PedidoEmMontagem, aviso: string): Fala {
     //
     // Esta fala nao passa pela reescrita: e regra de preco, e reescrita de
     // regra de preco vira promessa errada no balcao.
+    // A REGRA DO MISTO E DITA UMA VEZ SO, E QUEM DIZ E O RECADO DO CARDAPIO.
+    //
+    // Ela estava escrita aqui E em `RECADOS_CARDAPIO`, e as duas saiam na mesma
+    // resposta. O cliente do pedido de 30/08/2026 leu, seguidas:
+    //
+    //   Se quiser, dá pra misturar dois sabores no mesmo bolo. Nesse caso vale
+    //   o valor do mais caro dos dois.
+    //   Pode misturar sabores: vale sempre o valor do mais caro, de R$ 46,90 a
+    //   R$ 55,90 o quilo.
+    //
+    // A que ficou e a do recado, porque ela traz a faixa de preco e porque foi
+    // pedido dele que a regra saisse do rodape da imagem e virasse mensagem.
     return {
-      texto:
-        aviso +
-        "E o bolo, qual sabor?" +
-        "\n\nSe quiser, dá pra misturar dois sabores no mesmo bolo. Nesse caso vale o valor do mais caro dos dois.",
+      texto: aviso + "E o bolo, qual sabor?",
       botoes: [],
       cardapio: "bolos-festa",
       podeReescrever: false,
@@ -689,6 +699,31 @@ function falaDaOferta(p: PedidoEmMontagem): Fala {
   };
 }
 
+/**
+ * A OBSERVACAO DO BOLO ESCRITA PRO CLIENTE, E NAO PRA COZINHA.
+ *
+ * A mesma observacao serve as duas pontas, e cada uma quer um jeito. Na comanda
+ * ela sai com rotulo, uma linha por fato ("nome Gabriel Lucas"), porque quem
+ * fabrica precisa achar o dado de relance. No resumo do WhatsApp isso soa a
+ * formulario: ninguem diz "nome Gabriel Lucas" pra outra pessoa.
+ *
+ * O que a IA anotou por fora dos campos vai junto no fim, sem ser tocado: pode
+ * ser exatamente o detalhe que o cliente pediu.
+ */
+function boloEmPortugues(obs: unknown): string {
+  const p = lerObs(obs as string | null | undefined);
+  const partes = [
+    p.tema ? "tema " + p.tema : "",
+    p.escrito ? "escrito: " + p.escrito : "",
+    !p.escrito ? p.nome ?? "" : "",
+    !p.escrito && p.idade ? p.idade + " anos" : "",
+    p.topo ? "com topo" : "",
+    p.embalagem ?? "",
+    ...(p.resto ?? []),
+  ].filter(Boolean);
+  return partes.join(", ");
+}
+
 /** O resumo que vai antes de confirmar: item por item, com a conta fechada. */
 function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
   // CADA LINHA COM O SEU VALOR, IGUAL A COMANDA.
@@ -728,8 +763,26 @@ function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
     const quanto = l
       ? "  " + brl(Number(l.unit)) + (l.unidade === "kg" ? "/kg" : " cada") + " = " + brl(Number(l.subtotal))
       : "";
+    // O QUE JA ESTA NO NOME NAO VOLTA ENTRE PARENTESES.
+    //
+    // "50 bolinha de queijo (queijo)" foi o que o cliente leu no pedido de
+    // 30/08/2026. O cupom da cozinha ja cortava isso e o resumo nao: e a mesma
+    // funcao agora, `pedacosDaObs`.
+    //
+    // O BOLO FALA A LINGUA DO CLIENTE, E NAO A DA COMANDA.
+    //
+    // A observacao do bolo e escrita com rotulo, pra quem fabrica a peca ler de
+    // relance: "tema X, nome Y, 12 anos, topo de bolo". Isso e certo no cupom e
+    // esquisito no WhatsApp, onde ninguem diz "nome Gabriel Lucas". Aqui os
+    // mesmos campos saem do jeito que uma pessoa leria.
+    //
+    // O papel de arroz entra junto: ele e peca do bolo e leva os mesmos campos
+    // (tema, nome, idade), entao no resumo do cliente saia "nome Gabriel Lucas"
+    // do mesmo jeito.
+    const ehPecaDoBolo = ehBolo || i.categoria === "papel_de_arroz";
+    const obs = ehPecaDoBolo ? boloEmPortugues(i.obs) : pedacosDaObs(i.obs, nome).join(", ");
     return (
-      "- " + i.qtd + (ehBolo ? " kg de " : " ") + nome + (i.obs ? " (" + i.obs + ")" : "") + quanto
+      "- " + i.qtd + (ehBolo ? " kg de " : " ") + nome + (obs ? " (" + obs + ")" : "") + quanto
     );
   });
   const d = p.dados;

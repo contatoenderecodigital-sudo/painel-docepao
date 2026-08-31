@@ -378,11 +378,37 @@ export const RECADOS_CARDAPIO: Partial<Record<CardapioId, string[]>> = {
     const menor = brl(precos[0] ?? 0);
     const maior = brl(precos[precos.length - 1] ?? 0);
     const papel = produtoPorNome("papel de arroz");
+    // UMA COISA POR VEZ, E SO O ASSUNTO DA PERGUNTA.
+    //
+    // Aqui saiam DOIS recados junto com a imagem, e no pedido de festa de
+    // 30/08/2026 o cliente recebeu isto de uma vez so:
+    //
+    //   E o bolo, qual sabor?
+    //   Se quiser, dá pra misturar dois sabores no mesmo bolo. Nesse caso vale
+    //   o valor do mais caro dos dois.
+    //   Pode misturar sabores: vale sempre o valor do mais caro, de R$ 46,90 a
+    //   R$ 55,90 o quilo.
+    //   Decoração à parte: papel de arroz R$ 12,00. O topo de bolo a equipe
+    //   orça, porque o valor muda com o tema.
+    //   [imagem do cardapio]
+    //
+    // Quatro mensagens, duas delas dizendo a mesma coisa. Palavra do dono:
+    // "aqui spammou mta mensagem, ai ate a I.A vai se perder na resposta, tem q
+    // falar somente do bolo primeiro ate ele fechar o sabor, ai sim pede de topo
+    // e papel arroz".
+    //
+    // O recado da decoracao saiu daqui porque e de OUTRA etapa: a das pecas
+    // pergunta o papel de arroz com o valor na frase ("E papel de arroz, com a
+    // foto impressa no bolo? Fica R$ 12,00") e o topo logo depois. Falar deles
+    // antes do sabor fechar e empurrar tres decisoes de uma vez.
+    //
+    // A regra do misto FICA, porque foi pedido dele que ela saisse do rodape da
+    // imagem e virasse mensagem: "no celular ninguem le rodape de cardapio". A
+    // frase repetida saiu da pergunta, em `pergunta.ts`, e nao daqui.
+    void papel;
     return [
       "Pode misturar sabores: vale sempre o valor do mais caro, de " +
         menor + " a " + maior + " o quilo.",
-      "Decoração à parte: papel de arroz " + brl(papel?.preco ?? 0) +
-        ". O topo de bolo a equipe orça, porque o valor muda com o tema.",
     ];
   })(),
 };

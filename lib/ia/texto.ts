@@ -302,3 +302,30 @@ export function listaEmPortugues(itens: (string | null | undefined)[]): string {
   if (xs.length <= 1) return xs[0] ?? "";
   return xs.slice(0, -1).join(", ") + " e " + xs[xs.length - 1];
 }
+
+/**
+ * OS PEDACOS DA OBSERVACAO QUE NAO REPETEM O NOME DO ITEM.
+ *
+ * "bolinha de queijo (queijo)" e "esfirra de carne (carne)": o sabor esta no
+ * nome do produto e sair de novo entre parenteses e ruido. No pedido de festa
+ * de 30/08/2026 o cliente leu "50 bolinha de queijo (queijo) R$ 1,00 cada".
+ *
+ * O cupom da cozinha ja fazia esse corte desde sempre, e por isso a comanda saiu
+ * limpa e o resumo do cliente nao. Regra em dois lugares e regra que discorda:
+ * agora e uma so, e os dois chamam daqui.
+ *
+ * Corta na virgula E na barra, que sao os dois separadores que o fluxo usa.
+ */
+export function pedacosDaObs(obs: unknown, produto: unknown): string[] {
+  const chave = (t: string) =>
+    semAcento(String(t)).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  const nome = chave(String(produto ?? ""));
+  return String(obs ?? "")
+    .split(/[,|]/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .filter((x) => {
+      const f = chave(x);
+      return f.length > 2 && !nome.includes(f);
+    });
+}

@@ -1389,7 +1389,37 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       const saborPedido = quem.recheio ?? (saborCitado ? saborDoModelo : null);
       const outroRecheio = recheioQueNaoExiste(produto, saborPedido);
       if (outroRecheio) {
-        recheiosTrocados.push(produto + " de " + outroRecheio);
+        // A CORRECAO SO SAI SOBRE O PRODUTO DE QUE SE ESTAVA FALANDO.
+        //
+        // Do pedido de festa de 30/08/2026, e o cliente nao entendeu nada:
+        //
+        //   padaria >> Qual sabor você quer para o mini bolha?
+        //   cliente >> quero carne
+        //   padaria >> A gente faz coxinha de frango. Quais docinhos você quer?
+        //
+        // Ele estava respondendo sobre o MINI BOLHA. A coxinha estava no pedido
+        // desde antes, o "carne" da frase alcancou ela tambem, e como coxinha e
+        // de frango no cardapio a padaria "corrigiu" um pedido que ninguem
+        // tinha feito. Palavra dele: "falou um negocio da coxinha nada ver nem
+        // entendi".
+        //
+        // Corrigir o cliente sobre algo que ele nao pediu e pior do que ficar
+        // calado: ele para pra entender uma frase que nao era pra ele.
+        //
+        // Vale quando ELE nomeou o produto agora ("50 coxinha de calabresa") ou
+        // quando a PADARIA acabou de perguntar sobre ele, que e o caso de quem
+        // responde so o sabor.
+        const eleNomeou = oClienteNomeouEsteProduto(falaDoCliente, produto);
+        const aPerguntaEraDele =
+          semAc(produto).length >= 4 && semAc(String(e.ultimaFala || "")).includes(semAc(produto));
+        if (!eleNomeou && !aPerguntaEraDele) {
+          rastro.push(
+            "nao avisei que " + produto + " e de " + outroRecheio +
+            ": ele nao falou desse produto nesta mensagem e a pergunta nao era dele",
+          );
+        } else {
+          recheiosTrocados.push(produto + " de " + outroRecheio);
+        }
         // Recheio fixo: o que ele pediu nao vai pra comanda. Tira do obs se
         // o leitor da frase tinha deixado o resto do "de X" como recado.
         if (saborPedido && String(obsItem ?? "").toLowerCase().includes(saborPedido.toLowerCase())) {

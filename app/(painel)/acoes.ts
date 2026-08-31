@@ -200,8 +200,23 @@ export async function resolverPendencia(
       `\n\nCom isso o seu pedido fica em ${brl(dados.totalCentavos ?? 0)}.` +
       `\n\nTá certo assim pra eu passar pra confirmação?`;
 
-    const { enviarTexto } = await import("@/lib/whatsapp/api");
-    await enviarTexto(dados.telefone, texto, { phoneId: creds.phoneId, token: creds.token });
+    // COM BOTAO, COMO TODA PERGUNTA DE SIM OU NAO DESTA CONVERSA.
+    //
+    // Os ids "valor_sim" e "valor_nao" ja eram tratados em atender.ts desde
+    // 23/08/2026, e o proprio comentario de la fala do "botao que a padaria
+    // manda logo abaixo". O botao nunca foi mandado: esta pergunta saia como
+    // texto puro. Apontado por ele no pedido de festa de 30/08/2026, a unica
+    // pergunta de sim ou nao da conversa inteira que chegou sem botao.
+    const { enviarBotoes } = await import("@/lib/whatsapp/api");
+    await enviarBotoes(
+      dados.telefone,
+      texto,
+      [
+        { id: "valor_sim", titulo: "Tá certo" },
+        { id: "valor_nao", titulo: "Quero mudar" },
+      ],
+      { phoneId: creds.phoneId, token: creds.token },
+    );
 
     const { salvarMensagem } = await import("@/lib/banco/conversas");
     await salvarMensagem(negocioId, dados.clienteId, "assistant", texto, { autor: "ia" });

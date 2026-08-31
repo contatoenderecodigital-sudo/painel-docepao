@@ -126,7 +126,20 @@ export async function POST(req: NextRequest) {
             linhas.join("\n") +
             "\n\nTotal: " + (total / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) +
             "\n\nTa certo assim pra eu passar pra confirmacao? Se faltou alguma coisa, me fala que a gente acerta.";
-          await enviarTexto(telefone, texto, { token: creds.token, phoneId: creds.phoneId }).catch((e) => console.error("[montagem] falha ao avisar o cliente:", e));
+          // Mesma pergunta de sim ou nao do lancamento do topo, e os mesmos
+          // botoes: "valor_sim" e "valor_nao" ja sao tratados em atender.ts.
+          // Sem eles a pergunta que faz o pedido andar dependia do cliente
+          // digitar a resposta certa.
+          const { enviarBotoes } = await import("@/lib/whatsapp/api");
+          await enviarBotoes(
+            telefone,
+            texto,
+            [
+              { id: "valor_sim", titulo: "Tá certo" },
+              { id: "valor_nao", titulo: "Quero mudar" },
+            ],
+            { token: creds.token, phoneId: creds.phoneId },
+          ).catch((e) => console.error("[montagem] falha ao avisar o cliente:", e));
           await salvarMensagem(sessao.negocioId, corpo.clienteId, "assistant", texto, {
             autor: "equipe",
           }).catch(() => {});

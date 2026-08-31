@@ -36,6 +36,7 @@
 
 import { deptoDe, deptosDoPedido, nomeDaComanda, nomeNoTicket, qtdDoTicket, unidadeDoTicket, type DeptoId } from "./departamentos";
 import { tiraAcento } from "./ia/texto";
+import { pedacosDaObs } from "./ia/texto";
 
 export type ItemCupom = {
   produto: string;
@@ -123,24 +124,13 @@ function quebrar(texto: string, marca = ""): string {
 // sem topo e sem papel de arroz"). Cortando ali, a producao le uma coisa por
 // linha e nenhuma negacao fica orfa da palavra que ela nega.
 function observacaoDoItem(obs: string, produto: string): string {
-  const chave = (t: string) => semAcento(t).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
-  const nome = chave(produto);
-  return String(obs)
-    // CORTA NA VIRGULA E NA BARRA.
-    //
-    // A Dora escreve com virgula, mas o fluxo junta pedaco com " | " em varios
-    // lugares (o tipo do salgado, o recado do cliente). Cortando so na virgula,
-    // o cupom de 30/08/2026 saiu com "> frito | quero carne" numa linha so, que
-    // e justamente o formato que a cozinha nao consegue ler de relance.
-    .split(/[,|]/)
-    .map((x) => x.trim())
-    .filter(Boolean)
-    // O que ja esta no nome do item nao se repete embaixo dele: saia
-    // "bolo brigadeiro com morango" e logo abaixo "> com morango".
-    .filter((x) => {
-      const f = chave(x);
-      return f.length > 2 && !nome.includes(f);
-    })
+  // O CORTE MORA EM `pedacosDaObs`, E OS DOIS LEITORES CHAMAM DE LA.
+  //
+  // Isto aqui cortava so na virgula e o resumo do cliente nao cortava nada. O
+  // cupom de 30/08/2026 saiu com "> frito | quero carne" numa linha so, e o
+  // resumo saiu com "bolinha de queijo (queijo)". A mesma regra escrita em dois
+  // lugares sempre acaba discordando: agora e uma so.
+  return pedacosDaObs(obs, produto)
     .map((x) => quebrar(x, "  > "))
     .join("");
 }
