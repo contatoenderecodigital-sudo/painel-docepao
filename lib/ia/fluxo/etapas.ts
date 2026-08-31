@@ -432,6 +432,22 @@ const faltaPeso = (p: PedidoEmMontagem, categoria?: string) =>
     // Nome de familia ainda vai virar produto: o peso se pergunta depois de
     // saber o que e.
     if (ehNomeDeFamilia(i.produto)) return false;
+    // A PADARIA NAO PERGUNTA QUILO DE PAO. A DONA E QUEM DIZ ISSO.
+    //
+    // Fala dela, transcricao das 55: *"o pao frances e R$ 11,99 o quilo"* e, na
+    // mesma conversa, *"as vezes a pessoa encomendou o bolo e encomendou 50 pao
+    // frances"*. O cliente pede por UNIDADE e a casa cobra por PESO: quem pesa
+    // e a balanca no balcao, e nao a conversa.
+    //
+    // Perguntar "quantos quilos de pao francês?" pra quem falou "50 pães" e a
+    // padaria falando uma lingua que o cliente dela nao fala. O bolo e o
+    // contrario: la ninguem diz "um bolo" querendo 1 kg, e o peso e escolha de
+    // verdade.
+    //
+    // O QUE CONTINUA ERRADO, e depende dela: 50 pao frances hoje e cotado como
+    // 50 kg, R$ 599,50. Nao inventei conversao, porque quanto pesa um paozinho
+    // e dado dela. Esta como pergunta 7 em `PERGUNTAR-PRA-DONA.md`.
+    if (String(i.categoria || "") === "padaria") return false;
     return unidadeDoPedido(String(i.produto), String(i.categoria || "")) === "kg";
   });
 

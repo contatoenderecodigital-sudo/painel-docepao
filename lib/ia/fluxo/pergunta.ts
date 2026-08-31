@@ -965,6 +965,10 @@ export function falaDaEtapa(
         (i) =>
           !(Number(i.qtd) > 0) &&
           !ehNomeDeFamilia(i.produto) &&
+          // Pao, cuca e cachorro-quente o cliente pede por unidade e a casa
+          // pesa. O porque, com a fala da dona, esta em `faltaPeso`, no
+          // `etapas.ts`.
+          String(i.categoria || "") !== "padaria" &&
           unidadeDoPedido(String(i.produto), String(i.categoria || "")) === "kg",
       );
       if (semPesoAqui) {

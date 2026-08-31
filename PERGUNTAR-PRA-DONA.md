@@ -104,28 +104,34 @@ equipe" e chama gente. **Ela não inventa chave**, porque chave errada é client
 pagando pra outra pessoa, e isso não tem desfazer.
 
 
-**7. "Quero 10 pães franceses": são 10 unidades ou 10 quilos?**
+**7. Quanto pesa um pão francês, um pão de X e um cachorro-quente?**
 
-Achado medindo em 31/08/2026, e custa dinheiro nos dois sentidos.
+Metade desta já está respondida nos áudios, e por isso a pergunta ficou curta.
 
-O cardápio diz que pão francês, pão de X, cachorro-quente e cuca são **por
-quilo**, e o sistema guarda a quantidade como peso. Então hoje:
+Ela diz que o preço é por peso:
 
-```
-"quero 10 pães franceses"   ->  10 kg  ->  R$ 119,90
-"quero 10 cachorro-quente"  ->  10 kg  ->  R$ 199,00
-```
+> *"o pão francês é R$ 11,99 o quilo"*
 
-Quem quer R$ 6 de pão recebe uma conta de R$ 119 e vai embora. Mas ninguém pede
-pão em quilo: pede "me vê 10 pãezinhos".
+E, na mesma conversa, diz como o cliente pede:
 
-Preciso saber como ela quer que a Dora anote:
+> *"às vezes a pessoa encomendou o bolo e encomendou **50 pão francês**"*
 
-1. sempre perguntar os quilos, mesmo quando o cliente fala em unidades?
-2. ou converter, e aí quanto pesa um pão francês, um pão de X e um cachorro-quente?
+Ou seja: o cliente pede por unidade e a casa cobra por quilo. A Dora já anota a
+quantidade que ele falou e não pergunta quilo de pão, que é o que ninguém faz
+numa padaria.
 
-Enquanto ela não responder, a Dora pergunta o peso em vez de cobrar dez vezes
-mais. Perguntar incomoda; cobrar R$ 119 de quem queria R$ 6 perde o cliente.
+**O que falta é só a conversão**, e ela é dado dela, não meu: quanto pesa um pão
+francês, um pão de X e um cachorro-quente. Sem isso, "50 pão francês" hoje é
+cotado como 50 kg, R$ 599,50, e eu não inventei número nenhum.
+
+Se ela preferir, serve também o jeito que ela já usa na pizza:
+
+> *"ela é montada e pesada... geralmente tem um pouquinho menos de um quilo,
+> entre 800 gramas a 1,2 quilo, dá pra sugerir. Se a cliente pedir o valor, mais
+> ou menos de 35 até 45 reais."*
+
+Uma faixa por unidade ("50 pães dão mais ou menos 2,5 kg, uns R$ 30") resolve
+igual, e é como ela já fala com o cliente.
 
 **8. Sabor fora do catálogo: a IA anota e a equipe confirma, ou ela pergunta antes?**
 
