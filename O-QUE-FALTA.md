@@ -7,6 +7,42 @@ aberto, com nome, e com a prova ao lado quando houver.
 
 ---
 
+## 31/08/2026, SEGUNDA NOITE: QUATRO CONVERSAS FECHAM CERTO
+
+Testei conversando com a produção, uma mensagem por vez. Nove defeitos novos,
+todos medidos, todos com regra e teste. O portão foi de 138 para 156.
+
+Fecham hoje, do "oi" ao pedido registrado: o pedido do Alessandro (R$ 299,80),
+uma festa de 30 pessoas (R$ 628,20, batendo a proposta), um bolo com todas as
+peças (R$ 105,80 mais o topo à parte) e o bolo sem lactose (R$ 55,90).
+
+### O QUE VIROU REGRA NESTA NOITE
+
+- **Quem cita a peça respondeu sobre ela.** "nao quero topo nem papel de arroz"
+  fechava COM topo, porque o atalho do botão pegava só a peça perguntada e jogava
+  fora o resto da frase.
+- **A quarta pergunta igual não é pergunta, é gente.** Sem entender nada do que a
+  pessoa respondeu, ela chama a equipe com o motivo, em vez de repetir pra sempre.
+- **A família que ele pede entra no pedido na hora.** Sem isso, "queria encomendar
+  um bolo" não virava item, e o "brigadeiro" seguinte caía no docinho.
+- **Plural e diminutivo são o jeito normal de escrever.** Salgados, docinhos,
+  doces e salgadinhos agora são família. A redução mora num lugar só.
+- **Restrição que está no cardápio fecha a venda sozinha.** Decisão dele: o 0%
+  lactose responde e vende; o resto vai pra equipe.
+- **A resposta vale com o modelo devolvendo NADA.** Quem responde só o peso não
+  cita produto, e a resposta se perdia.
+- **A unidade da tela é a unidade em que a casa cobra**, e quem manda é o motor.
+- **Pergunta que chama a equipe vai com o motivo.**
+
+### O QUE FICOU ABERTO
+
+- **A chave pix**, que é da dona. Sem ela, quem pede a chave cai pra equipe.
+- **As 8 perguntas de `PERGUNTAR-PRA-DONA.md`**, sendo a 7 o cardápio sem acento.
+- **Aprovar um pedido de teste e ver o cupom sair**, que é dele: a ponte está
+  online e imprimiria papel na padaria.
+
+---
+
 ## 31/08/2026: O PRIMEIRO PEDIDO DE FESTA FECHOU PONTA A PONTA
 
 Ele fechou um pedido inteiro pelo WhatsApp, com 200 salgados, 100 docinhos, bolo

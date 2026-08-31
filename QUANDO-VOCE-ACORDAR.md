@@ -1,198 +1,130 @@
 # Quando você acordar
 
-31/08/2026. Uma página, sem "falta pouco".
+31/08/2026, segunda noite. Uma página, sem "falta pouco".
 
 ---
 
 ## O RESUMO EM TRÊS LINHAS
 
-O pedido de festa fecha inteiro pelo WhatsApp, com a conta certa e cada item na
-comanda certa. Vinte e nove defeitos foram fechados nesta madrugada, todos com
-medição contra o servidor. **Dezoito deles só apareceram conversando**, e nenhum
-dos testes pegava.
+Testei tudo conversando, como tu mandou: fingi ser cliente na produção, uma
+mensagem por vez, lendo cada resposta. **Nove defeitos novos**, todos medidos,
+todos fechados com regra e teste. O portão foi de 138 para 156 testes.
+
+Quatro conversas inteiras fecham certo hoje: o pedido do Alessandro, uma festa de
+30 pessoas, um bolo com todas as peças e o bolo sem lactose.
 
 ---
 
 ## O QUE ESTÁ DE PÉ, COM PROVA
 
-Rodei a tua conversa do zero contra o servidor, mensagem por mensagem:
+**Festa de 30 pessoas**, do "oi" ao pedido registrado:
 
 ```
-Fechando o pedido:
-- 50 bolinha de queijo                                 R$ 1,00 cada = R$ 50,00
-- 50 coxinha (frango)                                  R$ 1,00 cada = R$ 50,00
-- 50 risólis (frango)                                  R$ 1,00 cada = R$ 50,00
-- 50 mini bolha (frito, carne)                         R$ 1,00 cada = R$ 50,00
-- 50 brigadeiro (forminha rosa)                        R$ 1,25 cada = R$ 62,50
-- 50 beijinho (forminha rosa)                          R$ 1,25 cada = R$ 62,50
-- 2 kg de bolo brigadeiro com 0% lactose
-  (tema futebol, Gabriel Lucas, 12 anos, com topo)     R$ 55,90/kg = R$ 111,80
-- 1 papel de arroz (tema futebol, Gabriel Lucas, 12 anos)  R$ 12,00 = R$ 12,00
-
-Total: R$ 448,80
+- 150 coxinha (frango)                    R$ 1,00 cada = R$ 150,00
+- 150 risólis (carne)                     R$ 1,00 cada = R$ 150,00
+- 75 brigadeiro (forminha preta)          R$ 1,25 cada = R$  93,75
+- 75 beijinho (forminha preta)            R$ 1,25 cada = R$  93,75
+- 3 kg de bolo laka                       R$ 46,90/kg  = R$ 140,70
+Total: R$ 628,20     (o mesmo valor da proposta que ele aceitou)
 ```
 
-E o cupom que a cozinha receberia, montado com o código de agora:
+**Bolo com todas as peças**, no mesmo formato:
 
 ```
-== BOLO FESTA ==
-2 kg    bolo brigadeiro com 0% lactose
-  > tema futebol
-  > nome Gabriel Lucas
-  > 12 anos
-  > topo de bolo
+- 2 kg de bolo brigadeiro
+  (tema homem aranha, Miguel, 5 anos, com topo, prato aberto)  R$ 93,80
+- 1 papel de arroz (tema homem aranha, Miguel, 5 anos)         R$ 12,00
+Total: R$ 105,80
+_O topo entra à parte: a equipe faz o orçamento dele e confirma com você._
 ```
 
-Compara com a foto que você mandou: lá o nome saía três vezes e **não dizia que
-era sem lactose**.
+**Bolo sem lactose**, que antes era venda perdida:
 
-Também rodei uma conversa difícil de ponta a ponta: cliente que dá quantidade e
-dia na primeira frase, pergunta por um sabor que não existe, troca de item no
-meio, pergunta o preço e fecha. Fechou certo, e o "pra sexta" da primeira
-mensagem sobreviveu a doze turnos.
+```
+cliente >> oi, voces fazem bolo sem lactose?
+padaria >> Fazemos sim: temos bolo 0% lactose, R$ 55,90 o quilo.
+cliente >> quero um sem lactose de 1 kg entao
+pedido  >> 1 kg de bolo 0% lactose   R$ 55,90   -> fila da equipe
+```
 
-**Portão em 135 testes verdes. Build limpo. Tudo no ar.**
-
----
-
-## OS CATORZE DOS TEUS PRINTS: FECHADOS
-
-Os cinco que custavam dinheiro:
-
-| defeito | custava |
-| --- | --- |
-| sem lactose sumia do pedido | R$ 18,00 no bolo, e a equipe nem era avisada |
-| papel de arroz sumia ao salvar no painel | R$ 12,00, calado, em todo pedido com bolo |
-| cor da forminha escolhida sozinha | 100 forminhas na cor errada |
-| "quero carne" impresso na comanda | a cozinha lê a tua frase no lugar do recheio |
-| nome do aniversariante não enchia o campo | equipe redigita |
-
-Os outros nove eram conversa: cardápio três vezes, quatro mensagens de uma vez,
-topo antes do sabor, "dia 12", "Qual nome está no pedido?", pergunta final sem
-botão, "(queijo)" repetido, nome duplicado no bolo, e a coxinha do nada.
+Os três foram registrados esperando a equipe. Nenhum foi aprovado por mim: a
+impressora está online e sairia papel na padaria.
 
 ---
 
-## OS QUINZE QUE SÓ A CONVERSA ACHOU
+## OS NOVE DEFEITOS QUE EU ACHEI CONVERSANDO
 
-Com o portão verde o tempo todo:
+**1. O pedido fechava COM a peça que o cliente recusou por escrito.**
+Escrevi "nao quero topo nem papel de arroz". O atalho do botão digitado pegava só
+a peça perguntada e jogava fora o resto da frase: a comanda saiu com topo, que é
+o único item da casa sem preço de tabela. Agora a resposta vale pra cada peça que
+a frase nomeia.
 
-**Custavam dinheiro ou comida errada:**
+**2. Quatro vezes a mesma pergunta.**
+A cor da forminha foi perguntada quatro vezes seguidas, comendo minhas respostas.
+É o que tu reclamou no teste da Kemilly: "pede o nome 3 vezes". Agora a quarta
+vez chama a equipe, com o motivo escrito.
 
-1. A guarda anti-invenção montou `mini frango`, que não existe, e o motor cotava
-   a linha fantasma em **R$ 120,00**.
-2. **"Sim" digitado se perdia.** Você tocou nos botões e por isso não viu. Quem
-   digita perdia o papel de arroz, o topo, o tema e o nome do aniversariante.
-3. **O pedido fechava com o nome errado**: resumo "bolo brigadeiro com 0%
-   lactose", gravado "bolo brigadeiro". Preço certo, comanda errada, e a
-   confeitaria faria com lactose.
-4. **O docinho sumia dentro do bolo**: "50 brigadeiro e um bolo de 2 kg de 4
-   leites" fechava só com o bolo.
-5. O recheio fixo dependia do modelo lembrar: mesma fala, duas conversas, uma
-   com frango e outra sem.
-6. "salgadinho" virava o recheio **"nho"** na comanda.
-7. "docinho de morango" virava bolo.
+**3. Pedi um bolo e saí com um docinho.**
+"queria encomendar um bolo de aniversário" não virava item nenhum, porque não há
+produto na frase, só a família. Sem item, ela perguntava "o que você vai querer?"
+pra sempre, e "brigadeiro" caía no docinho de R$ 1,25 em vez do bolo de R$ 46,90
+o quilo.
 
-**Custavam confiança:**
+**4. O plural não era família.**
+"quero salgado" achava; "queria uns salgados pra amanhã" não achava nada. Valia
+pra salgados, docinhos, doces e salgadinhos, que é como todo mundo escreve.
 
-8. **Cliente reclamando ouvia "Bom dia, como posso ajudar?"** O modelo
-   classificava certo e o código descartava em silêncio, porque a frase citava
-   um produto. E reclamação quase sempre cita.
-9. Reclamação e cancelamento chegavam no painel **sem motivo**.
-10. "tem coxinha de camarão?" era respondido com o preço, não com "a gente faz
-    de frango".
-11. "A gente faz coxinha de frango" saía quando o sabor era do outro item da
-    lista.
-12. Item descartado segurava o sabor da pergunta, e a padaria repetia.
-13. "frango" foi lido como "escolhe você".
-14. O painel mostrava "Gabriel Lucas | 12 anos | topo de bolo" no campo do nome.
-15. O tipo do salgado saía duas vezes no cupom.
+**5. "Vocês fazem bolo sem lactose?" ouvia a tabela de preço.**
+A casa faz, é sabor de festa da faixa C. Quem pergunta por restrição pergunta
+antes de tudo e vai embora com o silêncio. Agora ela responde com o nome do
+catálogo e o preço do motor, e fecha a venda sozinha, como tu decidiu. Sem
+glúten, vegano, diet e integral continuam indo pra equipe.
 
----
+**6. E depois de responder, o pedido não entendia.**
+"quero um sem lactose de 1 kg" virava a família bolo com "sem lactose" na
+observação, e ela perguntava o sabor que eu tinha acabado de escolher.
 
-## O QUE VIROU TRAVA, E NÃO REMENDO
+**7. A resposta do peso se perdia.**
+"O pão francês é vendido por quilo. Quantos quilos?" / "2 kg" / a mesma pergunta
+de novo, pra sempre. O peso só era lido dentro da lista de itens que o modelo
+devolve, e quem responde só o peso não cita produto nenhum.
 
-1. **Nome fora do cardápio não vira linha do pedido.** Roda no fim, em todo
-   caminho. Nome de família ("pizza" esperando o tipo) continua valendo.
-2. **Produto de sabor único sai com o sabor do catálogo**, antes da disputa.
-3. **A família que o cliente diz manda** na hora de escolher o produto.
-4. **A observação do bolo tem um leitor só**, e o painel usa ele.
-5. **"Sim" digitado vale como botão.**
-6. **Responder uma opção não é delegar.**
-7. **O nome que fecha é o nome que o cliente aceitou.**
-8. **Quantidade de produto por unidade é inteira.**
-9. **Reclamação e cancelamento são sempre da equipe**, mesmo citando produto.
+**8. "2 pao frances" para dois QUILOS de pão.**
+Conta certa, linha que engana. O "kg" estava preso ao bolo, e por quilo a casa
+vende 31 produtos.
 
-Cada uma com teste, e cada teste com isca: desliguei o conserto e conferi que
-fica vermelho.
+**9. A pergunta que chama a equipe chegava sem motivo.**
+Pedi o pix, ela chamou a equipe, e o painel mostrou "precisa de você" sem dizer
+do quê. Mesmo buraco da reclamação, noutra porta.
 
 ---
 
-## DOIS "REMENDOS" QUE EU LISTEI E NÃO EXISTIAM
+## O QUE FALTA, E É TEU
 
-Eu te disse que kg contra unidade era remendo, e que o texto do cliente e o da
-comanda eram montados em dois lugares. **Fui medir e os dois já estavam certos.**
-A unidade nunca é guardada no fluxo, e o resumo já bate com o cupom. Escrevi
-teste pros dois pra travar como estão.
+**1. A chave pix.** Enquanto a dona não passar, quem pede a chave cai pra equipe.
+Está em `PERGUNTAR-PRA-DONA.md`, pergunta 6. É a mais urgente: cliente que quer
+pagar na hora esbarra nisso.
 
----
+**2. As outras 7 perguntas pra dona**, no mesmo arquivo. A 7 é o cardápio sem
+acento ("pao frances" aparece assim pro cliente).
 
-## O CUSTO DA OPENAI, PUXADO DO BANCO
+**3. Aprovar um pedido de teste e ver o cupom sair.** Eu não fiz de propósito: a
+ponte está online e imprimiria papel de verdade na padaria.
 
-| dia | chamadas | tokens por chamada | custo |
-| --- | --- | --- | --- |
-| 20 a 23/08 | 21.000 | 22.000 a 26.000 | R$ 321 |
-| 27/08 em diante | 2.400 | 778 | não estava sendo gravado |
-
-O caro foi o prompt do cérebro antigo, apagado em 26/08. Hoje uma conversa de
-festa inteira custa uns **R$ 0,07**. Toda a madrugada custou menos de R$ 2,00.
-
-O custo tinha parado de ser registrado: `estimarCustoCentBRL` arredondava pra
-centavo inteiro e zerava tudo. Consertado, e era por isso que o painel mostrava
-"Custo de IA: -".
+**4. Os dois números do WhatsApp**, que já estavam na lista de ontem.
 
 ---
 
-## O QUE EU ERREI, PRA FICAR REGISTRADO
+## O QUE EU APRENDI, E VALE MAIS QUE OS CONSERTOS
 
-- Listei três remendos e dois não existiam. Listei por leitura, não por medição.
-- Chutei a causa do `mini frango` duas vezes antes de ler o log. As duas erradas.
-- Montei duas sondas com resposta de modelo inventada por mim; o caso passava
-  verde e a produção continuava quebrada. Quando peguei a resposta real do log,
-  reproduzi de primeira.
-- Meu carimbo do recheio fixo quebrou outra regra que estava certa. Quem pegou
-  foi um teste que já existia.
-- Levantei um alarme falso dizendo que sabor fora do cardápio entrava no pedido.
-  Não entrava; minha sonda é que estava errada.
+**Sonda que entrega o item pronto testa a si mesma.** Os dois testes de peso que
+já existiam ficaram verdes com a produção quebrada, porque nenhum deles perguntou
+o que acontece quando o modelo não lê nada.
 
----
+**Um defeito escondia o outro.** O erro do pedido sem lactose só apareceu depois
+que ela aprendeu a responder que faz. Por isso conversar de novo depois de cada
+deploy faz parte do conserto, e não é conferência.
 
-## OS DOIS ABERTOS, RESOLVIDOS DEPOIS
-
-**`quero 50 docinhos de morango` deixava uma linha de bolo sobrando.** Fechado.
-"morango" é sabor de docinho e nome de bolo de festa ao mesmo tempo, e o leitor
-da frase achava o bolo na mesma palavra que o modelo já tinha dado ao docinho.
-Levei três voltas: bloqueei o caminho errado duas vezes, e só achei o certo
-depois de pôr um espião no laço e ver que chegavam DOIS itens, não um.
-
-**"100 salgadinhos pra sexta" ouve "quantas pessoas na festa?".** Deixei como
-está, de propósito. Quem classifica como festa é o modelo, e a proposta da festa
-é o que faz a padaria oferecer docinho e bolo junto. Cortar a pergunta pra quem
-já disse a quantidade tira venda, e o cliente corrige em uma mensagem.
-
-**Decidido por ele em 31/08: o sem lactose fecha a venda sozinho.** Medido: o
-pedido grava `bolo brigadeiro com 0% lactose` a R$ 55,90 o quilo, status
-`confirmado` na fila de aprovação, e `handoff = false`. Não acende "precisa de
-você" pra ninguém. Quem barra, se a cozinha não puder fazer, é a aprovação.
-Está escrito no `CLAUDE.md` e no `O-QUE-A-DONA-FALOU.md`, e reverte por escrito a
-decisão de 26/08.
-
----
-
-## O QUE AINDA NÃO FOI MEDIDO
-
-- **O cupom saindo da impressora de verdade.** Montei o texto com o mesmo código
-  do servidor e conferi, mas não aprovei nenhum pedido de teste: a ponte está
-  online, e aprovar faria sair papel na padaria de madrugada.
-- **A tela de aprovação**, clicando aprovar num pedido de festa.
-- As seis perguntas que sobraram em `PERGUNTAR-PRA-DONA.md`.
+**Conta certa com tela errada é defeito.** O cliente não confere a conta, ele lê
+a linha.
