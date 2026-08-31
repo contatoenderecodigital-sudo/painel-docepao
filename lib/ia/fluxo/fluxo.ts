@@ -41,7 +41,7 @@ import { semAcento as semAc, PALAVRAS_VAZIAS, listaEmPortugues } from "../texto"
 import { escreverObs, lerObs, mexerNaObs, type Embalagem } from "@/lib/banco/obs-do-bolo";
 import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
-import { dataDeRetirada, disseQuantidade, pediuPraFalarComGente } from "./falas-do-cliente";
+import { dataDeRetirada, disseQuantidade, pediuPraFalarComGente, respostaAoValor } from "./falas-do-cliente";
 import { retiradaForaDoExpediente, avisoDeEspera } from "@/lib/padaria-aberta";
 import { coresDaForminha, faltaCorDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista, saboresQueFaltam } from "./sabor";
 import { restricoesQueACasaNaoFaz, misturaQueACasaFaz, obsSemRestricao, obsPraComanda, avisoDaRestricao } from "./restricao";
@@ -1509,6 +1509,23 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         // Vale quando ELE nomeou o produto agora ("50 coxinha de calabresa") ou
         // quando a PADARIA acabou de perguntar sobre ele, que e o caso de quem
         // responde so o sabor.
+        // O SABOR RECUSADO VOLTA A FICAR SOLTO.
+        //
+        // Medido conversando com o servidor em 31/08/2026:
+        //
+        //   padaria >> O mini bolha é de quê? Tem carne, queijo, presunto e frango.
+        //   cliente >> quero carne
+        //   modelo  >> 50x coxinha [carne]
+        //   comanda >> 50 un mini bolha  > frito | quero carne
+        //
+        // O modelo grudou o "carne" na COXINHA, que e de frango e nem tem carne
+        // na lista. O recheio foi recusado, certo. So que `donoNaFrase` continuou
+        // marcando "carne" como palavra ocupada, entao ela nao podia mais grudar
+        // no mini bolha, que era quem tinha sido perguntado: sobrou o caminho da
+        // frase crua, e "quero carne" foi impresso na comanda da cozinha.
+        //
+        // Recheio que o produto nao aceita nao e dono de nada.
+        if (saborPedido) saboresDeItemDescartado.push(String(saborPedido));
         const eleNomeou = oClienteNomeouEsteProduto(falaDoCliente, produto);
         const aPerguntaEraDele =
           semAc(produto).length >= 4 && semAc(String(e.ultimaFala || "")).includes(semAc(produto));
@@ -2008,8 +2025,32 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         !produtosNaFrase(cru).length &&
         !jaTem.includes(soIsto)
       ) {
+        // SE O CARDAPIO TEM ESSE SABOR, VAI O NOME DO CARDAPIO.
+        //
+        // Este caminho existe pro sabor que a lista NAO tem ("pistache"), e ali
+        // a frase inteira e o certo: e o que a equipe vai ler pra decidir. So
+        // que ele tambem pegava frase que CONTEM um sabor da lista, e ai a
+        // comanda saia com a fala do cliente no lugar do recheio:
+        //
+        //   cliente >> quero carne
+        //   comanda >> 50 un mini bolha  > frito | quero carne
+        //
+        // Medido conversando com o servidor em 31/08/2026, e impresso assim no
+        // cupom do pedido de festa da vespera.
+        const daLista = (saborQueFalta(item.produto, item.obs)?.opcoes ?? [])
+          .slice()
+          .sort((a, b) => b.length - a.length)
+          .find((o) => {
+            const alvo = semAc(o);
+            return alvo.length > 2 && soIsto.includes(alvo) &&
+              afirmouOuNegou(soIsto, cercaDoSabor(alvo)) !== false;
+          });
+        const oQueEntra = daLista ?? cru;
+        if (daLista) {
+          rastro.push("a frase \"" + cru + "\" traz \"" + daLista + "\", que esta no cardapio; anotei o sabor");
+        }
         novo.itens = novo.itens.map((i) =>
-          i === item ? { ...i, obs: [i.obs, cru].filter(Boolean).join(" | ") } : i,
+          i === item ? { ...i, obs: [i.obs, oQueEntra].filter(Boolean).join(" | ") } : i,
         );
       }
     }
@@ -2149,9 +2190,52 @@ export async function responder(
   rastro.push("etapa: " + etapaAgora.id);
 
   // ---------------------------------------------------------------- botao
+  // QUEM DIGITA "SIM" RESPONDEU IGUAL A QUEM TOCOU NO BOTAO.
+  //
+  // Medido conversando com o servidor em 31/08/2026, e custava R$ 12,00 mais o
+  // topo:
+  //
+  //   padaria >> E papel de arroz, com a foto impressa no bolo? Fica R$ 12,00.
+  //   cliente >> Sim
+  //   padaria >> O bolo vai com topo?
+  //   cliente >> Sim
+  //   banco   >> fluxo_topo = (vazio)   fluxo_papel = (vazio)
+  //
+  // As duas respostas se perderam. O texto livre vai pro modelo, e pra "Sim"
+  // seco ele devolveu leitura vazia: nenhuma das duas pecas foi anotada, o papel
+  // de arroz nao virou linha, e as perguntas do tema e do que vai escrito foram
+  // puladas, porque elas so existem quando ha peca.
+  //
+  // Muita gente digita em vez de tocar no botao, e a padaria nao pode depender
+  // do modelo pra entender um "sim". O leitor de sim e nao ja existia neste
+  // repositorio (`respostaAoValor`), so nao era chamado aqui.
+  //
+  // Vale so quando a pergunta da vez FOI a da peca, e so quando a peca ainda
+  // nao tem resposta: assim um "sim" solto no meio da conversa nao liga peca
+  // nenhuma.
+  const umaPecaEsperando =
+    estado.pecas?.papelDeArroz === null || estado.pecas?.papelDeArroz === undefined
+      ? "papel"
+      : estado.pecas?.topo === null || estado.pecas?.topo === undefined
+        ? "topo"
+        : null;
+  const ultimaPerguntou = semAc(String(estado.ultimaFala || ""));
+  const simOuNao = mensagem.botaoId ? null : respostaAoValor(String(mensagem.texto || ""));
+  const botaoDigitado =
+    etapaAgora.id === "pecas_do_bolo" && umaPecaEsperando && simOuNao
+      ? umaPecaEsperando === "papel" && ultimaPerguntou.includes("papel")
+        ? "papel_" + (simOuNao === "aceitou" ? "sim" : "nao")
+        : umaPecaEsperando === "topo" && ultimaPerguntou.includes("topo")
+          ? "topo_" + (simOuNao === "aceitou" ? "sim" : "nao")
+          : null
+      : null;
+
   if (mensagem.botaoId && DO_BOTAO[mensagem.botaoId]) {
     estado = DO_BOTAO[mensagem.botaoId](estado);
     rastro.push("botao: " + mensagem.botaoId + " (sem chamar a IA)");
+  } else if (botaoDigitado && DO_BOTAO[botaoDigitado]) {
+    estado = DO_BOTAO[botaoDigitado](estado);
+    rastro.push("ele digitou a resposta do botao " + botaoDigitado + " (sem chamar a IA)");
   } else if (mensagem.texto.trim()) {
     // ----------------------------------------------------------- texto livre
     const instrucao = instrucaoDaEtapa(etapaAgora.id, estado);
