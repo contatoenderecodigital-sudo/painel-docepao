@@ -201,6 +201,24 @@ fechada precisa valer com o modelo devolvendo NADA**, e o teste dela tem que ter
 reclamação. Todo caminho que liga `precisaHumano` preenche o motivo com a
 pergunta e com a frase que o cliente ouviu.
 
+**RESTRIÇÃO QUE ESTÁ NO CARDÁPIO FECHA A VENDA SOZINHA, E TAMBÉM RESPONDE A
+PERGUNTA.** O 0% lactose é sabor de bolo de festa da faixa C. "vocês fazem bolo
+sem lactose?" responde com o nome do catálogo e o preço do motor; "quero um sem
+lactose" vira o bolo, e não observação presa na família. O que a casa NÃO faz
+(sem glúten, vegano, diet, integral) vai pra equipe com a frase que não promete
+nada.
+
+**A QUARTA PERGUNTA IGUAL NÃO É PERGUNTA, É GENTE.** Gente continua sendo último
+recurso, e quatro vezes a mesma pergunta sem entender nada É o último recurso.
+
+**QUEM CITA A PEÇA RESPONDEU SOBRE ELA.** Atalho de botão que lê só a peça
+perguntada joga fora o resto da frase, e aí o pedido fecha com a peça que o
+cliente recusou por escrito.
+
+**PLURAL E DIMINUTIVO SÃO O JEITO NORMAL DE ESCREVER.** Salgados, docinhos,
+doces, salgadinhos. A redução mora em `formasDaFrase`, e é a mesma de
+`formasDoCliente`: nunca escrever a segunda cópia dela.
+
 **A UNIDADE DA TELA É A UNIDADE EM QUE A CASA COBRA.** Quem manda é o motor de
 preço, nunca a categoria. "2 pao frances" para dois quilos é conta certa com
 linha que engana, e por quilo a casa vende 31 produtos, não só bolo.
