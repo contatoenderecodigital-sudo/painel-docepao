@@ -1726,6 +1726,24 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         return p.sabores.some((s) => {
           const alvo = semAc(s);
           if (alvo.length <= 2 || !tSolto.includes(alvo)) return false;
+          // QUEM JA TEM O SABOR ANOTADO NAO ESTA ESPERANDO RESPOSTA.
+          //
+          // Medido conversando em 31/08/2026, com os quatro salgados do pedido
+          // do dono:
+          //
+          //   padaria >> O risólis é de carne ou frango?
+          //   cliente >> frango
+          //   padaria >> O risólis é de quê? Tem carne e frango.
+          //
+          // A coxinha e de frango no cardapio e ja estava anotada com frango.
+          // Mesmo assim ela entrava aqui, e por ter recheio FIXO recebia
+          // primeiro: o "frango" morria nela e o risolis continuava sem sabor.
+          // A padaria perguntava a mesma coisa de novo, e a conversa nao andava.
+          //
+          // A regra de cima continua de pe pro caso que ela nasceu ("50 coxinha"
+          // e depois "de frango", com a pizza esperando): la a coxinha ainda NAO
+          // tem sabor anotado, e e ela mesma que esta esperando.
+          if (semAc(String(i.obs ?? "")).includes(alvo)) return false;
           return afirmouOuNegou(tSolto, cercaDoSabor(alvo)) !== false;
         });
       })
@@ -3191,6 +3209,60 @@ export async function responder(
     estado = { ...estado, poucoPorSabor: undefined };
   }
 
+  // A MESMA PECA DE CARDAPIO NAO VAI DUAS VEZES.
+  //
+  // ISTO RODA ANTES DA CONTAGEM DE INSISTENCIA, E NAO POR ESTETICA.
+  //
+  // A primeira versao ficava no fim da funcao, depois de `mesmaPergunta`, e
+  // quebrou `sabor-fora-da-lista-espera-insistencia` na hora: a contagem compara
+  // o texto novo com o guardado, e o texto so perdia a frase do cardapio DEPOIS
+  // da comparacao. Turno 2 comparava texto longo com longo (contava), turno 3
+  // comparava longo com curto (zerava), e o cliente que insistia tres vezes no
+  // mesmo sabor nunca chegava na equipe.
+  //
+  // Aqui em cima o texto ja esta no formato final quando alguem o compara ou o
+  // guarda, que e o unico jeito de os dois concordarem.
+  //
+  // Do pedido de festa de 30/08/2026, quatro minutos de conversa:
+  //
+  //   23:10  Quais sabores de salgados voce prefere?     [peca salgados]
+  //   23:12  Qual recheio voce quer no risolis?          [peca salgados]
+  //   23:14  Qual sabor voce quer para o mini bolha?     [peca salgados]
+  //
+  // A mesma imagem tres vezes, empurrando pra cima a conversa que o cliente
+  // precisava reler. Palavra do dono: "inves dele falar os produtos q faltou
+  // sabor e digitar pra eles os sabores q tem, ele mandou outro cardapio igual".
+  //
+  // Na segunda vez a peca sai e as opcoes entram no texto, que e o que uma
+  // pessoa faria: ela ja te mandou o cardapio, agora ela te fala os sabores.
+  //
+  // AQUI, E NAO NA PERGUNTA, de proposito: toda pergunta que anexa peca passa
+  // por este ponto, e assim nenhuma delas precisa lembrar da regra sozinha.
+  if (fala.cardapio) {
+    const mandadas = estado.pecasMandadas ?? [];
+    if (mandadas.includes(fala.cardapio)) {
+      const opcoes = (fala.opcoes ?? []).filter(Boolean);
+      const jaCita = opcoes.length > 0 && opcoes.every((o) => semAc(fala.texto).includes(semAc(String(o))));
+      const texto = fala.texto
+        // A frase que promete a imagem sai junto com a imagem, senao a padaria
+        // diz "te mandei o cardapio" e nao manda nada.
+        .replace(/\s*(Te mandei|Já te enviei|Te enviei)[^.!?]*[.!?]/gi, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+      fala = {
+        ...fala,
+        cardapio: null,
+        texto: (opcoes.length && !jaCita ? texto + " Tem " + listaEmPortugues(opcoes.map(String)) + "." : texto)
+          .replace(/\s{2,}/g, " ")
+          .trim(),
+      };
+      //
+      rastro.push("a peca " + mandadas.join("/") + " ja foi mandada nesta conversa; escrevi os sabores no texto");
+    } else {
+      estado = { ...estado, pecasMandadas: [...mandadas, fala.cardapio] };
+    }
+  }
+
   // ------------------------------------ A MESMA PERGUNTA NAO SAI DUAS VEZES
   //
   // Se ela vai repetir o que acabou de perguntar, alguma coisa nao funcionou: a
@@ -3200,7 +3272,29 @@ export async function responder(
   // Na segunda vez ela mostra as opcoes, quando a pergunta tem lista. Na
   // terceira, para de insistir e chama a equipe: tem coisa que a padaria
   // resolve numa frase e a Dora nao resolve em dez.
-  const mesmaPergunta = Boolean(estado.ultimaFala) && fala.texto === estado.ultimaFala;
+  // A FRASE DO CARDAPIO NAO CONTA NA COMPARACAO.
+  //
+  // A padaria manda a peca uma vez so, entao a MESMA pergunta sai com "Te mandei
+  // o cardapio pra escolher" na primeira e sem ela na segunda. Comparando o
+  // texto cru, a segunda parecia pergunta NOVA e a contagem zerava:
+  //
+  //   turno 1  O esfirra vai de quê? Te mandei o cardápio... Tem carne, ...
+  //   turno 2  O esfirra vai de quê? Tem carne, ...            <- "diferente"
+  //   turno 3  O esfirra vai de quê? Tem carne, ...            <- insistiu 1
+  //
+  // Quem insistia tres vezes no mesmo sabor fora da lista nunca chegava na
+  // equipe, porque so na quarta a conta fechava. Pego pelo
+  // `sabor-fora-da-lista-espera-insistencia` no mesmo dia em que a supressao da
+  // peca entrou.
+  //
+  // O que se compara e a PERGUNTA, e a frase que promete a imagem e decoracao.
+  const soAPergunta = (t: unknown) =>
+    String(t ?? "")
+      .replace(/\s*(Te mandei|Já te enviei|Te enviei)[^.!?]*[.!?]/gi, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  const mesmaPergunta =
+    Boolean(estado.ultimaFala) && soAPergunta(fala.texto) === soAPergunta(estado.ultimaFala);
   let insistiu = mesmaPergunta ? (estado.insistiu ?? 0) + 1 : 0;
 
   // SABOR FORA DA LISTA: a padaria mostra o cardapio. Se ele insiste, anota
@@ -3350,46 +3444,6 @@ export async function responder(
   }
   rastro.push("proxima: " + proxima.id);
 
-  // A MESMA PECA DE CARDAPIO NAO VAI DUAS VEZES.
-  //
-  // Do pedido de festa de 30/08/2026, quatro minutos de conversa:
-  //
-  //   23:10  Quais sabores de salgados voce prefere?     [peca salgados]
-  //   23:12  Qual recheio voce quer no risolis?          [peca salgados]
-  //   23:14  Qual sabor voce quer para o mini bolha?     [peca salgados]
-  //
-  // A mesma imagem tres vezes, empurrando pra cima a conversa que o cliente
-  // precisava reler. Palavra do dono: "inves dele falar os produtos q faltou
-  // sabor e digitar pra eles os sabores q tem, ele mandou outro cardapio igual".
-  //
-  // Na segunda vez a peca sai e as opcoes entram no texto, que e o que uma
-  // pessoa faria: ela ja te mandou o cardapio, agora ela te fala os sabores.
-  //
-  // AQUI, E NAO NA PERGUNTA, de proposito: toda pergunta que anexa peca passa
-  // por este ponto, e assim nenhuma delas precisa lembrar da regra sozinha.
-  if (fala.cardapio) {
-    const mandadas = estado.pecasMandadas ?? [];
-    if (mandadas.includes(fala.cardapio)) {
-      const opcoes = (fala.opcoes ?? []).filter(Boolean);
-      const jaCita = opcoes.length > 0 && opcoes.every((o) => semAc(fala.texto).includes(semAc(String(o))));
-      const texto = fala.texto
-        // A frase que promete a imagem sai junto com a imagem, senao a padaria
-        // diz "te mandei o cardapio" e nao manda nada.
-        .replace(/\s*(Te mandei|Já te enviei|Te enviei)[^.!?]*[.!?]/gi, "")
-        .replace(/\s{2,}/g, " ")
-        .trim();
-      fala = {
-        ...fala,
-        cardapio: null,
-        texto: (opcoes.length && !jaCita ? texto + " Tem " + listaEmPortugues(opcoes.map(String)) + "." : texto)
-          .replace(/\s{2,}/g, " ")
-          .trim(),
-      };
-      rastro.push("a peca " + mandadas.join("/") + " ja foi mandada nesta conversa; escrevi os sabores no texto");
-    } else {
-      estado = { ...estado, pecasMandadas: [...mandadas, fala.cardapio] };
-    }
-  }
 
   return { fala, estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo, precisaHumano, motivoHumano };
 }
