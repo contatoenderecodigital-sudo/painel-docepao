@@ -1000,6 +1000,21 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
     };
   }
 
+  // O SABOR DE UM ITEM DESCARTADO VOLTA A FICAR SOLTO.
+  //
+  // Ver o `donoNaFrase`, mais abaixo: ele marca como "ja tem dono" todo sabor
+  // que o modelo amarrou a algum item, pra uma palavra nao grudar em dois
+  // lugares. So que ele era montado da leitura CRUA, incluindo item que o fluxo
+  // tinha jogado fora.
+  //
+  // Medido conversando com o servidor em 31/08/2026: o modelo respondeu a
+  // pergunta do recheio do risolis com "1x mini sanduiche de pate de frango
+  // [frango]", o item foi descartado por ser invencao, e mesmo assim o "frango"
+  // ficou preso nele. O risolis nunca recebia o sabor e a padaria repetia a
+  // pergunta pra sempre.
+  //
+  // Mora fora do `if` de proposito: quem le esta lista esta depois dele.
+  const saboresDeItemDescartado: string[] = [];
   if (l.itens?.length) {
     // N SABORES COM QUANTIDADE N SAO N LINHAS, UMA DE CADA.
     //
@@ -1175,6 +1190,11 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       // que nao esta na frase, e existe um produto MENOR que esta inteiro na
       // frase, vale o menor. O que sobrar vira recheio, que e o caminho do
       // recado e da equipe.
+      // O MODELO MONTOU UM PRODUTO A PARTIR DE UMA PALAVRA DE SABOR?
+      //
+      // Fica marcado aqui e e lido logo abaixo do `semInvencao`. Ver o porque no
+      // comentario grande la dentro.
+      let inventouProduto = false;
       const semInvencao = (nome: string): string => {
         // O QUE JA ESTA NO PEDIDO TAMBEM E COISA QUE ELE FALOU.
         //
@@ -1222,6 +1242,39 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         if (!soDitas.trim()) return nome;
         const menor = identificarProduto(soDitas, dica, falaDoCliente);
         if (!menor?.produto || semAc(menor.produto) === semAc(nome)) return nome;
+        // O QUE SOBRA TEM QUE SER PRODUTO DE VERDADE.
+        //
+        // Medido conversando com o servidor em 31/08/2026, e o log guardou
+        // inteiro:
+        //
+        //   padaria >> Qual recheio do risólis você prefere, carne ou frango?
+        //   cliente >> frango
+        //   modelo  >> 1x mini sanduíche de patê de frango [frango]
+        //   guarda  >> "ele nao falou sanduiche, pate; fiquei com mini frango"
+        //   pedido  >> 1 ~ mini frango
+        //
+        // "mini frango" NAO EXISTE no cardapio. O modelo inventou um produto a
+        // partir da palavra "frango", e esta guarda, que existe justamente pra
+        // barrar invencao, arrancou as palavras nao ditas e produziu uma
+        // invencao PIOR: um nome que nao existe em lugar nenhum.
+        //
+        // E custava dinheiro. O motor de preco casa nome por pedaco, e o mais
+        // longo que termina em "frango" e "pizza inteira strogonoff de frango":
+        // a linha fantasma seria cotada em R$ 120,00.
+        //
+        // Guarda que inventa e pior que o defeito que ela conserta, e esta e a
+        // terceira vez que isso acontece neste arquivo. Se o nome reduzido nao
+        // esta no cardapio, a guarda nao opina: devolve o que o modelo disse, e
+        // quem decide se aquilo entra sao as guardas que perguntam se o CLIENTE
+        // nomeou o produto.
+        if (!produtoPorNome(menor.produto) && !produtoNoComeco(menor.produto)) {
+          inventouProduto = true;
+          rastro.push(
+            "nao troquei \"" + nome + "\" por \"" + menor.produto +
+            "\": esse nome nao existe no cardapio",
+          );
+          return nome;
+        }
         rastro.push(
           "o modelo trocou o sabor: disse " + nome + " e ele nao falou " +
           inventadas.join(", ") + "; fiquei com " + menor.produto,
@@ -1257,6 +1310,53 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       // forma que este arquivo ja usa pra "nao sei qual, pergunta": a padaria
       // pergunta em vez de anotar dois mil reais que ninguem pediu.
       let produto = naoCabeNoBolo(semInvencao(escolhida ?? quem.produto), Number(i.qtd) || 0, falaDoCliente, String(i.produto), String(i.sabor ?? ""), rastro);
+
+      // PRODUTO MONTADO EM CIMA DE UMA PALAVRA DE SABOR NAO E ITEM NOVO.
+      //
+      // Medido conversando com o servidor em 31/08/2026, com o log do container
+      // na mao:
+      //
+      //   padaria >> Qual recheio do risólis você prefere, carne ou frango?
+      //   cliente >> frango
+      //   modelo  >> 1x mini sanduíche de patê de frango
+      //
+      // O cliente estava respondendo o recheio do risolis. O modelo pegou a
+      // palavra "frango" e devolveu um produto que existe no cardapio e que
+      // ninguem pediu, e o pedido ganhou uma linha a mais.
+      //
+      // Duas coisas tem que ser verdade ao mesmo tempo pra cair aqui: o nome tem
+      // palavra que o cliente NUNCA falou (`inventouProduto`), e ele nao nomeou
+      // esse produto nesta mensagem. Quem pede "mini sanduiche de pate de
+      // frango" com todas as letras continua sendo atendido.
+      //
+      // Sem isto o "frango" tambem nao chegava no risolis: a resposta virava
+      // item e a pergunta ficava de pe, repetida.
+      // E A MENSAGEM E RESPOSTA DE SABOR, E NAO PEDIDO DE PRODUTO.
+      //
+      // Sem esta parte a guarda derrubou "quero 10 paes franceses pra amanha as
+      // 9h, nome Ana, pix": o cliente escreveu no plural, a comparacao nao viu
+      // "pao" dentro de "paes", e o pedido ficou vazio. Pego pelo
+      // `toda-categoria-tem-etapa` na primeira rodada.
+      //
+      // O que separa um caso do outro nao e o nome, e a MENSAGEM: "frango" e
+      // uma palavra so, e ela e opcao de sabor de um item que esta esperando
+      // sabor. Isso e resposta, nao pedido novo.
+      const ditasDaFala = palavrasQueApontam(falaDoCliente);
+      const respostaDeSabor =
+        ditasDaFala.length > 0 &&
+        ditasDaFala.length <= 3 &&
+        itens.some((x) => {
+          const falta = saborQueFalta(x.produto, x.obs);
+          return Boolean(falta?.opcoes?.some((o) => ditasDaFala.includes(semAc(o))));
+        });
+      if (inventouProduto && respostaDeSabor && !oClienteNomeouEsteProduto(falaDoCliente, produto)) {
+        if (i.sabor) saboresDeItemDescartado.push(String(i.sabor));
+        rastro.push(
+          "o modelo montou \"" + produto + "\" em cima de uma palavra de sabor; " +
+          "o cliente nao pediu esse produto, entao nao virou item",
+        );
+        continue;
+      }
       const categoria = categoriaDaEtapa(etapa, produto);
 
       // A conta de "de que familia e este produto" mora em familiaDoProduto,
@@ -1703,13 +1803,16 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
   // E o que NAO muda: quando o modelo nao da dono a ninguem, a palavra continua
   // solta e continua grudando. E assim que "de frango" responde a pergunta da
   // padaria, que e a razao de este bloco existir.
+  const pedacosDoSabor = (s: unknown) =>
+    semAc(String(s ?? ""))
+      .split(/,|\||\se\s/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+  // O item que o fluxo jogou fora nao segura o sabor dele. Ver o porque no
+  // `saboresDeItemDescartado`, la em cima.
+  const soltosDeNovo = new Set(saboresDeItemDescartado.flatMap(pedacosDoSabor));
   const donoNaFrase = new Set(
-    (l.itens ?? []).flatMap((i) =>
-      semAc(String(i.sabor ?? ""))
-        .split(/,|\||\se\s/)
-        .map((p) => p.trim())
-        .filter(Boolean),
-    ),
+    (l.itens ?? []).flatMap((i) => pedacosDoSabor(i.sabor)).filter((p) => !soltosDeNovo.has(p)),
   );
   // Casa por pedaco que cresce, senao `frango` escaparia de `frango com
   // catupiry` e o vizinho levaria a metade da palavra.
