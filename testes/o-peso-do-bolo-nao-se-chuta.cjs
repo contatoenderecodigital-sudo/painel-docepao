@@ -78,6 +78,43 @@ const CASOS = [
     dano: "700 g e um dos degraus que a dona citou no audio",
   },
   {
+    // O BECO QUE A PERGUNTA ABRIU, e ele era pior que o defeito original.
+    //
+    //   padaria >> O pao frances é vendido por quilo. Quantos quilos você quer?
+    //   cliente >> 2
+    //   padaria >> O pao frances é vendido por quilo. Quantos quilos você quer?
+    //
+    // Ninguem repete a unidade na resposta: a padaria pergunta em quilo e a
+    // pessoa responde "2". Sem ler isso como peso, a conversa nunca saia do
+    // lugar. Quem da sentido a resposta e a pergunta que acabou de sair, e nao
+    // a forma da frase, que e a mesma regra do "Sim" digitado.
+    nome: "depois da pergunta do peso, numero solto e peso",
+    itens: [{ produto: "pao frances", categoria: "padaria", qtd: 0, unidade: "kg", obs: null }],
+    ultimaPergunta: "O pao frances é vendido por quilo, R$ 11,99 o quilo. Quantos quilos você quer?",
+    fala: "2",
+    leitura: { itens: [{ produto: "pao frances", qtd: 2 }] },
+    peso: 2,
+    dano: "a conversa entrava num beco e o cliente ia embora",
+  },
+  {
+    nome: "\"um e meio\" e um e meio, e nao meio",
+    itens: [{ produto: "pao frances", categoria: "padaria", qtd: 0, unidade: "kg", obs: null }],
+    ultimaPergunta: "O pao frances é vendido por quilo, R$ 11,99 o quilo. Quantos quilos você quer?",
+    fala: "um e meio",
+    leitura: { itens: [{ produto: "pao frances", qtd: 1.5 }] },
+    peso: 1.5,
+    dano: "um terco do que a pessoa pediu, e ela so descobre na balanca",
+  },
+  {
+    nome: "numero solto FORA da pergunta do peso nao vira peso",
+    itens: [{ produto: "pao frances", categoria: "padaria", qtd: 0, unidade: "kg", obs: null }],
+    ultimaPergunta: "Quer levar docinho junto?",
+    fala: "2",
+    leitura: { itens: [{ produto: "pao frances", qtd: 2 }] },
+    peso: 0,
+    dano: "qualquer numero da conversa viraria peso do que estivesse em aberto",
+  },
+  {
     nome: "na festa o peso vem da proposta, e nao se pergunta",
     extra: FESTA,
     fala: "de laka e biz",
@@ -101,12 +138,12 @@ fs.writeFileSync(
     "    ehFesta:false, pessoas:null, base:null, baseAceita:false, naoQuer:[], itens:c.itens ?? [],",
     "    dados:{nome:null,data:null,hora:null,pagamento:null}, pecas:null, topoNome:null,",
     "    topoIdade:null, tema:null, forminha:null, prato:null,",
-    "    ultimaFala:'E o bolo, qual sabor?', insistiu:0, retomarEm:null, assunto:null,",
-    "    etapasJaPerguntadas:['bolo'], etapasAdiadas:[], pecasMandadas:['bolos-festa'],",
+    "    ultimaFala: c.ultimaPergunta ?? 'E o bolo, qual sabor?', insistiu:0, retomarEm:null, assunto:null,",
+    "    etapasJaPerguntadas:['bolo','resto_do_cardapio'], etapasAdiadas:[], pecasMandadas:['bolos-festa'],",
     "    ...(c.extra ?? {}),",
     "  };",
     "  const r = await responder(base as never, { texto: c.fala }, pensar(c.leitura) as never);",
-    "  const bolo = r.estado.itens.find((i) => String(i.categoria || '').startsWith('bolo'));",
+    "  const bolo = r.estado.itens.find((i) => String(i.categoria || '').startsWith('bolo') || String(i.categoria || '') === 'padaria');",
     "  saiu.push({ peso: bolo ? Number(bolo.qtd) : null, pergunta: String(r.fala.texto || '') });",
     "}",
     "console.log(JSON.stringify(saiu));",

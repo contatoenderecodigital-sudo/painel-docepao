@@ -37,7 +37,7 @@ import { identificarProduto } from "./produto";
 import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, ehPizzaQueNaoESalgado, familiaDoProduto, nomeDaFamilia, opcaoDaFamiliaNaFrase, opcoesDaFamilia } from "./generico";
 import { APELIDOS } from "../dados/apelidos";
 import { produtoNoComeco, produtoPorNome, produtosDaCasa, coresDoCardapio, unidadeDoPedido } from "../dados/produtos";
-import { semAcento as semAc, PALAVRAS_VAZIAS, listaEmPortugues } from "../texto";
+import { semAcento as semAc, PALAVRAS_VAZIAS, listaEmPortugues, numerosEscritos } from "../texto";
 import { escreverObs, lerObs, mexerNaObs, type Embalagem } from "@/lib/banco/obs-do-bolo";
 import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
@@ -1772,6 +1772,49 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
           if (/^g/i.test(String(m[2]))) peso = peso / 1000;
           if (m[3]) peso += 0.5;
         }
+
+        // DEPOIS DA PERGUNTA DO PESO, NUMERO SOLTO E PESO.
+        //
+        // Medido em 31/08/2026, e era um beco sem saida:
+        //
+        //   padaria >> O pao frances é vendido por quilo. Quantos quilos você quer?
+        //   cliente >> 2
+        //   padaria >> O pao frances é vendido por quilo. Quantos quilos você quer?
+        //
+        // Ninguem repete a unidade na resposta: a padaria pergunta em quilo e a
+        // pessoa responde "2". Sem isto a conversa nunca saia do lugar, o que e
+        // pior do que o defeito que a pergunta veio consertar.
+        //
+        // E a mesma regra do "Sim" digitado: quem da sentido a resposta e a
+        // pergunta que acabou de sair, e nao a forma da frase.
+        const perguntouOPeso = /quantos quilos/i.test(String(e.ultimaFala || ""));
+        if (!peso && perguntouOPeso) {
+          // "UM E MEIO" E UM E MEIO, E NAO MEIO.
+          //
+          // Sem trocar a palavra pelo numero, "um e meio" caia no galho do
+          // "meio" e virava 0,5 kg: um terco do bolo que a pessoa pediu.
+          // A lista de numeros por extenso e a mesma de todo o projeto, em
+          // `lib/ia/texto.ts`, e nao uma lista minha escrita aqui.
+          let comNumero = semAc(String(falaDoCliente || ""));
+          for (const [palavra, valor] of numerosEscritos({ umEUma: true })) {
+            comNumero = comNumero.replace(
+              new RegExp("(^|[^a-z0-9])" + palavra + "([^a-z0-9]|$)", "gi"),
+              "$1" + valor + "$2",
+            );
+          }
+          const so = comNumero.match(
+            /(?:^|\s)([0-9]+(?:[.,][0-9]+)?)(\s*e\s*meio)?(?:\s|$)/i,
+          );
+          if (so) {
+            peso = Number(String(so[1]).replace(",", ".")) + (so[2] ? 0.5 : 0);
+            rastro.push("a padaria tinha perguntado o peso; li \"" + String(so[1]) + "\" como quilos");
+          } else if (/\bmeio\b/i.test(String(falaDoCliente || ""))) {
+            // "meio quilo" e "meio" nao tem numero, e sao meio quilo.
+            peso = 0.5;
+            rastro.push("a padaria tinha perguntado o peso; \"meio\" e meio quilo");
+          }
+        }
+
         if (peso > 0 && peso <= 30) qtd = peso;
         // SEM PESO DITO, O BOLO DE FESTA NAO TEM QUANTIDADE: A PADARIA PERGUNTA.
         //
