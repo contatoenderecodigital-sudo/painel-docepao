@@ -86,8 +86,21 @@ for (const c of r.direto) {
 }
 
 if (!r.lixo.length) falhas.push("o pedido com metade de cada nao anotou item nenhum");
+// O QUE NAO PODE FICAR E A CONTA, E NAO QUALQUER OBSERVACAO.
+//
+// Ate 31/08/2026 isto exigia observacao VAZIA, e passava por sorte: a coxinha
+// so nao tinha recheio anotado porque o sistema dependia do modelo lembrar de
+// mandar. Desde que o recheio fixo passou a sair do cardapio ("coxinha e de
+// frango", com `saborFixo`), a coxinha chega aqui com "frango" escrito, que e
+// exatamente o que a cozinha precisa ler.
+//
+// Regra do dono, 31/08/2026: "a coxinha so tem um sabor, por isso que nao vai
+// ter outro; se ele fala coxinha ou coxinha de frango da na mesma; ta no
+// cardapio". Entao o teste cobra o que ele sempre quis cobrar: palavra de
+// CONTAGEM nao vai pra comanda.
+const CONTA = /metade|meio a meio|meia a meia|cada um/i;
 for (const i of r.lixo) {
-  if (i.obs) falhas.push(i.produto + " ficou com obs de conta: " + JSON.stringify(i.obs));
+  if (CONTA.test(String(i.obs ?? ""))) falhas.push(i.produto + " ficou com obs de conta: " + JSON.stringify(i.obs));
   if (!(i.qtd > 0)) falhas.push(i.produto + " perdeu a quantidade");
 }
 

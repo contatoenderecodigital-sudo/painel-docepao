@@ -209,7 +209,16 @@ conferir(
 conferir(
   "tirar um e acrescentar outro na mesma frase",
   saiu.tiraEPoe,
-  ["pizza inteira [frango com catupiry]", "coxinha"],
+  // A COXINHA CHEGA COM O RECHEIO DELA, e isso mudou em 31/08/2026.
+  //
+  // Antes esperava "coxinha" pelado, e passava por sorte: o recheio so aparecia
+  // quando o modelo lembrava de mandar. Agora ele sai do cardapio, onde a
+  // coxinha e `saborFixo: frango`. Regra do dono: "a coxinha so tem um sabor,
+  // por isso que nao vai ter outro; ta no cardapio".
+  //
+  // O que este caso mede continua igual: a frase que tira UM e poe OUTRO tem
+  // que fazer as duas coisas.
+  ["pizza inteira [frango com catupiry]", "coxinha [frango]"],
   "a frase faz as duas coisas, e o pedido tem que refletir as duas",
 );
 

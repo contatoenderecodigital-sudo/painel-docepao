@@ -763,6 +763,38 @@ function naoCabeNoBolo(nome: string, qtd: number, fala: string, comoEleChamou: s
   return nome;
 }
 
+/**
+ * O RECHEIO FIXO SAI DO CARDAPIO, E NAO DA MEMORIA DO MODELO.
+ *
+ * "coxinha" e de frango e "bolinha de queijo" e de queijo: esta escrito no
+ * catalogo, com `saborFixo`, e nao e escolha de ninguem. Mesmo assim a comanda
+ * dependia do modelo lembrar de mandar o recheio junto.
+ *
+ * Medido conversando com o servidor em 31/08/2026, duas conversas seguidas com
+ * a MESMA fala do cliente:
+ *
+ *   1a vez  modelo leu: 1x coxinha [frango]   ->  comanda com frango
+ *   2a vez  modelo leu: 1x coxinha            ->  comanda SEM RECHEIO
+ *
+ * A cozinha recebia "50 un coxinha" e tinha que adivinhar. Dado que esta no
+ * cardapio nao pode chegar na producao por sorte.
+ *
+ * RODA CEDO, ANTES DA DISTRIBUICAO DE SABOR, e isso importa: enquanto a coxinha
+ * estava sem recheio anotado ela DISPUTAVA a palavra "frango" com o risolis, que
+ * era quem a padaria tinha perguntado, e ganhava por ter recheio fixo. Com o
+ * carimbo antes, ela ja esta resolvida e sai da disputa.
+ */
+function comORecheioDoCardapio(itens: Estado["itens"], rastro: string[]): Estado["itens"] {
+  return itens.map((i) => {
+    const p = produtoPorNome(String(i.produto || "")) ?? produtoNoComeco(String(i.produto || ""));
+    if (!p?.saborFixo || p.sabores.length !== 1) return i;
+    const fixo = p.sabores[0];
+    if (semAc(String(i.obs ?? "")).includes(semAc(fixo))) return i;
+    rastro.push("carimbei o recheio do cardapio: " + i.produto + " e de " + fixo);
+    return { ...i, obs: [i.obs, fixo].filter(Boolean).join(" | ") };
+  });
+}
+
 function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rastro: string[] = []): Estado {
   let novo: Estado = { ...e };
 
@@ -1743,7 +1775,32 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
   }
 
   novo = atualizarBasePeloTotalDito(novo, l);
-  if (l.delegaEscolha === true) novo = aplicarDelegacao(novo, etapa);
+  // DELEGAR E DIZER "ESCOLHE VOCE". RESPONDER UMA OPCAO E O CONTRARIO DISSO.
+  //
+  // Medido conversando com o servidor em 31/08/2026:
+  //
+  //   padaria >> Qual recheio você prefere no risólis, carne ou frango?
+  //   cliente >> frango
+  //   modelo  >> delegaEscolha
+  //   padaria >> O risólis é de frango ou carne?
+  //
+  // O modelo leu a resposta como "tanto faz, escolhe voce". A delegacao monta
+  // sortido e carimba cor por conta propria, entao a resposta do cliente sumia e
+  // a padaria perguntava de novo a mesma coisa.
+  //
+  // Quem responde uma opcao da lista escolheu. So e delegacao quando a fala NAO
+  // traz nenhuma das opcoes que estao esperando resposta.
+  const opcoesEsperando = novo.itens.flatMap((i) => saborQueFalta(i.produto, i.obs)?.opcoes ?? []);
+  const escolheuUmaOpcao = opcoesEsperando.some((o) => {
+    const alvo = semAc(String(o));
+    return alvo.length > 2 && semAc(falaDoCliente).includes(alvo) &&
+      afirmouOuNegou(semAc(falaDoCliente), cercaDoSabor(alvo)) !== false;
+  });
+  if (l.delegaEscolha === true && escolheuUmaOpcao) {
+    rastro.push("o modelo leu como \"escolhe voce\", mas ele respondeu uma opcao da lista; nao deleguei");
+  }
+  const delegou = l.delegaEscolha === true && !escolheuUmaOpcao;
+  if (delegou) novo = aplicarDelegacao(novo, etapa);
 
   // A COR DA FORMINHA E CARIMBADA DEPOIS DOS ITENS, NAO ANTES.
   //
@@ -1792,7 +1849,13 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
   // "escolhe voce a forminha" com mini pizza esperando recheio virava
   // "mini pizza de escolhe voce a forminha". Delegar a cor nao responde
   // recheio de ninguem.
-  if (l.delegaEscolha !== true && !l.forminha) {
+  // O QUE VALE E A DECISAO, E NAO A LEITURA CRUA.
+  //
+  // Esta porta olhava `l.delegaEscolha` direto. Quando o modelo lia "frango"
+  // como "escolhe voce", o bloco de distribuir sabor ficava fechado mesmo depois
+  // de o codigo decidir NAO delegar: o risolis continuava sem recheio e a
+  // padaria repetia a pergunta.
+  if (!delegou && !l.forminha) {
   const esperando = novo.itens.filter((i) => saborQueFalta(i.produto, i.obs));
 
   // PALAVRA QUE JA TEM DONO NESTA FRASE NAO ESTA SOLTA.
@@ -1838,6 +1901,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
     return !!alvo && [...donoNaFrase].some((d) => d === alvo || d.includes(alvo) || alvo.includes(d));
   };
 
+  novo.itens = comORecheioDoCardapio(novo.itens, rastro);
   const tSolto = semAc(String(falaDoCliente || ""));
   const peloFixo = tSolto
     ? novo.itens.filter((i) => {
@@ -2037,7 +2101,29 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         //
         // Medido conversando com o servidor em 31/08/2026, e impresso assim no
         // cupom do pedido de festa da vespera.
-        const daLista = (saborQueFalta(item.produto, item.obs)?.opcoes ?? [])
+        // PALAVRA QUE JA E O RECHEIO FIXO DE OUTRO ITEM NAO ESTA SOBRANDO.
+        //
+        // "50 coxinha" e depois "de frango": a coxinha e de frango no cardapio e
+        // ja sai carimbada com ele, entao a frase nao esta pendente de ninguem.
+        // Sem esta checagem ela caia aqui e virava observacao do unico item que
+        // ainda esperava sabor, mesmo sendo uma pizza, que nem tem frango na
+        // lista. A cozinha recebia "pizza redonda (de frango)".
+        //
+        // Pego pelo `a-festa-nao-reparte-pizza` no mesmo dia em que o carimbo do
+        // recheio fixo entrou: duas regras certas que, juntas, faziam o errado.
+        const jaEDeOutro = novo.itens.some((x) => {
+          if (x === item) return false;
+          const p = produtoPorNome(x.produto) ?? produtoNoComeco(x.produto);
+          if (!p?.saborFixo) return false;
+          return p.sabores.some((s) => {
+            const alvo = semAc(s);
+            return alvo.length > 2 && soIsto.includes(alvo);
+          });
+        });
+        if (jaEDeOutro) {
+          rastro.push("nao usei a frase como sabor: ela e o recheio fixo de outro item do pedido");
+        }
+        const daLista = jaEDeOutro ? undefined : (saborQueFalta(item.produto, item.obs)?.opcoes ?? [])
           .slice()
           .sort((a, b) => b.length - a.length)
           .find((o) => {
@@ -2049,9 +2135,11 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         if (daLista) {
           rastro.push("a frase \"" + cru + "\" traz \"" + daLista + "\", que esta no cardapio; anotei o sabor");
         }
-        novo.itens = novo.itens.map((i) =>
-          i === item ? { ...i, obs: [i.obs, oQueEntra].filter(Boolean).join(" | ") } : i,
-        );
+        if (!jaEDeOutro) {
+          novo.itens = novo.itens.map((i) =>
+            i === item ? { ...i, obs: [i.obs, oQueEntra].filter(Boolean).join(" | ") } : i,
+          );
+        }
       }
     }
   }
@@ -3629,6 +3717,50 @@ export async function responder(
       estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo, precisaHumano, motivoHumano,
     };
   }
+  // ==========================================================================
+  //  A TRAVA: NENHUMA LINHA DO PEDIDO CARREGA NOME QUE O CARDAPIO NAO TEM.
+  //
+  //  Regra do dono, e ela e antiga: "o que tem no cardapio nao mexe; nao tem
+  //  como colocar um produto que nao existe o nome, pra isso que separei tudo
+  //  bonitinho". Ele esta certo, e eu vinha tratando isso caso a caso, guarda
+  //  por guarda, em vez de tratar como o que e: uma coisa que NUNCA pode
+  //  acontecer, conferida num lugar so.
+  //
+  //  O que fez isso virar trava, medido em 31/08/2026 conversando com o
+  //  servidor:
+  //
+  //    cliente >> frango                       (respondendo o recheio do risolis)
+  //    modelo  >> 1x mini sanduiche de pate de frango
+  //    guarda  >> "ele nao falou sanduiche, pate; fiquei com mini frango"
+  //    pedido  >> 1 ~ mini frango
+  //    motor   >> pizza inteira strogonoff de frango, R$ 120,00
+  //
+  //  Quem inventou o nome foi a MINHA guarda anti-invencao, montando um nome a
+  //  partir de pedacos. E o motor de preco casa nome por pedaco, entao um nome
+  //  que nao existe nunca fica sem preco: ele pega o produto mais parecido, e o
+  //  mais parecido pode ser o mais caro da casa.
+  //
+  //  Aqui a checagem e a mais simples possivel, e e a unica que nao depende de
+  //  eu ter lembrado dela no caminho certo: o nome existe no catalogo, ou e nome
+  //  de FAMILIA (o "pizza" que espera o cliente escolher o tipo), ou a linha nao
+  //  entra. Nome que nao existe nao vira aviso bonito nem palpite: some, e o
+  //  rastro conta o que sumiu pra quem for ler.
+  // ==========================================================================
+  {
+    const daCasa = (nome: string) =>
+      Boolean(produtoPorNome(nome) || produtoNoComeco(nome) || ehNomeDeFamilia(nome));
+    estado = { ...estado, itens: comORecheioDoCardapio(estado.itens, rastro) };
+
+    const forasteiros = estado.itens.filter((i) => !daCasa(String(i.produto || "")));
+    if (forasteiros.length) {
+      estado = { ...estado, itens: estado.itens.filter((i) => daCasa(String(i.produto || ""))) };
+      rastro.push(
+        "TIREI DO PEDIDO, nao existe no cardapio: " +
+        forasteiros.map((i) => i.qtd + "x " + i.produto).join(", "),
+      );
+    }
+  }
+
   rastro.push("proxima: " + proxima.id);
 
 
