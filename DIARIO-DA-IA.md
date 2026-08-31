@@ -685,3 +685,110 @@ E a segunda: **prompt é sugestão**. A persona mandava não chutar valor de top
 com todas as letras, e ela chutou. Mandava registrar o pedido AGORA, e ela
 perguntou "posso passar pra equipe?". As duas viraram código: guarda que apaga
 o valor, e `tool_choice` obrigando a chamada quando não falta nada.
+
+
+---
+
+## 31 de agosto de 2026: o dia em que conversar achou o que 130 testes não achavam
+
+O dono fechou o primeiro pedido de festa ponta a ponta pelo WhatsApp, mandou os
+prints e a foto dos cupons impressos, e apontou catorze defeitos. Todos foram
+fechados. Depois disso ele mandou refazer o pedido dele conversando de verdade,
+mensagem por mensagem, e a conversa achou mais sete que nenhum teste pegava.
+
+### O que os catorze eram, e o que ficou de lição
+
+**Cinco custavam dinheiro na hora:**
+
+1. `sem lactose` não entrava no pedido. A IA prometia confirmar com a equipe e o
+   item sumia, e a equipe também nunca era avisada: o cliente esperava um
+   retorno que ninguém sabia que devia. A dona já tinha respondido isso em áudio
+   (`docepao1608 (3).txt`): dá pra misturar, vale o valor mais caro. Hoje vira
+   `bolo brigadeiro com 0% lactose`, R$ 55,90 o quilo.
+
+2. O papel de arroz sumia ao salvar. A caixa de marcar lia a observação do bolo,
+   e o painel jogava a linha fora antes de salvar apostando que o servidor
+   recriava. **Esse código do servidor nunca existiu**: procurado nos dois
+   arquivos em 31/08. Todo pedido com bolo que a dona salvasse perdia R$ 12,00.
+
+3. A cor da forminha era invenção do modelo. O cliente nunca falou de cor e o
+   pedido saiu com "forminha rosa" em 100 docinhos.
+
+4. A frase crua virava recheio na comanda: `> frito | quero carne`, impresso.
+
+5. O nome do aniversariante não chegava no campo da equipe.
+
+**A raiz de três deles era a mesma:** a observação do item não tinha formato. O
+fluxo juntava com `" | "`, o cupom corta na vírgula e o painel procura `nome X`
+até a vírgula. Três leituras, nenhum acordo. Virou `lib/banco/obs-do-bolo.ts`,
+com as duas pontas no mesmo arquivo e um teste de ida e volta.
+
+### Os sete que só a conversa achou
+
+O portão tinha 130 testes verdes quando esses aconteceram:
+
+1. **A guarda anti-invenção inventava.** O modelo devolveu `mini sanduíche de
+   patê de frango` pra quem respondeu "frango". A guarda arrancou as palavras
+   não ditas e produziu `mini frango`, que não existe em cardápio nenhum. E o
+   motor casa nome por pedaço: cotava a linha fantasma como pizza inteira de
+   strogonoff, **R$ 120,00**.
+
+2. **Item descartado segurava o sabor.** `donoNaFrase` era montado da leitura
+   crua, incluindo item que o fluxo tinha jogado fora: o risóles nunca recebia o
+   frango e a padaria repetia a pergunta pra sempre.
+
+3. **"Sim" digitado se perdia.** Texto livre vai pro modelo, e pra "Sim" seco
+   ele devolveu leitura vazia. Sumiam o papel de arroz (R$ 12,00), o topo, o
+   tema e o nome do aniversariante. No teste do dono isso não apareceu porque
+   ele **tocou nos botões**.
+
+4. **A etapa se dá por cumprida quando a pergunta foi FEITA, não respondida.**
+   Por isso o "Sim" do topo continuava se perdendo mesmo depois de o do papel
+   funcionar: no turno da resposta, a etapa da vez já era outra. O sinal certo é
+   a última pergunta que saiu, não a etapa.
+
+5. **O recheio fixo dependia da memória do modelo.** "coxinha é de frango" está
+   no catálogo com `saborFixo`, e mesmo assim a comanda só trazia o recheio
+   quando o modelo lembrava. Medido: mesma fala, duas conversas seguidas, uma
+   com frango e outra sem.
+
+6. **"frango" foi lido como delegação.** O modelo entendeu a resposta do recheio
+   como "escolhe você", e a delegação monta sortido sozinha.
+
+7. **O custo da IA virou zero em 27/08.** 2.400 chamadas com R$ 0,00 nas duas
+   colunas e 1,2 milhão de tokens gastos. `estimarCustoCentBRL` arredondava pra
+   centavo inteiro, e `uso.ts` tinha consertado a precisão do lado dele, com
+   comentário e tudo, uma função acima.
+
+### As travas que nasceram disso
+
+Ordem do dono, e ela vale pro sistema inteiro: *"o que tem no cardápio não mexe;
+não tem como colocar um produto que não existe o nome, pra isso que separei tudo
+bonitinho"*.
+
+- **Nenhuma linha do pedido carrega nome que o cardápio não tem.** Roda no fim do
+  fluxo, em todo caminho. Nome de família ("pizza" esperando o tipo) continua
+  valendo.
+- **Produto de sabor único já sai com o sabor dele**, do catálogo, antes da
+  disputa de sabor.
+
+### O que este dia ensinou, e vale mais que os consertos
+
+**Guarda minha errou mais que o modelo.** Dos sete achados conversando, quatro
+eram código meu decidindo errado, e o mais caro (R$ 120) era a guarda que existe
+justamente pra impedir invenção.
+
+**Ler o código não achou a causa; o log achou.** Chutei a causa do `mini frango`
+duas vezes antes de ir ler o log do container. As duas estavam erradas, e a
+segunda me fez consertar uma coisa que não era o defeito.
+
+**Sonda com resposta de modelo inventada por mim mente.** Duas vezes eu montei a
+leitura do modelo à mão, o caso passou, e a produção continuou quebrada. A
+terceira vez eu peguei do log a resposta REAL e reproduzi de primeira.
+
+**Duas regras certas fazem o errado juntas.** O carimbo do recheio fixo tirou a
+coxinha da disputa pela palavra "frango", e a frase caiu na pizza, que nem tem
+frango na lista. Um teste que já existia pegou antes de subir.
+
+**Teste verde não é sistema certo.** 130 verdes e sete defeitos numa conversa de
+quinze mensagens.

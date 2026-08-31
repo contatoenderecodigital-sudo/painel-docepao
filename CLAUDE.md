@@ -144,6 +144,33 @@ Quando a padaria entrar no ar, isto muda, e a decisão é dele.
 
 ## AS REGRAS QUE NÃO SE QUEBRAM
 
+**SÓ ENTRA NO PEDIDO O QUE ESTÁ NO CARDÁPIO.** Nome que o catálogo não tem não
+vira linha, nunca, nem montado por pedaço. Nome de FAMÍLIA ("pizza" esperando o
+tipo) continua valendo, porque é marcador de lugar. A trava roda no fim do fluxo,
+em todo caminho, e o teste é `so-entra-no-pedido-o-que-esta-no-cardapio.cjs`.
+
+Isto nasceu caro: em 31/08/2026 a guarda anti-invenção montou `mini frango` a
+partir de pedaços de outro nome, e o motor de preço, que casa nome por pedaço,
+cotou a linha fantasma como pizza inteira de strogonoff, **R$ 120,00**. Palavra
+do dono: *"não tem como colocar um produto que não existe o nome, pra isso que
+separei tudo bonitinho"*.
+
+**DADO QUE ESTÁ NO CATÁLOGO NÃO PODE DEPENDER DO MODELO LEMBRAR.** Produto de
+sabor único (`saborFixo`) sai carimbado com o sabor dele, do catálogo, antes de
+qualquer disputa. "coxinha" e "coxinha de frango" são a mesma coisa; pedir outro
+sabor ouve "a gente faz coxinha de frango". Medido: a mesma fala, em duas
+conversas seguidas, uma vez trouxe o recheio e a outra não.
+
+**GUARDA MINHA ERRA MAIS QUE O MODELO.** Dos sete defeitos achados conversando
+em 31/08/2026, quatro eram código meu decidindo errado, e o mais caro era a
+guarda que existe justamente pra impedir invenção. Antes de escrever guarda
+nova, medir se o defeito é do modelo ou de outra guarda.
+
+**DUAS REGRAS CERTAS FAZEM O ERRADO JUNTAS.** O carimbo do recheio fixo tirou a
+coxinha da disputa pela palavra "frango", e a frase caiu na pizza, que nem tem
+frango na lista. Depois de mexer numa regra, rodar o portão inteiro: quem pegou
+foi um teste que já existia.
+
 **Nada some do pedido.** Se falta o cliente informar algo, é só pedir pra ele.
 Guarda que bloqueia registro faz o modelo apagar o item.
 
@@ -171,6 +198,24 @@ nome.
 ---
 
 ## COMO SE PROVA QUE ALGO FUNCIONA
+
+**Sonda com resposta de modelo inventada por mim mente.** Duas vezes em
+31/08/2026 eu montei a leitura do modelo à mão, o caso passou verde, e a produção
+continuou quebrada. A terceira vez eu peguei do LOG DO CONTAINER a resposta real
+e reproduzi de primeira:
+
+```
+docker logs --since 10m $(docker ps --format '{{.Names}}' | grep uyyqf) | grep 'fluxo-novo'
+```
+
+O rastro traz o que o modelo leu e o que cada guarda decidiu. **Ler o código não
+achou a causa; o log achou.** Chutei duas vezes antes de ir lá, e as duas
+estavam erradas.
+
+**Conversar acha o que teste não acha.** Em 31/08/2026 o portão tinha 130 verdes
+e uma conversa de quinze mensagens achou sete defeitos, três deles custando
+dinheiro. A ferramenta é `testes/falar.cjs`, uma mensagem por vez, lendo a
+resposta antes de escolher a próxima.
 
 **Build não prova efeito.** Deploy confirmado e função no bundle não valem nada.
 

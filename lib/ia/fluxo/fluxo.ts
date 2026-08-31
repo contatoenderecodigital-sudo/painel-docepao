@@ -2309,8 +2309,24 @@ export async function responder(
         : null;
   const ultimaPerguntou = semAc(String(estado.ultimaFala || ""));
   const simOuNao = mensagem.botaoId ? null : respostaAoValor(String(mensagem.texto || ""));
+  // O QUE MANDA E A PERGUNTA QUE ACABOU DE SAIR, E NAO A ETAPA DA VEZ.
+  //
+  // Aqui exigia `etapaAgora.id === "pecas_do_bolo"`, e por isso o "Sim" do TOPO
+  // continuava se perdendo depois que o do papel passou a funcionar. Medido
+  // conversando com o servidor em 31/08/2026:
+  //
+  //   padaria >> E papel de arroz...?   cliente >> Sim   -> papel_sim, gravou
+  //   padaria >> O bolo vai com topo?   cliente >> Sim   -> etapa ja era "dados"
+  //
+  // A maquina de etapas marca a etapa como cumprida quando as perguntas dela
+  // foram FEITAS, e nao quando foram respondidas. Entao no turno em que o
+  // cliente responde o topo, a etapa da vez ja e outra.
+  //
+  // A pergunta que acabou de sair e o que um atendente usaria pra saber do que
+  // a pessoa esta falando, e e o que vale aqui: a peca ainda sem resposta, e a
+  // ultima fala da padaria sendo sobre ela.
   const botaoDigitado =
-    etapaAgora.id === "pecas_do_bolo" && umaPecaEsperando && simOuNao
+    umaPecaEsperando && simOuNao
       ? umaPecaEsperando === "papel" && ultimaPerguntou.includes("papel")
         ? "papel_" + (simOuNao === "aceitou" ? "sim" : "nao")
         : umaPecaEsperando === "topo" && ultimaPerguntou.includes("topo")

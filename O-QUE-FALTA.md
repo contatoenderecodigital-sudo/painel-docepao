@@ -1,9 +1,62 @@
 # O que falta fazer
 
-Arquivo vivo do painel da Doce Pão. Atualizado em 30/08/2026.
+Arquivo vivo do painel da Doce Pão. Atualizado em 31/08/2026.
 
 Regra dele: **não dizer "falta pouco".** Dizer o que está feito e o que está
 aberto, com nome, e com a prova ao lado quando houver.
+
+---
+
+## 31/08/2026: O PRIMEIRO PEDIDO DE FESTA FECHOU PONTA A PONTA
+
+Ele fechou um pedido inteiro pelo WhatsApp, com 200 salgados, 100 docinhos, bolo
+de 2 kg, topo e papel de arroz. Total R$ 465,80, quatro cupons impressos na
+padaria. A conta bateu, cada item foi pra comanda certa, e a aprovação
+funcionou.
+
+Apontou catorze defeitos nos prints. **Os catorze estão fechados.** Depois disso
+mandou refazer a conversa dele mensagem por mensagem contra o servidor, e a
+conversa achou **mais sete** que os 130 testes não pegavam.
+
+O detalhe dos vinte e um está no `DIARIO-DA-IA.md`, com o que cada um custava.
+
+### O QUE VIROU TRAVA (regra do sistema, não remendo)
+
+1. **Nome fora do cardápio não vira linha do pedido.** Roda no fim do fluxo, em
+   todo caminho. Nome de família ("pizza" esperando o tipo) continua valendo.
+   Nasceu de `mini frango`, que o motor cotava como pizza de R$ 120,00.
+2. **Produto de sabor único sai com o sabor do catálogo**, antes da disputa de
+   sabor. Coxinha é frango, bolinha é queijo, e pedir outro sabor ouve
+   "a gente faz coxinha de frango".
+3. **A observação do bolo tem um formato só**, escrito e lido pelas mesmas duas
+   funções (`lib/banco/obs-do-bolo.ts`), com teste de ida e volta.
+4. **"Sim" digitado vale como botão** nas perguntas de peça.
+5. **Responder uma opção da lista não é delegar.**
+
+### AINDA É REMENDO, E ELE JÁ COBROU
+
+- **quantidade e unidade** (kg contra unidade): cada caminho lembra de perguntar
+  ao catálogo por conta própria. Não há trava única.
+- **o texto do cliente e o texto da comanda** são montados em dois lugares
+  diferentes. Hoje concordam; nada garante que continuem concordando.
+
+A conferência antes de fechar (`oQueFaltaPraFechar`) JÁ existe e já cobre item,
+quantidade, dia, hora, nome, pagamento, sabor faltando, sabor além do limite e
+cor da forminha. Os dois acima são o que falta entrar nela.
+
+### MEDIDO E CORRIGIDO NO CUSTO DA IA
+
+Ele levou um susto com R$ 392 na OpenAI. Puxado do banco, e não estimado:
+
+| dia | chamadas | tokens por chamada | custo |
+| --- | --- | --- | --- |
+| 20 a 23/08 | 21.000 | 22.000 a 26.000 | R$ 321 |
+| 27/08 em diante | 2.400 | 778 | não era gravado |
+
+O caro foi o tamanho do prompt do cérebro antigo, apagado em 26/08. Hoje uma
+conversa de festa inteira custa uns R$ 0,07. O custo tinha parado de ser
+gravado: `estimarCustoCentBRL` arredondava pra centavo inteiro e zerava tudo.
+Consertado. **Isso é estimativa por tabela de preço; a verdade é a fatura.**
 
 ---
 
