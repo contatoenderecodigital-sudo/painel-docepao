@@ -39,7 +39,7 @@ import {
 // O MESMO normalizador de todo mundo. Aqui era a quinta copia dele, e esta
 // trocava a ordem do toLowerCase com o normalize.
 import { semAcento as semAcMin, formasDoCliente } from "../texto";
-import { chavesDeFamilia } from "./generico";
+import { chavesDeFamilia, categoriasDaFamilia } from "./generico";
 
 export type Identidade = {
   /** O nome como o resto do sistema tem que escrever, sempre igual. */
@@ -297,6 +297,56 @@ export function identificarProduto(nomeBruto: string, categoria?: string, frase?
         return !p || !String(p.categoria).startsWith("salgado");
       });
     }
+
+    // A FAMILIA QUE O CLIENTE DISSE MANDA, E NAO SO PRA PIZZA.
+    //
+    // O filtro de candidatos tira a palavra da familia da frente e casa o
+    // MIOLO, entao "docinho de morango" alcanca "bolo morango", que e produto
+    // de outra familia. Medido em 31/08/2026:
+    //
+    //   cliente >> quero 50 docinhos de morango
+    //   pedido  >> 50x bolo
+    //
+    // Ele disse "docinho" com todas as letras. A guarda do peso derrubava o
+    // bolo de 50 kg pra familia "bolo", entao nao virava R$ 2.345,00, mas a
+    // padaria ia perguntar qual BOLO pra quem pediu docinho.
+    //
+    // A regra que ja existia acima fazia isso so pra pizza. Aqui vale pra todas:
+    // se ele nomeou a familia, candidato de outra familia sai. Quando nenhum
+    // sobra, o caminho de baixo devolve a propria familia, que e "nao sei qual,
+    // pergunta" -- e e a resposta certa pra "docinho de morango", porque morango
+    // e sabor de trufa e a padaria precisa saber qual docinho.
+    // A COMPARACAO E POR CATEGORIA, e nao pelo nome da familia.
+    //
+    // "docinho" e "doce" sao duas chaves da MESMA familia, e comparar o nome
+    // fazia "docinho de brigadeiro" perder o proprio brigadeiro. Categoria e o
+    // vocabulario do catalogo, e nele as duas chaves respondem ["docinho"].
+    //
+    // SO QUANDO A FRASE NAO E, ELA MESMA, UM PRODUTO DO CARDAPIO.
+    //
+    // A palavra de familia pode estar no MEIO do nome de um produto de verdade:
+    // "torta doce", "bolo salgado", "pao doce", "mini bolha doce". Nesses a
+    // palavra nao esta dizendo a familia, esta dizendo o produto, e o filtro
+    // derrubava o proprio item pedido. Quebrou quatro testes de uma vez, e todos
+    // ja existiam.
+    // A FRASE COMECA COM O NOME DO PRODUTO? Entao ela nomeia o produto, e nao a
+    // familia. Igualdade nao basta: "torta doce de teste" e "bolo salgado de
+    // chocolate" comecam com o nome e seguem com outra coisa.
+    //
+    // `t` e a forma que casou, e nao o texto cru: o laco acima troca uma pela
+    // outra quando o cliente escreve de outro jeito.
+    const comecaComOProduto = (alvo: string, casa: string) =>
+      Boolean(casa) && (alvo === casa || alvo.startsWith(casa + " "));
+    const aFraseEUmProduto = servem.some(
+      (c) => comecaComOProduto(t, c.casa) || comecaComOProduto(t0, c.casa),
+    );
+    if (fam && fam !== "pizza" && !aFraseEUmProduto) {
+      const cats = categoriasDaFamilia(fam);
+      if (cats.length) {
+        const daFamiliaDita = servem.filter((c) => cats.includes(String(c.categoria)));
+        if (daFamiliaDita.length !== servem.length) servem = daFamiliaDita;
+      }
+    }
   }
 
   if (!servem.length) {
@@ -308,12 +358,39 @@ export function identificarProduto(nomeBruto: string, categoria?: string, frase?
     // produto, e a etapa do salgado nao troca uma pela outra.
     const fam = familiaNoComeco(t0);
     if (fam) {
+      // SO HA RESTO QUANDO SE SABE ONDE A FAMILIA ACABA.
+      //
+      // A familia e achada por apelido e por aproximacao, entao ela nem sempre
+      // esta escrita na frase: "salgadinho" resolve pra familia "salgado", e
+      // "salgado" NAO e pedaco de "salgadinho". Ai o `indexOf` devolvia -1 e o
+      // corte caia no `slice(n.length)`, cortando as cegas por tamanho.
+      //
+      // Medido conversando com o servidor em 31/08/2026, na primeira frase de
+      // uma conversa comum:
+      //
+      //   cliente >> bom dia, queria 100 salgadinhos pra sexta
+      //   modelo  >> 100x salgadinho
+      //   pedido  >> 100 ~ salgado ~ nho
+      //
+      // O "nho" ia impresso na comanda como se fosse o recheio. Quando nao da
+      // pra dizer onde a palavra acaba, o certo e nao ter recheio: a padaria
+      // pergunta, que e o que ela ja faz com familia sem tipo.
       const n = semAcMin(fam);
       const onde = t0.indexOf(n);
-      const resto = t0
-        .slice(onde >= 0 ? onde + n.length : n.length)
-        .replace(/^ *(de|da|do|com) +/, "")
-        .trim();
+      // Quando a familia NAO esta escrita literal ("salgadinho" resolve pra
+      // "salgado"), quem foi reconhecido foi a PRIMEIRA palavra: o resto comeca
+      // depois dela. Cortar por tamanho da familia canonica corta no meio, e foi
+      // assim que "salgadinho" virou o recheio "nho".
+      // E O CORTE TEM QUE CAIR EM FRONTEIRA DE PALAVRA.
+      //
+      // "docinhos" casa a familia "docinho" na posicao zero, e o corte por
+      // tamanho deixava o "s" do plural sobrando como recheio. Letra colada
+      // depois do corte quer dizer que ele caiu no meio de uma palavra, e ai
+      // nao ha resto nenhum.
+      const cru = onde >= 0 ? t0.slice(onde + n.length) : t0.replace(/^\S+/, "");
+      const resto = /^[a-zà-ú0-9]/i.test(cru)
+        ? ""
+        : cru.replace(/^ *(de|da|do|com) +/, "").trim();
       return {
         produto: fam,
         recheio: resto || null,
@@ -355,10 +432,29 @@ export function identificarProduto(nomeBruto: string, categoria?: string, frase?
     return { produto: "bolo", recheio: sabor || null, unidade: "un", unico: false };
   }
 
-  const resto = t
-    .slice(escolhido.casa.length)
-    .replace(/^ *(de|da|do|com) +/, "")
-    .trim();
+  // O CORTE SO VALE SE CAIR EM FRONTEIRA DE PALAVRA.
+  //
+  // Isto e um `slice` por contagem de caracteres, e quando o casamento termina
+  // no MEIO de uma palavra o que sobra e pedaco de palavra, nao recheio.
+  //
+  // Medido conversando com o servidor em 31/08/2026, na primeira frase de uma
+  // conversa comum:
+  //
+  //   cliente >> bom dia, queria 100 salgadinhos pra sexta
+  //   modelo  >> 100x salgadinho
+  //   pedido  >> 100 ~ salgado ~ nho
+  //
+  // O "nho" ia impresso na comanda como se fosse o recheio. O arquivo ja tinha
+  // um aviso sobre esta mesma conta ("pastel carne" virando "rne"), consertado
+  // so pra aquele caso; a conta continuou cortando no meio da palavra.
+  //
+  // Fronteira e o fim do texto, espaco ou pontuacao. Letra colada quer dizer
+  // que o casamento pegou parte de outra palavra, e ai nao ha recheio nenhum.
+  const depoisDoCorte = t.slice(escolhido.casa.length);
+  const cortouNaPalavra = /^[a-zà-ú0-9]/i.test(depoisDoCorte);
+  const resto = cortouNaPalavra
+    ? ""
+    : depoisDoCorte.replace(/^ *(de|da|do|com) +/, "").trim();
 
   const colideNoCatalogo = paresDeNomeCurtoColidindo().some((par) =>
     par.produtos.some((p) => p.nome === escolhido.canonico),

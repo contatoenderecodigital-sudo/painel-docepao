@@ -729,11 +729,34 @@ function naoCabeNoBolo(nome: string, qtd: number, fala: string, comoEleChamou: s
   // 1. BOLO POR QUILO COM QUANTIDADE ACIMA DE SEIS.
   const porPeso = unidadeDoPedido(nome, String(p.categoria)) === "kg";
   if (porPeso && qtd > PESO_DO_MAIOR_BOLO) {
+    // SE EXISTE UM PRODUTO COM ESSE NOME QUE NAO E BOLO, E ELE.
+    //
+    // A guarda sabia que o numero era "de outro produto" e devolvia a FAMILIA,
+    // ou seja, "nao sei qual, pergunta". Quando o cardapio tem o mesmo nome fora
+    // dos bolos, nao ha o que perguntar: "50 brigadeiro" e o docinho de R$ 1,25,
+    // e esta escrito no catalogo.
+    //
+    // Medido em 31/08/2026, e o item SUMIA do pedido:
+    //
+    //   cliente >> 50 brigadeiro e um bolo de 2 kg de 4 leites
+    //   modelo  >> 50x brigadeiro
+    //   resolveu>> bolo brigadeiro   (a palavra "bolo" da frase era do OUTRO item)
+    //   guarda  >> virou a familia "bolo"
+    //   fusao   >> "o bolo sem sabor virou o bolo de 4 leites"
+    //   pedido  >> 2 kg de bolo 4 leites, e NENHUM docinho
+    //
+    // Os 50 docinhos desapareceram dentro do bolo. Devolver o docinho em vez da
+    // familia corta a cadeia na origem, e e a resposta certa: e o que ele disse.
+    const semBolo = semAc(nome).replace(/^bolo\s+/, "");
+    const foraDoBolo = produtosDaCasa().find(
+      (p) => semAc(p.nome) === semBolo && !String(p.categoria).startsWith("bolo"),
+    );
     rastro.push(
       "nao anotei " + nome + " com " + qtd + ": o maior bolo da casa tem " +
-      PESO_DO_MAIOR_BOLO + " kg, entao esse numero e de outro produto",
+      PESO_DO_MAIOR_BOLO + " kg, entao esse numero e de outro produto" +
+      (foraDoBolo ? "; no cardapio esse nome e " + foraDoBolo.nome : ""),
     );
-    return String(familia);
+    return foraDoBolo ? foraDoBolo.nome : String(familia);
   }
 
   // 2. O BOLO VENDIDO POR UNIDADE NAO TEM TETO DE PESO, e escapava da
@@ -2408,6 +2431,32 @@ export async function responder(
       (produto) => etapaDesteProduto(produto) === etapaAgora.id,
     )
       .filter((p) => !(limpa.itens ?? []).some((i) => i.produto.toLowerCase() === p.produto.toLowerCase()))
+      // A PALAVRA QUE JA E SABOR DE UM ITEM DESTA LEITURA NAO GERA ITEM NOVO.
+      //
+      // Medido em 31/08/2026, num pedido banal:
+      //
+      //   cliente >> quero 50 docinhos de morango
+      //   modelo  >> 50x docinho [morango]
+      //   frase   >> achei "morango" e anotei: bolo
+      //   pedido  >> 50x docinho (morango)  E  50x bolo
+      //
+      // "morango" e sabor de docinho e nome de bolo de festa ao mesmo tempo, e
+      // e uma das oito palavras do cardapio que sao produto E sabor. O leitor da
+      // frase acha o bolo na mesma palavra que o modelo ja tinha dado ao
+      // docinho, e o pedido ganha uma linha que ninguem pediu.
+      //
+      // E a mesma regra do `donoNaFrase`, um andar acima: palavra com dono nesta
+      // leitura nao esta sobrando.
+      .filter((p) => {
+        const alvo = semAc(p.produto);
+        const temDono = (limpa.itens ?? []).some((i) =>
+          semAc(String(i.sabor ?? "") + " " + String(i.obs ?? "")).includes(alvo),
+        );
+        if (temDono) {
+          rastro.push("nao anotei \"" + p.produto + "\" da frase: ja e sabor de outro item desta mensagem");
+        }
+        return !temDono;
+      })
       // Ja esta no pedido, mesmo escrito de outro jeito? Entao nao guarda.
       .filter((p) => !jaTemEsseProduto(estado.itens, p.produto))
       // Guarda ja com o nome canonico. Estacionar "4 leites" e aplicar como
