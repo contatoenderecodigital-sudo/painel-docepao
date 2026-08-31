@@ -4148,6 +4148,40 @@ export async function responder(
   } else if (insistiu === 1 && fala.opcoes?.length && !fala.texto.includes(fala.opcoes[0])) {
     fala = { ...fala, texto: fala.texto + "\n\nAs opções são: " + fala.opcoes.join(", ") + "." };
     rastro.push("repeti a pergunta; mostrei as opcoes");
+  } else if (insistiu >= 3 && !entendeuAlgo) {
+    // A QUARTA VEZ NAO E PERGUNTA, E GENTE.
+    //
+    // Medido conversando com a producao em 31/08/2026:
+    //
+    //   padaria >> Qual cor você quer para a forminha dos docinhos?
+    //   cliente >> 2 kg        padaria >> (a mesma pergunta)
+    //   cliente >> sim         padaria >> (a mesma pergunta)
+    //   cliente >> sim         padaria >> (a mesma pergunta)
+    //
+    // A pergunta so sai da frente quando o cliente MUDA alguma coisa no pedido
+    // (o adiamento la de cima). Quem responde coisa que ela nao entende fica
+    // preso no mesmo lugar pra sempre, e foi disso que ele reclamou olhando o
+    // teste da Kemilly: "ela pediu a data 2 vzs seguida", "pede o nome 3 vezes".
+    //
+    // A regra da casa continua valendo: gente e ultimo recurso. So que quatro
+    // vezes a MESMA pergunta, sem entender nada do que a pessoa respondeu, E o
+    // ultimo recurso. Um atendente humano teria trocado de assunto ou chamado
+    // alguem muito antes.
+    //
+    // A pergunta nao se perde: `ultimaFala` guarda ela, e quem assumir no painel
+    // ve no motivo o que estava sendo perguntado.
+    precisaHumano = true;
+    motivoHumano =
+      "Perguntei \"" + soAPergunta(String(fala.texto || "")) +
+      "\" quatro vezes e nao consegui entender a resposta.";
+    fala = {
+      ...fala,
+      texto: "Acho melhor chamar alguem da equipe pra te ajudar com isso. Ja te respondem por aqui.",
+      botoes: [],
+      cardapio: null,
+      podeReescrever: false,
+    };
+    rastro.push("insisti " + insistiu + " vezes sem entender nada; chamei a equipe");
   } else if (insistiu >= 2) {
     // REPETIR NAO E CHAMAR A EQUIPE.
     //
