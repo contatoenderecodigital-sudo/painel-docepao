@@ -166,7 +166,18 @@ function listaItens(itens: ItemCupom[]): string {
   let t = "";
   for (const i of itens) {
     t += NEGRITO_ON + qtdDoTicket(i).padEnd(8) + NEGRITO_OFF + semAcento(nomeNoTicket(i)) + "\n";
-    if (i.obs) t += observacaoDoItem(i.obs, i.produto);
+    // O QUE JA ESTA NA LINHA DO ITEM NAO SE REPETE EMBAIXO DELA, E A LINHA E
+    // A DO TICKET, e nao o nome cru do produto.
+    //
+    // `nomeNoTicket` acrescenta o tipo do salgado, entao o papel saia assim:
+    //
+    //   50 un   mini bolha (frito)
+    //     > frito
+    //     > carne
+    //
+    // O corte comparava com "mini bolha", que nao tem "frito", e o tipo aparecia
+    // duas vezes. Medido no cupom montado em 31/08/2026.
+    if (i.obs) t += observacaoDoItem(i.obs, nomeNoTicket(i));
   }
   return t;
 }
