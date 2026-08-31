@@ -398,6 +398,21 @@ const temGenerico = (p: PedidoEmMontagem, pref: string) =>
   );
 
 /**
+ * BOLO DE FESTA SEM PESO DITO.
+ *
+ * Ele e vendido POR QUILO, e a quantidade da linha E o peso. Zero quer dizer
+ * "ninguem falou", e nao "zero quilos": o fluxo zera de proposito quando o
+ * cliente nao disse, em vez de chutar 1 kg.
+ *
+ * Nasceu de um cliente de verdade em 31/08/2026, que teve que corrigir a
+ * padaria: *"o bolo é 2kg, não 1kg"*. Quem nao percebe paga metade.
+ *
+ * Na festa o peso vem da proposta que ele aceitou, entao nao chega aqui zerado.
+ */
+const faltaPesoDoBolo = (p: PedidoEmMontagem) =>
+  p.itens.some((i) => String(i.categoria || "") === "bolo_festa" && !(Number(i.qtd) > 0));
+
+/**
  * ELE RECUSOU ESTA FAMILIA?
  *
  * A comparacao era com a palavra CRUA que o modelo devolveu, e por isso o
@@ -642,7 +657,19 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       // aberto" continua sendo anotado.
       //
       // Entao sobrou o que a etapa sempre foi de verdade: qual sabor.
-      temCategoria(p, "bolo") && !temGenerico(p, "bolo"),
+      //
+      // E O PESO, que entrou em 31/08/2026. Bolo de festa e vendido POR QUILO,
+      // e ate aqui a etapa fechava sem ninguem perguntar quantos:
+      //
+      //   cliente >> gostaria de encomendar um bolo, quanto ficaria?
+      //   cliente >> Laka e biz
+      //   resumo  >> 1 kg de bolo biz   R$ 49,90
+      //   cliente >> o bolo é 2kg, não 1kg
+      //
+      // O cliente teve que corrigir a padaria, e quem nao percebe paga metade.
+      // Zero quer dizer "ninguem falou o peso"; na festa o peso vem da proposta
+      // que ele aceitou e nao chega aqui zerado.
+      temCategoria(p, "bolo") && !temGenerico(p, "bolo") && !faltaPesoDoBolo(p),
     // O SABOR DO BOLO VALE FORA DA FESTA TAMBEM.
     //
     // Ate 23/08/2026 esta etapa era pulada em todo pedido que nao fosse festa,

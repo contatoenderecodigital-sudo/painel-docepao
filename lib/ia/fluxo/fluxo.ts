@@ -1694,9 +1694,69 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       let qtd = Number(i.qtd) || 0;
       if (String(categoria).startsWith("bolo")) {
         const dito = falaDoCliente + " " + String(i.obs ?? "");
-        const kg = (dito.match(/([0-9]+(?:[.,][0-9]+)?) *(?:kg|quilos?)(?![a-z])/i) ?? [])[1];
-        const peso = kg ? Number(String(kg).replace(",", ".")) : 0;
+        // GRAMA E "E MEIO" TAMBEM SAO PESO, E OS DOIS CUSTAVAM DINHEIRO.
+        //
+        // Medido em 31/08/2026, com o cardapio da casa na mao (redondo comeca em
+        // 300 g, e os degraus dela sao 300, 500, 700, 1 kg, 1,5 kg, 1,7 kg, 2 kg,
+        // 2,5 kg):
+        //
+        //   "quero de 2 quilos e meio"  ->  2 kg     perde R$ 24,95
+        //   "pode ser 500g"             ->  0 kg     a padaria perguntava de novo
+        //
+        // O leitor so entendia quilo inteiro, e metade dos tamanhos que a dona
+        // faz nao e quilo inteiro.
+        const m = dito.match(
+          /([0-9]+(?:[.,][0-9]+)?)\s*(kg|quilos?|gramas?|g)(?![a-z])(\s*e\s*meio)?/i,
+        );
+        let peso = 0;
+        if (m) {
+          peso = Number(String(m[1]).replace(",", "."));
+          if (/^g/i.test(String(m[2]))) peso = peso / 1000;
+          if (m[3]) peso += 0.5;
+        }
         if (peso > 0 && peso <= 30) qtd = peso;
+        // SEM PESO DITO, O BOLO DE FESTA NAO TEM QUANTIDADE: A PADARIA PERGUNTA.
+        //
+        // Cliente real em 31/08/2026, e ele teve que corrigir a padaria:
+        //
+        //   cliente >> gostaria de encomendar um bolo, quanto ficaria?
+        //   cliente >> Laka e biz
+        //   resumo  >> 1 kg de bolo biz   R$ 49,90
+        //   cliente >> o bolo é 2kg, não 1kg
+        //
+        // O modelo devolve qtd 1 quando ninguem falou de peso, porque "um bolo"
+        // e um bolo. So que bolo de festa e vendido POR QUILO, e ai o 1 vira um
+        // preco: METADE do dinheiro, em todo pedido de bolo em que o cliente nao
+        // pensa em dizer o peso, que e a maioria. Ninguem diz "quero 2 kg de
+        // bolo", diz "quero um bolo".
+        //
+        // Zero aqui quer dizer "nao sei", e a etapa do bolo pergunta. Nao e o
+        // mesmo que "quantos bolos": e quantos QUILOS.
+        //
+        // NA FESTA NAO SE PERGUNTA: o peso saiu da proposta que ele aceitou
+        // ("2 kg de bolo pra 20 pessoas"), e perguntar de novo seria a padaria
+        // esquecendo o que combinou duas mensagens atras.
+        // SO ZERA BOLO QUE JA TEM SABOR.
+        //
+        // Enquanto o produto e a familia ("bolo", esperando o cliente escolher),
+        // o numero que ele falou e DELE e nao pode sumir: "quero 50 de morango"
+        // guarda o 50 pra padaria perguntar qual bolo com a quantidade na mao.
+        // Zerar ali quebrou dois testes que ja existiam, e os dois protegiam a
+        // mesma regra: nada some do pedido.
+        const pesoDaFesta = Number(e.base?.boloKg) || 0;
+        if (
+          categoria === "bolo_festa" &&
+          !peso &&
+          !ehNomeDeFamilia(produto) &&
+          !(e.ehFesta && pesoDaFesta > 0)
+        ) {
+          if (qtd > 0) {
+            rastro.push(
+              "ninguem falou o peso do " + produto + "; nao chuto 1 kg, a padaria pergunta",
+            );
+          }
+          qtd = 0;
+        }
       }
 
       const linha = {

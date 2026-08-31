@@ -624,6 +624,40 @@ function falaDoBolo(p: PedidoEmMontagem, aviso: string): Fala {
     };
   }
 
+  // QUANTOS QUILOS? BOLO DE FESTA E VENDIDO POR PESO.
+  //
+  // Cliente real em 31/08/2026, e ele teve que corrigir a padaria:
+  //
+  //   cliente >> gostaria de encomendar um bolo, quanto ficaria?
+  //   cliente >> Laka e biz
+  //   padaria >> (nunca perguntou o peso)
+  //   resumo  >> 1 kg de bolo biz  R$ 49,90
+  //   cliente >> o bolo é 2kg, não 1kg
+  //
+  // Sem o peso dito, o bolo virava 1 kg CALADO, e o cliente so descobria no
+  // resumo. Metade do dinheiro, em todo pedido de bolo em que ele nao pensa em
+  // dizer o peso, que e a maioria: ninguem diz "quero 2 kg de bolo", diz "quero
+  // um bolo".
+  //
+  // A pergunta vem depois do sabor e antes das pecas, que e a ordem em que uma
+  // atendente pergunta: primeiro o que e, depois o tamanho, depois os detalhes.
+  //
+  // Os degraus sao os da dona, do audio de 26/08: redondo de 300 g a 5,5 kg,
+  // quadrado de 2,5 kg a 6 kg. Aqui so a faixa, porque o resto ela decide na
+  // producao.
+  const semPeso = p.itens.find(
+    (i) => String(i.categoria || "") === "bolo_festa" && !(Number(i.qtd) > 0),
+  );
+  if (semPeso) {
+    return {
+      texto: aviso + "Quantos quilos você quer no bolo? A gente faz de 300 g até 6 kg.",
+      botoes: [],
+      cardapio: null,
+      podeReescrever: false,
+      chave: "peso",
+    };
+  }
+
   // A PERGUNTA DO PRATO SAIU, POR DECISAO DO DONO EM 28/08/2026.
   //
   // Ela nao existe no fluxograma da Kemilly, e ja estava anotada como decisao
