@@ -2606,21 +2606,65 @@ export async function responder(
   // A pergunta que acabou de sair e o que um atendente usaria pra saber do que
   // a pessoa esta falando, e e o que vale aqui: a peca ainda sem resposta, e a
   // ultima fala da padaria sendo sobre ela.
-  const botaoDigitado =
-    umaPecaEsperando && simOuNao
-      ? umaPecaEsperando === "papel" && ultimaPerguntou.includes("papel")
-        ? "papel_" + (simOuNao === "aceitou" ? "sim" : "nao")
-        : umaPecaEsperando === "topo" && ultimaPerguntou.includes("topo")
-          ? "topo_" + (simOuNao === "aceitou" ? "sim" : "nao")
-          : null
-      : null;
+  // A FRASE QUE CITA A PECA RESPONDE POR TODAS AS PECAS QUE ELA CITOU.
+  //
+  // Medido conversando com a producao em 31/08/2026, e virou o pedido do avesso:
+  //
+  //   padaria >> E papel de arroz, com a foto impressa no bolo? Fica R$ 12,00.
+  //   cliente >> nao quero topo nem papel de arroz
+  //   padaria >> O bolo vai com topo?
+  //   comanda >> 3 kg de bolo laka (topo de bolo)
+  //
+  // O atalho pegava so a peca PERGUNTADA, aplicava o "nao" nela e nao chamava a
+  // IA. O "topo" que estava escrito na mesma frase ia pro lixo, a padaria
+  // perguntava de novo, e o pedido fechou com a peca que ele recusou por escrito.
+  //
+  // Quem cita a peca respondeu sobre ela. Entao a resposta vale pra cada peca
+  // NOMEADA na frase, e a peca so perguntada continua valendo quando ele
+  // responde seco ("Sim", "nao").
+  //
+  // FRASE COM CONTRASTE NAO ENTRA AQUI. "quero topo mas nao papel de arroz" tem
+  // duas respostas diferentes numa frase so, e `respostaAoValor` devolve uma. Ai
+  // e caso de modelo, e nao de atalho.
+  const temContraste = /\b(mas|porem|so que|somente|apenas|so o|so a)\b/i.test(
+    semAc(String(mensagem.texto || "")),
+  );
+  const pecaEsperando = (qual: "papel" | "topo") =>
+    qual === "papel"
+      ? estado.pecas?.papelDeArroz === null || estado.pecas?.papelDeArroz === undefined
+      : estado.pecas?.topo === null || estado.pecas?.topo === undefined;
+  const naFala = semAc(String(mensagem.texto || ""));
+  const citadas = temContraste
+    ? []
+    : ([
+        ["papel", /papel de arroz|papel arroz/i],
+        ["topo", /\btopo\b|topper/i],
+      ] as const)
+        .filter(([qual, onde]) => onde.test(naFala) && pecaEsperando(qual))
+        .map(([qual]) => qual);
+
+  // Frase com contraste que nomeia peca sai do atalho INTEIRA. Aplicar o "quero"
+  // de "quero topo mas nao quero papel de arroz" na peca perguntada gravava o
+  // contrario do que ele escreveu, que e pior do que nao entender.
+  const contrasteSobrePeca =
+    temContraste && /papel de arroz|papel arroz|\btopo\b|topper/i.test(naFala);
+  const botoesDigitados = !simOuNao || contrasteSobrePeca
+    ? []
+    : citadas.length
+      ? citadas.map((q) => q + "_" + (simOuNao === "aceitou" ? "sim" : "nao"))
+      : umaPecaEsperando && ultimaPerguntou.includes(umaPecaEsperando === "papel" ? "papel" : "topo")
+        ? [umaPecaEsperando + "_" + (simOuNao === "aceitou" ? "sim" : "nao")]
+        : [];
 
   if (mensagem.botaoId && DO_BOTAO[mensagem.botaoId]) {
     estado = DO_BOTAO[mensagem.botaoId](estado);
     rastro.push("botao: " + mensagem.botaoId + " (sem chamar a IA)");
-  } else if (botaoDigitado && DO_BOTAO[botaoDigitado]) {
-    estado = DO_BOTAO[botaoDigitado](estado);
-    rastro.push("ele digitou a resposta do botao " + botaoDigitado + " (sem chamar a IA)");
+  } else if (botoesDigitados.some((b) => DO_BOTAO[b])) {
+    for (const b of botoesDigitados) {
+      if (!DO_BOTAO[b]) continue;
+      estado = DO_BOTAO[b](estado);
+      rastro.push("ele digitou a resposta do botao " + b + " (sem chamar a IA)");
+    }
   } else if (mensagem.texto.trim()) {
     // ----------------------------------------------------------- texto livre
     const instrucao = instrucaoDaEtapa(etapaAgora.id, estado);
