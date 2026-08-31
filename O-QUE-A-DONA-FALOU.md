@@ -242,3 +242,45 @@ Dois agrupamentos que não fazem sentido:
 
 **Interpretação minha:** os dois nasceram de encaixar o que sobrou, não de uma
 divisão que a casa use.
+
+---
+
+## 5. O QUE ESTA VARREDURA TINHA DEIXADO PASSAR
+
+Escrito em 30/08/2026, relendo as transcrições cruas por causa da bronca dele:
+*"TEM NA PORRA DOS AUDIOS TUDO MERMAO, ouve os audios antes de fzr tudo as
+perguntas pra dona"*. Ele estava certo. Duas respostas estavam nos arquivos e
+não tinham chegado aqui, e por isso viraram pergunta pra ela sem precisar.
+
+Fica a lição: esta varredura é resumo, e resumo perde coisa. Antes de escrever
+pergunta nova, `grep` na pasta dos áudios, e não só aqui.
+
+### 5.1 Bolo sem lactose mistura com outro sabor (`docepao1608 (3).txt`)
+
+> *"Sim, Emily, dá pra misturar. Sim, com certeza. A gente sempre vai cobrar o
+> valor mais caro. Por exemplo, laca com morango vai ficar R$ 49,90. Se a pessoa
+> quiser morango com nozes, vai ficar R$ 55,90. Se ela quiser o bolo zero
+> lactose, que contenha, por exemplo, coco, que é o valor de frutas ali, ele vai
+> ficar também R$ 55,90. Então, sempre vai prevalecer o valor mais caro."*
+
+O `0% lactose` não é sabor fechado: entra na mesma regra do bolo misto, valendo
+a faixa mais cara. Hoje a IA não cota bolo com restrição, ela chama a equipe, e
+isso foi decisão do dono em 26/08/2026. A fala dela permite cotar direto, mas
+quem decidiu chamar a equipe foi ele, então a chave fica na mão dele.
+
+### 5.2 O sabor não mexe no preço do cupcake (`docepaonew.txt`)
+
+> *"Os cupcake, os pequenininhos, a gente faz a R$2,00 o sem recheio e R$3,00 o
+> recheado, independente do sabor."*
+
+Quem manda no preço do cupcake é o tamanho e o recheio. O sabor, nunca.
+
+### 5.3 O cachorro-quente tem dois preços, e o catálogo já acertou
+
+> *"O pão de cachorro-quente, a gente tem o pequenininho, que é o de mini
+> bisnaguinha, que a gente chama o mini cachorro-quente. A gente faz o médio e
+> faz o grande, só que agora eu tô em casa e eu não lembro o valor."*
+
+Ela não lembrava o valor, e o catálogo já está de acordo com o que ela
+descreveu: `cachorro-quente mini` R$ 20,90/kg, e `cachorro-quente` R$ 19,90/kg
+com a nota `medio e grande`.

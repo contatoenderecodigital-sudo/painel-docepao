@@ -126,7 +126,13 @@ function observacaoDoItem(obs: string, produto: string): string {
   const chave = (t: string) => semAcento(t).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
   const nome = chave(produto);
   return String(obs)
-    .split(",")
+    // CORTA NA VIRGULA E NA BARRA.
+    //
+    // A Dora escreve com virgula, mas o fluxo junta pedaco com " | " em varios
+    // lugares (o tipo do salgado, o recado do cliente). Cortando so na virgula,
+    // o cupom de 30/08/2026 saiu com "> frito | quero carne" numa linha so, que
+    // e justamente o formato que a cozinha nao consegue ler de relance.
+    .split(/[,|]/)
     .map((x) => x.trim())
     .filter(Boolean)
     // O que ja esta no nome do item nao se repete embaixo dele: saia

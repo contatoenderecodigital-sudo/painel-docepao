@@ -38,6 +38,7 @@ import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDe
 import { APELIDOS } from "../dados/apelidos";
 import { produtoNoComeco, produtoPorNome, produtosDaCasa, coresDoCardapio, unidadeDoPedido } from "../dados/produtos";
 import { semAcento as semAc, PALAVRAS_VAZIAS } from "../texto";
+import { escreverObs, lerObs, mexerNaObs, type Embalagem } from "@/lib/banco/obs-do-bolo";
 import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade, pediuPraFalarComGente } from "./falas-do-cliente";
@@ -516,16 +517,6 @@ function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado 
  */
 const cercaDoSabor = cercaDaPalavra;
 
-/** Tira uma marca da observacao dos itens ("Topo: tema Minnie, Arthur, 5 anos"). */
-function tirarMarca(itens: Estado["itens"], prefixo: string): Estado["itens"] {
-  return itens.map((i) => {
-    const obs = String(i.obs ?? "");
-    if (!obs.includes(prefixo)) return i;
-    const limpo = obs.split(" | ").filter((x) => x && !x.startsWith(prefixo)).join(" | ");
-    return { ...i, obs: limpo || null };
-  });
-}
-
 /**
  * O pedido ja tem este produto, escrito de outro jeito?
  *
@@ -854,7 +845,33 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
     // As cores ja vieram juntadas com a frase: aqui e so normalizar e guardar.
     // O CARIMBO NOS ITENS ACONTECE NO FIM DESTA FUNCAO, de proposito: ver o
     // comentario la embaixo.
-    const cores = coresDaForminha(String(l.forminha));
+    //
+    // COR QUE O CLIENTE NAO DISSE NAO ENTRA.
+    //
+    // Medido no pedido de festa de 30/08/2026: o cliente escolheu "metade
+    // brigadeiro e metade beijinho" e NUNCA falou de cor. O modelo devolveu
+    // `forminha: "rosa"` por conta propria, o codigo aceitou, e a etapa da cor
+    // se deu por cumprida. Resultado: a padaria nunca perguntou, a comanda dos
+    // docinhos foi impressa com "forminha rosa" e a producao ia montar 100
+    // forminhas na cor errada.
+    //
+    // A dona e explicita nos audios: "na hora que a pessoa escolher docinho, a
+    // gente SEMPRE pergunta a cor da forminha". Quem escolhe a cor e o cliente,
+    // ou ele delega com todas as letras, e ai quem escolhe e `aplicarDelegacao`.
+    const naFala = semAc(falaDoCliente);
+    const jaGuardadas = semAc(String(novo.forminha ?? ""));
+    const ditasDeVerdade = coresDaForminha(String(l.forminha)).filter((c) => {
+      const cor = semAc(c);
+      return naFala.includes(cor) || jaGuardadas.includes(cor);
+    });
+    const inventadas = coresDaForminha(String(l.forminha)).filter((c) => !ditasDeVerdade.includes(c));
+    if (inventadas.length) {
+      rastro.push(
+        "o modelo disse forminha " + inventadas.join(" e ") +
+        " e o cliente nunca falou de cor; nao anotei e a etapa da cor continua de pe",
+      );
+    }
+    const cores = ditasDeVerdade;
     if (cores.length) {
       // LEMBRAR DE UMA COR NAO APAGA A OUTRA, E ESTE E O LADO DA MEMORIA.
       //
@@ -909,7 +926,14 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         novo.topoNome = null;
         novo.topoIdade = null;
       }
-      novo.itens = tirarMarca(novo.itens, "Topo: ");
+      // Desmarcar o topo NAO pode levar junto o tema, o nome nem o que a IA
+      // anotou por fora: o papel de arroz pode continuar de pe e e fabricado
+      // com os mesmos dados.
+      novo.itens = novo.itens.map((i) =>
+        String(i.categoria || "").startsWith("bolo")
+          ? { ...i, obs: mexerNaObs(i.obs, { topo: false }) || null }
+          : i,
+      );
     }
     if (recusou("papel")) {
       novo.pecas = { topo: novo.pecas?.topo ?? null, papelDeArroz: false };
@@ -1314,7 +1338,40 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       //
       // Recheio que veio no NOME ("esfirra de carne") continua: e o catalogo
       // quem separa. Sabor so no campo do modelo vale quando a frase cita.
-      const saborDoModelo = i.sabor ? String(i.sabor) : null;
+      // O SABOR QUE VAI PRA COMANDA SAI DO CATALOGO, E NAO DA FRASE DO CLIENTE.
+      //
+      // Medido no pedido de festa de 30/08/2026, e foi impresso assim:
+      //
+      //   padaria >> Qual sabor voce quer para o mini bolha?
+      //   cliente >> quero carne
+      //   comanda >> 50 un mini bolha (frito)
+      //              > frito | quero carne
+      //
+      // O modelo devolveu `sabor: "quero carne"`, a frase inteira, e a guarda
+      // de cima passou: ela exige que a FRASE cite o sabor, e a frase cita ela
+      // mesma. Quem produz recebeu "quero carne" no lugar de "carne".
+      //
+      // "carne" esta no cardapio como recheio do mini bolha. Entao o sabor e
+      // reduzido ao termo do catalogo que a frase contem. O que NAO bate com o
+      // catalogo continua passando inteiro de proposito: sabor fora da lista e
+      // caso de equipe, e a dona disse que a lista cresce ("se o cliente pedir
+      // outro sabor, a gente vai colocando").
+      const soODoCatalogo = (nomeDoProduto: string, dito: string): string => {
+        const p = produtoPorNome(nomeDoProduto) ?? produtoNoComeco(nomeDoProduto);
+        const opcoes = p?.sabores ?? [];
+        if (!opcoes.length) return dito;
+        const t = semAc(dito);
+        if (opcoes.some((o) => semAc(o) === t)) return dito;
+        const achado = [...opcoes]
+          .sort((a, b) => b.length - a.length)
+          .find((o) => {
+            const alvo = semAc(o);
+            return alvo.length > 2 && t.includes(alvo) && afirmouOuNegou(t, cercaDoSabor(alvo)) !== false;
+          });
+        if (achado) rastro.push("o modelo mandou o sabor como \"" + dito + "\"; no cardapio isso e \"" + achado + "\"");
+        return achado ?? dito;
+      };
+      const saborDoModelo = i.sabor ? soODoCatalogo(produto, String(i.sabor)) : null;
       const saborCitado =
         saborDoModelo &&
         semAc(falaDoCliente).includes(semAc(saborDoModelo)) &&
@@ -2530,51 +2587,58 @@ export async function responder(
     };
     rastro.push("papel de arroz virou item do pedido");
   }
-  // Como o bolo vai embalado, na observacao do bolo.
-  if (estado.prato) {
-    const marca = estado.prato === "aberto" ? "prato de MDF aberto" : "embalagem com tampa";
-    const i = estado.itens.findIndex((x) => String(x.categoria || "").startsWith("bolo"));
-    if (i >= 0 && !/prato de MDF|embalagem com tampa/i.test(String(estado.itens[i].obs ?? ""))) {
-      const itens = [...estado.itens];
-      itens[i] = { ...itens[i], obs: [itens[i].obs, marca].filter(Boolean).join(" | ") };
-      estado = { ...estado, itens };
-      rastro.push("anotei no bolo: " + marca);
-    }
-  }
-
-  // CADA PECA LEVA A SUA PROPRIA OBSERVACAO.
+  // CADA PECA LEVA A SUA PROPRIA OBSERVACAO, NUM FORMATO SO.
   //
-  // O topo vira observacao do BOLO, porque nao e item; o papel de arroz vira
-  // observacao da propria linha dele, que existe e tem preco. Assim cada ticket
-  // impresso sai com o que aquela peca precisa, e nada aparece duas vezes, que
-  // e um defeito que ja saiu no papel aqui.
-  const escrito =
+  // O topo vira observacao do BOLO, porque nao e item; o papel de arroz tem
+  // linha propria, que existe e tem preco, e leva a mesma descricao de arte.
+  //
+  // ATE 31/08/2026 ISTO MONTAVA O TEXTO NA MAO, e o pedido de festa de 30/08
+  // mostrou o preco disso. O texto saia com dois separadores misturados
+  // ("Gabriel Lucas | 12 anos | Topo: tema foto de referencia, Gabriel Lucas,
+  // 12 anos") e cada consumidor cortava num deles: a cozinha imprimiu o nome
+  // tres vezes, e o painel da equipe mostrou o campo do aniversariante VAZIO,
+  // porque a tela procura "nome X" e aqui o nome saia pelado.
+  //
+  // Agora quem escreve e quem le sao o mesmo par de funcoes, e o teste
+  // `a-observacao-do-bolo-tem-um-formato-so.cjs` faz o caminho de ida e volta.
+  const escritoDito =
     estado.escrito && !/^(nada|nenhum|nao|sem nada|so o desenho)/i.test(estado.escrito)
-      ? "escrito: " + estado.escrito
-      : estado.escrito
-        ? "sem nada escrito"
-        : [estado.topoNome, estado.topoIdade].filter(Boolean).join(", ");
-  const descricao = [estado.tema ? "tema " + estado.tema : "", escrito].filter(Boolean).join(", ");
-  if (descricao) {
-    const anotar = (acharCategoria: (c: string) => boolean, prefixo: string) => {
-      const i = estado.itens.findIndex((x) => acharCategoria(String(x.categoria || "")));
-      if (i < 0) return;
-      const marca = prefixo + descricao;
-      if (String(estado.itens[i].obs ?? "").includes(marca)) return;
-      const itens = [...estado.itens];
-      // Substitui a marca anterior em vez de empilhar: o cliente pode trocar o
-      // tema no meio da conversa, e a comanda nao pode sair com os dois.
-      const limpo = String(itens[i].obs ?? "")
-        .split(" | ")
-        .filter((x) => x && !x.startsWith(prefixo))
-        .join(" | ");
-      itens[i] = { ...itens[i], obs: [limpo, marca].filter(Boolean).join(" | ") };
-      estado = { ...estado, itens };
-      rastro.push("anotei na comanda: " + marca);
-    };
-    if (estado.pecas?.topo === true) anotar((c) => c.startsWith("bolo"), "Topo: ");
-    if (estado.pecas?.papelDeArroz === true) anotar((c) => c === "papel_de_arroz", "");
-  }
+      ? estado.escrito
+      : null;
+  const semNadaEscrito = Boolean(estado.escrito) && !escritoDito;
+  const embalagem: Embalagem | null =
+    estado.prato === "aberto" ? "prato aberto" : estado.prato ? "caixa com tampa" : null;
+
+  // O QUE JA ESTA GRAVADO SO PERDE PRA UM VALOR NOVO, nunca pra um vazio. O
+  // carimbo roda a cada mensagem, e sem isto a segunda volta da conversa
+  // apagaria o tema que o cliente deu na primeira.
+  const carimbar = (acharCategoria: (c: string) => boolean, ehOBolo: boolean) => {
+    const i = estado.itens.findIndex((x) => acharCategoria(String(x.categoria || "")));
+    if (i < 0) return;
+    const velho = lerObs(estado.itens[i].obs);
+    const resto = [...(velho.resto ?? [])];
+    if (semNadaEscrito && !resto.includes("sem nada escrito")) resto.push("sem nada escrito");
+    const texto = escreverObs({
+      tema: estado.tema ?? velho.tema ?? null,
+      nome: estado.topoNome ?? velho.nome ?? null,
+      idade: estado.topoIdade ?? velho.idade ?? null,
+      escrito: escritoDito ?? velho.escrito ?? null,
+      // O topo mora na observacao do bolo. O papel de arroz NAO: ele e linha
+      // com preco, e a linha e a verdade. Escrever nos dois lugares foi o que
+      // deixou a tela e o pedido discordando.
+      topo: ehOBolo ? estado.pecas?.topo === true || velho.topo === true : false,
+      papelDeArroz: false,
+      embalagem: ehOBolo ? embalagem ?? velho.embalagem ?? null : null,
+      resto,
+    });
+    if (texto === String(estado.itens[i].obs ?? "")) return;
+    const itens = [...estado.itens];
+    itens[i] = { ...itens[i], obs: texto || null };
+    estado = { ...estado, itens };
+    rastro.push("anotei na comanda: " + texto);
+  };
+  carimbar((c) => c.startsWith("bolo"), true);
+  if (estado.pecas?.papelDeArroz === true) carimbar((c) => c === "papel_de_arroz", false);
 
   // "dois bolos", "2 bolos", "3 bolos de 1 kg" contam bolos. "2,5 kg de bolo",
   // "tres quilos" dizem o peso de UM bolo. So o primeiro grupo vira dois bolos.

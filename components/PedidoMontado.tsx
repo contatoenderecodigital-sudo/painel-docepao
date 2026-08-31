@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, Plus, Minus, Trash2, Check, Square, CheckSquare, Pencil, TriangleAlert } from "lucide-react";
 import { brl, unidadeDoItem } from "@/lib/tipos";
 import { avisoDeSessao } from "@/lib/buscar-do-painel";
+import { escreverObs, lerObs } from "@/lib/banco/obs-do-bolo";
 
 // Quantidade do jeito que a padaria escreve: 1,5 kg, nunca 1.5kg. A fila de
 // aprovacao ja mostrava com virgula e aqui saia com ponto, entao o mesmo pedido
@@ -38,17 +39,16 @@ const qtdBR = (n: number) => String(Number(n) || 0).replace(".", ",");
 function ehPapelDerivado(x: { produto: string }, todos: { produto: string; obs?: string | null }[]): boolean {
   const nome = String(x.produto || "").trim().toLowerCase();
   if (!/^papel de arroz$/.test(nome)) return false;
-  // TEM BOLO NO PEDIDO? ENTAO QUEM MANDA E O BOTAO DO BOLO, MARCADO OU NAO.
+  // TEM BOLO NO PEDIDO? ENTAO QUEM MOSTRA E A CAIXA DE MARCAR DO BOLO.
   //
-  // A primeira versao disto exigia que a observacao do bolo CITASSE papel de
-  // arroz. Parecia certo e criava o pior caso: com o botao marcado a linha era
-  // escondida e nao enviada (o servidor recriava, tudo bem), mas ao DESMARCAR
-  // ela voltava a ser enviada e continuava cobrada. O dono desmarcou na tela,
-  // salvou, e o total ficou nos mesmos R$ 199,60.
+  // Isto hoje decide SO O QUE APARECE na lista editavel, pra nao existirem dois
+  // controles da mesma coisa na mesma tela. A linha em si vai pro banco do
+  // jeito que esta, e a caixa cria e apaga ela.
   //
-  // Com bolo no pedido a linha nunca e enviada pelo painel. O servidor cria a
-  // partir da observacao: marcado, nasce e cobra; desmarcado, nao nasce e nao
-  // cobra. Uma fonte da verdade so, nos dois estados do botao.
+  // A versao anterior ia mais longe e tirava a linha do salvamento, apostando
+  // que o servidor recriava a partir da observacao do bolo. Esse codigo do
+  // servidor nunca existiu (procurado em 31/08/2026 na rota da montagem e em
+  // `lib/banco/montagem.ts`), entao salvar apagava os R$ 12,00 sem avisar.
   return todos.some((o) => /^bolo/i.test(String(o.produto || "").trim()));
 }
 
@@ -419,18 +419,17 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
     try {
       const limpos = itens
         .filter((x) => x.produto.trim() !== "" && x.qtd > 0)
-        // O PAPEL DE ARROZ E CONSEQUENCIA DO BOTAO DO BOLO, NAO UM ITEM SOLTO.
+        // O PAPEL DE ARROZ VAI JUNTO, COMO QUALQUER LINHA.
         //
-        // Ele aparecia duas vezes na tela: marcado no bolo e como linha propria
-        // embaixo. Pior que confundir quem aprova, isso cobrava errado: o motor
-        // so CRIA a linha do papel de arroz, nunca tira. Desmarcar o botao no
-        // bolo tirava a palavra da observacao, mas a linha ia junto no salvamento
-        // e os R$ 12 continuavam no total, pra sempre.
+        // Aqui existia um filtro que jogava a linha do papel fora antes de
+        // salvar, apostando que "o servidor recria a partir da observacao do
+        // bolo". Em 31/08/2026 eu procurei esse codigo no servidor e ELE NAO
+        // EXISTE: nem em `app/api/montagem/route.ts`, nem em
+        // `lib/banco/montagem.ts`. Ou seja, todo pedido com bolo que a equipe
+        // salvasse perdia a linha do papel e os R$ 12,00 dela, calado.
         //
-        // Agora a linha nao e enviada. O servidor recria ela a partir da
-        // observacao do bolo: marcado, cobra; desmarcado, some. Uma fonte da
-        // verdade so, que e o botao que a pessoa clica.
-        .filter((x) => !ehPapelDerivado(x, itens))
+        // Nao ha mais o que recriar: a caixa de marcar cria e apaga a linha na
+        // tela, e o que esta na tela e o que vai pro banco.
         .map((x) => ({ ...x, produto: x.produto.trim(), obs: x.obs?.trim() || null }));
       const r = await fetch("/api/montagem", {
         method: "POST",
@@ -603,12 +602,13 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
 
       {aberto && travado && (
         <ul className="mt-2 flex flex-col gap-1">
-          {/* O papel de arroz derivado do bolo nao vira linha editavel: quem
-              manda nele e a caixa de marcar do bolo. O indice original e
-              preservado porque mexerItem(i) aponta pra lista de verdade. */}
+          {/* AQUI MOSTRA TUDO, inclusive o papel de arroz.
+              Esta lista e so leitura, e nela nao existe a caixa de marcar do
+              bolo. Escondendo a linha, o papel de arroz nao aparecia em canto
+              nenhum da tela travada, e ele custa R$ 12,00. Quem esconde a linha
+              e a lista EDITAVEL, la embaixo, onde a caixa manda nela. */}
           {itens
             .map((x, i) => ({ x, i }))
-            .filter(({ x }) => !ehPapelDerivado(x, itens))
             .map(({ x, i }) => (
             <li key={i} className="text-[12px] text-cream/75 leading-snug">
               {qtdBR(x.qtd)} {unidadeDoItem(x.unidade)} de {x.produto}
@@ -808,7 +808,17 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                 {it.categoria === "bolo_festa" && (() => {
                   const obs = it.obs ?? "";
                   const temTopo = /topo/i.test(obs) && !/sem topo/i.test(obs);
-                  const temPapel = /papel de arroz/i.test(obs) && !/sem papel/i.test(obs);
+                  // O PAPEL DE ARROZ E A LINHA, E A LINHA E QUE TEM PRECO.
+                  //
+                  // Ate 31/08/2026 esta caixa lia a observacao do BOLO, e o
+                  // pedido de festa de 30/08 mostrou o buraco: a IA criou a
+                  // linha do papel, cobrou os R$ 12,00 no resumo que o cliente
+                  // confirmou, e a caixa apareceu DESMARCADA pra equipe, porque
+                  // a palavra nao estava na observacao do bolo. Pior: salvar
+                  // dali jogava a linha fora e sumia com os R$ 12,00.
+                  //
+                  // Agora a caixa mostra o que existe no pedido de verdade.
+                  const temPapel = itens.some((x) => /^papel de arroz$/i.test(String(x.produto || "").trim()));
                   // Bolo de festa SEMPRE mostra tema, nome e idade: sao os dados que
                   // a producao precisa, e escondidos atras de uma caixa de marcar eles
                   // sumiam da tela justamente quando ninguem tinha marcado nada.
@@ -904,7 +914,33 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                         <Caixa
                           ligado={temPapel}
                           rotulo="papel de arroz"
-                          aoTrocar={(v) => mexerItem(i, { obs: trocarTermo(obs, "papel de arroz", v) })}
+                          aoTrocar={(v) =>
+                            setItens((p) => {
+                              const semPapel = p.filter(
+                                (x) => !/^papel de arroz$/i.test(String(x.produto || "").trim()),
+                              );
+                              if (!v) return semPapel;
+                              // Nasce com a mesma arte do bolo: quem fabrica a
+                              // peca precisa do tema, do nome e da idade, e sem
+                              // isso a comanda do papel sai muda.
+                              const arte = escreverObs({
+                                tema: lerObs(obs).tema,
+                                nome: lerObs(obs).nome,
+                                idade: lerObs(obs).idade,
+                                escrito: lerObs(obs).escrito,
+                              });
+                              return [
+                                ...semPapel,
+                                {
+                                  produto: "papel de arroz",
+                                  categoria: "papel_de_arroz" as Item["categoria"],
+                                  qtd: 1,
+                                  unidade: "un" as const,
+                                  obs: arte || null,
+                                },
+                              ];
+                            })
+                          }
                         />
                       </div>
                       {/* Como o bolo vai embalado: a cozinha precisa saber, e
