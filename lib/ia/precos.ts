@@ -42,5 +42,22 @@ export function estimarCustoCentBRL(modeloId: string, tokensIn: number, tokensOu
   const inUsd = m?.inUsd ?? 0.5; // fallback genérico p/ modelo desconhecido (AJUSTAR)
   const outUsd = m?.outUsd ?? 1.5;
   const usd = (tokensIn / 1e6) * inUsd + (tokensOut / 1e6) * outUsd;
-  return Math.round(usd * USD_BRL * 100);
+  // DEVOLVE CENTAVO FRACIONARIO, E QUEM PRECISA DE INTEIRO ARREDONDA LA.
+  //
+  // Aqui havia um `Math.round`, e ele apagou a conta de custo inteira a partir
+  // de 27/08/2026. Medido no banco em 31/08: 2.400 chamadas com custo_cent E
+  // custo_brl em ZERO, e 1,2 milhao de tokens gastos.
+  //
+  // O motivo: ate 26/08 cada chamada mandava 22 mil tokens e custava mais de um
+  // centavo, entao o arredondamento nao aparecia. Com o fluxo novo cada chamada
+  // manda 778 tokens e custa fracao de centavo: arredondar aqui zera TODAS.
+  //
+  // `uso.ts` ate tinha consertado a precisao do lado dele, com comentario e
+  // tudo ("fracionario de proposito, custo_cent e inteiro e rejeitava virgula"),
+  // e o conserto morria nesta linha, uma funcao abaixo. Consertar um lado e
+  // deixar o outro e o defeito mais repetido deste projeto.
+  //
+  // O efeito pro dono: o painel mostrava "Custo de IA: -" e ele nao tinha como
+  // saber quanto estava gastando, justo quando levou um susto de 80 dolares.
+  return usd * USD_BRL * 100;
 }
