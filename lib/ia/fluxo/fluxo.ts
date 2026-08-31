@@ -2900,7 +2900,18 @@ export async function responder(
     //
     // A regra e simples e verdadeira: pra mudar de assunto ele tem que NOMEAR
     // um produto. Sabor solto responde a pergunta que esta na mesa.
-    const nomeouProduto = produtosNaFrase(String(mensagem.texto ?? "")).length > 0;
+    // NOME DE FAMILIA NAO E SABOR SOLTO.
+    //
+    // A regra abaixo pede que ele NOMEIE um produto pra mudar de assunto, e ela
+    // esta certa pro sabor ("de calabresa" e resposta, nao assunto novo). So que
+    // familia tambem e nome: "queria uns salgados pra amanha" nao nomeia produto
+    // nenhum, caia aqui, e o assunto que o cliente acabou de trazer era jogado
+    // fora. Medido em 31/08/2026.
+    //
+    // "de calabresa" continua sendo sabor solto: calabresa nao e familia.
+    const nomeouProduto =
+      produtosNaFrase(String(mensagem.texto ?? "")).length > 0 ||
+      Boolean(familiaDoQueEleNomeou(String(mensagem.texto ?? "")));
     if (!nomeouProduto && limpa.falouDeOutraEtapa) {
       rastro.push("sabor solto, nao assunto novo: fico onde estou");
       limpa.falouDeOutraEtapa = undefined;
@@ -2966,6 +2977,76 @@ export async function responder(
       // WhatsApp a proxima chega numa chamada nova, com o estado lido do banco.
       estado = { ...estado, retomarEm: voltar, assunto: limpa.falouDeOutraEtapa };
       rastro.push("falou de " + limpa.falouDeOutraEtapa + "; retomo em " + (voltar ?? "nada"));
+
+      // A FAMILIA QUE ELE DISSE QUE QUER ENTRA NO PEDIDO NA HORA.
+      //
+      // Medido conversando com a producao em 31/08/2026:
+      //
+      //   cliente >> queria encomendar um bolo de aniversario
+      //   cliente >> nao eh festa nao, so o bolo mesmo
+      //   padaria >> O que você vai querer?
+      //   cliente >> brigadeiro
+      //   comanda >> 1 brigadeiro          (o DOCINHO, e o bolo nunca existiu)
+      //
+      // A conversa sabia que o assunto era bolo (esta escrito no rastro), mas
+      // nada do bolo ia pro pedido: o modelo nao devolve item pra "queria
+      // encomendar um bolo", porque nao ha produto nenhum na frase, so a
+      // familia. Sem item, nao ha o que ancorar, e "brigadeiro" caiu no
+      // docinho, que e um produto de verdade com esse nome exato.
+      //
+      // Familia em aberto ja e coisa deste sistema: e assim que "quero 50 de
+      // morango" guarda o 50 enquanto a padaria pergunta qual bolo. Aqui e o
+      // mesmo, sem quantidade: o item existe, a etapa dele pergunta o sabor, e
+      // a resposta tem onde cair.
+      //
+      // PERGUNTA DE PRECO NAO ENTRA: quem so pergunta quanto custa cai no galho
+      // de cima, que limpa `falouDeOutraEtapa` e nao chega ate aqui.
+      // A CATEGORIA DO MARCADOR SO SERVE PRA ROTEAR, E TODA CATEGORIA DA
+      // FAMILIA VAI PRA MESMA ETAPA (bolo_festa e bolo_caseiro vao pra bolo,
+      // salgado_frito e salgado_assado vao pra salgado). Por isso a primeira
+      // serve: ela some no instante em que o cliente escolhe o produto, e
+      // marcador com qtd 0 nao entra em conta nenhuma.
+      const fam = limpa.falouDeOutraEtapa;
+      const cat = categoriasDaFamilia(fam)[0] ?? null;
+      const jaTemDaFamilia = estado.itens.some((i) =>
+        categoriasDaFamilia(fam).includes(String(i.categoria || "")),
+      );
+      // PERGUNTAR NAO E PEDIR, E ISSO JA CUSTOU UM PEDIDO INTEIRO.
+      //
+      // "boa tarde, quanto e a cuca?" virava "0 cuca" no pedido, e o item de
+      // quantidade zero travava o fechamento ate o fim da conversa: R$ 218,80
+      // ja combinados que nao foram registrados. Isso esta medido em 28/08/2026
+      // e tem teste desde entao.
+      //
+      // Entao o marcador de familia so nasce quando os tres valem:
+      //
+      //   - a frase nao NOMEIA produto: quem nomeia cai na maquina que ja
+      //     existe, que separa pergunta de pedido pelo numero;
+      //   - o modelo nao leu a frase como pergunta;
+      //   - e nao ha interrogacao escrita.
+      // Nome de FAMILIA nao conta como produto nomeado: "um bolo" e a familia,
+      // e e justamente o caso que este bloco existe pra resolver. "a coxinha",
+      // que e produto de verdade, conta.
+      const nomeouProdutoAqui = produtosNaFrase(String(mensagem.texto ?? "")).some(
+        (n) => !ehNomeDeFamilia(n),
+      );
+      const pareceuPergunta =
+        Boolean(limpa.perguntou?.sobre) || String(mensagem.texto ?? "").includes("?");
+      if (cat && !jaTemDaFamilia && !nomeouProdutoAqui && !pareceuPergunta) {
+        estado = {
+          ...estado,
+          itens: [
+            ...estado.itens,
+            {
+              produto: fam,
+              categoria: cat,
+              qtd: 0,
+              obs: null,
+            },
+          ],
+        };
+        rastro.push("ele disse que quer " + fam + " e nao tinha nenhum no pedido; anotei em aberto");
+      }
     }
 
     // SO NA ETAPA DA CONFIRMACAO, E COM O PEDIDO NA TELA DELE.

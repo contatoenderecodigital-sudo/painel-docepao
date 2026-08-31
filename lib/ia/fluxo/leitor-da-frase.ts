@@ -37,7 +37,7 @@
 // ============================================================================
 
 import { coresDaForminha } from "./sabor";
-import { afirmouOuNegou, semAcento, PALAVRAS_VAZIAS, numerosEscritos } from "../texto";
+import { afirmouOuNegou, semAcento, formasDaFrase, PALAVRAS_VAZIAS, numerosEscritos } from "../texto";
 import { APELIDOS } from "../dados/apelidos";
 import { produtosDaCasa, pedeEscolhaDeSabor, produtoPorNome, produtoNoComeco } from "../dados/produtos";
 import { chavesDeFamilia, ehNomeDeFamilia, familiaDaCategoria, familiaDoNome, nomeDaFamilia } from "./generico";
@@ -130,10 +130,18 @@ export function familiaDoQueEleNomeou(fala: string): string | null {
     const daChave = familiaDoNome(nome) ?? nomeDaFamilia(nome);
     if (daChave) return daChave;
   }
-  const t = semAcMin(fala);
+  // O PLURAL E O DIMINUTIVO SAO O JEITO NORMAL DE ESCREVER.
+  //
+  // Medido em 31/08/2026: "quero salgado" achava a familia e "queria uns
+  // salgados pra amanha" nao achava nada. Sem familia, o assunto nao muda, e a
+  // conversa fica perguntando "o que você vai querer?" pra quem acabou de
+  // dizer. Vale pra salgados, docinhos, doces e salgadinhos.
+  //
+  // A reducao e a mesma de `formasDoCliente`, e mora num lugar so.
+  const formas: string[] = formasDaFrase(fala).map((f: string) => f.toLowerCase());
   for (const chave of chavesDeFamilia()) {
     const alvo = semAcMin(chave);
-    if (alvo && cerca(alvo).test(t)) return chave;
+    if (alvo && formas.some((f) => cerca(alvo).test(f))) return chave;
   }
   return null;
 }

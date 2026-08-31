@@ -161,9 +161,29 @@ const semArtigo = (t: string) =>
  */
 export function formasDoCliente(t: string): string[] {
   const fiel = semArtigo(t);
-  const semPlural = fiel.replace(/(aes|oes|aos)\b/g, "ao").replace(/s\b/g, "");
+  return [...new Set([semAcento(t), fiel, ...formasDaFrase(fiel)])].filter(Boolean);
+}
+
+/**
+ * A MESMA REDUCAO, NUMA FRASE INTEIRA.
+ *
+ * `formasDoCliente` reduz UM nome. Quem procura o nome DENTRO de uma frase
+ * precisa da mesma conta aplicada na frase toda, senao o plural derruba a busca:
+ *
+ *   "quero salgado"                  ->  achava a familia
+ *   "queria uns salgados pra amanha" ->  nao achava nada
+ *
+ * Medido em 31/08/2026, e derrubava o jeito NORMAL de escrever: salgados,
+ * docinhos, doces, salgadinhos, nenhum deles era familia.
+ *
+ * As duas contas moram aqui, e nao uma copia em cada lado. Duas maos guardando
+ * a mesma verdade e o defeito que mais se repetiu neste sistema.
+ */
+export function formasDaFrase(t: string): string[] {
+  const cru = semAcento(t);
+  const semPlural = cru.replace(/(aes|oes|aos)\b/g, "ao").replace(/s\b/g, "");
   const semDiminutivo = semPlural.replace(/inh([oa])\b/g, "$1");
-  return [...new Set([semAcento(t), fiel, semPlural, semDiminutivo])].filter(Boolean);
+  return [...new Set([cru, semPlural, semDiminutivo])].filter(Boolean);
 }
 
 // AQUI FICAVA `comoOCardapioEscreve`, EXPORTADA E SEM NENHUM CHAMADOR.
