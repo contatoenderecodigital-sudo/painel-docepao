@@ -194,8 +194,28 @@ export async function fecharPedido(
 
   // O PRECO SAI DO MOTOR, NUNCA DA CONVERSA.
   const cot = motorPadrao.cotarPorItens(paraOMotor(e.itens));
-  const linhas = (cot.linhas ?? []).map((l) => ({
-    item: String(l.item),
+  // O PRECO E DO MOTOR. O NOME E O QUE O CLIENTE ACEITOU.
+  //
+  // O motor devolve o nome CANONICO da linha, e pro bolo misto isso e so a
+  // base: "bolo brigadeiro com 0% lactose" volta como "bolo brigadeiro", com o
+  // preco certo da faixa mais cara. Medido em 31/08/2026, no pedido de festa
+  // que fechou pelo WhatsApp:
+  //
+  //   resumo que ele confirmou   2 kg de bolo brigadeiro com 0% lactose
+  //   gravado no pedido          bolo brigadeiro
+  //   preco gravado              R$ 55,90/kg  (certo)
+  //
+  // O dinheiro estava certo e a COMANDA estava errada: a confeitaria receberia
+  // "bolo brigadeiro" e faria com lactose, pra um cliente que pediu sem. Isso
+  // deixa de ser prejuizo e vira problema de saude, que e a mesma razao pela
+  // qual a promessa de restricao nunca pode aparecer sem o produto atras.
+  //
+  // Casa por POSICAO, que e a ordem em que o motor cota, e so quando as duas
+  // listas tem o mesmo tamanho. Se o motor pular ou juntar alguma linha, o nome
+  // dele volta a valer: melhor o nome canonico que um nome trocado de lugar.
+  const mesmaOrdem = (cot.linhas ?? []).length === e.itens.length;
+  const linhas = (cot.linhas ?? []).map((l, n) => ({
+    item: mesmaOrdem ? String(e.itens[n].produto || l.item) : String(l.item),
     categoria: String(l.categoria ?? ""),
     qtd: Number(l.qtd) || 0,
     // "un" ou "kg", nao string qualquer: a unidade decide como o cupom escreve
