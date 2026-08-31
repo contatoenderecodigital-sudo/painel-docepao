@@ -3180,6 +3180,21 @@ export async function responder(
           chamouIA,
           confirmouEscrevendo: false,
           precisaHumano: resposta.precisaHumano,
+          // O PAINEL PRECISA SABER DE QUE PERGUNTA SE TRATA.
+          //
+          // Medido em 31/08/2026, conversando: o cliente pediu a chave pix, a
+          // IA chamou a equipe e `handoff_motivo` ficou VAZIO. Mesmo buraco que
+          // eu tinha fechado na reclamacao, num caminho diferente: aqui e a
+          // resposta de INFORMACAO que chama gente (pix sem chave cadastrada,
+          // entrega, desconto).
+          //
+          // Vai a pergunta e a frase que o cliente ouviu, porque e essa conversa
+          // que a equipe vai continuar. Sem isso, quem abre o painel ve "precisa
+          // de voce" e nao sabe se e dinheiro, entrega ou reclamacao.
+          motivoHumano: resposta.precisaHumano
+            ? "Pergunta sobre " + String(limpa.perguntou.sobre) +
+              ". Eu respondi: \"" + resposta.texto + "\""
+            : null,
         };
       }
     }
