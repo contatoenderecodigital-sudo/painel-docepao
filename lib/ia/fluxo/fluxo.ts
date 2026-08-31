@@ -2881,6 +2881,20 @@ export async function responder(
         chamouIA,
         confirmouEscrevendo: false,
         precisaHumano: r.precisaHumano,
+        // O PAINEL PRECISA SABER DO QUE SE TRATA, e nao so que alguem chamou.
+        //
+        // Medido em producao em 31/08/2026: um cliente reclamou, o handoff
+        // acendeu e o motivo ficou VAZIO. Foi a mesma queixa que ele fez do
+        // "sem lactose": "em nenhum lugar tem, ngm sabe". A frase que o cliente
+        // ouviu vai junto, porque e ela que a equipe precisa continuar.
+        motivoHumano: r.precisaHumano
+          ? (limpa.situacao === "reclamacao"
+              ? "Reclamação do cliente"
+              : limpa.situacao === "cancelar"
+                ? "O cliente quer cancelar"
+                : "Pergunta sobre um pedido já feito") +
+            ". Eu respondi: \"" + r.texto + "\""
+          : null,
       };
     }
 
