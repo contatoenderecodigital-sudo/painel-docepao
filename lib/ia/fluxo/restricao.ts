@@ -163,6 +163,38 @@ export function misturaQueACasaFaz(produto: unknown, restricao: string): string 
  * e o defeito original voltaria inteiro, com o cliente intolerante recebendo
  * trinta brigadeiros comuns.
  */
+/**
+ * O PRODUTO DO CARDÁPIO QUE ATENDE A RESTRIÇÃO CITADA NESTA FRASE.
+ *
+ * Medido conversando com a produção em 31/08/2026:
+ *
+ *   cliente >> oi, voces fazem bolo sem lactose?
+ *   padaria >> Bolo de festa sai de R$ 46,90 a R$ 55,90 o quilo...
+ *
+ * Ela respondeu o preço do bolo e não respondeu a pergunta. E a casa FAZ: o
+ * `0% lactose` é sabor de bolo de festa da faixa C. Perder essa venda é o
+ * defeito mais caro que existe aqui, porque quem pergunta por restrição
+ * pergunta antes de qualquer outra coisa e vai embora com o não.
+ *
+ * A pergunta é a mesma que o pedido já responde quando ele PEDE ("brigadeiro
+ * sem lactose" vira "bolo brigadeiro com 0% lactose"), e sai do mesmo lugar: o
+ * catálogo. Nenhuma lista minha.
+ */
+export function produtoDaRestricaoNaFrase(texto: unknown): string | null {
+  const t = semAcMin(texto);
+  if (!t) return null;
+  for (const [nome, re] of NAO_FAZ) {
+    if (!re.test(t)) continue;
+    const chave = semAcMin(nome).replace(/^(sem|zero|0 ?%) ?/, "").trim();
+    if (!chave) continue;
+    const oQueACasaFaz = produtosDaCasa().find(
+      (p) => p.categoria === "bolo_festa" && semAcMin(p.nome).includes(chave),
+    );
+    if (oQueACasaFaz) return oQueACasaFaz.nome;
+  }
+  return null;
+}
+
 export function restricoesQueACasaNaoFaz(texto: unknown, produto?: unknown): string[] {
   const t = semAcMin(texto);
   if (!t) return [];

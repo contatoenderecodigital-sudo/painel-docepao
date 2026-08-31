@@ -44,7 +44,7 @@ import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade, pediuPraFalarComGente, respostaAoValor } from "./falas-do-cliente";
 import { retiradaForaDoExpediente, avisoDeEspera } from "@/lib/padaria-aberta";
 import { coresDaForminha, faltaCorDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista, saboresQueFaltam } from "./sabor";
-import { restricoesQueACasaNaoFaz, misturaQueACasaFaz, obsSemRestricao, obsPraComanda, avisoDaRestricao } from "./restricao";
+import { restricoesQueACasaNaoFaz, misturaQueACasaFaz, obsSemRestricao, obsPraComanda, avisoDaRestricao, produtoDaRestricaoNaFrase } from "./restricao";
 import { paraOMotor } from "./cotar";
 import { respostaDeInformacao } from "./informacao";
 import { respostaDaSituacao } from "./situacao";
@@ -3307,6 +3307,49 @@ export async function responder(
         : respostaDeInformacao(limpa.perguntou);
       if (resposta) {
         rastro.push("ele perguntou sobre " + limpa.perguntou.sobre + "; respondi sem anotar nada");
+
+        // PERGUNTOU POR UMA RESTRICAO QUE A CASA FAZ? DIZ QUE FAZ, E QUANTO E.
+        //
+        // Medido conversando com a producao em 31/08/2026:
+        //
+        //   cliente >> oi, voces fazem bolo sem lactose?
+        //   padaria >> Bolo de festa sai de R$ 46,90 a R$ 55,90 o quilo...
+        //
+        // Ela respondeu o preco do bolo e nao respondeu a pergunta. A casa FAZ:
+        // o 0% lactose e sabor de bolo de festa da faixa C. Quem pergunta por
+        // restricao pergunta ANTES de tudo, e vai embora com o silencio.
+        //
+        // O preco sai do motor, igual em todo o resto: quem escreve numero aqui
+        // e o codigo, nunca a IA.
+        const oQueACasaFaz = produtoDaRestricaoNaFrase(String(mensagem.texto ?? ""));
+        if (oQueACasaFaz) {
+          const oQuilo = Number(
+            motorPadrao.cotarPorItens([{ item: oQueACasaFaz, qtd: 1 }]).linhas?.[0]?.subtotal ?? 0,
+          );
+          resposta = {
+            ...resposta,
+            texto:
+              "Fazemos sim: temos " + oQueACasaFaz +
+              (oQuilo > 0 ? ", " + brl(oQuilo) + " o quilo" : "") + "." +
+              (resposta.texto ? " " + resposta.texto : ""),
+          };
+          rastro.push("ele perguntou por restricao que a casa faz: " + oQueACasaFaz);
+        } else {
+          // A RESTRICAO QUE A CASA NAO FAZ TAMBEM PRECISA DE RESPOSTA.
+          //
+          // "voces fazem bolo sem gluten?" ouvia so a tabela de preco do bolo, e
+          // a pergunta ficava no ar. A frase e a mesma que o pedido ja usa, e ela
+          // nao promete nada: quem confirma e a equipe.
+          const naoFaz = restricoesQueACasaNaoFaz(String(mensagem.texto ?? ""));
+          const aviso = avisoDaRestricao(naoFaz);
+          if (aviso) {
+            resposta = {
+              texto: aviso + (resposta.texto ? String.fromCharCode(10, 10) + resposta.texto : ""),
+              precisaHumano: true,
+            };
+            rastro.push("ele perguntou por restricao que a casa nao faz: " + naoFaz.join(", "));
+          }
+        }
         // PERGUNTOU POR UM SABOR QUE O PRODUTO NAO TEM? DIZ QUAL ELE E.
         //
         // Medido conversando com o servidor em 31/08/2026:
