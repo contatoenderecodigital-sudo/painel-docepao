@@ -2845,8 +2845,31 @@ export async function responder(
     // frase, devolvia reclamacao ou perguntou.outro e o painel acendia
     // "Precisa de voce" sem ninguem ter pedido gente. Se a frase tem produto,
     // a leitura ja anotou: segue o pedido.
+    // RECLAMACAO QUASE SEMPRE CITA O PRODUTO, E ISSO NAO A TRANSFORMA EM PEDIDO.
+    //
+    // Medido conversando com o servidor em 31/08/2026:
+    //
+    //   cliente >> o pedido que retirei ontem veio com salgado queimado
+    //   padaria >> Bom dia, tudo bem? Como posso ajudar?
+    //
+    // O cliente reclamou e ouviu uma saudacao. Pior: o modelo tinha classificado
+    // certo, e o codigo descartou a classificacao EM SILENCIO, porque a palavra
+    // "salgado" esta na frase e a guarda tratava produto citado como pedido.
+    //
+    // Nao havia nem rastro: a linha "situacao: ..." so e escrita DENTRO do
+    // bloco, entao de fora parecia que o modelo nao tinha lido nada. Passei um
+    // tempo achando que era falha do modelo.
+    //
+    // A guarda continua existindo pelo motivo que ela nasceu: o modelo, vendo
+    // festa e pizza na mesma frase, devolvia "reclamacao" e o painel acendia
+    // "Precisa de voce" sem ninguem ter pedido gente. So que naquele caso ele
+    // devolve ITENS junto, e e isso que separa um do outro. Frase que so
+    // MENCIONA um produto, sem pedir nenhum, nao e pedido.
+    const pediuItemNesteTurno = (lida.itens ?? []).length > 0;
+    const soMencionouProduto = !pediuItemNesteTurno && produtosNaFrase(falaCru).length > 0;
+    const eQueixa = limpa.situacao === "reclamacao" || limpa.situacao === "cancelar";
     const temProdutoNesteTurno =
-      (lida.itens ?? []).length > 0 || produtosNaFrase(falaCru).length > 0;
+      pediuItemNesteTurno || (soMencionouProduto && !eQueixa);
     if (limpa.situacao && !temProdutoNesteTurno) {
       const r = respostaDaSituacao(limpa.situacao, estado.itens.length > 0 || Boolean(estado.dados.data));
       rastro.push("situacao: " + limpa.situacao + (r.precisaHumano ? "; chamei a equipe" : ""));
