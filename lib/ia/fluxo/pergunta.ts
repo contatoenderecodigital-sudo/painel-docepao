@@ -765,7 +765,7 @@ function boloEmPortugues(obs: unknown): string {
 }
 
 /** O resumo que vai antes de confirmar: item por item, com a conta fechada. */
-function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
+export function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
   // CADA LINHA COM O SEU VALOR, IGUAL A COMANDA.
   //
   // Pedido do dono, 23/08/2026: "ja tem que colocar o valor de cada produto do
@@ -821,8 +821,20 @@ function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
     // do mesmo jeito.
     const ehPecaDoBolo = ehBolo || i.categoria === "papel_de_arroz";
     const obs = ehPecaDoBolo ? boloEmPortugues(i.obs) : pedacosDaObs(i.obs, nome).join(", ");
+    // QUEM E VENDIDO POR QUILO LE "kg" NO RESUMO, E NAO SO O BOLO.
+    //
+    // Conversando com a producao em 31/08/2026, o resumo saiu assim:
+    //
+    //   - 2 pao frances  R$ 11,99/kg = R$ 23,98
+    //
+    // A conta esta certa e a linha engana: parece dois paes por R$ 23,98. Sao
+    // dois QUILOS. O "kg de" estava preso ao bolo, e por quilo a casa vende 31
+    // produtos. Quem decide a unidade e o motor de preco, que e quem cobra.
+    const ehKg = l
+      ? l.unidade === "kg"
+      : unidadeDoPedido(String(i.produto), String(i.categoria || "")) === "kg";
     return (
-      "- " + i.qtd + (ehBolo ? " kg de " : " ") + nome + (obs ? " (" + obs + ")" : "") + quanto
+      "- " + i.qtd + (ehKg ? " kg de " : " ") + nome + (obs ? " (" + obs + ")" : "") + quanto
     );
   });
   const d = p.dados;
