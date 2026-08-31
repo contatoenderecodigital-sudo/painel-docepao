@@ -36,7 +36,7 @@ import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida, formasDoCliente } f
 import { identificarProduto } from "./produto";
 import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, ehPizzaQueNaoESalgado, familiaDoProduto, nomeDaFamilia, opcaoDaFamiliaNaFrase, opcoesDaFamilia } from "./generico";
 import { APELIDOS } from "../dados/apelidos";
-import { produtoNoComeco, produtoPorNome, produtosDaCasa, coresDoCardapio } from "../dados/produtos";
+import { produtoNoComeco, produtoPorNome, produtosDaCasa, coresDoCardapio, unidadeDoPedido } from "../dados/produtos";
 import { semAcento as semAc, PALAVRAS_VAZIAS } from "../texto";
 import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
@@ -716,6 +716,52 @@ function aplicarDelegacao(e: Estado, etapa: EtapaId): Estado {
 // calabresa": sem ele eu teria culpado a IA, e a IA estava fazendo a unica
 // coisa que sabia fazer. Decisao tomada aqui dentro e decisao que precisa
 // aparecer no log.
+/** O maior bolo da casa, do proprio catalogo: "quadrado de 2,5 kg a 6 kg". */
+const PESO_DO_MAIOR_BOLO = 6;
+
+function naoCabeNoBolo(nome: string, qtd: number, fala: string, comoEleChamou: string, saborDito: string, rastro: string[] = []): string {
+  const p = produtoPorNome(nome) ?? produtoNoComeco(nome);
+  if (!p || !String(p.categoria).startsWith("bolo")) return nome;
+  const familia = nomeDaFamilia(nome) ?? familiaDoProduto(nome);
+  if (!familia || semAc(String(familia)) === semAc(nome)) return nome;
+
+  // 1. BOLO POR QUILO COM QUANTIDADE ACIMA DE SEIS.
+  const porPeso = unidadeDoPedido(nome, String(p.categoria)) === "kg";
+  if (porPeso && qtd > PESO_DO_MAIOR_BOLO) {
+    rastro.push(
+      "nao anotei " + nome + " com " + qtd + ": o maior bolo da casa tem " +
+      PESO_DO_MAIOR_BOLO + " kg, entao esse numero e de outro produto",
+    );
+    return String(familia);
+  }
+
+  // 2. O BOLO VENDIDO POR UNIDADE NAO TEM TETO DE PESO, e escapava da
+  //    regra de cima: "quero 50 de limao" virava 50 bolos caseiros de
+  //    limao, R$ 1.545,00. O que denuncia ali e outra coisa: o nome do
+  //    produto tem palavra que o cliente NAO disse ("caseiro"), e a
+  //    palavra que ele disse tambem e sabor de outro produto (limao e
+  //    sabor de trufa, de torta doce e de cuca recheada).
+  //
+  //    Sozinha, nenhuma das duas bastaria: "cenoura" tambem vira "bolo
+  //    caseiro cenoura" sem ele dizer "caseiro", e ali esta certo, porque
+  //    cenoura nao e sabor de mais nada.
+  const ditasAqui = new Set(palavrasQueApontam(fala + " " + saborDito));
+  const daFamiliaAqui = new Set(chavesDeFamilia().map((f) => semAc(f)));
+  const naoDitas = palavrasQueApontam(nome).filter(
+    (w) => !ditasAqui.has(w) && !daFamiliaAqui.has(w),
+  );
+  const ehSaborDeOutro = produtosDaCasa().some(
+    (x) => x.nome !== nome && (x.sabores ?? []).some((s) => semAc(s) === semAc(comoEleChamou)),
+  );
+  if (naoDitas.length && ehSaborDeOutro) {
+    rastro.push(
+      "nao anotei " + nome + ": ele disse so \"" + comoEleChamou + "\", que tambem e sabor de outro produto",
+    );
+    return String(familia);
+  }
+  return nome;
+}
+
 function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rastro: string[] = []): Estado {
   let novo: Estado = { ...e };
 
@@ -1148,7 +1194,35 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         );
         return menor.produto;
       };
-      const produto = semInvencao(escolhida ?? quem.produto);
+      // BOLO POR QUILO NAO PASSA DE SEIS: ACIMA DISSO O NOME FOI LIDO ERRADO.
+      //
+      // Oito palavras do cardapio sao produto E sabor de outro produto ao mesmo
+      // tempo. Levantadas em 30/08/2026, contra o catalogo inteiro:
+      //
+      //   brigadeiro, cafe, 4 leites, prestigio, porto alegre, bombom,
+      //   morango, limao
+      //
+      // "morango" e um BOLO DE FESTA e tambem sabor de trufa e de torta doce.
+      // Quando o cliente pede "50 de morango" escolhendo docinho, o codigo
+      // resolvia pro bolo e o pedido ficava assim, medido:
+      //
+      //   "quero 50 de morango"   ->  50 kg de bolo morango    R$ 2.345,00
+      //   "quero 50 de limao"     ->  50 bolos caseiros limao  R$ 1.545,00
+      //   "quero 50 bombom"       ->  50 kg de bolo bombom
+      //   "quero 50 prestigio"    ->  50 kg de bolo prestigio
+      //
+      // E o codigo ainda marcava `unico: true`, ou seja, se dava por certo: a
+      // marca de ambiguidade so olha se o NOME bate com produtos de categorias
+      // diferentes, e nao sabe que a palavra tambem e sabor.
+      //
+      // A regua sai do catalogo, nao de chute: "redondo de 300 g a 5,5 kg,
+      // quadrado de 2,5 kg a 6 kg". Nao existe bolo de 50 kg nesta casa, entao
+      // 50 nao e peso de bolo -- e a quantidade de outra coisa.
+      //
+      // O que entra no lugar e a FAMILIA com a palavra no recheio, que e a
+      // forma que este arquivo ja usa pra "nao sei qual, pergunta": a padaria
+      // pergunta em vez de anotar dois mil reais que ninguem pediu.
+      const produto = naoCabeNoBolo(semInvencao(escolhida ?? quem.produto), Number(i.qtd) || 0, falaDoCliente, String(i.produto), String(i.sabor ?? ""), rastro);
       const categoria = categoriaDaEtapa(etapa, produto);
 
       // A conta de "de que familia e este produto" mora em familiaDoProduto,
@@ -1954,7 +2028,12 @@ export async function responder(
         const fala = String(mensagem.texto ?? "");
         const comBolo = ehBolo ? identificarProduto("bolo " + p.produto, undefined, fala).produto : null;
         const boloDeVerdade = comBolo && produtoPorNome(comBolo) ? comBolo : null;
-        return { ...p, produto: boloDeVerdade ?? identificarProduto(p.produto, undefined, fala).produto };
+        // A MESMA GUARDA DO OUTRO CAMINHO. Este injetor resolvia o nome por
+        // conta propria, e por isso "quero 50 de limao" escapava dela e virava
+        // 50 bolos caseiros de limao, R$ 1.545,00. Regra que vale num caminho e
+        // nao no outro e regra que so protege metade dos pedidos.
+        const canonico = boloDeVerdade ?? identificarProduto(p.produto, undefined, fala).produto;
+        return { ...p, produto: naoCabeNoBolo(canonico, Number(p.qtd) || 0, fala, String(p.produto), "", rastro) };
       });
     if (doTextoParaDepois.length) {
       // ENTRA AGORA, NAO DEPOIS.
