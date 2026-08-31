@@ -1078,8 +1078,13 @@ function PainelContato({ conversa, qtdMensagens, onToast }: { conversa: Conversa
             <PedidoMontado clienteId={conversa.id} versao={qtdMensagens} />
           </div>
           {conversa.estado === "precisa_humano" && (
-            <div className="flex items-center gap-2 text-[12px] rounded-[10px] px-3 py-2 mb-4" style={{ background: "rgba(231,207,148,0.12)", color: "#e7cf94" }}>
-              <ShieldAlert size={14} /> A IA pediu a equipe nesta conversa.
+            <div className="flex items-start gap-2 text-[12px] rounded-[10px] px-3 py-2 mb-4" style={{ background: "rgba(231,207,148,0.12)", color: "#e7cf94" }}>
+              <ShieldAlert size={14} className="shrink-0 mt-[2px]" />
+              {/* O MOTIVO VEM NA FRENTE DO AVISO.
+                  "A IA pediu a equipe" nao diz nada: no pedido de 30/08/2026 a
+                  Dora prometeu confirmar o sem lactose e ninguem descobriu o
+                  assunto sem ler 47 mensagens. */}
+              <span>{conversa.motivoHumano || "A IA pediu a equipe nesta conversa."}</span>
             </div>
           )}
           {/* Estado do atendimento: quem responde, desde quando, e de quem é a

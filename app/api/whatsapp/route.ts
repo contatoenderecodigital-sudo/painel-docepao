@@ -703,10 +703,12 @@ async function processar(corpo: WebhookPayload) {
           // saiu do lugar: tem coisa que a padaria resolve numa frase e ela nao
           // resolve em dez.
           if (novo.precisaHumano) {
-            await definirHandoff(negocioId, clienteId, true).catch((e) => logWhatsapp("handoff humano", e));
+            await definirHandoff(negocioId, clienteId, true, novo.motivoHumano).catch((e) => logWhatsapp("handoff humano", e));
             avisarDona(
               "cliente-esperando:" + clienteId,
-              "Um cliente esta esperando falar com alguem da padaria.",
+              novo.motivoHumano
+                ? "Um cliente esta esperando a padaria. " + novo.motivoHumano
+                : "Um cliente esta esperando falar com alguem da padaria.",
             ).catch((e) => logWhatsapp("aviso dona humano", e));
           }
           await pausa(tempoDeDigitar(novo.texto));

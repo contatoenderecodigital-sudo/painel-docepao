@@ -44,7 +44,7 @@ import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade, pediuPraFalarComGente } from "./falas-do-cliente";
 import { retiradaForaDoExpediente, avisoDeEspera } from "@/lib/padaria-aberta";
 import { coresDaForminha, faltaCorDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista, saboresQueFaltam } from "./sabor";
-import { restricoesQueACasaNaoFaz, obsSemRestricao, obsPraComanda, avisoDaRestricao } from "./restricao";
+import { restricoesQueACasaNaoFaz, misturaQueACasaFaz, obsSemRestricao, obsPraComanda, avisoDaRestricao } from "./restricao";
 import { paraOMotor } from "./cotar";
 import { respostaDeInformacao } from "./informacao";
 import { respostaDaSituacao } from "./situacao";
@@ -181,6 +181,16 @@ export type Resposta = {
    * cliente de teste esquecido no banco.
    */
   precisaHumano: boolean;
+  /**
+   * POR QUE ELA CHAMOU, em uma frase, pra quem abrir o painel.
+   *
+   * O aviso do painel dizia so que a IA tinha chamado. No pedido de festa de
+   * 30/08/2026 ela prometeu "deixa eu confirmar com a equipe" sobre o sem
+   * lactose, e nem o painel nem o sino nem a fila de aprovacao diziam de que se
+   * tratava: pra descobrir era preciso ler as 47 mensagens da conversa. O
+   * cliente ficou esperando um retorno que ninguem sabia que devia.
+   */
+  motivoHumano?: string | null;
 };
 
 /**
@@ -1246,7 +1256,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       // O que entra no lugar e a FAMILIA com a palavra no recheio, que e a
       // forma que este arquivo ja usa pra "nao sei qual, pergunta": a padaria
       // pergunta em vez de anotar dois mil reais que ninguem pediu.
-      const produto = naoCabeNoBolo(semInvencao(escolhida ?? quem.produto), Number(i.qtd) || 0, falaDoCliente, String(i.produto), String(i.sabor ?? ""), rastro);
+      let produto = naoCabeNoBolo(semInvencao(escolhida ?? quem.produto), Number(i.qtd) || 0, falaDoCliente, String(i.produto), String(i.sabor ?? ""), rastro);
       const categoria = categoriaDaEtapa(etapa, produto);
 
       // A conta de "de que familia e este produto" mora em familiaDoProduto,
@@ -1420,7 +1430,15 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       // quer dizer que ela tenha linha sem lactose: o brigadeiro continua sendo
       // brigadeiro normal. Sem passar o produto, a checagem viraria "a casa
       // trabalha com lactose zero" e o defeito voltaria inteiro.
-      const tiradas = restricoesQueACasaNaoFaz(obsItem, produto);
+      // A RESTRICAO QUE VIRA MISTURA NAO E TIRADA AQUI.
+      //
+      // Ela fica na observacao ate os bolos serem fundidos, la embaixo, e so
+      // depois vira nome de produto. Renomear aqui, dentro do laco, criava um
+      // bolo com nome novo ao lado do bolo que o leitor da frase tinha criado
+      // com o nome velho, e a fusao juntava os dois escrevendo na comanda
+      // "misto: bolo brigadeiro com 0% lactose e bolo brigadeiro". Medido.
+      const tiradas = restricoesQueACasaNaoFaz(obsItem, produto)
+        .filter((r) => !misturaQueACasaFaz(produto, r));
       if (tiradas.length) {
         obsItem = obsSemRestricao(obsItem, produto);
         restricoesTiradas.push(...tiradas);
@@ -1966,6 +1984,13 @@ export async function responder(
   let naoTemos: string[] = [];
   let confirmouEscrevendo = false;
   let precisaHumano = false;
+  // POR QUE ELA CHAMOU A EQUIPE, e nao so QUE chamou.
+  //
+  // No pedido de 30/08/2026 a Dora prometeu "deixa eu confirmar com a equipe" e
+  // o painel acendeu um aviso generico. Ninguem descobriu que o assunto era o
+  // sem lactose sem ler as 47 mensagens da conversa, e o cliente esperou um
+  // retorno que ninguem sabia que devia.
+  let motivoHumano: string | null = null;
   let leituraDesteTurno: Leitura | null = null;
 
   const roteiro = () => etapas ?? roteiroDoPedido(estado);
@@ -2374,6 +2399,7 @@ export async function responder(
         chamouIA,
         confirmouEscrevendo: false,
         precisaHumano: true,
+        motivoHumano: "O cliente pediu pra falar com alguém da padaria.",
       };
     }
 
@@ -2786,6 +2812,44 @@ export async function responder(
     }
   }
 
+  // A RESTRICAO QUE O CARDAPIO TEM VIRA SABOR, E NAO PROMESSA APAGADA.
+  //
+  // Ordem dele em 31/08/2026, depois do pedido de festa da vespera: *"se tem no
+  // cardapio tem q add mano, dps a equipe resolve isso se n puder fazer, se ela
+  // mandou no audio q faz eh pq faz"*.
+  //
+  // O que tinha acontecido:
+  //
+  //   cliente >> Vou querer de brigadeiro sem lactose
+  //   padaria >> Sobre o sem lactose: deixa eu confirmar com a equipe...
+  //   pedido  >> 2 kg de bolo brigadeiro   R$ 46,90/kg
+  //
+  // O sem lactose nao entrou, e a equipe tambem nunca foi avisada. O cliente
+  // esperou um retorno que nao existia.
+  //
+  // A dona ja tinha respondido isso em audio (`docepao1608 (3).txt`): da pra
+  // misturar, e vale o valor mais caro. Aqui embaixo, com os bolos ja fundidos
+  // num so, o "sem lactose" da observacao vira o sabor "0% lactose" no nome, e
+  // o motor cobra a faixa C: R$ 55,90 o quilo no lugar de R$ 46,90.
+  {
+    const i = estado.itens.findIndex((x) => String(x.categoria || "").startsWith("bolo"));
+    if (i >= 0) {
+      const bolo = estado.itens[i];
+      for (const r of restricoesQueACasaNaoFaz(bolo.obs, bolo.produto)) {
+        const misturado = misturaQueACasaFaz(bolo.produto, r);
+        if (!misturado) continue;
+        const itens = [...estado.itens];
+        itens[i] = { ...bolo, produto: misturado, obs: obsSemRestricao(bolo.obs, bolo.produto) };
+        estado = { ...estado, itens };
+        rastro.push(
+          "\"" + r + "\" e sabor de bolo no cardapio; o bolo virou " + misturado +
+          " e o motor cobra pela faixa mais cara",
+        );
+        break;
+      }
+    }
+  }
+
   // ELE MUDOU ALGUMA COISA NESTA MENSAGEM? (fora a contabilidade da conversa)
   //
   // Sobe pra ca porque dois lugares precisam da mesma resposta: adiar a etapa
@@ -3054,6 +3118,8 @@ export async function responder(
       // produz e a cozinha. A IA passa adiante, que e o mesmo que a dona ja faz
       // com desconto e com entrega.
       precisaHumano = true;
+      motivoHumano = "Restrição de dieta: " + estado.restricoesTiradas.join(", ") +
+        ". A casa não faz, então tirei da observação e passei pra vocês.";
       rastro.push(
         "restricao de dieta (" + estado.restricoesTiradas.join(", ") +
         "); tirei da observacao e chamei a equipe",
@@ -3128,6 +3194,8 @@ export async function responder(
       proxima = etapaDaVez(estado, roteiro());
       fala = falaDaEtapa(proxima, estado, total, proxima.id === etapaAgora.id ? naoTemos : []);
       precisaHumano = true;
+      motivoHumano = "Sabor fora do cardápio: " + anotados.join(", ") +
+        ". O cliente insistiu, então anotei pra vocês confirmarem.";
       insistiu = 0;
       rastro.push(
         "sabor fora da lista, insistiu; anotei e chamei a equipe (" +
@@ -3247,10 +3315,10 @@ export async function responder(
         texto: foraDoHorario + (fala.texto ? "\n\n" + fala.texto : ""),
         podeReescrever: false,
       },
-      estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo, precisaHumano,
+      estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo, precisaHumano, motivoHumano,
     };
   }
   rastro.push("proxima: " + proxima.id);
 
-  return { fala, estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo, precisaHumano };
+  return { fala, estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo, precisaHumano, motivoHumano };
 }

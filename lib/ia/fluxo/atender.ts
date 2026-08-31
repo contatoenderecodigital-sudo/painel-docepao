@@ -44,6 +44,8 @@ export type RespostaDoFluxo = {
   pedidoId?: string;
   /** A conversa precisa de gente. So isto acende o aviso no painel da dona. */
   precisaHumano?: boolean;
+  /** Por que ela chamou, em uma frase, pra quem abrir o painel. */
+  motivoHumano?: string | null;
   rastro: string[];
   uso: { tokensIn: number; tokensOut: number; cacheRead: number; chamadas: number };
 };
@@ -361,6 +363,7 @@ export async function atenderComFluxoNovo(
         //
         // Achado lendo o arquivo inteiro em 27/08/2026.
         precisaHumano: r.precisaHumano,
+    motivoHumano: r.motivoHumano,
         rastro: r.rastro,
         uso,
       };
@@ -396,6 +399,7 @@ export async function atenderComFluxoNovo(
       // equipe: a saida curta nao pode apagar o que a conversa ja tinha
       // decidido. Mesmo defeito do fechamento, na mesma leitura de 27/08/2026.
       precisaHumano: r.precisaHumano,
+    motivoHumano: r.motivoHumano,
       rastro: [...r.rastro, "tocou em ajustar; perguntei o que muda (sem chamar a IA)"],
       uso,
     };
@@ -408,6 +412,7 @@ export async function atenderComFluxoNovo(
       cardapio: null,
       etapa: r.etapa,
       precisaHumano: r.precisaHumano,
+    motivoHumano: r.motivoHumano,
       rastro: [...r.rastro, "tocou em mudar algo; perguntei o que (sem chamar a IA)"],
       uso,
     };
@@ -440,6 +445,7 @@ export async function atenderComFluxoNovo(
     cardapio: r.fala.cardapio,
     etapa: r.etapa,
     precisaHumano: r.precisaHumano,
+    motivoHumano: r.motivoHumano,
     rastro: r.rastro,
     uso,
   };

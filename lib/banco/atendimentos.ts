@@ -32,6 +32,7 @@ type LinhaConversa = {
   nome: string | null;
   telefone: string;
   handoff: boolean;
+  handoff_motivo?: string | null;
   ia_pausada: boolean;
   nao_lidas: number;
   janela_expira_ms: number | null;
@@ -49,6 +50,7 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
   const linhas = await query<LinhaConversa>(
     `select c.id as cliente_id, c.nome, c.telefone,
        coalesce(c.handoff, false) as handoff,
+       c.handoff_motivo,
        coalesce(c.ia_pausada, false) as ia_pausada,
        coalesce((
          select count(*) from mensagens m
@@ -130,6 +132,9 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
       custoCentavos: Number(l.custo_cent) || 0,
       mensagens,
       origemAnuncio: anuncio,
+      // POR QUE A IA CHAMOU. O campo existia no tipo desde sempre e nunca era
+      // preenchido, entao a tela so sabia dizer QUE alguem precisava olhar.
+      motivoHumano: l.handoff ? (l.handoff_motivo ?? null) : null,
     };
   });
 }
@@ -178,8 +183,27 @@ export async function iaPausada(negocioId: string, clienteId: string): Promise<b
 }
 
 // Liga/desliga o handoff ("precisa de você") de um cliente.
-export async function definirHandoff(negocioId: string, clienteId: string, valor: boolean): Promise<void> {
-  await query("update clientes set handoff = $3 where negocio_id = $1 and id = $2", [negocioId, clienteId, valor]);
+export async function definirHandoff(
+  negocioId: string,
+  clienteId: string,
+  valor: boolean,
+  motivo?: string | null,
+): Promise<void> {
+  // O MOTIVO SO ENTRA QUANDO ELA ESTA CHAMANDO, e nunca apaga um motivo antigo
+  // por vir vazio: desligar o handoff limpa, ligar sem motivo mantem o que
+  // estava. Quem abre a conversa precisa saber DO QUE se trata, e nao so que
+  // alguem precisa olhar.
+  await query(
+    `update clientes
+        set handoff = $3,
+            handoff_motivo = case
+              when $3 = false then null
+              when $4::text is not null then $4::text
+              else handoff_motivo
+            end
+      where negocio_id = $1 and id = $2`,
+    [negocioId, clienteId, valor, motivo ?? null],
+  );
 }
 
 // Última mensagem do CLIENTE (epoch ms) — pra checar a janela de 24h no servidor

@@ -189,6 +189,15 @@ export type Conversa = {
   ultimaHora: string;
   previa: string;
   estado: "ia" | "precisa_humano" | "humano" | "resolvido";
+  /**
+   * POR QUE A IA CHAMOU A EQUIPE, em uma frase.
+   *
+   * Vale só quando `estado` é "precisa_humano". O aviso do painel dizia apenas
+   * que alguém tinha sido chamado: no pedido de festa de 30/08/2026 a Dora
+   * prometeu confirmar o sem lactose com a equipe e ninguém descobria o assunto
+   * sem ler as 47 mensagens da conversa.
+   */
+  motivoHumano?: string | null;
   naoLidas: number;
   mensagens: Mensagem[];
   // Janela de 24h da Meta: epoch (ms) em que a última mensagem do cliente

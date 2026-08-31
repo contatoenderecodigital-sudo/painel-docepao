@@ -94,6 +94,65 @@ function esteProdutoJaEAssim(produto: unknown, restricao: string): boolean {
 }
 
 /**
+ * A RESTRIÇÃO QUE A CASA FAZ MISTURANDO, EM VEZ DE RECUSAR.
+ *
+ * Decisão do dono em 31/08/2026, depois do pedido de festa da véspera: *"se tem
+ * no cardapio tem q add mano, dps a equipe resolve isso se n puder fazer, se
+ * ela mandou no audio q faz eh pq faz"*.
+ *
+ * O que aconteceu naquele pedido, e custou os dois lados:
+ *
+ *   cliente >> Vou querer de brigadeiro sem lactose
+ *   padaria >> Sobre o sem lactose: deixa eu confirmar com a equipe...
+ *   pedido  >> 2 kg de bolo brigadeiro   R$ 46,90/kg
+ *
+ * O sem lactose não entrou no pedido, e a equipe também nunca foi avisada: o
+ * cliente ficou esperando um retorno que não existia e a dona não tinha como
+ * saber. O item sumiu e não sobrou rastro, que é a família de defeito mais cara
+ * deste projeto.
+ *
+ * A DONA JÁ TINHA RESPONDIDO ISSO, na transcrição `docepao1608 (3).txt`:
+ *
+ *   *"Sim, Emily, dá pra misturar. Sim, com certeza. A gente sempre vai cobrar
+ *   o valor mais caro. (...) Se ela quiser o bolo zero lactose, que contenha,
+ *   por exemplo, coco, que é o valor de frutas ali, ele vai ficar também
+ *   R$ 55,90."*
+ *
+ * Então `0% lactose` não é sabor fechado: mistura como qualquer outro e vale a
+ * faixa mais cara. O motor de preço já sabe cotar "bolo brigadeiro com 0%
+ * lactose" (R$ 55,90/kg contra R$ 46,90), então aqui só se monta o nome.
+ *
+ * VALE SÓ PRO QUE O CATÁLOGO TEM. Docinho sem lactose continua caindo na regra
+ * de cima e indo pra equipe: a casa não faz, e prometer isso pra quem tem
+ * intolerância deixa de ser prejuízo e vira problema de saúde.
+ */
+export function misturaQueACasaFaz(produto: unknown, restricao: string): string | null {
+  const nome = semAcMin(produto);
+  if (!nome) return null;
+  const chave = semAcMin(restricao).replace(/^(sem|zero|0 ?%) ?/, "").trim();
+  if (!chave) return null;
+
+  const esteAqui = produtosDaCasa().find((p) => semAcMin(p.nome) === nome);
+  if (!esteAqui) return null;
+
+  // Só bolo de festa: é onde a restrição é um SABOR do cardápio, com faixa de
+  // preço própria. Em qualquer outra família ela seria promessa sem produto.
+  if (esteAqui.categoria !== "bolo_festa") return null;
+  if (semAcMin(esteAqui.nome).includes(chave)) return null;
+
+  const oOutro = produtosDaCasa().find(
+    (p) => p.categoria === "bolo_festa" && semAcMin(p.nome).includes(chave),
+  );
+  if (!oOutro) return null;
+
+  // O sabor é o nome sem o prefixo da família: "bolo 0% lactose" vira
+  // "0% lactose", que é como o motor e a tela do painel escrevem a mistura.
+  const sabor = oOutro.nome.replace(/^bolo\s+/i, "").trim();
+  if (!sabor) return null;
+  return esteAqui.nome + " com " + sabor;
+}
+
+/**
  * As restrições citadas neste texto que a casa não faz para ESTE produto.
  *
  * O `produto` não é opcional por acaso. A casa faz UM bolo `0% lactose`, e isso
