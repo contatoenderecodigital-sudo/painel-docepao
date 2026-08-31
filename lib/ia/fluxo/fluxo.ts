@@ -1581,7 +1581,45 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         //
         // Recheio que o produto nao aceita nao e dono de nada.
         if (saborPedido) saboresDeItemDescartado.push(String(saborPedido));
-        const eleNomeou = oClienteNomeouEsteProduto(falaDoCliente, produto);
+        // E ELE TEM QUE TER LIGADO ESSE SABOR A ESSE PRODUTO.
+        //
+        // Medido conversando com o servidor em 31/08/2026:
+        //
+        //   cliente >> entao me ve 50 coxinha e 50 risoles de carne
+        //   modelo  >> 50x coxinha [carne]
+        //   padaria >> A gente faz coxinha de frango.
+        //
+        // O "carne" era do RISOLES, e o modelo grudou na coxinha. O pedido saiu
+        // certo (coxinha de frango, risolis de carne), mas o cliente ouviu uma
+        // correcao sobre um pedido que ele nao fez, e isso e o que ele chamou de
+        // "falou um negocio nada a ver".
+        //
+        // Nomear o produto na frase nao basta: ele nomeou a coxinha E o risoles.
+        // O que separa e a PROXIMIDADE: "coxinha de carne" ele nao escreveu.
+        // A janela vai do nome do produto ate o proximo produto citado, que e
+        // como uma pessoa le uma lista de pedido.
+        const ligouOSaborAEsteProduto = (() => {
+          const t = semAc(falaDoCliente);
+          const alvo = semAc(produto);
+          const sabor = semAc(String(saborPedido ?? ""));
+          if (!alvo || !sabor) return false;
+          const inicio = t.indexOf(alvo);
+          if (inicio < 0) return false;
+          // A JANELA E DE PALAVRAS, e nao "ate o proximo produto".
+          //
+          // Procurar o proximo produto falhava pela grafia: o cliente escreve
+          // "risoles" e o cardapio tem "risólis", entao o corte nunca acontecia
+          // e a frase inteira virava janela.
+          //
+          // Quatro palavras cobrem como gente escreve o par ("coxinha de carne",
+          // "coxinha, carne", "coxinha de frango com catupiry") e nao alcancam o
+          // proximo item da lista ("coxinha e 50 risoles de carne").
+          const depois = t.slice(inicio + alvo.length).trim().split(/\s+/).slice(0, 4).join(" ");
+          const primeiraDoSabor = sabor.split(/\s+/)[0] ?? sabor;
+          return depois.includes(primeiraDoSabor);
+        })();
+        const eleNomeou =
+          oClienteNomeouEsteProduto(falaDoCliente, produto) && ligouOSaborAEsteProduto;
         const aPerguntaEraDele =
           semAc(produto).length >= 4 && semAc(String(e.ultimaFala || "")).includes(semAc(produto));
         if (!eleNomeou && !aPerguntaEraDele) {

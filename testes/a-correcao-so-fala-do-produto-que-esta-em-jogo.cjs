@@ -47,6 +47,33 @@ const CASOS = [
     dano: "a comanda sairia de frango e o cliente esperaria carne",
   },
   {
+    // NOMEAR O PRODUTO NAO BASTA: ele nomeou a coxinha E o risoles.
+    //
+    // Medido conversando com o servidor em 31/08/2026:
+    //
+    //   cliente >> entao me ve 50 coxinha e 50 risoles de carne
+    //   modelo  >> 50x coxinha [carne]
+    //   padaria >> A gente faz coxinha de frango.
+    //
+    // O "carne" era do RISOLES. O pedido saiu certo, e mesmo assim o cliente
+    // ouviu uma correcao sobre um pedido que ele nao fez. O que separa e a
+    // proximidade: "coxinha de carne" ele nao escreveu.
+    nome: "o sabor era do outro item da lista: a padaria fica calada",
+    ultima: null,
+    fala: "entao me ve 50 coxinha e 50 risoles de carne",
+    leitura: { itens: [{ produto: "coxinha", qtd: 50, sabor: "carne" }, { produto: "risólis", qtd: 50, sabor: "carne" }] },
+    citaCoxinha: false,
+    dano: "corrigir sobre um pedido que ele nao fez e o que ele chamou de 'falou um negocio nada a ver'",
+  },
+  {
+    nome: "ele ligou o sabor a este produto, mesmo com outro item na frase",
+    ultima: null,
+    fala: "quero 50 coxinha de camarao e 50 risoles",
+    leitura: { itens: [{ produto: "coxinha", qtd: 50, sabor: "camarao" }, { produto: "risólis", qtd: 50 }] },
+    citaCoxinha: true,
+    dano: "ele pediu coxinha de camarao com todas as letras e precisa ouvir que e de frango",
+  },
+  {
     nome: "a padaria perguntou da coxinha e ele respondeu so o sabor",
     ultima: "Qual sabor você quer na coxinha?",
     fala: "de carne",
