@@ -1133,8 +1133,55 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       }
 
       const qtdDita = Number(bruto.qtd) || 0;
+      // BOLO MISTO PEDIDO NUM ITEM SO: ABRE, E A FUSAO JUNTA DE VOLTA.
+      //
+      // Cliente real em 31/08/2026:
+      //
+      //   padaria >> E o bolo, qual sabor?
+      //   cliente >> Laka e biz
+      //   padaria >> E o bolo, qual sabor?          (a mesma pergunta)
+      //   cliente >> Laka e biz                     (ele repetiu)
+      //
+      // O modelo devolveu a FAMILIA com os dois sabores num item so
+      // (`{produto: "bolo", sabor: "laka e biz"}`). Os sabores ficavam na
+      // observacao e o produto continuava sendo "bolo", que e o marcador de
+      // "ainda nao escolheu": a etapa via generico e perguntava de novo.
+      //
+      // Quando o modelo manda os dois bolos separados, o mesmo pedido resolve
+      // certo, porque a fusao do bolo misto junta os dois numa linha so. Entao
+      // aqui e so abrir do mesmo jeito e deixar a fusao fazer o que ela ja faz.
+      //
+      // SO PRA BOLO. Pizza com dois sabores e UMA pizza, e abrir viraria duas
+      // linhas de R$ 120: e o defeito que custou R$ 240 num pedido de festa e
+      // que a fusao do bolo nao protege, porque ela e do bolo.
+      //
+      // NO BOLO, O SABOR E O PROPRIO NOME DO PRODUTO ("bolo laka"), e nao uma
+      // lista `sabores` dentro dele. Por isso a busca de cima nao acha nada aqui
+      // e os nomes tem que sair de `opcoesDaFamilia`.
+      const familiaDoBruto = ehNomeDeFamilia(nome) ? categoriasDaFamilia(nome) : [];
+      const eFamiliaDeBolo = familiaDoBruto.some((c) => String(c).startsWith("bolo"));
+      const saboresDeBolo = eFamiliaDeBolo
+        ? (() => {
+            const dito = semAc(String(bruto.sabor ?? ""));
+            let sobra = dito;
+            const achei: string[] = [];
+            for (const o of opcoesDaFamilia(nome)
+              .map(String)
+              .sort((a, b) => b.length - a.length)) {
+              const curto = semAc(o).replace(/^bolo\s+/, "");
+              if (curto.length > 2 && sobra.includes(curto)) {
+                achei.push(o);
+                sobra = sobra.replace(curto, " ");
+              }
+            }
+            return achei;
+          })()
+        : [];
+
       if (achados.length > 1 && qtdDita === achados.length) {
         for (const s of achados) abertos.push({ ...bruto, qtd: 1, sabor: s });
+      } else if (saboresDeBolo.length > 1) {
+        for (const s of saboresDeBolo) abertos.push({ ...bruto, produto: s, qtd: qtdDita, sabor: undefined });
       } else {
         abertos.push(bruto);
       }
