@@ -186,6 +186,25 @@ foi um teste que já existia.
 **Nada some do pedido.** Se falta o cliente informar algo, é só pedir pra ele.
 Guarda que bloqueia registro faz o modelo apagar o item.
 
+**QUEM DÁ SENTIDO À RESPOSTA É A PERGUNTA QUE ACABOU DE SAIR.** Não a forma da
+frase, e não o que o modelo conseguiu ler dela. "Sim", "2", "2 kg", "meio" só
+querem dizer alguma coisa junto da pergunta anterior. Três becos sem saída
+nasceram de ignorar isso, e o último foi medido em 31/08/2026: a padaria
+perguntava o peso, o cliente respondia "2 kg", o modelo não devolvia produto
+nenhum (não há produto na frase), o laço dos itens não rodava e a resposta se
+perdia. A mesma pergunta saía para sempre. **Toda resposta a uma pergunta
+fechada precisa valer com o modelo devolvendo NADA**, e o teste dela tem que ter
+`leitura: { itens: [] }`, senão a sonda responde no lugar da produção.
+
+**PERGUNTA QUE CHAMA A EQUIPE VAI COM O MOTIVO.** `handoff` sem
+`handoff_motivo` é a dona abrindo o painel sem saber se era dinheiro, entrega ou
+reclamação. Todo caminho que liga `precisaHumano` preenche o motivo com a
+pergunta e com a frase que o cliente ouviu.
+
+**A UNIDADE DA TELA É A UNIDADE EM QUE A CASA COBRA.** Quem manda é o motor de
+preço, nunca a categoria. "2 pao frances" para dois quilos é conta certa com
+linha que engana, e por quilo a casa vende 31 produtos, não só bolo.
+
 **A IA nunca confirma pedido sozinha.** Aprovar é só o botão do painel, atrás do
 login. A impressora só dispara com o pedido aprovado.
 

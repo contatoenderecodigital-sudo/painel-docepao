@@ -792,3 +792,38 @@ frango na lista. Um teste que já existia pegou antes de subir.
 
 **Teste verde não é sistema certo.** 130 verdes e sete defeitos numa conversa de
 quinze mensagens.
+
+## 31/08 de madrugada, o pão por quilo
+
+Ele mandou a regra: "se a categoria eh KG nao UNID tu fala pra ele, q eh em kg,
+ai tem escolher em kg nao em quantidade". Fiz, subiu, e fui conversar com a
+produção fingindo ser cliente. Dois defeitos apareceram na mesma conversa curta.
+
+**O beco.** A padaria perguntava "quantos quilos você quer?", eu respondia
+"2 kg", e ela perguntava de novo. E de novo. O peso só era lido dentro do laço
+dos itens que o modelo devolve, e quem responde só o peso não cita produto
+nenhum: o modelo devolvia lista vazia, o laço não rodava uma vez sequer e a
+resposta sumia. Os dois testes que existiam passavam verdes porque a sonda
+mandava o item na leitura. A sonda estava respondendo no lugar da produção.
+
+**A linha que engana.** O resumo fechou "- 2 pao frances R$ 11,99/kg =
+R$ 23,98". A conta está certa e a leitura não: parece dois pães. O "kg de"
+estava preso à categoria bolo, e por quilo a casa vende 31 produtos.
+
+**A pergunta sem motivo.** Pedi o pix, a IA chamou a equipe, e o painel recebeu
+`handoff` com o motivo vazio. Era o mesmo buraco da reclamação, que eu já tinha
+fechado, num caminho diferente.
+
+### O que este dia ensinou
+
+**Sonda que entrega o item pronto testa a si mesma.** Os dois casos de peso que
+já existiam continuavam verdes com o defeito no ar, porque nenhum deles perguntou
+o que acontece quando o modelo não lê nada. Resposta a pergunta fechada se testa
+com `itens: []`.
+
+**Buraco fechado num caminho não fecha nos outros.** O motivo do handoff eu já
+tinha consertado na reclamação. A resposta de informação era outra porta, e
+estava aberta.
+
+**Conta certa e tela errada é defeito.** O cliente não confere a multiplicação,
+ele lê a linha.
