@@ -167,13 +167,25 @@ centavo inteiro e zerava tudo. Consertado, e era por isso que o painel mostrava
 
 ---
 
-## AINDA ABERTO
+## OS DOIS ABERTOS, RESOLVIDOS DEPOIS
 
-- `quero 50 docinhos de morango` deixa uma linha de família "bolo" sobrando. A
-  padaria pergunta "qual bolo?" a mais. Não custa dinheiro.
-- Quem escreve "100 salgadinhos pra sexta" ouve "quantas pessoas vão ter na
-  festa?". Ela se corrige na mensagem seguinte, mas a primeira pergunta é fora
-  de lugar.
+**`quero 50 docinhos de morango` deixava uma linha de bolo sobrando.** Fechado.
+"morango" é sabor de docinho e nome de bolo de festa ao mesmo tempo, e o leitor
+da frase achava o bolo na mesma palavra que o modelo já tinha dado ao docinho.
+Levei três voltas: bloqueei o caminho errado duas vezes, e só achei o certo
+depois de pôr um espião no laço e ver que chegavam DOIS itens, não um.
+
+**"100 salgadinhos pra sexta" ouve "quantas pessoas na festa?".** Deixei como
+está, de propósito. Quem classifica como festa é o modelo, e a proposta da festa
+é o que faz a padaria oferecer docinho e bolo junto. Cortar a pergunta pra quem
+já disse a quantidade tira venda, e o cliente corrige em uma mensagem.
+
+**Decidido por ele em 31/08: o sem lactose fecha a venda sozinho.** Medido: o
+pedido grava `bolo brigadeiro com 0% lactose` a R$ 55,90 o quilo, status
+`confirmado` na fila de aprovação, e `handoff = false`. Não acende "precisa de
+você" pra ninguém. Quem barra, se a cozinha não puder fazer, é a aprovação.
+Está escrito no `CLAUDE.md` e no `O-QUE-A-DONA-FALOU.md`, e reverte por escrito a
+decisão de 26/08.
 
 ---
 
