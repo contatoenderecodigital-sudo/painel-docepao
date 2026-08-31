@@ -807,7 +807,10 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                     aniversariante, e mostrar esses campos so atrapalha a equipe. */}
                 {it.categoria === "bolo_festa" && (() => {
                   const obs = it.obs ?? "";
-                  const temTopo = /topo/i.test(obs) && !/sem topo/i.test(obs);
+                  // O topo tambem sai do leitor unico: ele ja sabe que "sem
+                  // topo" e negacao e que "Topo: tema X" (o formato antigo, que
+                  // existe gravado) traz as duas informacoes num pedaco so.
+                  const temTopo = lerObs(obs).topo === true;
                   // O PAPEL DE ARROZ E A LINHA, E A LINHA E QUE TEM PRECO.
                   //
                   // Ate 31/08/2026 esta caixa lia a observacao do BOLO, e o
@@ -835,12 +838,28 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                     return semEle ? semEle + ", " + termo : termo;
                   };
 
-                  // "tema X", "nome Y" e "8 anos" saem e entram na observação
-                  // sem bagunçar o resto do texto que a IA escreveu.
-                  const pegar = (re: RegExp) => (obs.match(re)?.[1] ?? "").trim();
-                  const tema = pegar(/tema\s+([^,;]+)/i);
-                  const nomeAniv = pegar(/nome\s+([^,;]+)/i);
-                  const idade = pegar(/(\d{1,2})\s*anos?/i);
+                  // QUEM LE A OBSERVACAO DO BOLO E `lerObs`, E SO ELE.
+                  //
+                  // Aqui havia tres expressoes proprias, e elas cortavam so na
+                  // virgula. Medido em 31/08/2026, com o pedido de festa que
+                  // acabou de fechar guardado no banco:
+                  //
+                  //   obs   "tema futebol | nome Gabriel Lucas | 12 anos | topo de bolo"
+                  //   tema  "futebol | nome Gabriel Lucas | 12 anos | topo de bolo"
+                  //   nome  "Gabriel Lucas | 12 anos | topo de bolo"
+                  //
+                  // O fluxo escreve com virgula, e a gravacao rejunta os pedacos
+                  // com " | ". Duas verdades sobre o mesmo texto, de novo, e a
+                  // equipe veria o campo do aniversariante com meia observacao
+                  // dentro.
+                  //
+                  // `lerObs` corta nos dois separadores e ja e quem le esse texto
+                  // no resto do sistema. Uma leitura so, e este bloco deixa de
+                  // ter opiniao propria sobre o formato.
+                  const peca = lerObs(obs);
+                  const tema = peca.tema ?? "";
+                  const nomeAniv = peca.nome ?? "";
+                  const idade = peca.idade ?? "";
 
                   const trocarCampo = (texto: string, re: RegExp, novo: string, molde: (v: string) => string) => {
                     const limpo = texto.replace(re, "").replace(/\s*,\s*,/g, ",").replace(/^,\s*/, "").replace(/,\s*$/, "").trim();

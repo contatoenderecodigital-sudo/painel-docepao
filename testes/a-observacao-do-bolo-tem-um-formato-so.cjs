@@ -71,6 +71,19 @@ const LEITURAS = [
     espera: { idade: "12", topo: true, tema: "foto de referência" },
   },
   {
+    // ESTE E O TEXTO QUE O BANCO GUARDA DE VERDADE, e nao um exemplo inventado.
+    //
+    // Copiado do pedido de festa fechado em 31/08/2026. O fluxo escreve com
+    // virgula, e a gravacao rejunta os pedacos com " | ": quem le tem que
+    // aguentar os dois, porque os dois existem gravados.
+    //
+    // O painel tinha expressoes proprias que cortavam so na virgula, e mostrava
+    // o campo do aniversariante assim: "Gabriel Lucas | 12 anos | topo de bolo".
+    nome: "o texto do jeito que o banco guarda, com barra",
+    texto: "tema futebol | nome Gabriel Lucas | 12 anos | topo de bolo",
+    espera: { tema: "futebol", nome: "Gabriel Lucas", idade: "12", topo: true },
+  },
+  {
     nome: "o formato antigo com barra continua sendo lido",
     texto: "tema jardim | nome Alice | 5 anos | papel de arroz",
     espera: { tema: "jardim", nome: "Alice", idade: "5", papelDeArroz: true },
