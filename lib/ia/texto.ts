@@ -250,3 +250,41 @@ export const PALAVRAS_VAZIAS = new Set([
   "pode", "por", "favor", "na", "no", "nas", "nos", "pra", "para", "ai", "la",
   "essa", "esse", "aquela", "aquele", "aquilo", "isso", "ja", "nao", "mais",
 ]);
+
+/**
+ * NUMERO ESCRITO POR EXTENSO, e o valor de cada um.
+ *
+ * MORA AQUI PORQUE DOIS LUGARES PRECISAM DELA, e ate 30/08/2026 eram duas
+ * listas em dois arquivos, que e o padrao que este projeto ja pagou caro varias
+ * vezes: elas nao nascem diferentes, elas divergem depois, caladas.
+ *
+ *   - `disseQuantidade` (falas-do-cliente) pergunta "ele disse ALGUM numero?"
+ *   - `itensNaFrase` (leitor-da-frase) pergunta "QUANTOS ele pediu?"
+ *
+ * "UM" E "UMA" SO VALEM PRA SEGUNDA, e a diferenca e de proposito. Como pergunta
+ * solta, "uma" apareceria em quase toda frase ("queria uma informacao") e faria
+ * o rateio da festa achar que o cliente deu a quantidade. Como resposta colada
+ * no nome do produto, "uma torta fria" e uma torta fria, e ignorar isso deixava
+ * a linha com quantidade ZERO no fechamento.
+ *
+ * Quem usa uma delas escolhe a lista pelo `com` do parametro, e a escolha fica
+ * escrita na chamada, nao escondida numa copia.
+ */
+const UM_E_UMA: [string, number][] = [["uma", 1], ["um", 1]];
+
+const NUMEROS_ESCRITOS: [string, number][] = [
+  ["meia duzia", 6], ["meia-duzia", 6], ["uma duzia", 12], ["duzias", 12], ["duzia", 12],
+  ["um cento", 100], ["centos", 100], ["cento", 100],
+  ["duas", 2], ["dois", 2], ["tres", 3], ["quatro", 4], ["cinco", 5], ["seis", 6],
+  ["sete", 7], ["oito", 8], ["nove", 9], ["dez", 10], ["onze", 11], ["doze", 12],
+  ["treze", 13], ["quatorze", 14], ["catorze", 14], ["quinze", 15], ["dezesseis", 16],
+  ["dezessete", 17], ["dezoito", 18], ["dezenove", 19], ["vinte", 20], ["trinta", 30],
+  ["quarenta", 40], ["cinquenta", 50], ["sessenta", 60], ["setenta", 70],
+  ["oitenta", 80], ["noventa", 90], ["cem", 100], ["duzentos", 200],
+  ["trezentos", 300], ["quatrocentos", 400], ["quinhentos", 500], ["mil", 1000],
+];
+
+/** A lista, com ou sem o "um/uma". Ver o porque logo acima. */
+export function numerosEscritos(com: { umEUma: boolean }): [string, number][] {
+  return com.umEUma ? [...NUMEROS_ESCRITOS, ...UM_E_UMA] : NUMEROS_ESCRITOS;
+}

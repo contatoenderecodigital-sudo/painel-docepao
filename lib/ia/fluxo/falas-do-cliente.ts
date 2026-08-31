@@ -18,7 +18,7 @@
 
 // O mesmo normalizador de todo mundo. Este arquivo tinha DUAS copias dele, a
 // segunda escondida dentro do leitor de dia da semana com um `-?feira` a mais.
-import { semAcento, afirmouOuNegou, cercaDaPalavra } from "../texto";
+import { semAcento, afirmouOuNegou, cercaDaPalavra , numerosEscritos } from "../texto";
 
 const semAcMin = semAcento;
 
@@ -387,13 +387,10 @@ export function disseQuantidade(fala: string): boolean {
   // conta como fronteira, e assim "cem" casa em "cem coxinhas" e nao casa em
   // "centopeia".
   const palavras = t.split(/[^a-z]+/);
-  const numeros = new Set([
-    "dois", "duas", "tres", "quatro", "cinco", "seis", "sete", "oito", "nove",
-    "dez", "onze", "doze", "treze", "quatorze", "catorze", "quinze", "dezesseis",
-    "dezessete", "dezoito", "dezenove", "vinte", "trinta", "quarenta", "cinquenta",
-    "sessenta", "setenta", "oitenta", "noventa", "cem", "cento", "duzentos",
-    "trezentos", "quatrocentos", "quinhentos", "mil", "duzia", "duzias",
-  ]);
+  // SEM o "um/uma", de proposito: como pergunta solta, "uma" apareceria em
+  // quase toda frase e faria o rateio da festa achar que ele deu a quantidade.
+  // A lista mora no `texto.ts`, junto com quem tambem precisa dela.
+  const numeros = new Set(numerosEscritos({ umEUma: false }).map(([palavra]) => palavra));
   return palavras.some((p) => numeros.has(p));
 }
 

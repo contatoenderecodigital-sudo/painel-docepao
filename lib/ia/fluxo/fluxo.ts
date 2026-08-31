@@ -1674,7 +1674,30 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       // pistache, porque a mensagem tambem trouxe a data. O sabor fora da lista
       // ja vai pra equipe de qualquer jeito; escrever a data no cupom nao tem
       // conserto depois que a cozinha leu.
-      const aFraseTemOutroDono = Object.values(l.dados ?? {}).some((v) => String(v ?? "").trim());
+      //
+      // E NAO E SO `dados`. Medido de novo em 30/08/2026, na bancada:
+      //
+      //   cliente >> na embalagem com tampa
+      //   comanda >> bolo brigadeiro (brigadeiro | ... | embalagem com tampa
+      //              | NA EMBALAGEM COM TAMPA)
+      //
+      // A leitura entendeu a frase como `prato` e o codigo anotou a embalagem
+      // no bolo, certo. Ai esta guarda, olhando so `dados`, deixou a MESMA
+      // frase virar recheio, e a cozinha recebeu a embalagem escrita duas
+      // vezes, uma delas no lugar do sabor.
+      //
+      // Entao vale pra todo campo que a leitura preencheu: se ela entendeu a
+      // frase como prato, peca, tema, cor de forminha ou nome do aniversariante,
+      // a frase tem dono e nao sobra pra virar sabor.
+      const aFraseTemOutroDono =
+        Object.values(l.dados ?? {}).some((v) => String(v ?? "").trim()) ||
+        !!l.prato ||
+        !!l.pecas ||
+        !!l.tema ||
+        !!l.forminha ||
+        !!l.escrito ||
+        !!l.aniversariante?.nome ||
+        !!l.aniversariante?.idade;
       if (aFraseTemOutroDono && cru) rastro.push("nao usei a frase como sabor: a leitura ja deu outro dono a ela");
 
       if (

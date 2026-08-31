@@ -37,7 +37,7 @@
 // ============================================================================
 
 import { coresDaForminha } from "./sabor";
-import { afirmouOuNegou, semAcento, PALAVRAS_VAZIAS } from "../texto";
+import { afirmouOuNegou, semAcento, PALAVRAS_VAZIAS, numerosEscritos } from "../texto";
 import { APELIDOS } from "../dados/apelidos";
 import { produtosDaCasa, pedeEscolhaDeSabor, produtoPorNome, produtoNoComeco } from "../dados/produtos";
 import { chavesDeFamilia, ehNomeDeFamilia, familiaDaCategoria, familiaDoNome, nomeDaFamilia } from "./generico";
@@ -697,21 +697,15 @@ export function itensDeOutraEtapaNaFrase(
  * SEM BARRA INVERTIDA DE BORDA, como manda o aviso do topo deste arquivo: as
  * fronteiras sao (^|[^a-z]) e ($|[^a-z]), escritas na mao.
  */
-const POR_EXTENSO: [string, string][] = [
-  ["meia duzia", "6"], ["meia-duzia", "6"], ["uma duzia", "12"], ["duzia", "12"],
-  ["um cento", "100"], ["cento", "100"],
-  ["uma", "1"], ["um", "1"], ["duas", "2"], ["dois", "2"], ["tres", "3"],
-  ["quatro", "4"], ["cinco", "5"], ["seis", "6"], ["sete", "7"], ["oito", "8"],
-  ["nove", "9"], ["dez", "10"], ["quinze", "15"], ["vinte", "20"],
-  ["trinta", "30"], ["quarenta", "40"], ["cinquenta", "50"], ["cem", "100"],
-];
 
 function numeroPorExtenso(t: string): string {
   let saida = t;
-  for (const [palavra, numero] of POR_EXTENSO) {
+  // COM o "um/uma": aqui a palavra vem colada no nome do produto, entao "uma
+  // torta fria" e uma torta fria. Ver o porque no `numerosEscritos`.
+  for (const [palavra, numero] of numerosEscritos({ umEUma: true })) {
     saida = saida.replace(
       new RegExp("(^|[^a-z])" + palavra + "($|[^a-z])", "gi"),
-      (_m, a: string, b: string) => a + numero + b,
+      (_m, a: string, b: string) => a + String(numero) + b,
     );
   }
   return saida;
