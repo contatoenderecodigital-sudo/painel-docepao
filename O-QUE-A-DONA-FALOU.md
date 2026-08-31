@@ -264,9 +264,18 @@ pergunta nova, `grep` na pasta dos áudios, e não só aqui.
 > ficar também R$ 55,90. Então, sempre vai prevalecer o valor mais caro."*
 
 O `0% lactose` não é sabor fechado: entra na mesma regra do bolo misto, valendo
-a faixa mais cara. Hoje a IA não cota bolo com restrição, ela chama a equipe, e
-isso foi decisão do dono em 26/08/2026. A fala dela permite cotar direto, mas
-quem decidiu chamar a equipe foi ele, então a chave fica na mão dele.
+a faixa mais cara.
+
+**DECIDIDO EM 31/08/2026: a IA cota e fecha sozinha.** Ele confirmou depois de
+ver a fala dela: *"se tem no cardapio tem q add mano, dps a equipe resolve isso
+se n puder fazer, se ela mandou no audio q faz eh pq faz"*. Então
+"brigadeiro sem lactose" vira `bolo brigadeiro com 0% lactose`, R$ 55,90 o
+quilo, e segue pro fechamento como qualquer bolo. Quem barra, se a cozinha não
+puder fazer, é a aprovação da equipe.
+
+Isso vale SÓ pro que o cardápio tem. Docinho sem lactose, glúten, vegano e diet
+continuam saindo da observação e chamando a equipe: a casa não faz, e prometer
+isso pra quem tem intolerância deixa de ser prejuízo e vira problema de saúde.
 
 ### 5.2 O sabor não mexe no preço do cupcake (`docepaonew.txt`)
 

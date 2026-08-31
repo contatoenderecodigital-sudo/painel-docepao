@@ -144,6 +144,18 @@ Quando a padaria entrar no ar, isto muda, e a decisão é dele.
 
 ## AS REGRAS QUE NÃO SE QUEBRAM
 
+**RESTRIÇÃO QUE O CARDÁPIO TEM FECHA A VENDA SOZINHA.** Decidido por ele em
+31/08/2026: *"se tem no cardapio tem q add mano, dps a equipe resolve isso se n
+puder fazer"*. O `0% lactose` é sabor de bolo de festa da faixa C, então
+"brigadeiro sem lactose" vira `bolo brigadeiro com 0% lactose` a R$ 55,90 o
+quilo e segue pro fechamento como qualquer bolo. Quem barra, se a cozinha não
+puder fazer, é a aprovação da equipe.
+
+Vale SÓ pro que o cardápio tem. Docinho sem lactose, glúten, vegano e diet
+continuam saindo da observação e chamando a equipe: a casa não faz, e prometer
+isso pra quem tem intolerância deixa de ser prejuízo e vira problema de saúde.
+Isso reverte a decisão de 26/08, que mandava chamar a equipe em toda restrição.
+
 **SÓ ENTRA NO PEDIDO O QUE ESTÁ NO CARDÁPIO.** Nome que o catálogo não tem não
 vira linha, nunca, nem montado por pedaço. Nome de FAMÍLIA ("pizza" esperando o
 tipo) continua valendo, porque é marcador de lugar. A trava roda no fim do fluxo,
