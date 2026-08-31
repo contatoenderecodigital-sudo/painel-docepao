@@ -1,13 +1,21 @@
 # Quando você acordar
 
-31/08/2026, madrugada. Uma página, sem "falta pouco".
+31/08/2026. Uma página, sem "falta pouco".
+
+---
+
+## O RESUMO EM TRÊS LINHAS
+
+O pedido de festa fecha inteiro pelo WhatsApp, com a conta certa e cada item na
+comanda certa. Vinte e nove defeitos foram fechados nesta madrugada, todos com
+medição contra o servidor. **Dezoito deles só apareceram conversando**, e nenhum
+dos testes pegava.
 
 ---
 
 ## O QUE ESTÁ DE PÉ, COM PROVA
 
-**O pedido de festa fecha inteiro pelo WhatsApp.** Rodei a tua conversa do zero
-contra o servidor, mensagem por mensagem, do "boa noite" até o pedido gravado.
+Rodei a tua conversa do zero contra o servidor, mensagem por mensagem:
 
 ```
 Fechando o pedido:
@@ -24,16 +32,30 @@ Fechando o pedido:
 Total: R$ 448,80
 ```
 
-No banco: `status=confirmado, data=12/09/2026, hora=18:00, total=R$ 448,80`.
-Não imprimiu, porque não foi aprovado. A regra de "a impressora só dispara com o
-pedido aprovado" está de pé.
+E o cupom que a cozinha receberia, montado com o código de agora:
 
-**Portão em 134 testes verdes. Build limpo. Tudo no ar**, container no commit
-`9953b51`.
+```
+== BOLO FESTA ==
+2 kg    bolo brigadeiro com 0% lactose
+  > tema futebol
+  > nome Gabriel Lucas
+  > 12 anos
+  > topo de bolo
+```
+
+Compara com a foto que você mandou: lá o nome saía três vezes e **não dizia que
+era sem lactose**.
+
+Também rodei uma conversa difícil de ponta a ponta: cliente que dá quantidade e
+dia na primeira frase, pergunta por um sabor que não existe, troca de item no
+meio, pergunta o preço e fecha. Fechou certo, e o "pra sexta" da primeira
+mensagem sobreviveu a doze turnos.
+
+**Portão em 135 testes verdes. Build limpo. Tudo no ar.**
 
 ---
 
-## OS CATORZE DEFEITOS DOS TEUS PRINTS: TODOS FECHADOS
+## OS CATORZE DOS TEUS PRINTS: FECHADOS
 
 Os cinco que custavam dinheiro:
 
@@ -45,32 +67,46 @@ Os cinco que custavam dinheiro:
 | "quero carne" impresso na comanda | a cozinha lê a tua frase no lugar do recheio |
 | nome do aniversariante não enchia o campo | equipe redigita |
 
-Os outros nove eram conversa: cardápio repetido três vezes, quatro mensagens de
-uma vez com duas dizendo a mesma coisa, topo perguntado antes do sabor fechar,
-"dia 12" não entendido, "Qual nome está no pedido?", pergunta final sem botão,
-"(queijo)" repetido, nome duplicado na linha do bolo, e a frase da coxinha que
-saiu do nada.
+Os outros nove eram conversa: cardápio três vezes, quatro mensagens de uma vez,
+topo antes do sabor, "dia 12", "Qual nome está no pedido?", pergunta final sem
+botão, "(queijo)" repetido, nome duplicado no bolo, e a coxinha do nada.
 
 ---
 
-## O QUE SÓ A CONVERSA ACHOU, DEPOIS
+## OS QUINZE QUE SÓ A CONVERSA ACHOU
 
-Com 130 testes verdes. Nenhum deles pegava:
+Com o portão verde o tempo todo:
 
-1. **A guarda anti-invenção inventava.** Ela montou `mini frango`, que não existe
-   em cardápio nenhum, e o motor cotava a linha fantasma como **R$ 120,00**.
+**Custavam dinheiro ou comida errada:**
+
+1. A guarda anti-invenção montou `mini frango`, que não existe, e o motor cotava
+   a linha fantasma em **R$ 120,00**.
 2. **"Sim" digitado se perdia.** Você tocou nos botões e por isso não viu. Quem
-   digita perdia o papel de arroz (R$ 12,00), o topo, o tema e o nome.
-3. **O pedido fechava com o nome errado.** O resumo dizia "bolo brigadeiro com
-   0% lactose" e o gravado dizia "bolo brigadeiro". **O preço estava certo e a
-   comanda errada**: a confeitaria faria com lactose pra quem pediu sem. Esse é
-   o mais perigoso da noite, porque nada gritava.
-4. O recheio fixo dependia do modelo lembrar: a mesma fala, duas conversas
-   seguidas, uma com frango e outra sem.
-5. Item descartado segurava o sabor da pergunta.
-6. "frango" foi lido como "escolhe você".
-7. O painel lia a observação do bolo com expressão própria e mostrava
-   "Gabriel Lucas | 12 anos | topo de bolo" no campo do nome.
+   digita perdia o papel de arroz, o topo, o tema e o nome do aniversariante.
+3. **O pedido fechava com o nome errado**: resumo "bolo brigadeiro com 0%
+   lactose", gravado "bolo brigadeiro". Preço certo, comanda errada, e a
+   confeitaria faria com lactose.
+4. **O docinho sumia dentro do bolo**: "50 brigadeiro e um bolo de 2 kg de 4
+   leites" fechava só com o bolo.
+5. O recheio fixo dependia do modelo lembrar: mesma fala, duas conversas, uma
+   com frango e outra sem.
+6. "salgadinho" virava o recheio **"nho"** na comanda.
+7. "docinho de morango" virava bolo.
+
+**Custavam confiança:**
+
+8. **Cliente reclamando ouvia "Bom dia, como posso ajudar?"** O modelo
+   classificava certo e o código descartava em silêncio, porque a frase citava
+   um produto. E reclamação quase sempre cita.
+9. Reclamação e cancelamento chegavam no painel **sem motivo**.
+10. "tem coxinha de camarão?" era respondido com o preço, não com "a gente faz
+    de frango".
+11. "A gente faz coxinha de frango" saía quando o sabor era do outro item da
+    lista.
+12. Item descartado segurava o sabor da pergunta, e a padaria repetia.
+13. "frango" foi lido como "escolhe você".
+14. O painel mostrava "Gabriel Lucas | 12 anos | topo de bolo" no campo do nome.
+15. O tipo do salgado saía duas vezes no cupom.
 
 ---
 
@@ -79,30 +115,25 @@ Com 130 testes verdes. Nenhum deles pegava:
 1. **Nome fora do cardápio não vira linha do pedido.** Roda no fim, em todo
    caminho. Nome de família ("pizza" esperando o tipo) continua valendo.
 2. **Produto de sabor único sai com o sabor do catálogo**, antes da disputa.
-   Coxinha é frango, e pedir outro sabor ouve "a gente faz coxinha de frango".
-3. **A observação do bolo tem um leitor só**, e o painel agora usa ele.
-4. **"Sim" digitado vale como botão.**
-5. **Responder uma opção não é delegar.**
-6. **O nome que fecha é o nome que o cliente aceitou.**
-7. **Quantidade de produto por unidade é inteira.**
+3. **A família que o cliente diz manda** na hora de escolher o produto.
+4. **A observação do bolo tem um leitor só**, e o painel usa ele.
+5. **"Sim" digitado vale como botão.**
+6. **Responder uma opção não é delegar.**
+7. **O nome que fecha é o nome que o cliente aceitou.**
+8. **Quantidade de produto por unidade é inteira.**
+9. **Reclamação e cancelamento são sempre da equipe**, mesmo citando produto.
 
-Todas com teste, e cada teste com isca: desliguei o conserto e conferi que fica
-vermelho. Teste que passa verde com o conserto desligado é decoração.
+Cada uma com teste, e cada teste com isca: desliguei o conserto e conferi que
+fica vermelho.
 
 ---
 
-## DOIS "REMENDOS" QUE EU TINHA LISTADO E NÃO EXISTIAM
+## DOIS "REMENDOS" QUE EU LISTEI E NÃO EXISTIAM
 
 Eu te disse que kg contra unidade era remendo, e que o texto do cliente e o da
-comanda eram montados em dois lugares. **Fui medir antes de mexer e os dois já
-estavam certos.**
-
-- A unidade nunca é guardada no fluxo: quem grava e quem imprime perguntam os
-  dois ao catálogo.
-- O resumo e o cupom já concordam em produto, quantidade e total.
-
-Escrevi teste pros dois pra travar do jeito que estão. E fica registrado que eu
-tinha listado por leitura, não por medição, que é o erro que mais me custou hoje.
+comanda eram montados em dois lugares. **Fui medir e os dois já estavam certos.**
+A unidade nunca é guardada no fluxo, e o resumo já bate com o cupom. Escrevi
+teste pros dois pra travar como estão.
 
 ---
 
@@ -113,87 +144,43 @@ tinha listado por leitura, não por medição, que é o erro que mais me custou 
 | 20 a 23/08 | 21.000 | 22.000 a 26.000 | R$ 321 |
 | 27/08 em diante | 2.400 | 778 | não estava sendo gravado |
 
-O caro foi o tamanho do prompt do cérebro antigo, apagado em 26/08. Hoje uma
-conversa de festa inteira custa uns **R$ 0,07**. Rodar teu pedido do começo ao
-fim três vezes esta noite custou centavos.
+O caro foi o prompt do cérebro antigo, apagado em 26/08. Hoje uma conversa de
+festa inteira custa uns **R$ 0,07**. Toda a madrugada custou menos de R$ 2,00.
 
-O custo tinha parado de ser registrado em 27/08 (`estimarCustoCentBRL`
-arredondava pra centavo inteiro e zerava tudo). Consertado, e por isso o painel
-mostrava "Custo de IA: -".
-
----
-
-## DEPOIS QUE VOCÊ FOI DORMIR
-
-Continuei conversando, e uma frase banal achou mais quatro. Nenhum deles
-aparecia na tua conversa de festa, porque são de outro jeito de pedir.
-
-**O pior: o docinho sumia dentro do bolo.**
-
-```
-cliente >> 50 brigadeiro e um bolo de 2 kg de 4 leites
-pedido  >> 2 kg de bolo 4 leites, e NENHUM docinho
-```
-
-Três regras certas, uma atrás da outra, terminando em item sumido. O resolvedor
-viu a palavra "bolo" na frase (que era do outro item) e fez do docinho um "bolo
-brigadeiro"; a guarda do peso viu que 50 não é peso de bolo e rebaixou pra
-família; a fusão dos bolos engoliu essa família. É a regra que este projeto mais
-repete, quebrada por composição: **nada some do pedido**.
-
-**"salgadinho" virava o recheio "nho".**
-
-```
-cliente >> bom dia, queria 100 salgadinhos pra sexta
-pedido  >> 100 ~ salgado ~ nho
-```
-
-O "nho" ia impresso na comanda como se fosse o recheio. O corte do resto era por
-contagem de caracteres, e a família nem sempre está escrita na frase.
-
-**"docinho de morango" virava bolo.** Você disse docinho com todas as letras e o
-resolvedor escolhia o bolo, porque o filtro tira a palavra da família e casa só o
-miolo. Agora a família que o cliente diz manda, em todas, e não só na pizza como
-era antes.
-
-**E o "sim" digitado do topo**, que ainda se perdia depois de eu consertar o do
-papel: a máquina de etapas dá a etapa por cumprida quando a pergunta foi FEITA,
-não quando foi respondida.
+O custo tinha parado de ser registrado: `estimarCustoCentBRL` arredondava pra
+centavo inteiro e zerava tudo. Consertado, e era por isso que o painel mostrava
+"Custo de IA: -".
 
 ---
 
-## O QUE EU ERREI ESTA NOITE, PRA FICAR REGISTRADO
+## O QUE EU ERREI, PRA FICAR REGISTRADO
 
-- Listei três remendos pra você. **Dois não existiam**: fui medir e a unidade já
-  saía do catálogo, e o texto do cliente já batia com o da comanda. Listei por
-  leitura, não por medição.
-- Escrevi uma trava de unidade que ia ser inútil e apaguei antes de subir.
+- Listei três remendos e dois não existiam. Listei por leitura, não por medição.
 - Chutei a causa do `mini frango` duas vezes antes de ler o log. As duas erradas.
-- Meu carimbo do recheio fixo quebrou outra regra que estava certa, e quem pegou
+- Montei duas sondas com resposta de modelo inventada por mim; o caso passava
+  verde e a produção continuava quebrada. Quando peguei a resposta real do log,
+  reproduzi de primeira.
+- Meu carimbo do recheio fixo quebrou outra regra que estava certa. Quem pegou
   foi um teste que já existia.
+- Levantei um alarme falso dizendo que sabor fora do cardápio entrava no pedido.
+  Não entrava; minha sonda é que estava errada.
 
 ---
 
-## AINDA ABERTO, SEM CUSTO DE DINHEIRO
+## AINDA ABERTO
 
-`quero 50 docinhos de morango` ainda deixa uma linha de família "bolo" sobrando.
-A padaria pergunta "qual bolo?" a mais e o cliente diz que não quer. Está
-registrado pra não parecer resolvido.
-
-**Portão em 133 testes verdes.** Cada conserto com isca: desliguei e conferi que
-fica vermelho.
+- `quero 50 docinhos de morango` deixa uma linha de família "bolo" sobrando. A
+  padaria pergunta "qual bolo?" a mais. Não custa dinheiro.
+- Quem escreve "100 salgadinhos pra sexta" ouve "quantas pessoas vão ter na
+  festa?". Ela se corrige na mensagem seguinte, mas a primeira pergunta é fora
+  de lugar.
 
 ---
 
 ## O QUE AINDA NÃO FOI MEDIDO
 
-Sem enfeite, é isto que falta olhar:
-
-- **O cupom no papel do pedido novo.** O de ontem você fotografou. O desta noite
-  fecha com o nome certo no banco, mas eu não vi ele sair da impressora.
-- **A tela de aprovação com o pedido de festa novo**, clicando aprovar de
-  verdade.
-- **Uma conversa que dá errado de propósito**: cliente que muda de ideia no meio,
-  que pede coisa que não existe, que some e volta no dia seguinte.
-- As perguntas de `PERGUNTAR-PRA-DONA.md`: sobraram seis, e as outras seis eu
-  achei respondidas nos áudios.
+- **O cupom saindo da impressora de verdade.** Montei o texto com o mesmo código
+  do servidor e conferi, mas não aprovei nenhum pedido de teste: a ponte está
+  online, e aprovar faria sair papel na padaria de madrugada.
+- **A tela de aprovação**, clicando aprovar num pedido de festa.
+- As seis perguntas que sobraram em `PERGUNTAR-PRA-DONA.md`.
