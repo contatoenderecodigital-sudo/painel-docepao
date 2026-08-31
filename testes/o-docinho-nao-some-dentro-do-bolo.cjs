@@ -41,6 +41,30 @@ const CASOS = [
     dano: "50 docinhos sumiam dentro do bolo, sem aviso nenhum",
   },
   {
+    // A OUTRA METADE DO MESMO PROBLEMA, fechada em 31/08/2026.
+    //
+    //   cliente >> quero 50 docinhos de morango
+    //   pedido  >> 50x docinho (morango)  E  50x bolo
+    //
+    // "morango" e sabor de docinho e nome de bolo de festa ao mesmo tempo. O
+    // leitor da frase, que existe pra COMPLETAR o que o modelo nao leu, achava
+    // o bolo na mesma palavra que o modelo ja tinha dado ao docinho. O cliente
+    // pedia um item e o pedido ficava com dois.
+    nome: "palavra que ja e sabor de um item nao vira item novo",
+    fala: "quero 50 docinhos de morango",
+    leitura: { itens: [{ produto: "docinho", qtd: 50, sabor: "morango" }] },
+    espera: ["50x docinho"],
+    naoTem: ["50x bolo"],
+    dano: "linha de bolo que ninguem pediu, e a padaria perguntando qual bolo",
+  },
+  {
+    nome: "mas quem diz o bolo com todas as letras leva o bolo",
+    fala: "quero 50 brigadeiro e um bolo de morango de 2 kg",
+    leitura: { itens: [{ produto: "brigadeiro", qtd: 50 }, { produto: "bolo morango", qtd: 2 }] },
+    espera: ["50x brigadeiro", "2x bolo morango"],
+    dano: "a guarda nao pode derrubar o bolo de quem pediu bolo",
+  },
+  {
     nome: "nome que so existe como bolo continua virando familia",
     fala: "quero 50 de morango",
     leitura: { itens: [{ produto: "morango", qtd: 50 }] },
@@ -101,10 +125,13 @@ console.log("== o docinho nao some dentro do bolo ==");
 CASOS.forEach((c, n) => {
   const veio = saiu[n];
   const faltou = c.espera.filter((e) => !veio.some((v) => semAc(v) === semAc(e)));
-  const ok = faltou.length === 0;
+  const sobrou = (c.naoTem ?? []).filter((e) => veio.some((v) => semAc(v) === semAc(e)));
+  const ok = faltou.length === 0 && sobrou.length === 0;
   console.log(
     (ok ? "ok    " : "ERRO  ") + c.nome +
-    (ok ? "" : "  ->  ficou " + JSON.stringify(veio) + ", faltou " + JSON.stringify(faltou) + "; " + c.dano),
+    (ok ? "" : "  ->  ficou " + JSON.stringify(veio) +
+      (faltou.length ? ", faltou " + JSON.stringify(faltou) : "") +
+      (sobrou.length ? ", sobrou " + JSON.stringify(sobrou) : "") + "; " + c.dano),
   );
   if (!ok) erros++;
 });

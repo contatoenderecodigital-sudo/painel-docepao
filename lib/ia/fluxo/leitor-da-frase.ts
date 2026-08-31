@@ -619,6 +619,27 @@ export function juntarComAFrase(doModelo: Leitura, fala: string): Leitura {
     const mesmo = (a: string, b: string) => semAcMin(a) === semAcMin(b);
     for (const i of daFraseItens) {
       const achou = atuais.findIndex((x) => mesmo(x.produto, i.produto));
+      // PALAVRA QUE JA E SABOR DE UM ITEM DESTA LEITURA NAO VIRA ITEM NOVO.
+      //
+      // Medido em 31/08/2026, num pedido banal:
+      //
+      //   cliente >> quero 50 docinhos de morango
+      //   modelo  >> 50x docinho [morango]
+      //   frase   >> tambem achou "morango" e virou um item
+      //   pedido  >> 50x docinho (morango)  E  50x bolo
+      //
+      // "morango" e sabor de docinho e nome de bolo de festa ao mesmo tempo: e
+      // uma das oito palavras do cardapio que sao produto E sabor. O cliente
+      // pediu UM item e o pedido ficava com dois, e a padaria ainda perguntava
+      // qual bolo ele queria.
+      //
+      // Este leitor existe pra COMPLETAR o modelo, e nao pra duplicar o que ele
+      // ja leu: se a palavra ja tem dono na mesma leitura, ela nao esta sobrando.
+      const jaESaborDeOutro =
+        achou < 0 &&
+        atuais.some((x) => semAcMin(String(x.sabor ?? "") + " " + String(x.obs ?? ""))
+          .includes(semAcMin(i.produto)));
+      if (jaESaborDeOutro) continue;
       if (achou < 0) {
         atuais.push({ produto: i.produto, qtd: i.qtd, obs: i.obs ?? null });
       } else if (i.qtd > 0) {
