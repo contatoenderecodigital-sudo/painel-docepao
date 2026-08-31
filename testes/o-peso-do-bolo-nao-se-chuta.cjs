@@ -106,6 +106,41 @@ const CASOS = [
     dano: "um terco do que a pessoa pediu, e ela so descobre na balanca",
   },
   {
+    // O BECO CONTINUAVA ABERTO QUANDO O MODELO NAO DEVOLVIA ITEM.
+    //
+    // Conversando com a producao em 31/08/2026, com o pao dele:
+    //
+    //   cliente >> bom dia, quero 50 pao frances pra amanha
+    //   padaria >> O pao frances é vendido por quilo, R$ 11,99 o quilo.
+    //              Quantos quilos você quer?
+    //   cliente >> 2 kg
+    //   padaria >> O pao frances é vendido por quilo... (a MESMA pergunta)
+    //
+    // O peso so era lido dentro do laco dos itens do modelo. Quem responde so o
+    // peso nao cita produto nenhum, entao o modelo devolve lista VAZIA, o laco
+    // nao roda e a resposta se perde. Os dois casos de cima passavam verdes
+    // porque a sonda mandava o item na leitura: aqui a leitura vem vazia, que e
+    // o que a producao faz.
+    nome: "com o modelo devolvendo NADA, o peso dito ainda vale",
+    itens: [{ produto: "pao frances", categoria: "padaria", qtd: 0, unidade: "kg", obs: null }],
+    ultimaPergunta: "O pao frances é vendido por quilo, R$ 11,99 o quilo. Quantos quilos você quer?",
+    fala: "2 kg",
+    leitura: { itens: [] },
+    peso: 2,
+    perguntaNaoTem: "quantos quilos",
+    dano: "a conversa nunca saia do lugar e o cliente ia embora",
+  },
+  {
+    nome: "e com o modelo devolvendo NADA, o numero solto tambem",
+    itens: [{ produto: "pao frances", categoria: "padaria", qtd: 0, unidade: "kg", obs: null }],
+    ultimaPergunta: "O pao frances é vendido por quilo, R$ 11,99 o quilo. Quantos quilos você quer?",
+    fala: "2",
+    leitura: { itens: [] },
+    peso: 2,
+    perguntaNaoTem: "quantos quilos",
+    dano: "o mesmo beco, na resposta mais curta que existe",
+  },
+  {
     nome: "numero solto FORA da pergunta do peso nao vira peso",
     itens: [{ produto: "pao frances", categoria: "padaria", qtd: 0, unidade: "kg", obs: null }],
     ultimaPergunta: "Quer levar docinho junto?",

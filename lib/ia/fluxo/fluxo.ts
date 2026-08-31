@@ -807,6 +807,46 @@ function naoCabeNoBolo(nome: string, qtd: number, fala: string, comoEleChamou: s
  * era quem a padaria tinha perguntado, e ganhava por ter recheio fixo. Com o
  * carimbo antes, ela ja esta resolvida e sai da disputa.
  */
+/** A ultima coisa que a padaria falou foi a pergunta do peso. */
+function perguntaDePeso(e: Estado): boolean {
+  return /quantos quilos/i.test(String(e.ultimaFala || ""));
+}
+
+/**
+ * O PESO QUE ESTA ESCRITO NUMA FRASE.
+ *
+ * Entende o que a clientela da padaria escreve: "2 kg", "2kg", "500g", "700
+ * gramas", "2 quilos e meio", "1,7 kg".
+ *
+ * `numeroSolto` liga quando a padaria ACABOU de perguntar o peso: ali "2",
+ * "dois" e "um e meio" tambem sao peso, porque ninguem repete a unidade na
+ * resposta. Fora dessa hora fica desligado, senao qualquer numero da conversa
+ * grudaria no item que estivesse em aberto.
+ */
+function pesoNaFala(fala: string, numeroSolto: boolean): number {
+  const t = semAc(String(fala || ""));
+  const m = t.match(/([0-9]+(?:[.,][0-9]+)?)\s*(kg|quilos?|gramas?|g)(?![a-z])(\s*e\s*meio)?/i);
+  if (m) {
+    let p = Number(String(m[1]).replace(",", "."));
+    if (/^g/i.test(String(m[2]))) p = p / 1000;
+    if (m[3]) p += 0.5;
+    return p;
+  }
+  if (!numeroSolto) return 0;
+  // "um e meio" e um e meio, e nao meio: a palavra vira numero antes.
+  let comNumero = t;
+  for (const [palavra, valor] of numerosEscritos({ umEUma: true })) {
+    comNumero = comNumero.replace(
+      new RegExp("(^|[^a-z0-9])" + palavra + "([^a-z0-9]|$)", "gi"),
+      "$1" + valor + "$2",
+    );
+  }
+  const so = comNumero.match(/(?:^|\s)([0-9]+(?:[.,][0-9]+)?)(\s*e\s*meio)?(?:\s|$)/i);
+  if (so) return Number(String(so[1]).replace(",", ".")) + (so[2] ? 0.5 : 0);
+  if (/\bmeio\b/i.test(t)) return 0.5;
+  return 0;
+}
+
 function comORecheioDoCardapio(itens: Estado["itens"], rastro: string[]): Estado["itens"] {
   return itens.map((i) => {
     const p = produtoPorNome(String(i.produto || "")) ?? produtoNoComeco(String(i.produto || ""));
@@ -1763,15 +1803,10 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         //
         // O leitor so entendia quilo inteiro, e metade dos tamanhos que a dona
         // faz nao e quilo inteiro.
-        const m = dito.match(
-          /([0-9]+(?:[.,][0-9]+)?)\s*(kg|quilos?|gramas?|g)(?![a-z])(\s*e\s*meio)?/i,
-        );
-        let peso = 0;
-        if (m) {
-          peso = Number(String(m[1]).replace(",", "."));
-          if (/^g/i.test(String(m[2]))) peso = peso / 1000;
-          if (m[3]) peso += 0.5;
-        }
+        // Quem le o peso e `pesoNaFala`, aqui e no bloco de fora do laco. Duas
+        // copias desta conta e o defeito que mais se repetiu neste sistema:
+        // duas mãos guardando a mesma verdade, e uma fica pra tras.
+        let peso = pesoNaFala(dito, false);
 
         // DEPOIS DA PERGUNTA DO PESO, NUMERO SOLTO E PESO.
         //
@@ -1787,32 +1822,9 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         //
         // E a mesma regra do "Sim" digitado: quem da sentido a resposta e a
         // pergunta que acabou de sair, e nao a forma da frase.
-        const perguntouOPeso = /quantos quilos/i.test(String(e.ultimaFala || ""));
-        if (!peso && perguntouOPeso) {
-          // "UM E MEIO" E UM E MEIO, E NAO MEIO.
-          //
-          // Sem trocar a palavra pelo numero, "um e meio" caia no galho do
-          // "meio" e virava 0,5 kg: um terco do bolo que a pessoa pediu.
-          // A lista de numeros por extenso e a mesma de todo o projeto, em
-          // `lib/ia/texto.ts`, e nao uma lista minha escrita aqui.
-          let comNumero = semAc(String(falaDoCliente || ""));
-          for (const [palavra, valor] of numerosEscritos({ umEUma: true })) {
-            comNumero = comNumero.replace(
-              new RegExp("(^|[^a-z0-9])" + palavra + "([^a-z0-9]|$)", "gi"),
-              "$1" + valor + "$2",
-            );
-          }
-          const so = comNumero.match(
-            /(?:^|\s)([0-9]+(?:[.,][0-9]+)?)(\s*e\s*meio)?(?:\s|$)/i,
-          );
-          if (so) {
-            peso = Number(String(so[1]).replace(",", ".")) + (so[2] ? 0.5 : 0);
-            rastro.push("a padaria tinha perguntado o peso; li \"" + String(so[1]) + "\" como quilos");
-          } else if (/\bmeio\b/i.test(String(falaDoCliente || ""))) {
-            // "meio quilo" e "meio" nao tem numero, e sao meio quilo.
-            peso = 0.5;
-            rastro.push("a padaria tinha perguntado o peso; \"meio\" e meio quilo");
-          }
+        if (!peso && perguntaDePeso(e)) {
+          peso = pesoNaFala(String(falaDoCliente || ""), true);
+          if (peso) rastro.push("a padaria tinha perguntado o peso; li \"" + falaDoCliente + "\" como quilos");
         }
 
         if (peso > 0 && peso <= 30) qtd = peso;
@@ -2132,6 +2144,45 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
   };
 
   novo.itens = comORecheioDoCardapio(novo.itens, rastro);
+
+  // A RESPOSTA DO PESO VALE MESMO QUANDO O MODELO NAO DEVOLVE ITEM NENHUM.
+  //
+  // Medido conversando com a producao em 31/08/2026, e era beco sem saida:
+  //
+  //   cliente >> bom dia, quero 50 pao frances pra amanha
+  //   padaria >> O pao frances é vendido por quilo, R$ 11,99 o quilo. Quantos
+  //              quilos você quer?
+  //   cliente >> 2 kg
+  //   padaria >> O pao frances é vendido por quilo... (a MESMA pergunta)
+  //
+  // O peso so era lido DENTRO do laco dos itens que o modelo devolveu. Quando a
+  // pessoa responde so o peso, o modelo nao devolve produto nenhum (nao ha
+  // produto na frase), o laco nao roda uma vez sequer e a resposta dela se
+  // perde. A pergunta saia de novo, pra sempre.
+  //
+  // A regra e a mesma do "Sim" digitado e a mesma do numero solto: quem da
+  // sentido a resposta e A PERGUNTA QUE ACABOU DE SAIR, e nao a forma da frase
+  // nem o que o modelo conseguiu ler dela.
+  //
+  // So mexe em item vendido por quilo que esta esperando peso (qtd zerada), e
+  // no primeiro deles: a padaria pergunta um de cada vez.
+  if (perguntaDePeso(e)) {
+    const pesoDito = pesoNaFala(String(falaDoCliente || ""), true);
+    if (pesoDito > 0 && pesoDito <= 30) {
+      const n = novo.itens.findIndex(
+        (i) =>
+          Number(i.qtd) <= 0 &&
+          unidadeDoPedido(String(i.produto), String(i.categoria || "")) === "kg",
+      );
+      if (n >= 0) {
+        novo.itens = novo.itens.map((i, k) => (k === n ? { ...i, qtd: pesoDito } : i));
+        rastro.push(
+          "a padaria tinha perguntado o peso; " + pesoDito + " kg de " + novo.itens[n].produto,
+        );
+      }
+    }
+  }
+
   const tSolto = semAc(String(falaDoCliente || ""));
   const peloFixo = tSolto
     ? novo.itens.filter((i) => {
