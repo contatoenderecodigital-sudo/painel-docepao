@@ -123,6 +123,68 @@ mostrava "Custo de IA: -".
 
 ---
 
+## DEPOIS QUE VOCÊ FOI DORMIR
+
+Continuei conversando, e uma frase banal achou mais quatro. Nenhum deles
+aparecia na tua conversa de festa, porque são de outro jeito de pedir.
+
+**O pior: o docinho sumia dentro do bolo.**
+
+```
+cliente >> 50 brigadeiro e um bolo de 2 kg de 4 leites
+pedido  >> 2 kg de bolo 4 leites, e NENHUM docinho
+```
+
+Três regras certas, uma atrás da outra, terminando em item sumido. O resolvedor
+viu a palavra "bolo" na frase (que era do outro item) e fez do docinho um "bolo
+brigadeiro"; a guarda do peso viu que 50 não é peso de bolo e rebaixou pra
+família; a fusão dos bolos engoliu essa família. É a regra que este projeto mais
+repete, quebrada por composição: **nada some do pedido**.
+
+**"salgadinho" virava o recheio "nho".**
+
+```
+cliente >> bom dia, queria 100 salgadinhos pra sexta
+pedido  >> 100 ~ salgado ~ nho
+```
+
+O "nho" ia impresso na comanda como se fosse o recheio. O corte do resto era por
+contagem de caracteres, e a família nem sempre está escrita na frase.
+
+**"docinho de morango" virava bolo.** Você disse docinho com todas as letras e o
+resolvedor escolhia o bolo, porque o filtro tira a palavra da família e casa só o
+miolo. Agora a família que o cliente diz manda, em todas, e não só na pizza como
+era antes.
+
+**E o "sim" digitado do topo**, que ainda se perdia depois de eu consertar o do
+papel: a máquina de etapas dá a etapa por cumprida quando a pergunta foi FEITA,
+não quando foi respondida.
+
+---
+
+## O QUE EU ERREI ESTA NOITE, PRA FICAR REGISTRADO
+
+- Listei três remendos pra você. **Dois não existiam**: fui medir e a unidade já
+  saía do catálogo, e o texto do cliente já batia com o da comanda. Listei por
+  leitura, não por medição.
+- Escrevi uma trava de unidade que ia ser inútil e apaguei antes de subir.
+- Chutei a causa do `mini frango` duas vezes antes de ler o log. As duas erradas.
+- Meu carimbo do recheio fixo quebrou outra regra que estava certa, e quem pegou
+  foi um teste que já existia.
+
+---
+
+## AINDA ABERTO, SEM CUSTO DE DINHEIRO
+
+`quero 50 docinhos de morango` ainda deixa uma linha de família "bolo" sobrando.
+A padaria pergunta "qual bolo?" a mais e o cliente diz que não quer. Está
+registrado pra não parecer resolvido.
+
+**Portão em 133 testes verdes.** Cada conserto com isca: desliguei e conferi que
+fica vermelho.
+
+---
+
 ## O QUE AINDA NÃO FOI MEDIDO
 
 Sem enfeite, é isto que falta olhar:
