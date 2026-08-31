@@ -53,7 +53,7 @@ import { identificarProduto } from "./produto";
  * devolve texto, e texto nao passa por compilador nenhum.
  */
 export const SOBRE_O_QUE = [
-  "preco", "horario", "endereco", "pagamento", "entrega", "prazo", "desconto", "outro",
+  "preco", "horario", "endereco", "pagamento", "pix", "entrega", "prazo", "desconto", "outro",
 ] as const;
 export type SobreOQue = (typeof SOBRE_O_QUE)[number];
 
@@ -624,7 +624,12 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "- Vai tirar item? use tirar." + String.fromCharCode(10) +
     "- Hoje é " + hojeEmSaoPaulo() + ", e retirada é sempre no futuro." + String.fromCharCode(10) +
     "- Perguntou em vez de pedir? perguntou.sobre = preco (com familia), " +
-    "horario, endereco, pagamento, entrega, prazo ou desconto." + String.fromCharCode(10) +
+    "horario, endereco, pagamento, pix, entrega, prazo ou desconto." + String.fromCharCode(10) +
+    // PEDIR A CHAVE E OUTRA COISA DE PERGUNTAR COMO PAGA.
+    //
+    // Cliente real em 31/08/2026, logo depois de fechar: "Show consegue me
+    // passar o pix? dai ja pago". Ele ouviu a lista de formas de pagamento e
+    // ficou sem pagar. Quem quer a chave ja escolheu como paga.
     // Desconto, preco beneficente e "da uma ajuda?" sao a mesma pergunta, e a
     // resposta e sempre da equipe. A IA nao pode soltar o preco por unidade que
     // a dona usa nesses casos: negociacao virando tabela custa margem.

@@ -323,6 +323,35 @@ export function respostaDeInformacao(p: Pergunta): { texto: string; precisaHuman
       return texto ? { texto, precisaHumano: false } : null;
     }
 
+    // A CHAVE PIX SAI DO CADASTRO, E SO DELE.
+    //
+    // Cliente real em 31/08/2026, logo depois de fechar o pedido: *"Show
+    // consegue me passar o pix? dai ja pago"*. Ele ouviu a lista de formas de
+    // pagamento, que e a resposta de "como posso pagar", e ficou sem pagar.
+    // Quem pede a chave ja escolheu como paga.
+    //
+    // Enquanto a dona nao informar a chave, a IA NAO INVENTA e passa pra equipe:
+    // chave errada e cliente pagando pra outra pessoa, e isso nao tem desfazer.
+    case "pix": {
+      const chave = String(DOCE_PAO.chavePix ?? "").trim();
+      if (!chave) {
+        return {
+          texto:
+            "Claro. Deixa eu confirmar a chave certinha com a equipe pra não te " +
+            "passar errado, e já te mando por aqui.",
+          precisaHumano: true,
+        };
+      }
+      const titular = String(DOCE_PAO.pixTitular ?? "").trim();
+      return {
+        texto:
+          "Claro. A chave pix é " + chave + "." +
+          (titular ? " Vai aparecer no nome de " + titular + "." : "") +
+          " Quando pagar, me manda o comprovante aqui que eu anexo no pedido.",
+        precisaHumano: false,
+      };
+    }
+
     case "horario":
       return { texto: DOCE_PAO.horario, precisaHumano: false };
 

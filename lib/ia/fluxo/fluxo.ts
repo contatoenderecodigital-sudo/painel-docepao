@@ -3195,11 +3195,28 @@ export async function responder(
   }
 
   // Tira qualquer "misto: ..." que ja esteja na observacao, pra nao empilhar.
+  // CORTA NA VIRGULA E NA BARRA, PORQUE OS DOIS EXISTEM GRAVADOS.
+  //
+  // Isto cortava so na barra, e o "misto:" anterior costuma estar colado com
+  // VIRGULA. Medido no pedido real do Alessandro, impresso na padaria em
+  // 31/08/2026:
+  //
+  //   gravado  "biz, misto: bolo laka e bolo biz | misto: bolo biz e bolo laka"
+  //   comanda  > misto: bolo laka e bolo biz
+  //            > misto: bolo biz e bolo laka
+  //
+  // A cozinha leu a mesma coisa duas vezes, com os sabores em ordem trocada,
+  // como se fossem dois recados diferentes. O limpador via so o segundo, porque
+  // o primeiro estava dentro do pedaco "biz, misto: ...".
+  //
+  // Terceira vez que dois separadores no mesmo texto custam um defeito neste
+  // projeto. Quem corta agora corta nos dois, igual ao cupom e ao `lerObs`.
   const semMisto = (obs?: string | null) =>
     String(obs ?? "")
-      .split(" | ")
+      .split(/[,|]/)
       .filter((p) => p.trim() && !/^misto\s*:/i.test(p.trim()))
-      .join(" | ") || null;
+      .map((p) => p.trim())
+      .join(", ") || null;
 
   // ------------------------------------------- BOLO MISTO E UM BOLO SO
   //
@@ -3287,7 +3304,9 @@ export async function responder(
                 ...[...bolos, ...semSabor]
                   .map((b) => semMisto(b.obs))
                   .filter(Boolean)
-                  .flatMap((o) => String(o).split(" | "))
+                  // Nos dois separadores: o texto gravado mistura virgula e
+                  // barra, e cortar so num deles deixava recado colado no outro.
+                  .flatMap((o) => String(o).split(/[,|]/))
                   .map((x) => x.trim())
                   .filter(Boolean)
                   // Sem repetir: os dois bolos costumam trazer a mesma

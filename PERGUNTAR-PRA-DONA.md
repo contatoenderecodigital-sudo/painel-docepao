@@ -24,8 +24,9 @@ cliente e o tempo dele.
 
 ## A LISTA, na ordem em que ele deve perguntar
 
-Numeradas pra ele poder mandar por áudio e ela responder pelo número. Seis, e
-nenhuma delas tem resposta nos 55 áudios.
+Numeradas pra ele poder mandar por áudio e ela responder pelo número. Sete, e
+nenhuma delas tem resposta nos 55 áudios. A número 6 nasceu de um cliente de
+verdade e é a mais urgente: sem ela, quem quer pagar na hora não paga.
 
 ### Produto e preço
 
@@ -82,7 +83,28 @@ A lactose saiu desta pergunta porque ela já respondeu. Está lá embaixo.
 
 ### Regra de atendimento
 
-**6. Sabor fora do catálogo: a IA anota e a equipe confirma, ou ela pergunta antes?**
+**6. Qual é a chave pix da padaria, e a Dora pode passar ela sozinha?**
+
+Esta virou a pergunta mais urgente da lista, e ela nasceu de um cliente de
+verdade em 31/08/2026, logo depois de fechar um pedido de R$ 299,80:
+
+> *"Show consegue me passar o pix? dai ja pago"*
+
+A padaria respondeu a lista de formas de pagamento e o cliente ficou sem pagar.
+A chave não existe em lugar nenhum do sistema: nem no código, nem no banco.
+
+Preciso de três coisas:
+
+1. a chave (telefone, CNPJ, email ou aleatória)
+2. o nome que aparece na conta, pro cliente conferir antes de mandar
+3. se a Dora pode passar sozinha, ou se isso é sempre da equipe
+
+Enquanto ela não responder, a IA diz "deixa eu confirmar a chave certinha com a
+equipe" e chama gente. **Ela não inventa chave**, porque chave errada é cliente
+pagando pra outra pessoa, e isso não tem desfazer.
+
+
+**7. Sabor fora do catálogo: a IA anota e a equipe confirma, ou ela pergunta antes?**
 
 Ela disse que a lista é aberta:
 
@@ -114,11 +136,11 @@ faixa mais cara, que é a mesma regra do bolo misto que o sistema já cobra cert
 (`lib/ia/fluxo/fluxo.ts`, o bloco do bolo misto, e o convite em
 `lib/ia/fluxo/pergunta.ts`).
 
-**Fica uma decisão pra ele, não pra ela.** Hoje a IA não cota bolo com
-restrição: ela tira a promessa da observação e chama a equipe, e isso foi
-decisão dele em 26/08/2026. Com esta fala, a IA poderia cotar R$ 55,90 o quilo
-na hora. Eu não virei essa chave sozinho, porque quem decidiu chamar a equipe
-foi ele.
+**DECIDIDO POR ELE EM 31/08/2026: a IA cota e fecha sozinha.** Palavra dele:
+*"se tem no cardapio tem q add mano, dps a equipe resolve isso se n puder
+fazer"*. Medido depois da decisão: o pedido grava `bolo brigadeiro com 0%
+lactose` a R$ 55,90 o quilo, entra na fila de aprovação e não acende "precisa de
+você" pra ninguém. Isso reverte a decisão de 26/08.
 
 **O cupcake grande tem os mesmos sabores do pequeno, e o sabor não mexe no preço.**
 Estava como pergunta 2. A fala está na transcrição crua `docepaonew.txt`:

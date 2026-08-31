@@ -30,6 +30,21 @@ export type ConfigNegocio = {
   // rendimento e regras vêm do banco; aqui só o texto que a IA usa pra conversar
   prazoMinimoDias?: number;
   cobraSinal?: boolean;
+  /**
+   * A CHAVE PIX, PRA MANDAR PRO CLIENTE QUE QUER PAGAR NA HORA.
+   *
+   * Cliente real em 31/08/2026, logo depois de fechar o pedido: *"Show consegue
+   * me passar o pix? dai ja pago"*. A padaria respondeu a lista de formas de
+   * pagamento, porque a chave nao existia em lugar nenhum do sistema, e o
+   * cliente ficou sem pagar.
+   *
+   * Fica vazia ate a dona informar, e enquanto estiver vazia a IA nao inventa:
+   * ela diz que vai passar e chama a equipe. Chave errada e cliente pagando
+   * pra outra pessoa.
+   */
+  chavePix?: string | null;
+  /** O nome que aparece na conta, pro cliente conferir antes de mandar. */
+  pixTitular?: string | null;
 };
 
 // Config da Doce Pão (fallback do código; um tenant pode sobrescrever no banco).
@@ -47,6 +62,10 @@ export const DOCE_PAO: ConfigNegocio = {
   horario: "Segunda a sábado das 6h30 às 20h. Domingo e feriados das 6h30 às 12h e das 16h às 20h.",
   prazoMinimoDias: 2, // chute, confirmar com a dona
   cobraSinal: false, // chute, confirmar com a dona
+  // PERGUNTA ABERTA PRA DONA: ver `PERGUNTAR-PRA-DONA.md`. Enquanto for null, a
+  // IA nao manda chave nenhuma e passa pra equipe.
+  chavePix: null,
+  pixTitular: null,
 };
 
 // AQUI FICAVA `montarSystemPrompt`, 170 LINHAS SEM CHAMADOR NENHUM.
