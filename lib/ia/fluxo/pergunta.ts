@@ -650,7 +650,13 @@ function falaDoBolo(p: PedidoEmMontagem, aviso: string): Fala {
   );
   if (semPeso) {
     return {
-      texto: aviso + "Quantos quilos você quer no bolo? A gente faz de 300 g até 6 kg.",
+      // O BOLO TAMBEM DIZ QUE E POR QUILO, pela mesma regra dele: se o cardapio
+      // cobra por peso, a padaria fala isso e pede em peso. Aqui a faixa da dona
+      // entra junto, porque ela e a resposta de "e quanto cabe?": redondo de
+      // 300 g a 5,5 kg, quadrado de 2,5 kg a 6 kg, do audio de 26/08.
+      texto:
+        aviso + "O bolo é vendido por quilo. Quantos quilos você quer? " +
+        "A gente faz de 300 g até 6 kg.",
       botoes: [],
       cardapio: null,
       podeReescrever: false,
@@ -965,15 +971,27 @@ export function falaDaEtapa(
         (i) =>
           !(Number(i.qtd) > 0) &&
           !ehNomeDeFamilia(i.produto) &&
-          // Pao, cuca e cachorro-quente o cliente pede por unidade e a casa
-          // pesa. O porque, com a fala da dona, esta em `faltaPeso`, no
-          // `etapas.ts`.
-          String(i.categoria || "") !== "padaria" &&
           unidadeDoPedido(String(i.produto), String(i.categoria || "")) === "kg",
       );
       if (semPesoAqui) {
+        // A PADARIA DIZ QUE E POR QUILO ANTES DE PERGUNTAR.
+        //
+        // Regra dele, 31/08/2026: "se a categoria eh KG nao UNID tu fala pra
+        // ele, q eh em kg, ai tem escolher em kg nao em quantidade".
+        //
+        // Sem o aviso, quem pediu "50 pao frances" nao entende por que a padaria
+        // esta falando de quilo. Com ele, o cliente escolhe na mesma unidade em
+        // que a casa cobra, e some o "50 pao frances = 50 kg = R$ 599,50".
+        //
+        // O PRECO DO QUILO SAI DO MOTOR, como todo numero que ela fala.
+        const oQuilo = Number(
+          motorPadrao.cotarPorItens([{ item: semPesoAqui.produto, qtd: 1 }]).linhas?.[0]?.unit ?? 0,
+        );
         return {
-          texto: aviso + "Quantos quilos de " + semPesoAqui.produto + " você quer?",
+          texto:
+            aviso + "O " + semPesoAqui.produto + " é vendido por quilo" +
+            (oQuilo > 0 ? ", " + brl(oQuilo) + " o quilo" : "") +
+            ". Quantos quilos você quer?",
           botoes: [],
           cardapio: null,
           podeReescrever: false,

@@ -1801,19 +1801,21 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         // guarda o 50 pra padaria perguntar qual bolo com a quantidade na mao.
         // Zerar ali quebrou dois testes que ja existiam, e os dois protegiam a
         // mesma regra: nada some do pedido.
-        // O PAO NAO ZERA: O CLIENTE PEDE POR UNIDADE E A CASA PESA.
+        // O PAO ZERA TAMBEM, POR DECISAO DELE EM 31/08/2026.
         //
-        // Fala da dona, nas 55 transcricoes: *"o pao frances e R$ 11,99 o
-        // quilo"* e, na mesma conversa, *"as vezes a pessoa encomendou o bolo e
-        // encomendou 50 pao frances"*. Zerar o 50 dele seria apagar o pedido pra
-        // perguntar uma coisa que ninguem pergunta numa padaria.
+        // Eu tinha aberto excecao pra padaria, porque a dona diz que o cliente
+        // pede por unidade ("as vezes a pessoa encomendou 50 pao frances") e a
+        // casa cobra por peso ("o pao frances e R$ 11,99 o quilo"). Ele decidiu
+        // o contrario, e a regra dele e mais simples: "se a categoria eh KG nao
+        // UNID tu fala pra ele, q eh em kg, ai tem escolher em kg nao em
+        // quantidade".
         //
-        // O bolo e o contrario: ninguem diz "um bolo" querendo 1 kg, e o peso e
-        // escolha de verdade.
+        // Zerar aqui nao apaga o pedido: a padaria pergunta o peso na mesma
+        // mensagem, e o cliente escolhe na unidade em que a casa cobra. E o que
+        // impede "50 pao frances" de virar 50 kg, R$ 599,50.
         const pesoDaFesta = Number(e.base?.boloKg) || 0;
         const daFesta = categoria === "bolo_festa" && e.ehFesta && pesoDaFesta > 0;
-        const pedidoPorUnidade = categoria === "padaria";
-        if (!peso && !ehNomeDeFamilia(produto) && !daFesta && !pedidoPorUnidade) {
+        if (!peso && !ehNomeDeFamilia(produto) && !daFesta) {
           if (qtd > 0) {
             rastro.push(
               "ninguem falou o peso do " + produto + "; nao chuto 1 kg, a padaria pergunta",

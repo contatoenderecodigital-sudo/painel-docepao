@@ -104,34 +104,27 @@ equipe" e chama gente. **Ela não inventa chave**, porque chave errada é client
 pagando pra outra pessoa, e isso não tem desfazer.
 
 
-**7. Quanto pesa um pão francês, um pão de X e um cachorro-quente?**
+**7. Três nomes do cardápio estão sem acento, e o cliente lê assim**
 
-Metade desta já está respondida nos áudios, e por isso a pergunta ficou curta.
+`pao frances`, `pao de x` e `empadao` estão escritos sem acento no catálogo,
+enquanto `risólis`, `prestígio` e `café` estão com. O cliente lê:
 
-Ela diz que o preço é por peso:
+> *"O pao frances é vendido por quilo, R$ 11,99 o quilo."*
 
-> *"o pão francês é R$ 11,99 o quilo"*
+Tentei corrigir e **reverti**: o nome do produto é a chave que amarra catálogo,
+motor de preço, comanda e oito testes, e mudar quebrou tudo isso de uma vez. Não
+vale arriscar o cardápio por estética às pressas.
 
-E, na mesma conversa, diz como o cliente pede:
+É trabalho de meia hora feito com calma, não no meio de outra coisa. Só precisa
+da confirmação dela de que os nomes certos são "pão francês", "pão de X" e
+"empadão".
 
-> *"às vezes a pessoa encomendou o bolo e encomendou **50 pão francês**"*
+---
 
-Ou seja: o cliente pede por unidade e a casa cobra por quilo. A Dora já anota a
-quantidade que ele falou e não pergunta quilo de pão, que é o que ninguém faz
-numa padaria.
-
-**O que falta é só a conversão**, e ela é dado dela, não meu: quanto pesa um pão
-francês, um pão de X e um cachorro-quente. Sem isso, "50 pão francês" hoje é
-cotado como 50 kg, R$ 599,50, e eu não inventei número nenhum.
-
-Se ela preferir, serve também o jeito que ela já usa na pizza:
-
-> *"ela é montada e pesada... geralmente tem um pouquinho menos de um quilo,
-> entre 800 gramas a 1,2 quilo, dá pra sugerir. Se a cliente pedir o valor, mais
-> ou menos de 35 até 45 reais."*
-
-Uma faixa por unidade ("50 pães dão mais ou menos 2,5 kg, uns R$ 30") resolve
-igual, e é como ela já fala com o cliente.
+**A PERGUNTA DO PESO DO PÃO SAIU DAQUI EM 31/08/2026**, porque ele decidiu:
+*"se a categoria eh KG nao UNID tu fala pra ele, q eh em kg, ai tem escolher em
+kg nao em quantidade"*. A padaria agora avisa que é por quilo, diz o preço do
+quilo e pede em quilo. Não precisa mais saber quanto pesa um pãozinho.
 
 **8. Sabor fora do catálogo: a IA anota e a equipe confirma, ou ela pergunta antes?**
 
