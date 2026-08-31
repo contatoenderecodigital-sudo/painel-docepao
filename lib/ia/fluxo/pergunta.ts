@@ -186,10 +186,12 @@ const CARDAPIO_DO_GRUPO: Record<string, string> = {
   "torta-fria": "tortas-empadao",
   empadao: "tortas-empadao",
   "torta-doce": "tortas-empadao",
-  cupcake: "cupcakes-franciscano",
-  franciscano: "cupcakes-franciscano",
-  pao: "cucas-paes",
-  cuca: "cucas-paes",
+  // SEPARADAS EM 30/08/2026 por ordem do dono: cupcake e doce, franciscano e
+  // salgado de R$ 12,00; cuca e confeitaria, pao e padaria, salas diferentes.
+  cupcake: "cupcakes",
+  franciscano: "franciscano",
+  pao: "paes",
+  cuca: "cucas",
 };
 
 export function pecaDoCardapio(produto: string): string | null {

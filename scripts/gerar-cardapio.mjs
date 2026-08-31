@@ -57,13 +57,18 @@ function estilo(altura) {
      captura sai a um quarto do tamanho. */
   html { zoom: 4; }
   body {
-    width:1080px; height:${altura}px;
+    /* MIN-HEIGHT, E NAO HEIGHT.
+       Com altura fixa, peca cujo conteudo passa do numero escrito aqui
+       TRANSBORDA: em 30/08/2026 o rodape dos "Pães" saiu por fora da moldura e
+       a nota encavalou na borda. A altura vira piso, nao teto, e a captura ja
+       mede a peca renderizada em vez de acreditar no numero. */
+    width:1080px; min-height:${altura}px;
     font-family:"Poppins","Segoe UI",Arial,sans-serif;
     background:radial-gradient(120% 70% at 50% 0%, #8f1b30 0%, #6d1424 45%, #4d0e1a 100%);
-    color:#fff; position:relative; overflow:hidden;
+    color:#fff; position:relative;
   }
   .moldura { position:absolute; inset:22px; border:1px solid rgba(231,207,148,.35); border-radius:10px; }
-  .folha { width:1080px; height:${altura}px; padding:38px 58px; display:flex; flex-direction:column; }
+  .folha { width:1080px; min-height:${altura}px; padding:38px 58px; display:flex; flex-direction:column; }
   .topo { text-align:center; }
   .selo { width:84px; height:84px; flex:0 0 84px; margin:0 auto 14px; border-radius:50%;
     background:linear-gradient(150deg,#f0d493,#c99a35); display:flex; align-items:center; justify-content:center;
@@ -324,16 +329,18 @@ const cg = acha("cupcake grande");
 const cgr = acha("cupcake grande recheado");
 const fr = acha("franciscano");
 
+// SEPARADAS POR ORDEM DO DONO, 30/08/2026: "cupcake e doce, franciscano e
+// salgado de R$ 12,00". Numa peca so, quem pedia o cardapio de cupcake recebia
+// um salgado junto, e o preco do franciscano parecia ser de cupcake.
 peca({
-  arquivo: "cupcakes-franciscano",
-  altura: 1300,
-  etiqueta: "CARDÁPIO · CUPCAKES E FRANCISCANO",
-  titulo: "Cupcakes e Franciscano",
+  arquivo: "cupcakes",
+  altura: 900,
+  etiqueta: "CARDÁPIO · CUPCAKES",
+  titulo: "Cupcakes",
   subtitulo: "Vendidos por unidade",
   blocos: [
     {
       tipo: "itens",
-      titulo: "Cupcakes",
       itens: [
         { nome: "Pequeno", detalhe: "2 a 3 cm, forminha de brigadeiro", preco: brl(cp.preco), unidade: "a unidade" },
         { nome: "Pequeno recheado", detalhe: lista(cpr.sabores ?? []), preco: brl(cpr.preco), unidade: "a unidade" },
@@ -341,9 +348,18 @@ peca({
         { nome: "Grande recheado", preco: brl(cgr.preco), unidade: "a unidade" },
       ],
     },
+  ],
+});
+
+peca({
+  arquivo: "franciscano",
+  altura: 640,
+  etiqueta: "CARDÁPIO · FRANCISCANO",
+  titulo: "Franciscano",
+  subtitulo: "Salgado, vendido por unidade",
+  blocos: [
     {
       tipo: "itens",
-      titulo: "Franciscano",
       itens: [{ nome: "Franciscano", detalhe: lista(fr.sabores ?? []), preco: brl(fr.preco), unidade: "a unidade" }],
     },
   ],
@@ -360,11 +376,14 @@ const paoDeX = acha("pao de x");
 const cachorroMini = acha("cachorro-quente mini");
 const cachorro = acha("cachorro-quente");
 
+// SEPARADAS POR ORDEM DO DONO, 30/08/2026: "cuca e confeitaria, pao e padaria,
+// salas diferentes". Eram uma peca so, e quem pedia o cardapio de pao recebia
+// cuca junto.
 peca({
-  arquivo: "cucas-paes",
-  altura: 1296,
-  etiqueta: "CARDÁPIO · DIA A DIA",
-  titulo: "Cucas e Pães",
+  arquivo: "cucas",
+  altura: 660,
+  etiqueta: "CARDÁPIO · CUCAS",
+  titulo: "Cucas",
   subtitulo: "Fresquinhas todo dia",
   blocos: [
     {
@@ -372,6 +391,22 @@ peca({
       itens: [
         { nome: "Cuca recheada", detalhe: lista(cucaRecheada.sabores), preco: brl(cucaRecheada.preco), unidade: "o quilo" },
         { nome: "Cuca simples", detalhe: "sem recheio", preco: brl(cuca.preco), unidade: "o quilo" },
+      ],
+    },
+  ],
+  nota: "A cuca é vendida por quilo",
+});
+
+peca({
+  arquivo: "paes",
+  altura: 950,
+  etiqueta: "CARDÁPIO · PÃES",
+  titulo: "Pães",
+  subtitulo: "Feitos todo dia",
+  blocos: [
+    {
+      tipo: "itens",
+      itens: [
         { nome: "Pão doce", preco: brl(paoDoce.preco), unidade: porUnidade(paoDoce.unidade) },
         { nome: "Pão francês", preco: brl(paoFrances.preco), unidade: "o quilo" },
         { nome: "Pão de X", preco: brl(paoDeX.preco), unidade: "o quilo" },
@@ -380,7 +415,11 @@ peca({
       ],
     },
   ],
-  nota: "Cuca e pães são vendidos por quilo",
+  // A NOTA SAI DO CATALOGO, NAO DA MINHA CABECA. A primeira versao dizia "o
+  // pao doce por unidade" e o catalogo diz `unidade: "kg"` pros cinco. Escrever
+  // na peca uma regra de venda que o dado nao sustenta e o mesmo erro de
+  // inventar preco: quem le acredita.
+  nota: "Os pães são vendidos por quilo",
 });
 
 // ---------------------------------------------------------------------------

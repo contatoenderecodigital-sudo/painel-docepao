@@ -75,8 +75,11 @@ fs.writeFileSync(
     "  'bolo-festa': 'bolos-festa', 'bolo-caseiro': 'bolos-caseiros',",
     "  pizza: 'pizza', calzone: 'pizza', 'torta-fria': 'tortas-empadao',",
     "  empadao: 'tortas-empadao', 'torta-doce': 'tortas-empadao',",
-    "  cupcake: 'cupcakes-franciscano', franciscano: 'cupcakes-franciscano',",
-    "  pao: 'cucas-paes', cuca: 'cucas-paes',",
+    // SEPARADAS EM 30/08/2026 por ordem do dono. Eram duas pecas com dois
+    // assuntos cada, e quem pedia o cardapio de cupcake recebia um salgado de
+    // R$ 12,00 junto; quem pedia o de pao recebia cuca.
+    "  cupcake: 'cupcakes', franciscano: 'franciscano',",
+    "  pao: 'paes', cuca: 'cucas',",
     "};",
     "",
     "const conf = ETAPAS_DA_FESTA.find((x) => x.id === 'confirmacao');",

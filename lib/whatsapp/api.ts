@@ -343,10 +343,12 @@ export const CARDAPIOS = [
   "docinhos",
   "bolos-festa",
   "bolos-caseiros",
-  "cucas-paes",
+  "cucas",
+  "paes",
   "tortas-empadao",
   "pizza",
-  "cupcakes-franciscano",
+  "cupcakes",
+  "franciscano",
 ] as const;
 export type CardapioId = (typeof CARDAPIOS)[number];
 

@@ -117,6 +117,26 @@ for (const html of pecas) {
   await pagina.addStyleTag({ content: "html { zoom: 1 !important; }" });
   await pagina.waitForTimeout(120);
 
+  // A JANELA ACOMPANHA A PECA, E NAO O CONTRARIO.
+  //
+  // O viewport era fixo em 1400 e a captura e de pagina inteira, entao ela sai
+  // do MAIOR entre os dois. Enquanto todas as pecas eram compridas ninguem
+  // percebeu. Ao separar as quatro pecas curtas em 30/08/2026 (cucas, paes,
+  // cupcakes, franciscano), a de cucas saiu com meio metro de fundo vazio
+  // embaixo do cardapio: 600 px de peca dentro de 1400 px de imagem.
+  //
+  // O HTML ja sabe a altura certa, porque o gerador escreve `height` no body.
+  // Aqui so se pergunta a ele, em vez de adivinhar um numero que serve pra
+  // umas e sobra nas outras.
+  const alturaDaPeca = await pagina.evaluate(() => {
+    const folha = document.querySelector(".folha");
+    return Math.ceil(folha ? folha.getBoundingClientRect().height : document.body.scrollHeight);
+  });
+  if (alturaDaPeca > 0) {
+    await pagina.setViewportSize({ width: LARGURA, height: alturaDaPeca });
+    await pagina.waitForTimeout(80);
+  }
+
   const buffer = await pagina.screenshot({ fullPage: true, type: "jpeg", quality: 90 });
   const destino = join(DESTINO, nome + ".jpg");
   writeFileSync(destino, buffer);
