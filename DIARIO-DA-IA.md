@@ -827,3 +827,56 @@ estava aberta.
 
 **Conta certa e tela errada é defeito.** O cliente não confere a multiplicação,
 ele lê a linha.
+
+## 31/08, madrugada adentro: conversando como cliente
+
+Depois do pão, continuei conversando com a produção fingindo ser cliente, uma
+mensagem por vez, lendo cada resposta. Sete defeitos, todos medidos, nenhum
+achado lendo código.
+
+**O pedido fechou COM a peça que eu recusei por escrito.** Escrevi "nao quero
+topo nem papel de arroz". O atalho do botão digitado pegou só a peça que estava
+sendo perguntada, aplicou o não nela, e não chamou a IA: o "topo" da mesma frase
+foi pro lixo, ela perguntou de novo, e a comanda saiu com topo. Isso é "nada some
+do pedido" ao contrário: não sumiu, entrou o oposto. E o topo é o único item da
+casa sem preço de tabela.
+
+**Quatro vezes a mesma pergunta.** A cor da forminha foi perguntada quatro vezes
+seguidas, comendo minhas respostas. A pergunta só saía da frente quando o cliente
+mudava alguma coisa no pedido; quem responde coisa que ela não entende ficava
+preso pra sempre. Agora a quarta vez chama a equipe, com o motivo.
+
+**Pedi um bolo e saí com um docinho.** "queria encomendar um bolo de aniversário"
+não vira item nenhum: não há produto na frase, só a família. Sem item, a abertura
+nunca fica cumprida, a padaria pergunta "o que você vai querer?" pra sempre, e
+"brigadeiro" cai no docinho de R$ 1,25 em vez do bolo de R$ 46,90 o quilo.
+
+**O plural não era família.** "quero salgado" achava; "queria uns salgados pra
+amanhã" não achava nada. Valia pra salgados, docinhos, doces, salgadinhos, que é
+o jeito normal de escrever.
+
+**A pergunta que mais importa não tinha resposta.** "vocês fazem bolo sem
+lactose?" ouvia a tabela de preço do bolo. A casa FAZ: 0% lactose é sabor de
+festa da faixa C. Quem pergunta por restrição pergunta antes de tudo e vai embora
+com o silêncio.
+
+**E depois de responder, o pedido não entendia.** "quero um sem lactose de 1 kg"
+virava a família bolo com "sem lactose" na observação, e ela perguntava o sabor
+que eu tinha acabado de escolher.
+
+**A conta certa com a linha errada.** "- 2 pao frances R$ 11,99/kg = R$ 23,98"
+são dois quilos, e qualquer um lê dois pães.
+
+### O que este dia ensinou
+
+**Sonda que entrega o item pronto testa a si mesma.** Os dois testes de peso que
+já existiam continuavam verdes com a produção quebrada, porque nenhum perguntava
+o que acontece quando o modelo não lê nada. Resposta a pergunta fechada se testa
+com o modelo devolvendo vazio.
+
+**Um defeito escondia o outro.** O "sem lactose" no pedido só apareceu depois que
+ela aprendeu a responder que faz. Consertar abre a porta pro próximo, e por isso
+conversar de novo depois de cada deploy é parte do conserto.
+
+**Conta certa e tela errada é defeito.** O cliente não confere a multiplicação,
+ele lê a linha.
