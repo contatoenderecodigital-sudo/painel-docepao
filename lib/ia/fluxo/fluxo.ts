@@ -3374,7 +3374,59 @@ export async function responder(
     //     "quanto e o cento de coxinha? quero 200"  pergunta COM numero -> entra
     //
     // O segundo e o caso que fez o `aplicar` subir pra ca, e ele continua de pe.
+    // RECLAMACAO NAO VIRA PEDIDO.
+    //
+    // Medido conversando com a producao em 02/09/2026:
+    //
+    //   cliente >> fiz um pedido semana passada e veio errado
+    //   padaria >> Sinto muito. Vou chamar uma pessoa da equipe.
+    //   cliente >> veio faltando 20 coxinha
+    //   rastro  >> achei na frase e anotei: coxinha
+    //
+    // O cliente estava dizendo o que FALTOU no pedido de semana passada, e a
+    // padaria anotou aquilo como pedido novo. Ele reclama e sai devendo.
+    //
+    // A guarda que trata reclamacao ja existia, e roda DEPOIS de a leitura ser
+    // aplicada: o item ja tinha entrado quando ela decidiu que era queixa. Aqui
+    // e antes, que e onde precisa ser.
+    //
+    // O QUE ELE PEDE DEPOIS CONTINUA VALENDO: isto vale so pro turno da queixa.
+    // Na mensagem seguinte, "quero 100 coxinha" entra normal, e a conversa
+    // segue com a equipe ja avisada.
+    // O QUE SEPARA A QUEIXA DO PEDIDO E O VERBO.
+    //
+    // "veio faltando 20 coxinha" descreve o que faltou LA ATRAS; "quero 100
+    // coxinha" pede agora. Os dois trazem produto e numero, entao contar item
+    // nao separa: um teste que ja existia cobra que pedido com o modelo errando
+    // a situacao continue valendo, e ele pegou esta guarda na primeira versao.
+    //
+    // A lista e de VERBO, e nao de produto nem de preco: nada aqui decide o que
+    // a casa vende.
+    let queixaSemPedido = false;
+    const pediuComTodasAsLetras = /(^|[^a-z])(quero|queria|vou querer|me ve|me da|manda|pode mandar|gostaria|preciso de)([^a-z]|$)/i.test(
+      semAc(String(mensagem.texto ?? "")),
+    );
+    if (
+      (limpa.situacao === "reclamacao" || limpa.situacao === "cancelar") &&
+      !pediuComTodasAsLetras
+    ) {
+      queixaSemPedido = true;
+    }
+
     const lida = juntarComAFrase(limpa, String(mensagem.texto ?? ""));
+
+    // A LIMPEZA E DEPOIS DO LEITOR DA FRASE, e nao antes.
+    //
+    // Limpando so a leitura do modelo, o leitor da frase reconstruia o item na
+    // sequencia: "20 coxinha" esta escrito ali, e ele faz o trabalho dele. O
+    // resultado era o mesmo de antes, com um rastro dizendo que tinha limpado.
+    if (queixaSemPedido && lida.itens?.length) {
+      rastro.push(
+        "situacao " + limpa.situacao + ": nao anotei " +
+          lida.itens.map((x) => x.produto).join(", ") + " como pedido novo",
+      );
+      lida.itens = [];
+    }
     leituraDesteTurno = lida;
     // PERGUNTA SEM NUMERO NAO VIRA ITEM. O MODELO HEDGEANDO TAMBEM NAO.
     //

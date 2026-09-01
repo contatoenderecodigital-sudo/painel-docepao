@@ -32,6 +32,27 @@ const { execFileSync } = require("node:child_process");
 
 const CASOS = [
   {
+    // MEDIDO CONVERSANDO EM 02/09/2026, e o cliente sairia devendo:
+    //
+    //   cliente >> fiz um pedido semana passada e veio errado
+    //   padaria >> Sinto muito. Vou chamar uma pessoa da equipe.
+    //   cliente >> veio faltando 20 coxinha
+    //   rastro  >> achei na frase e anotei: coxinha
+    //
+    // Ele estava dizendo o que FALTOU no pedido de semana passada, e a padaria
+    // anotou como pedido novo. A guarda de reclamacao existia e rodava DEPOIS de
+    // a leitura ser aplicada.
+    //
+    // O que separa a queixa do pedido e o VERBO: "veio faltando" descreve o que
+    // aconteceu, "quero" pede agora.
+    nome: "\"veio faltando 20 coxinha\" nao vira pedido de 20 coxinha",
+    fala: "veio faltando 20 coxinha",
+    leitura: { situacao: "reclamacao", itens: [{ produto: "coxinha", qtd: 20 }] },
+    itens: 0,
+    equipe: true,
+    dano: "o cliente reclama do que faltou e sai com 20 coxinhas a pagar",
+  },
+  {
     nome: "reclamacao citando o produto chama a equipe",
     fala: "o pedido que retirei ontem veio com salgado queimado",
     leitura: { situacao: "reclamacao" },
