@@ -11,7 +11,7 @@ import { buscarFotoPedido } from "@/lib/banco/conversas";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const sessao = await lerSessao();
   if (!sessao) return new Response("nao autorizado", { status: 401 });
 
@@ -20,7 +20,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   let foto;
   try {
-    foto = await buscarFotoPedido(sessao.negocioId, id);
+    // ?tipo=comprovante busca o comprovante do pix; sem parametro, a referencia
+    // da peca, que e o que a cozinha precisa ver na producao.
+    const tipo = req.nextUrl.searchParams.get("tipo") === "comprovante" ? "comprovante" : "referencia";
+    foto = await buscarFotoPedido(sessao.negocioId, id, tipo);
   } catch (e) {
     console.error("[foto] falha ao buscar foto do pedido:", e);
     return new Response("erro", { status: 500 });

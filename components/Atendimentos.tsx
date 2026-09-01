@@ -26,7 +26,7 @@ import { rotuloDoRecibo } from "@/lib/whatsapp/recibo";
 import {
   Search, Plus, Paperclip, SendHorizontal, ArrowLeft, Bot, X,
   MessageSquare, Info, FileText, Download, CheckCheck, AlertCircle,
-  Clock, ShieldAlert, Hand, ShoppingBag, Zap, TriangleAlert,
+  Clock, ShieldAlert, Hand, ShoppingBag, Zap, TriangleAlert, Mic,
 } from "lucide-react";
 
 const CORES = ["#5b8c7b", "#c58a3d", "#7a6cae", "#4a7ba6", "#a85b52", "#6f9b52", "#b0713e", "#8a5a86"];
@@ -293,6 +293,9 @@ export default function Atendimentos({
     : undefined;
   const [conversas, setConversas] = useState<Conversa[]>(conversasIniciais);
   const [busca, setBusca] = useState("");
+  // O laco de atualizacao le a busca daqui: guardar em `ref` evita reiniciar o
+  // polling a cada tecla, que e o que faria a lista piscar enquanto ela digita.
+  const buscaRef = useRef("");
   const [ativaId, setAtivaId] = useState<string | undefined>(daUrl?.id);
   const [vista, setVista] = useState<"lista" | "chat">(daUrl ? "chat" : "lista");
   const [texto, setTexto] = useState("");
@@ -407,7 +410,16 @@ export default function Atendimentos({
       //
       // O aviso e o mesmo das outras telas, e fica FIXO: um toast some em tres
       // segundos, e quem chega perto depois disso nunca soube.
-      const r = await buscarDoPainel<Conversa[]>("/api/conversas", { cache: "no-store" });
+      const r = await buscarDoPainel<Conversa[]>(
+        // A BUSCA VAI JUNTO PRO SERVIDOR.
+        //
+        // A tela recebe as 60 conversas mais recentes, e o filtro daqui de baixo
+        // so enxergava essas 60: quem falou com a padaria ha um ano nao aparecia
+        // pra quem procurava. A dona vai largar o WhatsApp do celular contando
+        // com esta tela, entao procurar tem que alcancar o historico inteiro.
+        "/api/conversas" + (buscaRef.current ? "?q=" + encodeURIComponent(buscaRef.current) : ""),
+        { cache: "no-store" },
+      );
       if (r.estado === "sessao_expirada") {
         setSessaoCaiu(AVISO_SESSAO_EXPIRADA);
         return;
@@ -660,7 +672,14 @@ export default function Atendimentos({
                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-cream/45" />
                 <input
                   value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
+                  onChange={(e) => {
+                    setBusca(e.target.value);
+                    // O servidor precisa saber o que ela procura ANTES da
+                    // proxima volta do polling, senao a conversa antiga so
+                    // aparece seis segundos depois.
+                    buscaRef.current = e.target.value.trim();
+                    atualizar();
+                  }}
                   placeholder="Pesquisar nome, número ou mensagem"
                   className="w-full bg-white/10 rounded-[10px] pl-9 pr-3 py-2 text-[13px] text-cream placeholder:text-cream/45 focus:outline-none focus:ring-2 focus:ring-cobre/25"
                 />
@@ -899,7 +918,7 @@ export default function Atendimentos({
                 <span className="text-[11px] uppercase tracking-[0.18em] text-dourado font-semibold">Contato</span>
               </div>
               <ScrollArea className="flex-1 min-h-0">
-                <PainelContato conversa={ativa} qtdMensagens={mensagens.length} onToast={mostrarToast} />
+                <PainelContato conversa={ativa} mensagens={mensagens} qtdMensagens={mensagens.length} onToast={mostrarToast} />
               </ScrollArea>
             </div>
           )}
@@ -908,7 +927,7 @@ export default function Atendimentos({
 
       {/* ===================== DRAWER: info do contato ===================== */}
       {ativa && drawer && (
-        <ContatoDrawer conversa={ativa} qtdMensagens={mensagens.length} onFechar={() => setDrawer(false)} onToast={mostrarToast} />
+        <ContatoDrawer conversa={ativa} mensagens={mensagens} qtdMensagens={mensagens.length} onFechar={() => setDrawer(false)} onToast={mostrarToast} />
       )}
 
       {/* ===================== LIGHTBOX ===================== */}
@@ -1005,7 +1024,117 @@ export default function Atendimentos({
 // No PC o mesmo conteúdo vira a terceira coluna fixa (PainelContato). Era assim
 // no desenho original e some informação demais quando fica escondido atrás de um
 // botão: etiqueta, nota, desde quando a conversa está aberta.
-function ContatoDrawer({ conversa, qtdMensagens, onFechar, onToast }: { conversa: Conversa; qtdMensagens: number; onFechar: () => void; onToast: (t: string) => void }) {
+/**
+ * TUDO QUE PASSOU NA CONVERSA, NUM LUGAR SO.
+ *
+ * A dona vai LARGAR o WhatsApp do celular da padaria pra usar esta tela, e no
+ * WhatsApp ela tem "midias, links e documentos" do contato. Sem isto, achar a
+ * foto do bolo que o cliente mandou semana passada e rolar a conversa inteira,
+ * e achar o comprovante do pix e pior ainda: os dois sao foto, um cobre o outro
+ * na memoria de quem procura.
+ *
+ * Sai das MENSAGENS que a tela ja tem: o painel carrega a conversa inteira, sem
+ * corte, entao a galeria nao precisa de rota nova nem de outra fonte de verdade.
+ * Duas maos guardando a mesma lista e o defeito que mais se repetiu neste
+ * projeto.
+ *
+ * Pedido dele em 01/09/2026, olhando a coluna do contato: "tem que ter aqui
+ * todas as imagens da conversa, anexos e etc, audio, igual o WhatsApp; eh pra
+ * ser o WhatsApp 2 dela".
+ */
+function ArquivosDaConversa({ mensagens }: { mensagens: Mensagem[] }) {
+  const [aberto, setAberto] = useState(false);
+  const arquivos = useMemo(
+    () =>
+      mensagens
+        .filter((m) => m.tipo && m.tipo !== "texto" && (m.midiaId || m.midiaUrl))
+        .map((m) => ({
+          id: m.id ?? m.midiaId ?? "",
+          tipo: m.tipo as TipoMidia,
+          src: m.midiaUrl || (m.midiaId ? "/api/midia/" + m.midiaId : ""),
+          nome: m.midiaNome || "",
+          quando: (m.data ? rotuloDiaNaPadaria(m.data) + " " : "") + m.hora,
+          deQuem: m.de === "cliente" ? "cliente" : "padaria",
+        }))
+        .filter((a) => a.src)
+        .reverse(),
+    [mensagens],
+  );
+
+  if (!arquivos.length) return null;
+
+  const fotos = arquivos.filter((a) => a.tipo === "imagem");
+  const audios = arquivos.filter((a) => a.tipo === "audio");
+  const outros = arquivos.filter((a) => a.tipo !== "imagem" && a.tipo !== "audio");
+  // O que ela le antes de decidir abrir: "3 fotos, 1 audio".
+  const resumo = [
+    fotos.length ? fotos.length + (fotos.length === 1 ? " foto" : " fotos") : null,
+    audios.length ? audios.length + (audios.length === 1 ? " áudio" : " áudios") : null,
+    outros.length ? outros.length + (outros.length === 1 ? " arquivo" : " arquivos") : null,
+  ].filter(Boolean).join(", ");
+  // Fechado mostra as seis ultimas: a conversa de festa passa de vinte fotos, e
+  // a coluna do contato nao pode virar rolagem infinita.
+  const mostradas = aberto ? fotos : fotos.slice(0, 6);
+
+  return (
+    <div className="border-t border-white/10 pt-4 mt-4">
+      <div className="flex items-center justify-between gap-2">
+        <span className="t-label text-cream/45">Arquivos da conversa</span>
+        <span className="text-[11px] text-cream/45">{resumo}</span>
+      </div>
+
+      {fotos.length > 0 && (
+        <div className="grid grid-cols-3 gap-1.5 mt-2.5">
+          {mostradas.map((a) => (
+            <a
+              key={a.id}
+              href={a.src}
+              target="_blank"
+              rel="noreferrer"
+              title={"Foto do " + a.deQuem + ", " + a.quando}
+              className="block aspect-square rounded-[8px] overflow-hidden bg-white/[0.06] hover:opacity-80 transition-opacity"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={a.src} alt={"Foto de " + a.quando} className="w-full h-full object-cover" />
+            </a>
+          ))}
+        </div>
+      )}
+
+      {(audios.length > 0 || outros.length > 0) && (
+        <div className="mt-2.5 space-y-1.5">
+          {[...audios, ...outros].slice(0, aberto ? undefined : 4).map((a) => (
+            <a
+              key={a.id}
+              href={a.src}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 px-2.5 py-2 rounded-[10px] bg-white/[0.06] hover:bg-white/[0.12] transition-colors"
+            >
+              {a.tipo === "audio" ? <Mic size={14} className="text-cream/60 shrink-0" /> : <FileText size={14} className="text-cream/60 shrink-0" />}
+              <span className="text-[12.5px] text-cream/85 truncate">
+                {a.nome || (a.tipo === "audio" ? "Áudio do " + a.deQuem : "Documento")}
+              </span>
+              <span className="text-[11px] text-cream/40 ml-auto shrink-0">{a.quando}</span>
+            </a>
+          ))}
+        </div>
+      )}
+
+      {arquivos.length > 6 && (
+        <button
+          type="button"
+          onClick={() => setAberto((v) => !v)}
+          className="mt-2 text-[12px] text-cream/60 hover:text-cream transition-colors"
+        >
+          {aberto ? "Mostrar menos" : "Ver todos os " + arquivos.length}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ContatoDrawer({ conversa, mensagens, qtdMensagens, onFechar, onToast }: { conversa: Conversa; mensagens: Mensagem[]; qtdMensagens: number; onFechar: () => void; onToast: (t: string) => void }) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end xl:hidden" style={{ background: "rgba(0,0,0,0.5)" }} onClick={onFechar}>
       <div className="w-full max-w-sm h-full overflow-auto" style={{ background: "rgba(73,16,32,0.96)", backdropFilter: "blur(24px)", borderLeft: "1px solid rgba(255,255,255,0.14)" }} onClick={(e) => e.stopPropagation()}>
@@ -1013,13 +1142,13 @@ function ContatoDrawer({ conversa, qtdMensagens, onFechar, onToast }: { conversa
           <span className="text-[11px] uppercase tracking-[0.18em] text-dourado font-semibold">Contato</span>
           <button onClick={onFechar} className="w-9 h-9 grid place-items-center rounded-full text-cream/60 hover:text-cream hover:bg-white/10" aria-label="Fechar"><X size={18} /></button>
         </div>
-        <PainelContato conversa={conversa} qtdMensagens={qtdMensagens} onToast={onToast} />
+        <PainelContato conversa={conversa} mensagens={mensagens} qtdMensagens={qtdMensagens} onToast={onToast} />
       </div>
     </div>
   );
 }
 
-function PainelContato({ conversa, qtdMensagens, onToast }: { conversa: Conversa; qtdMensagens: number; onToast: (t: string) => void }) {
+function PainelContato({ conversa, mensagens, qtdMensagens, onToast }: { conversa: Conversa; mensagens: Mensagem[]; qtdMensagens: number; onToast: (t: string) => void }) {
   const [nota, setNota] = useState("");
   const [salvando, setSalvando] = useState(false);
   // O AVISO DE "SALVA" SO SAI SE SALVOU.
@@ -1111,6 +1240,7 @@ function PainelContato({ conversa, qtdMensagens, onToast }: { conversa: Conversa
               </div>
             </div>
           </div>
+          <ArquivosDaConversa mensagens={mensagens} />
           <div className="border-t border-white/10 pt-4 mt-4">
             <span className="t-label text-cream/45">Nota interna</span>
             <textarea

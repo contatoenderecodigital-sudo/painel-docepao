@@ -46,6 +46,8 @@ export type RespostaDoFluxo = {
   precisaHumano?: boolean;
   /** Por que ela chamou, em uma frase, pra quem abrir o painel. */
   motivoHumano?: string | null;
+  /** A foto deste turno era o comprovante do pix, e nao referencia da peca. */
+  fotoEhComprovante?: boolean;
   rastro: string[];
   uso: { tokensIn: number; tokensOut: number; cacheRead: number; chamadas: number };
 };
@@ -446,6 +448,9 @@ export async function atenderComFluxoNovo(
     etapa: r.etapa,
     precisaHumano: r.precisaHumano,
     motivoHumano: r.motivoHumano,
+    // Quem guardou a imagem foi a rota do WhatsApp, ANTES do fluxo rodar; ela
+    // precisa saber, agora, que aquela foto era dinheiro e nao referencia.
+    fotoEhComprovante: r.fotoEhComprovante === true,
     rastro: r.rastro,
     uso,
   };

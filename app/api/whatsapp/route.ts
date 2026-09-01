@@ -29,6 +29,7 @@ import {
   salvarMensagem,
   marcarWebhookNovo,
   salvarFotoPendente,
+  marcarFotoComoComprovante,
   falasSemResposta,
   mensagemPorWamid,
   marcarStatusMensagem,
@@ -702,6 +703,19 @@ async function processar(corpo: WebhookPayload) {
           // Hoje isso acontece quando ela ja insistiu na mesma pergunta e nao
           // saiu do lugar: tem coisa que a padaria resolve numa frase e ela nao
           // resolve em dez.
+          // A FOTO QUE ACABOU DE CHEGAR ERA O COMPROVANTE DO PIX.
+          //
+          // A imagem foi guardada antes de o fluxo rodar, como referencia da
+          // peca, que e o que toda foto foi ate hoje. Agora que o fluxo leu a
+          // conversa e reconheceu o comprovante, a linha e corrigida: sem isto o
+          // comprovante seria a foto mais recente do pedido e cobriria a foto do
+          // bolo na fila de aprovacao e na producao.
+          if (novo.fotoEhComprovante && entrada.fotoId) {
+            await marcarFotoComoComprovante(negocioId, entrada.fotoId).catch((e) =>
+              logWhatsapp("marcar comprovante", e),
+            );
+          }
+
           if (novo.precisaHumano) {
             await definirHandoff(negocioId, clienteId, true, novo.motivoHumano).catch((e) => logWhatsapp("handoff humano", e));
             avisarDona(
@@ -821,7 +835,10 @@ async function processar(corpo: WebhookPayload) {
 type MidiaEntrada = { tipo: "imagem" | "audio" | "documento" | "video"; mime: string; dados: string; nome?: string | null };
 // semResposta: entra no historico e no painel, mas nao puxa resposta da IA
 // (reacao, por exemplo: ninguem responde um joinha com um texto).
-type Entrada = { texto: string | null; rotulo?: string; midia?: MidiaEntrada; semResposta?: boolean };
+// `fotoId` so existe quando a mensagem trouxe imagem: e a linha de
+// `pedido_fotos` que acabou de nascer, guardada pra caso o fluxo diga que aquela
+// foto era o comprovante do pix.
+type Entrada = { texto: string | null; rotulo?: string; midia?: MidiaEntrada; semResposta?: boolean; fotoId?: string | null };
 
 async function montarEntrada(
   msg: WhatsAppMessage,
@@ -856,15 +873,20 @@ async function montarEntrada(
     const nota = RECADO_DE_FOTO;
     const mime = msg.image.mime_type || "image/jpeg";
     let dados: string | undefined;
+    let fotoId: string | null = null;
     try {
       const bin = await baixarMidia(msg.image.id, creds);
       dados = Buffer.from(bin).toString("base64");
-      await salvarFotoPendente(negocioId, clienteId, dados, mime); // mantém a foto no pedido
+      // O id volta porque o fluxo pode dizer, logo depois, que esta foto era o
+      // COMPROVANTE do pix. Sem guardar o id aqui, a unica forma de marcar
+      // seria adivinhar "a ultima foto do cliente", e adivinhar em cima de
+      // dinheiro nao e aceitavel.
+      fotoId = await salvarFotoPendente(negocioId, clienteId, dados, mime);
     } catch (e) {
       console.error("[whatsapp] falha ao salvar foto de referência:", e);
     }
     const texto = legenda ? `${legenda}\n${nota}` : nota;
-    return { texto, rotulo: legenda || "Foto", midia: dados ? { tipo: "imagem", mime, dados } : undefined };
+    return { texto, rotulo: legenda || "Foto", midia: dados ? { tipo: "imagem", mime, dados } : undefined, fotoId };
   }
 
   // Documento: baixa e guarda; a IA fica sabendo pelo nome do arquivo.

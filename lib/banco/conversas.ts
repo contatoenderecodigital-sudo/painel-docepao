@@ -416,11 +416,34 @@ export async function salvarFotoPendente(
   clienteId: string,
   dadosBase64: string,
   mime: string,
+): Promise<string | null> {
+  const linha = await queryUm<{ id: string }>(
+    `insert into pedido_fotos (negocio_id, cliente_id, pedido_id, dados, mime)
+     values ($1, $2, null, $3, $4)
+     returning id`,
+    [negocioId, clienteId, dadosBase64, mime || "image/jpeg"],
+  );
+  return linha?.id ?? null;
+}
+
+/**
+ * ESTA FOTO E O COMPROVANTE DO PIX, E NAO A REFERENCIA DA PECA.
+ *
+ * A tela do pedido mostra UMA foto, a mais recente. Com a chave pix no ar
+ * (01/09/2026), o cliente manda a foto do tema e depois o comprovante: sem
+ * separar os dois, o comprovante COBRIA a foto do bolo na fila de aprovacao e na
+ * producao, e a cozinha perdia a referencia da peca.
+ *
+ * Quem decide e o fluxo, pela frase que a padaria acabou de dizer.
+ */
+export async function marcarFotoComoComprovante(
+  negocioId: string,
+  fotoId: string,
 ): Promise<void> {
   await query(
-    `insert into pedido_fotos (negocio_id, cliente_id, pedido_id, dados, mime)
-     values ($1, $2, null, $3, $4)`,
-    [negocioId, clienteId, dadosBase64, mime || "image/jpeg"],
+    `update pedido_fotos set tipo = 'comprovante'
+      where negocio_id = $1 and id = $2`,
+    [negocioId, fotoId],
   );
 }
 
@@ -481,12 +504,19 @@ export async function grudarFotosNoPedido(
 export async function buscarFotoPedido(
   negocioId: string,
   pedidoId: string,
+  tipo: "referencia" | "comprovante" = "referencia",
 ): Promise<{ dados: string; mime: string } | null> {
   const linha = await queryUm<{ dados: string; mime: string }>(
+    // A REFERENCIA DA PECA, e nao "a mais recente".
+    //
+    // Com o comprovante do pix entrando na mesma tabela, "a mais recente" virava
+    // o comprovante, e a cozinha abria a producao sem a foto do bolo. O
+    // comprovante tem rota propria (tipo=comprovante).
     `select dados, mime from pedido_fotos
        where negocio_id = $1 and pedido_id = $2
+         and coalesce(tipo, 'referencia') = coalesce($3::text, 'referencia')
        order by criado_em desc limit 1`,
-    [negocioId, pedidoId],
+    [negocioId, pedidoId, tipo],
   );
   return linha;
 }

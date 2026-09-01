@@ -46,7 +46,32 @@ type LinhaConversa = {
   msgs: MsgBruta[] | null;
 };
 
-export async function listarConversas(negocioId: string): Promise<Conversa[]> {
+/**
+ * AS CONVERSAS DO NEGOCIO. Com `busca`, procura no BANCO em vez de na tela.
+ *
+ * A tela carrega as 60 conversas mais recentes, e a busca filtrava so essas 60.
+ * Quem falou com a padaria ha um ano simplesmente NAO existia pra quem
+ * procurava, e a dona ia largar o WhatsApp do celular contando com isto aqui.
+ *
+ * Exigencia dele, em 01/09/2026: "toda conversa tem que ser salva, nunca pode
+ * perder, igual o WhatsApp; se o cliente chamou faz um ano tem que estar la".
+ *
+ * O historico nunca foi apagado (nada neste sistema deleta mensagem): o que
+ * faltava era ALCANCE. Com busca, o limite de 60 passa a valer sobre o que casa
+ * com o que ela digitou, e nao sobre as mais recentes.
+ */
+export async function listarConversas(negocioId: string, busca?: string): Promise<Conversa[]> {
+  // O termo vai NORMALIZADO pro banco: quem procura "Joao" tem que achar "João",
+  // e quem digita "(49) 98284-3543" tem que achar o telefone gravado cru. Sem
+  // isto a busca fica viva mas nao acha, que e pior do que nao ter busca.
+  const termo = String(busca ?? "").trim()
+    ? String(busca).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim()
+    : null;
+  // Quando ela digita um NOME nao ha digito nenhum, e comparar telefone com
+  // string vazia casaria com todo mundo. O valor impossivel desliga esse lado
+  // da comparacao sem precisar de outro parametro.
+  const digitos = String(busca ?? "").replace(/[^0-9]/g, "") || "__sem_digito__";
+
   const linhas = await query<LinhaConversa>(
     `select c.id as cliente_id, c.nome, c.telefone,
        coalesce(c.handoff, false) as handoff,
@@ -94,9 +119,17 @@ export async function listarConversas(negocioId: string): Promise<Conversa[]> {
        from clientes c
       where c.negocio_id = $1
         and exists (select 1 from mensagens m where m.cliente_id = c.id and m.negocio_id = $1)
+        -- SEM unaccent: a extensao nao esta instalada neste banco, e depender
+        -- dela seria a busca morrer no dia do deploy. O translate faz o mesmo
+        -- pro que a clientela escreve, e nao precisa de permissao nenhuma.
+        and ($2::text is null
+             or translate(lower(coalesce(c.nome, '')),
+                          'áàâãäéèêëíìîïóòôõöúùûüçñ',
+                          'aaaaaeeeeiiiiooooouuuucn') like '%' || $2 || '%'
+             or regexp_replace(coalesce(c.telefone, ''), '[^0-9]', '', 'g') like '%' || $3 || '%')
       order by (select max(m.criado_em) from mensagens m where m.cliente_id = c.id and m.negocio_id = $1) desc
       limit 60`,
-    [negocioId],
+    [negocioId, termo, digitos],
   );
 
   return linhas.map((l): Conversa => {

@@ -84,11 +84,11 @@ export async function carregarClientes(negocioId?: string) {
   return listarClientes(negocioId);
 }
 
-export async function carregarConversas(negocioId?: string) {
+export async function carregarConversas(negocioId?: string, busca?: string) {
   if (!bancoConfigurado || !negocioId) {
     const { CONVERSAS_MOCK } = await import("./mock");
     return CONVERSAS_MOCK;
   }
   const { listarConversas } = await import("./banco/atendimentos");
-  return listarConversas(negocioId);
+  return listarConversas(negocioId, busca);
 }

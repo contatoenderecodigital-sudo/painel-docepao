@@ -192,6 +192,15 @@ export type Resposta = {
    * cliente ficou esperando um retorno que ninguem sabia que devia.
    */
   motivoHumano?: string | null;
+  /**
+   * A FOTO DESTE TURNO ERA O COMPROVANTE DO PIX.
+   *
+   * Quem salva a foto e a rota do WhatsApp, ANTES de o fluxo rodar: sem este
+   * aviso ela nao teria como saber que aquela imagem e dinheiro, e o comprovante
+   * ficaria guardado como referencia da peca, cobrindo a foto do bolo na tela do
+   * pedido.
+   */
+  fotoEhComprovante?: boolean;
 };
 
 /**
@@ -4569,5 +4578,5 @@ export async function responder(
   // francês" são o mesmo pão, com a mesma chave e o mesmo preço.
   fala = { ...fala, texto: comoOClienteLe(fala.texto) };
 
-  return { fala, estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo, precisaHumano, motivoHumano };
+  return { fala, estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo, precisaHumano, motivoHumano, fotoEhComprovante: ehComprovante };
 }
