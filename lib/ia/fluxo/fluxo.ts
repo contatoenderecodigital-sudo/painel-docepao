@@ -2641,6 +2641,8 @@ export async function responder(
   // sem lactose sem ler as 47 mensagens da conversa, e o cliente esperou um
   // retorno que ninguem sabia que devia.
   let motivoHumano: string | null = null;
+  /** A foto que chegou e o comprovante do pix, e nao a referencia do bolo. */
+  let ehComprovante = false;
   let leituraDesteTurno: Leitura | null = null;
 
   const roteiro = () => etapas ?? roteiroDoPedido(estado);
@@ -3518,7 +3520,31 @@ export async function responder(
     //
     // A foto ja fica guardada no pedido pela rota do WhatsApp; aqui so se anota
     // que o tema veio por ela, pra conversa seguir.
-    if (!estado.tema && falaDeFotoRecebida(mensagem.texto)) {
+    //
+    // A FOTO DEPOIS DO PIX E O COMPROVANTE, E NAO O TEMA.
+    //
+    // Buraco que eu abri em 01/09/2026, no mesmo dia em que a chave pix entrou:
+    // a padaria passou a dizer "me manda o comprovante aqui que eu anexo no
+    // pedido", e nao sabia receber.
+    //
+    //   padaria >> A chave pix e o CNPJ ... me manda o comprovante aqui
+    //   cliente >> (foto do comprovante)
+    //   pedido  >> tema: conforme a foto que ele mandou
+    //   padaria >> Quer levar docinho ou bolo junto?
+    //
+    // Quem acabou de pagar ouvia uma oferta, e o comprovante virava tema de bolo
+    // na comanda da cozinha.
+    //
+    // Quem da sentido a foto e a frase que acabou de sair: se a padaria pediu o
+    // comprovante, a foto que chega e o comprovante. E dinheiro, entao quem
+    // confere e gente: a IA nao diz que o pagamento entrou.
+    if (
+      falaDeFotoRecebida(mensagem.texto) &&
+      /comprovante/i.test(String(estado.ultimaFala || ""))
+    ) {
+      ehComprovante = true;
+      rastro.push("a foto chegou depois do pedido de comprovante: e comprovante, nao tema");
+    } else if (!estado.tema && falaDeFotoRecebida(mensagem.texto)) {
       estado = { ...estado, tema: "conforme a foto que ele mandou" };
       rastro.push("a foto virou o tema da peca");
     }
@@ -4502,6 +4528,30 @@ export async function responder(
         forasteiros.map((i) => i.qtd + "x " + i.produto).join(", "),
       );
     }
+  }
+
+  // O COMPROVANTE TEM RESPOSTA PROPRIA, E ELA NAO DIZ QUE O DINHEIRO ENTROU.
+  //
+  // A padaria pediu o comprovante, ele mandou. Responder a pergunta da etapa
+  // ("quer levar docinho junto?") faz quem acabou de pagar achar que ninguem
+  // olhou, e foi o que aconteceu na medicao de 01/09/2026.
+  //
+  // A IA CONFIRMA O RECEBIMENTO DA FOTO, e nao o pagamento: conferir se o valor
+  // caiu e coisa de gente, igual aprovar pedido. Dizer "pagamento confirmado"
+  // sem alguem ter olhado a conta e o tipo de erro que nao tem desfazer.
+  if (ehComprovante) {
+    precisaHumano = true;
+    motivoHumano = "O cliente mandou o comprovante do pix. Confiram se o valor caiu.";
+    fala = {
+      ...fala,
+      texto:
+        "Recebi o comprovante, obrigado. Anexei no seu pedido e a equipe confere " +
+        "o pagamento por aqui.",
+      botoes: [],
+      cardapio: null,
+      podeReescrever: false,
+    };
+    rastro.push("respondi o comprovante e chamei a equipe pra conferir o valor");
   }
 
   rastro.push("proxima: " + proxima.id);
