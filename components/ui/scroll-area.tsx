@@ -9,8 +9,16 @@ import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 export function ScrollArea({
   className = "",
   children,
+  // QUEM ROLA E O VIEWPORT INTERNO DO RADIX, e nao a raiz.
+  //
+  // Sem uma porta pra ele, ninguem consegue ouvir a rolagem: e isso que a tela
+  // de atendimentos precisa pra carregar as mensagens antigas quando a equipe
+  // chega no topo da conversa. Aditivo: quem nao passa nada continua igual.
+  onViewportScroll,
   ...props
-}: React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>) {
+}: React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> & {
+  onViewportScroll?: React.UIEventHandler<HTMLDivElement>;
+}) {
   return (
     <ScrollAreaPrimitive.Root
       className={"relative overflow-hidden " + className}
@@ -19,7 +27,10 @@ export function ScrollArea({
     >
       {/* [&>div]:!block corrige o display:table interno do Radix, que senao
           quebra o truncate e faz o texto vazar pra fora do painel. */}
-      <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit] [&>div]:!block [&>div]:!min-w-0">
+      <ScrollAreaPrimitive.Viewport
+        onScroll={onViewportScroll}
+        className="h-full w-full rounded-[inherit] [&>div]:!block [&>div]:!min-w-0"
+      >
         {children}
       </ScrollAreaPrimitive.Viewport>
       <ScrollBar />

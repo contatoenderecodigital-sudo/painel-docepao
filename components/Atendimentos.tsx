@@ -504,9 +504,59 @@ export default function Atendimentos({
   }, [buscadas, aba]);
 
   const ativa = conversas.find((c) => c.id === ativaId);
+  // O QUE VEIO ANTES, carregado sob demanda.
+  //
+  // A lista traz as 40 ultimas mensagens de cada conversa: carregar um ano de
+  // historico a cada seis segundos travaria a tela muito antes de o ano acabar.
+  // Rolando pra cima, o resto vem em blocos, igual WhatsApp. Nada e apagado.
+  const [anteriores, setAnteriores] = useState<Record<string, Pend[]>>({});
+  // O DIA QUE ELA ESTA LENDO, grudado no topo, igual WhatsApp.
+  //
+  // Os separadores entre as mensagens ja existiam, mas quem rola uma conversa
+  // de meses perde a referencia entre um e outro: some o "ontem" e ela nao sabe
+  // mais de quando e o que esta lendo.
+  const [diaNoTopo, setDiaNoTopo] = useState<string | null>(null);
+  const [buscandoAntigas, setBuscandoAntigas] = useState(false);
+  const acabaramAsAntigas = useRef<Record<string, boolean>>({});
+
   const mensagens: Pend[] = useMemo(
-    () => (ativa ? [...ativa.mensagens, ...(pendentes[ativa.id] ?? [])] : []),
-    [ativa, pendentes],
+    () =>
+      ativa
+        ? [...(anteriores[ativa.id] ?? []), ...ativa.mensagens, ...(pendentes[ativa.id] ?? [])]
+        : [],
+    [ativa, anteriores, pendentes],
+  );
+
+  // Rolou perto do topo: busca o bloco anterior e mantem a tela no lugar, pra
+  // ela nao perder de vista o que estava lendo.
+  const carregarAnteriores = useCallback(
+    async (caixa: HTMLElement | null) => {
+      if (!ativa || buscandoAntigas || acabaramAsAntigas.current[ativa.id]) return;
+      const primeira = (anteriores[ativa.id] ?? [])[0] ?? ativa.mensagens[0];
+      if (!primeira?.id) return;
+      setBuscandoAntigas(true);
+      const alturaAntes = caixa?.scrollHeight ?? 0;
+      try {
+        const r = await buscarDoPainel<Pend[]>(
+          "/api/conversas/anteriores?cliente=" + encodeURIComponent(ativa.id) +
+            "&antesDaMensagem=" + encodeURIComponent(primeira.id),
+          { cache: "no-store" },
+        );
+        if (r.estado !== "ok") return;
+        if (!r.dados.length) {
+          acabaramAsAntigas.current[ativa.id] = true;
+          return;
+        }
+        setAnteriores((p) => ({ ...p, [ativa.id]: [...r.dados, ...(p[ativa.id] ?? [])] }));
+        // Sem isto a tela pula pro topo e ela perde a linha que estava lendo.
+        requestAnimationFrame(() => {
+          if (caixa) caixa.scrollTop = caixa.scrollHeight - alturaAntes;
+        });
+      } finally {
+        setBuscandoAntigas(false);
+      }
+    },
+    [ativa, anteriores, buscandoAntigas],
   );
 
   const trocouDeConversa = useRef<string | undefined>(undefined);
@@ -802,7 +852,28 @@ export default function Atendimentos({
                 </div>
 
                 {/* mensagens */}
-                <ScrollArea className="flex-1 min-h-0">
+                <ScrollArea
+                  className="flex-1 min-h-0"
+                  // CHEGOU NO TOPO: traz o que veio antes.
+                  //
+                  // A conversa carrega as 40 ultimas; o resto vem em blocos
+                  // enquanto ela rola, igual WhatsApp. Os 200px de folga fazem o
+                  // bloco chegar ANTES de ela bater na parede.
+                  onViewportScroll={(e) => {
+                    const caixa = e.currentTarget;
+                    if (caixa.scrollTop < 200) void carregarAnteriores(caixa);
+                    // Qual separador ja passou pelo topo: sao poucos elementos
+                    // (um por dia), entao isto e barato mesmo com meses de
+                    // conversa. O ultimo que passou e o dia que ela esta lendo.
+                    const marcas = caixa.querySelectorAll<HTMLElement>("[data-dia]");
+                    let atual: string | null = null;
+                    for (const marca of Array.from(marcas)) {
+                      if (marca.offsetTop - caixa.scrollTop <= 48) atual = marca.dataset.dia ?? null;
+                      else break;
+                    }
+                    setDiaNoTopo(caixa.scrollTop > 24 ? atual : null);
+                  }}
+                >
                   {/* Enquanto a equipe está com a conversa, isso precisa ficar na
                       cara: sem o aviso, ninguém lembra de devolver e o cliente
                       fica sem a IA pra sempre. */}
@@ -816,15 +887,31 @@ export default function Atendimentos({
                       </button>
                     </div>
                   )}
+                  {diaNoTopo && (
+                    <div className="sticky top-0 z-10 flex justify-center pointer-events-none -mb-6 pt-2">
+                      <span
+                        className="text-[11px] text-cream/80 px-3 py-1 rounded-full backdrop-blur-sm"
+                        style={{ background: "rgba(0,0,0,0.45)" }}
+                      >
+                        {rotuloDia(diaNoTopo)}
+                      </span>
+                    </div>
+                  )}
                   <div className="px-3 md:px-6 py-4 flex flex-col min-h-full">
-                    {mensagens.map((m, i) => {
+                    {buscandoAntigas && (
+                    <div className="py-2 text-center text-[12px] text-cream/45">carregando mensagens antigas...</div>
+                  )}
+                  {ativa && acabaramAsAntigas.current[ativa.id] && (anteriores[ativa.id]?.length ?? 0) > 0 && (
+                    <div className="py-2 text-center text-[11px] text-cream/30">começo da conversa</div>
+                  )}
+                  {mensagens.map((m, i) => {
                       const ant = mensagens[i - 1];
                       const mostrarDia = !ant || ant.data !== m.data;
                       const primeiro = !ant || ant.de !== m.de || mostrarDia;
                       return (
                         <div key={m.id ?? i}>
                           {mostrarDia && m.data && (
-                            <div className="flex justify-center my-3">
+                            <div className="flex justify-center my-3" data-dia={m.data}>
                               <span className="text-[11px] text-cream/70 px-3 py-1 rounded-full" style={{ background: "rgba(0,0,0,0.22)" }}>{rotuloDia(m.data)}</span>
                             </div>
                           )}
