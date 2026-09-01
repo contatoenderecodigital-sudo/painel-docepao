@@ -37,6 +37,7 @@ import { identificarProduto } from "./produto";
 import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, ehPizzaQueNaoESalgado, familiaDoProduto, nomeDaFamilia, opcaoDaFamiliaNaFrase, opcoesDaFamilia } from "./generico";
 import { APELIDOS } from "../dados/apelidos";
 import { produtoNoComeco, produtoPorNome, produtosDaCasa, coresDoCardapio, unidadeDoPedido } from "../dados/produtos";
+import { comoOClienteLe } from "../dados/grafia";
 import { semAcento as semAc, PALAVRAS_VAZIAS, listaEmPortugues, numerosEscritos } from "../texto";
 import { escreverObs, lerObs, mexerNaObs, type Embalagem } from "@/lib/banco/obs-do-bolo";
 import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
@@ -4505,6 +4506,18 @@ export async function responder(
 
   rastro.push("proxima: " + proxima.id);
 
+  // A FRASE SAI ESCRITA DO JEITO QUE SE LÊ.
+  //
+  // O cardápio da dona foi digitado sem alguns acentos, e o cliente lia
+  // "O pao frances é vendido por quilo". O mesmo texto serve pra BUSCAR o
+  // produto e pra MOSTRAR, e acentuar o catálogo direto quebrou oito testes em
+  // 31/08/2026: meia dúzia de comparações espera a forma crua.
+  //
+  // Então a grafia é a última coisa que acontece, num ponto só. O catálogo
+  // continua intacto, o motor cobra igual, e nada mais no sistema precisa saber
+  // que isto existe. Ortografia não é produto novo: "pao frances" e "pão
+  // francês" são o mesmo pão, com a mesma chave e o mesmo preço.
+  fala = { ...fala, texto: comoOClienteLe(fala.texto) };
 
   return { fala, estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo, precisaHumano, motivoHumano };
 }
