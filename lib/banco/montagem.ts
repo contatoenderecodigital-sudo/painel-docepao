@@ -86,6 +86,12 @@ export type DadosMontagem = {
   fluxo_festa?: string | null; // "sim" quando a conversa e de festa
   fluxo_pessoas?: string | null; // quantas pessoas vao
   fluxo_base_aceita?: string | null; // "sim" depois que ele aceita a proposta
+  // A base COMBINADA, no formato "salgados/docinhos/boloKg/totalCentavos".
+  //
+  // Sem isto ela era recalculada pelo numero de pessoas a cada mensagem, e todo
+  // ajuste do cliente morria no caminho: ele pedia "50 salgados a mais" e a
+  // proposta seguinte voltava a ser a de antes.
+  fluxo_base?: string | null;
   fluxo_topo?: string | null; // "sim" ou "nao" (ausente = ainda nao perguntado)
   fluxo_papel?: string | null; // "sim" ou "nao" (ausente = ainda nao perguntado)
   fluxo_topo_nome?: string | null; // nome do aniversariante, pro topo

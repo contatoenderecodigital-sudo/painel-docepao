@@ -71,11 +71,38 @@ export async function lerEstadoDoBanco(negocioId: string, clienteId: string): Pr
  * E funcao pura e exportada de proposito: assim da pra provar a ida e a volta
  * sem banco nenhum, que e o teste que faltava existir.
  */
+/** A base virando texto pra caber na tabela: "250/150/2/53130". */
+function textoDaBase(b: Estado["base"]): string | null {
+  if (!b) return null;
+  return [b.salgados, b.docinhos, b.boloKg, b.totalCentavos].join("/");
+}
+
+/** O caminho de volta. Texto estranho vira null, e a base e recalculada. */
+function baseDoTexto(t: unknown): Estado["base"] {
+  const p = String(t ?? "").split("/");
+  if (p.length !== 4) return null;
+  const n = p.map((x) => Number(x));
+  if (n.some((x) => !Number.isFinite(x))) return null;
+  return { salgados: n[0], docinhos: n[1], boloKg: n[2], totalCentavos: n[3] };
+}
+
 export function estadoDosDados(d: Record<string, string | null | undefined>): Partial<Estado> {
   return {
     ehFesta: d.fluxo_festa === "sim",
     pessoas: Number(d.fluxo_pessoas) > 0 ? Number(d.fluxo_pessoas) : null,
     baseAceita: d.fluxo_base_aceita === "sim",
+    // A BASE AJUSTADA ATRAVESSA A MENSAGEM.
+    //
+    // Ela era recalculada pelo numero de pessoas a cada mensagem, entao QUALQUER
+    // ajuste morria no caminho. Medido na conversa dele de 02/09/2026: ele pediu
+    // "50 salgados a mais", o codigo ajustou certo, e na mensagem seguinte a
+    // proposta voltou a ser a de 200. Nos testes nunca apareceu porque la a
+    // conversa inteira roda dentro de uma chamada so, sem passar pelo banco.
+    //
+    // Guardada como texto simples ("250/150/2/53130"), que e o que esta tabela
+    // sabe guardar. Numero de verdade continua sendo do motor: aqui e so
+    // lembranca do que ja foi combinado com o cliente.
+    base: baseDoTexto(d.fluxo_base),
     pecas: lerPecas(d.fluxo_topo, d.fluxo_papel),
     topoNome: d.fluxo_topo_nome || null,
     topoIdade: d.fluxo_topo_idade || null,
@@ -299,6 +326,9 @@ export function dadosQueMudaram(antes: Estado, depois: Estado): Record<string, s
   if (depois.ehFesta && !antes.ehFesta) mudou.fluxo_festa = "sim";
   if (depois.pessoas && depois.pessoas !== antes.pessoas) mudou.fluxo_pessoas = String(depois.pessoas);
   if (depois.baseAceita && !antes.baseAceita) mudou.fluxo_base_aceita = "sim";
+  const baseAntes = textoDaBase(antes.base);
+  const baseDepois = textoDaBase(depois.base);
+  if (baseDepois && baseDepois !== baseAntes) mudou.fluxo_base = baseDepois;
   const simNao = (v: boolean | null | undefined) => (v === true ? "sim" : v === false ? "nao" : null);
   const topoAntes = simNao(antes.pecas?.topo);
   const topoDepois = simNao(depois.pecas?.topo);
