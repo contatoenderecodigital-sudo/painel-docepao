@@ -37,6 +37,7 @@ import type OpenAI from "openai";
 import type { Fala } from "./pergunta";
 import { COMO_VAI } from "./falas-do-cliente";
 import { semAcento } from "../texto";
+import { produtosNaFrase } from "./leitor-da-frase";
 
 const MODELO = process.env.OPENAI_MODEL_FALA || "gpt-4.1-mini";
 
@@ -157,14 +158,35 @@ export async function dizerComJeito(
     // Numero ja era conferido aqui. Opcao de escolha e a mesma coisa: e conteudo
     // do codigo, e nao jeito de falar. Faltando uma delas, vai a frase do
     // motor, que e feia e certa.
+    // O QUE O CODIGO ESCREVEU TEM QUE CONTINUAR LA: opcao e nome de produto.
+    //
+    // A troca de assunto foi vista mais de uma vez, e nao so na pizza. Entao a
+    // conferencia nao e de uma lista escrita aqui: e do que ESTAVA no texto do
+    // motor. Se o codigo citou "pizza redonda", a frase que sai cita tambem.
+    //
+    // O contrario (a reescrita ACRESCENTAR produto) tambem cai: dizer "temos
+    // coxinha tambem" numa pergunta de bolo e oferecer o que a etapa nao esta
+    // oferecendo, e ja aconteceu com sabor que a casa nem faz.
+    const saiuSemAcento = semAcento(saiu);
+    const noTexto = semAcento(texto);
+
     const opcoes = (fala.opcoes ?? []).map((o) => semAcento(String(o))).filter(Boolean);
-    if (opcoes.length) {
-      const saiuSemAcento = semAcento(saiu);
-      const sumiu = opcoes.filter((o) => !saiuSemAcento.includes(o));
-      if (sumiu.length) {
-        console.warn("[fala] a reescrita trocou as opcoes; mandei o texto do codigo:", saiu.slice(0, 80));
-        return texto;
-      }
+    const opcaoSumiu = opcoes.filter((o) => !saiuSemAcento.includes(o));
+    if (opcaoSumiu.length) {
+      console.warn("[fala] a reescrita trocou as opcoes; mandei o texto do codigo:", saiu.slice(0, 80));
+      return texto;
+    }
+
+    const doCodigo = produtosNaFrase(texto).map((n) => semAcento(n));
+    const daReescrita = produtosNaFrase(saiu).map((n) => semAcento(n));
+    const produtoSumiu = doCodigo.some((n) => !saiuSemAcento.includes(n));
+    const produtoNovo = daReescrita.some((n) => !noTexto.includes(n));
+    if (produtoSumiu || produtoNovo) {
+      console.warn(
+        "[fala] a reescrita mexeu nos produtos da frase; mandei o texto do codigo:",
+        saiu.slice(0, 80),
+      );
+      return texto;
     }
 
     // Duas perguntas viram formulario: o codigo faz uma por vez de proposito.

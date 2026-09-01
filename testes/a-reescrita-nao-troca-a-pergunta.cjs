@@ -50,6 +50,35 @@ const CASOS = [
     esperado: "Qual você prefere: pizza inteira, pizza meia ou pizza redonda?",
     dano: "comparar com acento faria toda reescrita cair",
   },
+  {
+    // O CASO SEM OPCAO NENHUMA, que e onde a troca passava batido.
+    //
+    // Ele disse em 02/09 que ja tinha visto isso mais de uma vez, e nao so na
+    // pizza. Por isso a conferencia deixou de ser so das opcoes: o que o CODIGO
+    // citou tem que continuar na frase.
+    nome: "reescrita que troca o produto da pergunta e descartada",
+    original: "E o bolo, qual sabor?",
+    opcoes: [],
+    reescrita: "E a coxinha, qual recheio?",
+    esperado: "E o bolo, qual sabor?",
+    dano: "a padaria pergunta de um produto e anota a resposta em outro",
+  },
+  {
+    nome: "reescrita que ACRESCENTA produto tambem cai",
+    original: "E o bolo, qual sabor?",
+    opcoes: [],
+    reescrita: "E o bolo, qual sabor? Temos coxinha tambem, se quiser.",
+    esperado: "E o bolo, qual sabor?",
+    dano: "oferecer o que a etapa nao esta oferecendo, e ja saiu sabor que a casa nem faz",
+  },
+  {
+    nome: "reescrita sem produto nenhum passa normal",
+    original: "Pra que dia você quer retirar?",
+    opcoes: [],
+    reescrita: "Pra qual dia você quer deixar reservado?",
+    esperado: "Pra qual dia você quer deixar reservado?",
+    dano: "travar tudo faria a padaria voltar a falar como robo",
+  },
 ];
 
 const sonda = path.join(__dirname, "_sonda-reescrita.mts");
@@ -69,7 +98,7 @@ fs.writeFileSync(
     "      usage: { prompt_tokens: 1, completion_tokens: 1 },",
     "    }) } },",
     "  };",
-    "  const fala = { texto: ORIGINAL, botoes: [], cardapio: null, podeReescrever: true, opcoes: OPCOES };",
+    "  const fala = { texto: c.original ?? ORIGINAL, botoes: [], cardapio: null, podeReescrever: true, opcoes: c.opcoes ?? OPCOES };",
     "  saiu.push(await dizerComJeito(cliente as never, fala as never));",
     "}",
     "console.log(JSON.stringify(saiu));",
