@@ -264,7 +264,26 @@ function acharNaFrase(fala: string): { nome: string; onde: number; tamanho: numb
     }
     // Nome de uma palavra só é o que dá para comparar por distância com
     // segurança. "pastel assado" tem que estar escrito.
-    if (alvo.includes(" ")) continue;
+    if (alvo.includes(" ")) {
+      // O CLIENTE ESCREVE O NOME CURTO, e a casa cadastra o nome comprido.
+      //
+      // Medido em 02/09/2026: "quero pao de queijo" nao achava nada, porque o
+      // cardapio tem "mini pão de queijo". O cliente nao vai escrever "mini",
+      // e ele nao esta errado: e o mesmo produto.
+      //
+      // Vale SO quando sobra um nome de verdade (duas palavras ou mais) e SO
+      // quando existe um unico produto que termina assim. Havendo dois, o
+      // cliente precisa dizer qual, e a padaria pergunta.
+      const semOPrimeiro = alvo.split(" ").slice(1).join(" ");
+      if (semOPrimeiro.split(" ").length < 2 || semOPrimeiro.length < 8) continue;
+      const quantosTerminamAssim = nomesDoCatalogo().filter((n) =>
+        semAcMin(n).endsWith(semOPrimeiro),
+      ).length;
+      if (quantosTerminamAssim !== 1) continue;
+      const onde = t.indexOf(semOPrimeiro);
+      if (onde >= 0) achados.push({ nome, onde, tamanho: semOPrimeiro.length });
+      continue;
+    }
     const folga = alvo.length >= 7 ? 2 : 1;
     // A PRIMEIRA LETRA TEM QUE BATER.
     //
