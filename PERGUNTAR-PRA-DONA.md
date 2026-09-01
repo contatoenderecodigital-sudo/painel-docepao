@@ -161,9 +161,10 @@ A proposta passou a dizer os dois preços, com os números saindo do motor:
 > O salgado frito sai R$ 1,00 e o assado R$ 1,25, então o total muda um pouco
 > conforme os tipos que você escolher.
 
-Continua valendo perguntar pra dona SE ela prefere que a casa monte o sortido só
-com frito, pra fechar exatamente no valor anunciado. Mas ninguém mais paga
-surpresa.
+**E O SORTIDO CONTINUA MISTURANDO OS DOIS**, por decisão dele no mesmo dia:
+*"pode montar assim mesmo, é bom que dá uma subidinha no ticket, não é 25
+centavos"*. Nada a perguntar pra dona aqui: o cliente vê o preço dos dois tipos
+antes de escolher, e a casa monta a variedade que ela sabe montar.
 
 ---
 
