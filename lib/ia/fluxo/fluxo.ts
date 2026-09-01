@@ -4165,7 +4165,21 @@ export async function responder(
     rastro.push("hora fora do expediente; avisei e perguntei de novo");
   }
 
-  let fala = falaDaEtapa(proxima, estado, total, proxima.id === etapaAgora.id ? naoTemos : []);
+  // O QUE ELE PEDIU E A CASA NAO FAZ, ELE PRECISA OUVIR — MUDE OU NAO DE ETAPA.
+  //
+  // Medido na conversa dele de 02/09/2026:
+  //
+  //   cliente >> Quero coxinha, bolinha de queijo e ribolho e frango frito com molho
+  //   rastro  >> barrado nesta etapa: ribolho, frango frito com molho
+  //   padaria >> (nao disse uma palavra sobre os dois)
+  //
+  // O aviso existia e so saia quando a proxima pergunta era a MESMA. Quando a
+  // conversa andava, ele sumia: o cliente seguia achando que pediu quatro coisas
+  // e ia descobrir na retirada que levava duas.
+  //
+  // A etapa seguinte nao tem nada a ver com isto. O aviso e sobre o que ELE
+  // acabou de pedir, e some com a mensagem em que foi dito.
+  let fala = falaDaEtapa(proxima, estado, total, naoTemos);
 
   // ------------------------------------------ QUAL DELES VOCE QUER TIRAR
   //
@@ -4366,7 +4380,7 @@ export async function responder(
       aceitouSaborInsistido = true;
       estado = { ...estado, itens, saboresAConfirmar: anotados };
       proxima = etapaDaVez(estado, roteiro());
-      fala = falaDaEtapa(proxima, estado, total, proxima.id === etapaAgora.id ? naoTemos : []);
+      fala = falaDaEtapa(proxima, estado, total, naoTemos);
       precisaHumano = true;
       motivoHumano = "Sabor fora do cardápio: " + anotados.join(", ") +
         ". O cliente insistiu, então anotei pra vocês confirmarem.";
