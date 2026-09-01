@@ -3374,6 +3374,28 @@ export async function responder(
     //     "quanto e o cento de coxinha? quero 200"  pergunta COM numero -> entra
     //
     // O segundo e o caso que fez o `aplicar` subir pra ca, e ele continua de pe.
+    // QUEM PEDE DESCONTO PRECISA DE UMA RESPOSTA, E ELA E DA EQUIPE.
+    //
+    // Medido conversando com a producao em 02/09/2026, logo depois de uma
+    // reclamacao:
+    //
+    //   cliente >> quero um desconto no proximo entao
+    //   padaria >> Como posso ajudar voce?
+    //
+    // A resposta de desconto existe desde 29/07 e sai do audio da dona ("quando
+    // a pessoa pedir um desconto... a gente ja cobra unidade"), mas dependia de
+    // o modelo marcar `perguntou: desconto`, e ele nao marcou.
+    //
+    // Dinheiro nao pode depender de o modelo lembrar: a palavra esta escrita na
+    // frase, e quem decide desconto e gente, nunca a IA.
+    if (
+      !limpa.perguntou?.sobre &&
+      /(^|[^a-z])(desconto|descontinho|abatimento)([^a-z]|$)/i.test(semAc(String(mensagem.texto ?? "")))
+    ) {
+      limpa.perguntou = { sobre: "desconto" };
+      rastro.push("ele falou em desconto; isso e conversa de gente");
+    }
+
     // RECLAMACAO NAO VIRA PEDIDO.
     //
     // Medido conversando com a producao em 02/09/2026:
