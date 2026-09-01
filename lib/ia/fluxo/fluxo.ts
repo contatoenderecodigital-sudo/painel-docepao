@@ -2296,6 +2296,45 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
     return !!alvo && [...donoNaFrase].some((d) => d === alvo || d.includes(alvo) || alvo.includes(d));
   };
 
+  // O LUGAR VAZIO SAI QUANDO O CLIENTE ESCOLHE DE VERDADE.
+  //
+  // O marcador de familia ("salgado", "docinho") nasce quando ele diz que quer
+  // aquilo sem escolher o tipo, pra etapa ter o que perguntar. Depois que ele
+  // escolhe, o marcador nao e mais lugar vazio: ele vira uma linha a mais.
+  //
+  // Medido conversando com a producao em 02/09/2026, e custou 64 salgados:
+  //
+  //   base    >> 250 salgados (ele tinha pedido 50 a mais)
+  //   cliente >> coxinha, bolinha de queijo e risoles de carne
+  //   rastro  >> reparti 250 de salgado entre 4 escolha(s)
+  //   pedido  >> 62 + 62 + 62 = 186 salgados
+  //
+  // As tres escolhas dele mais o marcador viraram quatro, e o rateio deu a
+  // quarta parte pra uma linha que nao existe. Nos docinhos foi igual: 150
+  // divididos por tres, com dois docinhos escolhidos.
+  //
+  // Defeito meu, de 01/09, quando o marcador passou a nascer em toda familia
+  // que o cliente cita.
+  {
+    const familiasComEscolha = new Set(
+      novo.itens
+        // Escolha de verdade e a que tem QUANTIDADE: item em zero ainda esta
+        // sendo montado, e nesse meio-tempo o lugar vazio da familia continua
+        // sendo o que segura a pergunta da etapa.
+        .filter((i) => !ehNomeDeFamilia(i.produto) && Number(i.qtd) > 0)
+        .map((i) => String(i.categoria || "")),
+    );
+    const antes = novo.itens.length;
+    novo.itens = novo.itens.filter(
+      (i) =>
+        !ehNomeDeFamilia(i.produto) ||
+        !categoriasDaFamilia(i.produto).some((c) => familiasComEscolha.has(c)),
+    );
+    if (novo.itens.length !== antes) {
+      rastro.push("ele escolheu de verdade; tirei o lugar vazio da familia do pedido");
+    }
+  }
+
   novo.itens = comORecheioDoCardapio(novo.itens, rastro);
 
   // A RESPOSTA DO PESO VALE MESMO QUANDO O MODELO NAO DEVOLVE ITEM NENHUM.
