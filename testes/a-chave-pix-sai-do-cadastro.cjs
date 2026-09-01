@@ -32,21 +32,31 @@ fs.writeFileSync(
   [
     'import { respostaDeInformacao } from "../lib/ia/fluxo/informacao.ts";',
     'import { DOCE_PAO } from "../lib/ia/persona.ts";',
+    "const ORIGINAL_CHAVE = DOCE_PAO.chavePix;",
+    "const ORIGINAL_TITULAR = DOCE_PAO.pixTitular;",
     "",
     "// Sem chave cadastrada, que e como o sistema esta hoje.",
     "DOCE_PAO.chavePix = null;",
     "DOCE_PAO.pixTitular = null;",
     "const semChave = respostaDeInformacao({ sobre: 'pix' } as never);",
     "",
-    "// Com a chave que a dona ainda vai informar.",
+    "// Com uma chave qualquer, pra provar que a resposta usa o CADASTRO.",
     "DOCE_PAO.chavePix = '49999999999';",
     "DOCE_PAO.pixTitular = 'Padaria Doce Pão';",
     "const comChave = respostaDeInformacao({ sobre: 'pix' } as never);",
     "",
+    "// A CHAVE DE VERDADE, cadastrada em 01/09/2026: o CNPJ da padaria.",
+    "//",
+    "// Catorze digitos soltos no WhatsApp nao parecem chave nenhuma, e no banco",
+    "// a chave e cadastrada POR TIPO: quem recebe precisa ouvir que e CNPJ.",
+    "DOCE_PAO.chavePix = ORIGINAL_CHAVE;",
+    "DOCE_PAO.pixTitular = ORIGINAL_TITULAR;",
+    "const daCasa = respostaDeInformacao({ sobre: 'pix' } as never);",
+    "",
     "// A pergunta de COMO PAGA continua sendo outra coisa.",
     "const pagamento = respostaDeInformacao({ sobre: 'pagamento' } as never);",
     "",
-    "console.log(JSON.stringify({ semChave, comChave, pagamento }));",
+    "console.log(JSON.stringify({ semChave, comChave, daCasa, chaveDaCasa: ORIGINAL_CHAVE, pagamento }));",
   ].join("\n"),
 );
 
@@ -89,6 +99,30 @@ if (!r.comChave) {
   if (!/comprovante/i.test(r.comChave.texto)) problemas.push("nao pede o comprovante, que e o que amarra o pagamento ao pedido");
   if (problemas.length) falha("com chave: " + problemas.join("; "));
   else console.log("ok    com chave cadastrada, manda a chave, o titular e pede o comprovante");
+}
+
+// A CHAVE DE VERDADE DA PADARIA, do jeito que ela esta cadastrada hoje.
+//
+// Este pedaco nao inventa chave nenhuma: le a que esta em `persona.ts` e cobra
+// que a resposta passe ELA, inteira, e diga de que tipo e. No dia em que a dona
+// trocar a chave, o teste continua valendo sem ninguem mexer nele.
+if (!r.chaveDaCasa) {
+  falha("a padaria esta sem chave pix cadastrada: quem pedir o pix cai pra equipe");
+} else if (!r.daCasa) {
+  falha("com a chave da casa cadastrada, a padaria nao respondeu nada");
+} else {
+  const problemas = [];
+  if (!r.daCasa.texto.includes(String(r.chaveDaCasa))) {
+    problemas.push("a chave da casa nao aparece inteira: " + JSON.stringify(r.daCasa.texto));
+  }
+  if (r.daCasa.precisaHumano !== false) problemas.push("com chave cadastrada nao precisa chamar ninguem");
+  const soDigitos = String(r.chaveDaCasa).replace(/[^0-9]/g, "");
+  const tipo = soDigitos.length === 14 ? "CNPJ" : soDigitos.length === 11 ? "CPF" : null;
+  if (tipo && !new RegExp(tipo, "i").test(r.daCasa.texto)) {
+    problemas.push("nao diz que a chave e " + tipo + ", e o cliente cadastra por tipo no banco");
+  }
+  if (problemas.length) falha("chave da casa: " + problemas.join("; "));
+  else console.log("ok    a chave da casa vai inteira, e a resposta diz de que tipo ela e");
 }
 
 if (!r.pagamento || !/cartão|cartao/i.test(r.pagamento.texto)) {

@@ -93,15 +93,16 @@ verdade em 31/08/2026, logo depois de fechar um pedido de R$ 299,80:
 A padaria respondeu a lista de formas de pagamento e o cliente ficou sem pagar.
 A chave não existe em lugar nenhum do sistema: nem no código, nem no banco.
 
-Preciso de três coisas:
+**RESPONDIDA EM PARTE, PELO DONO, EM 01/09/2026.** A chave é o CNPJ
+`04019779000148`, já cadastrada, e a Dora passa sozinha. Ela vai sem pontuação
+de propósito: é o formato que cola direto no aplicativo do banco.
 
-1. a chave (telefone, CNPJ, email ou aleatória)
-2. o nome que aparece na conta, pro cliente conferir antes de mandar
-3. se a Dora pode passar sozinha, ou se isso é sempre da equipe
+Ainda falta UMA coisa, e é pequena:
 
-Enquanto ela não responder, a IA diz "deixa eu confirmar a chave certinha com a
-equipe" e chama gente. **Ela não inventa chave**, porque chave errada é cliente
-pagando pra outra pessoa, e isso não tem desfazer.
+- **o nome que aparece na conta** (razão social ou nome fantasia), pro cliente
+  conferir antes de mandar o dinheiro. Sem isso a frase simplesmente não diz em
+  nome de quem cai, e não inventa nome nenhum. Quem paga por pix confere o nome
+  antes de confirmar, e ver um nome que não esperava faz a pessoa parar.
 
 
 **7. Três nomes do cardápio estão sem acento, e o cliente lê assim**

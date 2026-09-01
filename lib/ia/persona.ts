@@ -64,7 +64,14 @@ export const DOCE_PAO: ConfigNegocio = {
   cobraSinal: false, // chute, confirmar com a dona
   // PERGUNTA ABERTA PRA DONA: ver `PERGUNTAR-PRA-DONA.md`. Enquanto for null, a
   // IA nao manda chave nenhuma e passa pra equipe.
-  chavePix: null,
+  // A CHAVE E O CNPJ DA PADARIA, PASSADA PELO DONO EM 01/09/2026.
+  //
+  // Vai SEM pontuacao de proposito: e o formato que cola direto no aplicativo do
+  // banco, e a maioria deles recusa a chave com ponto e barra. O cliente
+  // reconhece que e CNPJ pela frase que vai junto.
+  chavePix: "04019779000148",
+  // Ainda nao confirmado com a dona: sem o titular a frase simplesmente nao diz
+  // em nome de quem cai, e nao inventa nome nenhum.
   pixTitular: null,
 };
 

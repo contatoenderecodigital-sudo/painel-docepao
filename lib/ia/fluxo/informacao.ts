@@ -316,6 +316,27 @@ function fraseDaLista(
  * Devolve null quando a pergunta nao e de informacao ou quando falta o dado: ai
  * a conversa segue normal e ninguem inventa resposta.
  */
+/**
+ * O QUE ESTA CHAVE PIX É, dito antes do número.
+ *
+ * O dono passou a chave da padaria em 01/09/2026 e ela é o CNPJ. Catorze
+ * dígitos soltos no WhatsApp não parecem chave nenhuma: quem recebe fica sem
+ * saber o que colar, e no aplicativo do banco a chave precisa ser cadastrada
+ * pelo tipo certo. Dizer o tipo é o que transforma o número em instrução.
+ *
+ * Sai do FORMATO da chave, e não de uma lista minha: no dia em que a dona trocar
+ * por telefone ou por e-mail, a frase acerta sozinha.
+ */
+export function tipoDaChave(chave: string): string {
+  const so = String(chave ?? "").replace(/[^0-9]/g, "");
+  if (chave.includes("@")) return "o e-mail ";
+  if (chave.trim().startsWith("+") || (so.length >= 12 && so.length <= 13 && chave.trim().startsWith("+")))
+    return "o telefone ";
+  if (so.length === 14 && so === chave.replace(/[^0-9]/g, "") && !/[a-z]/i.test(chave)) return "o CNPJ ";
+  if (so.length === 11 && !/[a-z]/i.test(chave)) return "o CPF ";
+  return "";
+}
+
 export function respostaDeInformacao(p: Pergunta): { texto: string; precisaHumano: boolean } | null {
   switch (p.sobre) {
     case "preco": {
@@ -345,7 +366,7 @@ export function respostaDeInformacao(p: Pergunta): { texto: string; precisaHuman
       const titular = String(DOCE_PAO.pixTitular ?? "").trim();
       return {
         texto:
-          "Claro. A chave pix é " + chave + "." +
+          "Claro. A chave pix é " + tipoDaChave(chave) + chave + "." +
           (titular ? " Vai aparecer no nome de " + titular + "." : "") +
           " Quando pagar, me manda o comprovante aqui que eu anexo no pedido.",
         precisaHumano: false,
