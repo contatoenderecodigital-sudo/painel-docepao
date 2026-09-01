@@ -51,9 +51,24 @@ let avisou = "";
  * transcrição junto, e o cliente que manda áudio ficaria sem resposta.
  */
 export function clienteDoCerebro(doBanco?: { url?: string | null; chave?: string | null }): OpenAI {
-  const baseURL = String(doBanco?.url || process.env.IA_BASE_URL || "").trim() || undefined;
+  // "openai" NO BANCO DESLIGA O PROVEDOR DE FORA, mesmo com a variavel de
+  // ambiente apontando pra ele.
+  //
+  // Medido em 02/09/2026: voltando o modelo pra gpt-4.1-mini pelo banco, a URL
+  // continuava vindo do ambiente e a chamada ia pro DeepSeek pedindo um modelo
+  // que ele nao tem. Campo vazio no banco quer dizer "nao configurei"; pra dizer
+  // "quero a OpenAI" e preciso poder DIZER, e nao apagar.
+  const doBancoUrl = String(doBanco?.url ?? "").trim();
+  const baseURL =
+    doBancoUrl.toLowerCase() === "openai"
+      ? undefined
+      : doBancoUrl || String(process.env.IA_BASE_URL || "").trim() || undefined;
+  // Sem URL de fora, a chave e a da OpenAI: usar a do DeepSeek ali seria mandar
+  // a chave de um provedor pro outro.
   const apiKey = String(
-    doBanco?.chave || process.env.IA_API_KEY || process.env.OPENAI_API_KEY || "",
+    baseURL
+      ? doBanco?.chave || process.env.IA_API_KEY || process.env.OPENAI_API_KEY || ""
+      : process.env.OPENAI_API_KEY || "",
   ).trim();
 
   // O aviso sai UMA vez por combinacao: trocando o modelo pelo banco, o log
