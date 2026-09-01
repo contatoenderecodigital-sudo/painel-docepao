@@ -919,6 +919,40 @@ function frasePodeSerPeso(fala: unknown, leuDados: boolean): boolean {
 }
 
 /**
+ * O PEDAÇO DA FRASE QUE FALA DESTE PRODUTO.
+ *
+ * Medido conversando com a produção em 02/09/2026, na primeira conversa de
+ * cliente decidido:
+ *
+ *   cliente >> queria 3 cucas e 2 kg de pao frances pra amanha
+ *   modelo  >> 3x cuca ;; 2x pao frances        (leu certo)
+ *   pedido  >> 2 kg de cuca, 2 kg de pão francês
+ *
+ * A cuca também é vendida por quilo, e o leitor de peso olhava a frase INTEIRA:
+ * achou o "2 kg" do pão e aplicou na cuca também. As três cucas viraram dois
+ * quilos, e o cliente só veria na retirada.
+ *
+ * Aqui a frase é cortada em volta do nome do produto, do jeito que uma pessoa
+ * lê: o número que vale pra cuca é o que está perto da palavra "cuca". Sem achar
+ * o nome, devolve a frase inteira, que é o comportamento de sempre — quem pede
+ * um produto só continua podendo dizer o peso onde quiser.
+ */
+function oPedacoDesteProduto(fala: unknown, produto: unknown): string {
+  const t = String(fala ?? "");
+  const alvo = semAc(String(produto ?? ""));
+  if (!t || !alvo) return t;
+  // O CORTE É NO SEPARADOR, e não em número de letras.
+  //
+  // Cortar por janela de caracteres não resolve: em "3 cucas e 2 kg de pao
+  // frances" o vizinho está a nove letras de distância, e qualquer janela útil
+  // alcança ele. Quem separa dois pedidos numa frase é a vírgula e o "e", que é
+  // como a pessoa escreve.
+  const pedacos = t.split(/,| e /i);
+  const meu = pedacos.find((p) => semAc(p).includes(alvo));
+  return meu ?? t;
+}
+
+/**
  * O PESO QUE ESTA ESCRITO NUMA FRASE.
  *
  * Entende o que a clientela da padaria escreve: "2 kg", "2kg", "500g", "700
@@ -1952,7 +1986,15 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         // Quem le o peso e `pesoNaFala`, aqui e no bloco de fora do laco. Duas
         // copias desta conta e o defeito que mais se repetiu neste sistema:
         // duas mãos guardando a mesma verdade, e uma fica pra tras.
-        let peso = pesoNaFala(dito, false);
+        // SO O PEDACO QUE FALA DESTE PRODUTO, quando ha mais de um por quilo na
+        // mesma frase: senao o peso de um vaza pro outro.
+        const doProduto = (l.itens ?? []).filter(
+          (x) => unidadeDoPedido(String(x.produto), "") === "kg",
+        ).length > 1;
+        let peso = pesoNaFala(
+          doProduto ? oPedacoDesteProduto(dito, produto) + " " + String(i.obs ?? "") : dito,
+          false,
+        );
 
         // DEPOIS DA PERGUNTA DO PESO, NUMERO SOLTO E PESO.
         //
