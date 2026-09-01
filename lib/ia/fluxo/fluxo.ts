@@ -1655,9 +1655,41 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         famDoItem === "pizza" &&
         itens.some((x) => opcoesDaFamilia("pizza").some((o) => semAc(o) === semAc(x.produto)));
       const eTipoDePizza = opcoesDaFamilia("pizza").some((o) => semAc(o) === semAc(produto));
+      // QUEM PEDIU DUAS PIZZAS LEVA DUAS PIZZAS.
+      //
+      // Esta guarda existe pra impedir o modelo de inventar uma segunda pizza em
+      // cima de um sabor ("pizza de calabresa" virando pizza + calabresa), e o
+      // defeito que ela conserta ja custou R$ 240 num pedido de festa.
+      //
+      // So que ela cortava tambem o pedido de verdade, medido conversando com a
+      // producao em 02/09/2026:
+      //
+      //   cliente >> quero duas pizzas, uma de calabresa e uma de frango
+      //   modelo  >> 1x pizza inteira [calabresa] ;; 1x pizza inteira [frango]
+      //   pedido  >> 1 pizza inteira (calabresa)
+      //
+      // R$ 120,00 que a padaria deixa de cobrar, e o cliente descobre quando
+      // chega pra buscar duas e leva uma.
+      //
+      // O que separa os dois casos e o NUMERO que ele escreveu: "duas pizzas" e
+      // pedido, "pizza de calabresa" e uma pizza so.
+      const pediuMaisDeUmaPizza = (() => {
+        const t = semAc(String(falaDoCliente ?? ""));
+        if (!/pizza/.test(t)) return false;
+        let comNumero = t;
+        for (const [palavra, valor] of numerosEscritos({ umEUma: false })) {
+          comNumero = comNumero.replace(
+            new RegExp("(^|[^a-z0-9])" + palavra + "([^a-z0-9]|$)", "gi"),
+            "$1" + valor + "$2",
+          );
+        }
+        const m = comNumero.match(/([0-9]+)\s+pizza/);
+        return Boolean(m && Number(m[1]) > 1);
+      })();
       if (
         (jaTemGenericoDestaFamilia || jaTemTipoDePizza) &&
         eTipoDePizza &&
+        !pediuMaisDeUmaPizza &&
         !oClienteNomeouEsteProduto(falaDoCliente, produto)
       ) {
         continue;
@@ -2108,7 +2140,20 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         // Duplicata de verdade continua juntando. O que passa a nao juntar e
         // sabor DIFERENTE, que e o caso das duas pizzas.
         const laSabor = semAc(String(x.obs ?? ""));
-        const aqui = saborPedido ? semAc(saborPedido) : "";
+        // O SABOR QUE VALE AQUI E O QUE O MODELO MANDOU, e nao o que sobrou
+        // depois das guardas.
+        //
+        // Medido conversando com a producao em 02/09/2026:
+        //
+        //   cliente >> quero duas pizzas, uma de calabresa e uma de frango
+        //   modelo  >> 1x pizza inteira [calabresa] ;; 1x pizza inteira [frango]
+        //   pedido  >> 1 pizza inteira (calabresa)
+        //
+        // O sabor do SEGUNDO item era consumido por outra regra antes de chegar
+        // aqui; sem sabor, ele virava duplicata e sumia dentro do primeiro. Uma
+        // pizza a menos e R$ 120,00 que a padaria deixa de cobrar, e o cliente
+        // so descobre quando chega pra buscar.
+        const aqui = semAc(String(saborPedido || i.sabor || ""));
         if (!aqui) return true;
         return laSabor.includes(aqui);
       });
@@ -3891,6 +3936,49 @@ export async function responder(
       .filter((p) => p.trim() && !/^misto\s*:/i.test(p.trim()))
       .map((p) => p.trim())
       .join(", ") || null;
+
+  // ------------------------------------------- MEIA A MEIA E UMA PIZZA SO
+  //
+  // Medido conversando com a producao em 02/09/2026:
+  //
+  //   cliente >> quero uma pizza inteira meio calabresa meio frango com catupiry
+  //   modelo  >> 1x pizza [calabresa] ;; 1x pizza [frango com catupiry]
+  //   pedido  >> 2 pizzas inteiras = R$ 240,00
+  //
+  // O modelo le "meio X meio Y" ao pe da letra e devolve duas. Quem sabe que
+  // isso e UMA pizza com dois sabores e a casa, nao ele: e o mesmo caso do bolo
+  // misto, com a diferenca de que na pizza o preco NAO muda com o sabor.
+  //
+  // R$ 120,00 a mais num pedido de R$ 120,00, e o cliente so descobre no resumo.
+  // Este e o mesmo prejuizo que o comentario do bolo misto ja registrava, agora
+  // pelo outro lado: la o defeito era juntar demais, aqui e nao juntar.
+  //
+  // SO COM A PALAVRA NA FRASE. Quem pede "duas pizzas, uma de calabresa e uma de
+  // frango" quer duas mesmo, e a frase dele nao tem meio nem metade.
+  {
+    const falaPizza = semAc(String(mensagem.texto ?? ""));
+    const meiaAMeia = /(^|[^a-z])(meio|meia|metade)([^a-z]|$)/.test(falaPizza);
+    const pizzas = estado.itens
+      .map((i, idx) => ({ i, idx }))
+      .filter(({ i }) => String(i.categoria || "") === "pizza");
+    if (meiaAMeia && pizzas.length > 1) {
+      const sabores = pizzas
+        .map(({ i }) => String(i.obs ?? "").trim())
+        .filter(Boolean);
+      const ficam = new Set(pizzas.slice(1).map(({ idx }) => idx));
+      estado = {
+        ...estado,
+        itens: estado.itens
+          .map((i, idx) =>
+            idx === pizzas[0].idx
+              ? { ...i, qtd: Math.max(1, Number(i.qtd) || 1), obs: sabores.join(" | ") || i.obs }
+              : i,
+          )
+          .filter((_, idx) => !ficam.has(idx)),
+      };
+      rastro.push("meia a meia e uma pizza so: " + sabores.join(" e "));
+    }
+  }
 
   // ------------------------------------------- BOLO MISTO E UM BOLO SO
   //
