@@ -480,7 +480,7 @@ function falaDoSaborQueFalta(
       : "";
   const foto = peca ? " Te mandei o cardápio pra escolher." : "";
   return {
-    texto: "O " + semSabor.produto + " vai de quê?" + foto + lista,
+    texto: artigoDoProduto(semSabor.produto) + semSabor.produto + " vai de quê?" + foto + lista,
     botoes: [],
     cardapio: peca,
     podeReescrever: true,
@@ -765,6 +765,26 @@ function boloEmPortugues(obs: unknown): string {
 }
 
 /** O resumo que vai antes de confirmar: item por item, com a conta fechada. */
+/**
+ * "O" OU "A", pelo jeito que a palavra termina.
+ *
+ * Medido conversando com a produção em 02/09/2026: *"O cuca é vendido por
+ * quilo"*. A cuca é a coisa mais vendida da casa e a frase saía errada em toda
+ * conversa que a citasse.
+ *
+ * O catálogo não guarda gênero, e inventar um campo pra isso seria mais um
+ * lugar pra desencontrar. A terminação resolve os nomes da casa: cuca, pizza,
+ * torta, empadinha são "a"; pão, empadão, calzone, bolo são "o".
+ *
+ * Nome que já vem com artigo grudado não ganha outro.
+ */
+function artigoDoProduto(produto: unknown): string {
+  const nome = String(produto ?? "").trim();
+  if (!nome) return "";
+  if (/^(o|a|os|as) /i.test(nome)) return "";
+  return /a$/i.test(semAcento(nome).split(" ")[0]) ? "A " : "O ";
+}
+
 export function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): string {
   // CADA LINHA COM O SEU VALOR, IGUAL A COMANDA.
   //
@@ -1001,7 +1021,7 @@ export function falaDaEtapa(
         );
         return {
           texto:
-            aviso + "O " + semPesoAqui.produto + " é vendido por quilo" +
+            aviso + artigoDoProduto(semPesoAqui.produto) + semPesoAqui.produto + (artigoDoProduto(semPesoAqui.produto) === "A " ? " é vendida por quilo" : " é vendido por quilo") +
             (oQuilo > 0 ? ", " + brl(oQuilo) + " o quilo" : "") +
             ". Quantos quilos você quer?",
           botoes: [],
