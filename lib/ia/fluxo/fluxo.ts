@@ -31,7 +31,7 @@
 import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
 import { falaDaEtapa, pecaDoCardapio, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitura } from "./leitura";
-import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase, familiaDoQueEleNomeou } from "./leitor-da-frase";
+import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase, ondeCadaProdutoAparece, familiaDoQueEleNomeou } from "./leitor-da-frase";
 import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida, formasDoCliente } from "../texto";
 import { identificarProduto } from "./produto";
 import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, ehPizzaQueNaoESalgado, familiaDoProduto, nomeDaFamilia, opcaoDaFamiliaNaFrase, opcoesDaFamilia } from "./generico";
@@ -1873,7 +1873,32 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
           // Quatro palavras cobrem como gente escreve o par ("coxinha de carne",
           // "coxinha, carne", "coxinha de frango com catupiry") e nao alcancam o
           // proximo item da lista ("coxinha e 50 risoles de carne").
-          const depois = t.slice(inicio + alvo.length).trim().split(/\s+/).slice(0, 4).join(" ");
+          let depois = t.slice(inicio + alvo.length).trim().split(/\s+/).slice(0, 4).join(" ");
+          // E A JANELA PARA NO PRODUTO VIZINHO.
+          //
+          // Medido conversando com a producao em 02/09/2026:
+          //
+          //   cliente >> coxinha e risoles de carne
+          //   padaria >> A gente faz coxinha de frango.
+          //
+          // Ele nao pediu coxinha de carne: o "de carne" e do risoles, que esta
+          // no meio do caminho. O modelo grudou o sabor nos dois, o codigo
+          // corrigiu certo (coxinha e de frango) e AVISOU como se ele tivesse
+          // pedido errado. Corrigir calado e o certo aqui.
+          //
+          // A busca do vizinho e por PRODUTO DA FRASE, e nao pelo nome do
+          // cardapio: o cliente escreve "risoles" e a casa escreve "risólis", e
+          // foi por isso que a versao anterior desistiu de cortar.
+          // O corte usa a POSICAO de cada produto na frase, e nao o nome do
+          // cardapio: "risoles" e "risólis" nunca casariam por texto.
+          const fimDaJanela = inicio + alvo.length;
+          for (const { onde } of ondeCadaProdutoAparece(falaDoCliente)) {
+            if (onde <= inicio) continue;
+            const quantoCabe = onde - fimDaJanela;
+            if (quantoCabe >= 0 && quantoCabe < depois.length) {
+              depois = depois.slice(0, quantoCabe).trim();
+            }
+          }
           const primeiraDoSabor = sabor.split(/\s+/)[0] ?? sabor;
           return depois.includes(primeiraDoSabor);
         })();

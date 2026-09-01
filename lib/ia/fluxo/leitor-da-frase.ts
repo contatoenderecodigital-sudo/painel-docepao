@@ -168,6 +168,26 @@ export function familiaDoQueEleNomeou(fala: string): string | null {
  *    Colado atras de "trufa de" ele e o RECHEIO da trufa, e virava uma linha
  *    propria que o motor cotaria como bolo, a R$ 46,90 o quilo.
  */
+/**
+ * ONDE CADA PRODUTO APARECE NA FRASE.
+ *
+ * `produtosNaFrase` devolve os nomes do CATÁLOGO, e por isso não serve pra
+ * cortar a frase: o cliente escreve "risoles" e a casa escreve "risólis", então
+ * procurar o nome do catálogo dentro da frase do cliente não acha nada. Este
+ * devolve a posição de verdade, que é o que o corte precisa.
+ *
+ * Nasceu em 02/09/2026, de um aviso que saiu sem ninguém ter perguntado:
+ *
+ *   cliente >> coxinha e risoles de carne
+ *   padaria >> A gente faz coxinha de frango.
+ *
+ * O "de carne" é do risoles. Pra saber disso é preciso enxergar que existe
+ * outro produto entre a coxinha e a palavra "carne".
+ */
+export function ondeCadaProdutoAparece(fala: string): { nome: string; onde: number }[] {
+  return acharNaFrase(fala).map(({ nome, onde }) => ({ nome, onde }));
+}
+
 function acharNaFrase(fala: string): { nome: string; onde: number; tamanho: number }[] {
   const t = semAcMin(fala);
   if (!t.trim()) return [];
