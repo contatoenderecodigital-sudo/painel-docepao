@@ -664,11 +664,21 @@ function oClienteNomeouEsteProduto(fala: string, produto: string): boolean {
  * Ajustar e responder: era o que a propria padaria tinha oferecido.
  */
 function atualizarBasePeloTotalDito(e: Estado, l: Leitura, fala = "", etapa?: EtapaId, rastro: string[] = []): Estado {
-  if (!e.base || !l.itens?.length) return e;
+  if (!e.base || !l.itens?.length) {
+    if (etapa === "base_da_festa" && !l.itens?.length) {
+      rastro.push("na proposta, mas sem item na leitura que chegou ate aqui");
+    }
+    return e;
+  }
 
   // So familia muda base. "100 coxinha" e item, e nao proposta.
   const familias = l.itens.filter((i) => nomeDaFamilia(i.produto) && Number(i.qtd) > 0);
-  if (!familias.length) return e;
+  if (!familias.length) {
+    if (etapa === "base_da_festa") {
+      rastro.push("na proposta, e nenhum item era familia com numero");
+    }
+    return e;
+  }
 
   // A frase manda, porque e onde esta o "a mais". Sem numero na frase (o cliente
   // respondeu "pode ser 150" numa mensagem so, por exemplo), vale o do modelo.
