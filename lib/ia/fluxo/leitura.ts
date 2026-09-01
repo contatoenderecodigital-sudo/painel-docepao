@@ -517,6 +517,36 @@ function hojeEmSaoPaulo(): string {
  * nada do cliente.
  */
 function cardapioDaInstrucao(etapa: EtapaId): string[] {
+  // A PRIMEIRA MENSAGEM E ONDE O CLIENTE PEDE, e ela era a unica sem cardapio.
+  //
+  // Ele em 02/09/2026: "isso a IA que tem que entender, toda IA que ja conversei
+  // entende quando falo errado". Ela entende MESMO — nas etapas do salgado e do
+  // resto do cardapio, onde a lista vai junto, "pao de queijo" volta como "mini
+  // pão de queijo" sem ninguem escrever regra nenhuma. Na abertura a lista nao
+  // ia, entao ela devolvia o nome como o cliente escreveu e sobrava pro codigo
+  // adivinhar por texto, que e o que ele nao quer.
+  //
+  // AQUI E SO A INSTRUCAO, e nao o que a etapa aceita. Na primeira tentativa eu
+  // mexi no `vocabularioDaEtapa`, que serve aos dois, e o roteiro mudou junto: o
+  // bolo avulso passou a caber na abertura e parou de ir pra etapa do bolo. Um
+  // teste que ja existia pegou.
+  if (etapa === "abertura") {
+    // SEM OS TRINTA SABORES DE BOLO, e sem apelido.
+    //
+    // A lista inteira estourou o teto de 2.500 da instrucao (3.035), e o teto
+    // existe por um motivo medido: instrucao comprida faz o modelo se perder.
+    //
+    // Os sabores de bolo sao a maior parte dela e sao os que MENOS fazem falta
+    // aqui: quem diz "quero um bolo de laka" na primeira mensagem cai na etapa
+    // do bolo, e la a lista vai completa. O que precisa ser reconhecido de
+    // primeira e o que NAO tem etapa pra perguntar depois: pao, cuca, pizza,
+    // torta, empadao, cupcake.
+    return daLista(
+      ...categoriasDaEtapa("salgado"),
+      ...categoriasDaEtapa("docinho"),
+      ...categoriasSemEtapaPropria(),
+    );
+  }
   if (etapa === "oferta") {
     return comOsApelidos(daLista(...categoriasDaEtapa("docinho"), ...categoriasDaEtapa("bolo")));
   }
@@ -840,7 +870,15 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       //
       // Entao a frase agora fala so de quantidade, que e o que esta errado.
       " O número que ele disse é a quantidade: \"2 inteiras\" são 2, mesmo que " +
-      "ele detalhe os sabores depois.",
+      "ele detalhe os sabores depois." +
+      // O CARDAPIO ENTRA AQUI TAMBEM, e esta e a etapa que mais precisava dele.
+      //
+      // A abertura e onde o cliente PEDE, e era a unica etapa sem a lista: o
+      // modelo devolvia o nome como o cliente escreveu ("pao de queijo") e
+      // sobrava pro codigo adivinhar por texto. Com a lista, ele responde com o
+      // nome da casa ("mini pão de queijo"), que e o que ele ja faz nas outras
+      // etapas sem ninguem escrever regra nenhuma.
+      lista,
   };
 
   const jaTem = p.itens.length
