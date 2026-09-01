@@ -697,6 +697,7 @@ async function processar(corpo: WebhookPayload) {
             // pedido em montagem nao guarda quem falou o que.
             jaFalou,
             credsTenant.modeloIa,
+            credsTenant.reescrita,
           );
           console.log("[fluxo-novo] " + novo.rastro.join(" / "));
 

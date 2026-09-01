@@ -124,6 +124,7 @@ export async function atenderComFluxoNovo(
   // Trocar o cerebro pelo banco vale na proxima frase, sem deploy: e o que
   // torna possivel medir dois modelos com as mesmas falas no mesmo dia.
   modeloDoNegocio: string | null = null,
+  reescritaLigada = true,
 ): Promise<RespostaDoFluxo> {
   const uso = { tokensIn: 0, tokensOut: 0, cacheRead: 0, chamadas: 0 };
   const contar = (u: { tokensIn: number; tokensOut: number; cacheRead?: number }) => {
@@ -426,7 +427,21 @@ export async function atenderComFluxoNovo(
   }
 
   // O jeito de falar vem por ultimo, e nao encosta onde tem dinheiro.
-  let texto = await dizerComJeito(cliente, r.fala, mensagem.texto, contar);
+  // A REESCRITA PODE SER DESLIGADA, E O INTERRUPTOR E DA CASA.
+  //
+  // Ela existe pra padaria nao falar como robo, e custa caro: e uma SEGUNDA
+  // chamada de IA em toda mensagem (dobra o custo e a espera) e foi de onde
+  // saiu a familia de defeito que ele viu mais de uma vez, com a frase trocando
+  // de assunto na saida.
+  //
+  // Pergunta dele em 02/09/2026: "pra que isso entao, se so vai me trazer dor de
+  // cabeca?". A resposta e dele, e nao minha: `negocios.config.reescrita = nao`
+  // desliga, e vale na proxima frase, sem deploy.
+  //
+  // Desligada, sai o texto do motor: mais seco e sempre certo.
+  let texto = reescritaLigada
+    ? await dizerComJeito(cliente, r.fala, mensagem.texto, contar)
+    : String(r.fala.texto || "").trim();
 
   // O CUMPRIMENTO E DA PRIMEIRA FALA, E SO DELA.
   //

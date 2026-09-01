@@ -216,11 +216,14 @@ export type CredsWhatsapp = {
   modeloIa: string | null;
   iaBaseUrl: string | null;
   iaApiKey: string | null;
+  /** A frase sai reescrita pela IA? `config.reescrita = nao` desliga. */
+  reescrita: boolean;
 };
 export async function carregarCredsWhatsapp(negocioId: string): Promise<CredsWhatsapp> {
   const n = await queryUm<{
     phone_id: string | null; token: string | null; waba_id: string | null; ia_ativa: boolean;
     modelo_ia: string | null; ia_base_url: string | null; ia_api_key: string | null;
+    reescrita: string | null;
   }>(
     `select config->>'whatsapp_phone_id' as phone_id, config->>'whatsapp_token' as token,
             config->>'whatsapp_waba_id' as waba_id,
@@ -237,7 +240,8 @@ export async function carregarCredsWhatsapp(negocioId: string): Promise<CredsWha
             -- valor velho. Comparar dois cerebros nao pode custar isso.
             config->>'modelo_ia' as modelo_ia,
             config->>'ia_base_url' as ia_base_url,
-            config->>'ia_api_key' as ia_api_key
+            config->>'ia_api_key' as ia_api_key,
+            config->>'reescrita' as reescrita
        from negocios where id = $1`,
     [negocioId],
   );
@@ -249,6 +253,8 @@ export async function carregarCredsWhatsapp(negocioId: string): Promise<CredsWha
     modeloIa: n?.modelo_ia ?? null,
     iaBaseUrl: n?.ia_base_url ?? null,
     iaApiKey: n?.ia_api_key ?? null,
+    // "nao" desliga a segunda chamada de IA que deixa a frase natural.
+    reescrita: (n?.reescrita ?? "").trim().toLowerCase() !== "nao",
   };
 }
 
