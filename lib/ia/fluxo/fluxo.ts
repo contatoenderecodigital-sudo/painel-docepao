@@ -482,8 +482,19 @@ function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado 
     // 1) e o que ficou em zero. Nao volta a dividir o que ele ja tinha dito
     // quantidade: "50 coxinha" depois de "de frango" nao vira 100. Com numero
     // na fala, a dele manda e so completa quem ficou sem.
+    // O LUGAR VAZIO SO DIVIDE QUANDO E O UNICO DA FAMILIA.
+    //
+    // Medido em 02/09/2026: base de 150 docinhos, ele escolheu brigadeiro e
+    // beijinho, e o pedido fechou com 50 de cada. O marcador "docinho" contou
+    // como terceira escolha e ficou com um terco de uma festa que ele nao vai
+    // comer: 100 docinhos no lugar de 150.
+    //
+    // Ele SEGUE valendo enquanto o cliente nao escolheu ("quero docinho" sem
+    // dizer qual): ali ele e o unico da familia e precisa levar a quantidade,
+    // senao a proposta perde o docinho inteiro.
+    const temEscolhaDeVerdade = daFamilia.some(({ i }) => !ehNomeDeFamilia(i.produto));
     const paraRepartir = daFamilia.filter(({ i }) => {
-      if (ehNomeDeFamilia(i.produto)) return true;
+      if (ehNomeDeFamilia(i.produto)) return !temEscolhaDeVerdade;
       const temQtd = Number(i.qtd) > 0;
       if (disseNumero) return !temQtd;
       if (!temQtd) return true;
