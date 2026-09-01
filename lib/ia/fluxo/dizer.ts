@@ -36,6 +36,7 @@
 import type OpenAI from "openai";
 import type { Fala } from "./pergunta";
 import { COMO_VAI } from "./falas-do-cliente";
+import { semAcento } from "../texto";
 
 const MODELO = process.env.OPENAI_MODEL_FALA || "gpt-4.1-mini";
 
@@ -139,6 +140,31 @@ export async function dizerComJeito(
     if ((/R\$\s?[0-9]/.test(saiu) && !/R\$\s?[0-9]/.test(texto)) || inventouNumero) {
       console.warn("[fala] a reescrita inventou valor; mandei o texto do codigo:", saiu.slice(0, 80));
       return texto;
+    }
+
+    // A REESCRITA NAO PODE TROCAR AS OPCOES DA ESCOLHA.
+    //
+    // Medido conversando com a producao em 02/09/2026, numa conversa com festa,
+    // pizza e pao na mesma mensagem:
+    //
+    //   codigo >> Qual pizza voce quer: pizza inteira, pizza meia ou redonda?
+    //   saiu   >> Qual forminha dourada voce quer, brigadeiro ou beijinho?
+    //
+    // Ela trocou o ASSUNTO da pergunta pelo assunto do turno anterior. O cliente
+    // recebe uma escolha que nao existe, responde qualquer coisa, e a conversa
+    // anda pro lado errado com o pedido no meio.
+    //
+    // Numero ja era conferido aqui. Opcao de escolha e a mesma coisa: e conteudo
+    // do codigo, e nao jeito de falar. Faltando uma delas, vai a frase do
+    // motor, que e feia e certa.
+    const opcoes = (fala.opcoes ?? []).map((o) => semAcento(String(o))).filter(Boolean);
+    if (opcoes.length) {
+      const saiuSemAcento = semAcento(saiu);
+      const sumiu = opcoes.filter((o) => !saiuSemAcento.includes(o));
+      if (sumiu.length) {
+        console.warn("[fala] a reescrita trocou as opcoes; mandei o texto do codigo:", saiu.slice(0, 80));
+        return texto;
+      }
     }
 
     // Duas perguntas viram formulario: o codigo faz uma por vez de proposito.
