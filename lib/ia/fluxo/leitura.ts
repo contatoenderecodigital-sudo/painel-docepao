@@ -1127,6 +1127,25 @@ export function leituraQueCabeNaEtapa(
       if (etapa === "salgado" && fam.startsWith("salgado")) cabe = true;
       if (etapa === "docinho" && (fam === "docinho" || fam === "doce")) cabe = true;
       if (etapa === "bolo" && fam.startsWith("bolo")) cabe = true;
+      // NA PROPOSTA, FAMILIA COM NUMERO E A RESPOSTA, E NAO ITEM FORA DE HORA.
+      //
+      // Medido na conversa dele de 02/09/2026, e foi o que travou o pedido:
+      //
+      //   padaria >> 200 salgados, 100 docinhos, 2 kg. Da pra ajustar.
+      //   cliente >> quero 50 salgados a mais e 50 docinhos a mais
+      //   rastro  >> modelo leu: 50x salgado ;; 50x docinho
+      //   base    >> 200 salgados, 100 docinhos      (nada mudou)
+      //
+      // A etapa da base nao aceitava "salgado" como item, entao os dois eram
+      // BARRADOS e guardados pra etapa do salgado, la na frente. So que a base
+      // nunca era ajustada, e como ela so se cumpre com `baseAceita`, a conversa
+      // ficava presa na proposta pra sempre: tudo o que ele dissesse depois ia
+      // pro mesmo buraco.
+      //
+      // A padaria pergunta "quanto voce quer de cada coisa" e a resposta e
+      // exatamente esta: familia com numero. Barrar a resposta da propria
+      // pergunta e o defeito.
+      if (etapa === "base_da_festa") cabe = true;
     }
 
     if (!cabe) {
