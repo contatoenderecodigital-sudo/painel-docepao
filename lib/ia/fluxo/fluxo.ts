@@ -664,25 +664,30 @@ function oClienteNomeouEsteProduto(fala: string, produto: string): boolean {
  * Ajustar e responder: era o que a propria padaria tinha oferecido.
  */
 function atualizarBasePeloTotalDito(e: Estado, l: Leitura, fala = "", etapa?: EtapaId, rastro: string[] = []): Estado {
-  if (!e.base || !l.itens?.length) {
-    if (etapa === "base_da_festa" && !l.itens?.length) {
-      rastro.push("na proposta, mas sem item na leitura que chegou ate aqui");
-    }
-    return e;
-  }
+  if (!e.base) return e;
 
-  // So familia muda base. "100 coxinha" e item, e nao proposta.
-  const familias = l.itens.filter((i) => nomeDaFamilia(i.produto) && Number(i.qtd) > 0);
-  if (!familias.length) {
-    if (etapa === "base_da_festa") {
-      rastro.push("na proposta, e nenhum item era familia com numero");
-    }
-    return e;
-  }
+  // NA PROPOSTA, QUEM LE O AJUSTE E A FRASE, E NAO O MODELO.
+  //
+  // Medido em 02/09/2026 trocando o cerebro: pra "quero 50 salgados a mais e 50
+  // docinhos a mais" o gpt-4.1-mini devolvia "50x salgado ;; 50x docinho" e o
+  // deepseek-v4-flash nao devolvia item nenhum. A mesma frase, dois modelos,
+  // dois resultados: com o segundo, o ajuste sumia de novo.
+  //
+  // Depender do modelo pra uma coisa que o codigo sabe ler sozinho e fragilidade
+  // minha, nao defeito do modelo. O numero e o "a mais" estao ESCRITOS na frase,
+  // e a padaria acabou de perguntar exatamente isso. Trocar de cerebro nao pode
+  // mudar quanto a padaria cobra.
+  const naProposta = etapa === "base_da_festa";
+  const familias = (l.itens ?? []).filter((i) => nomeDaFamilia(i.produto) && Number(i.qtd) > 0);
+  if (!familias.length && !naProposta) return e;
 
   // A frase manda, porque e onde esta o "a mais". Sem numero na frase (o cliente
   // respondeu "pode ser 150" numa mensagem so, por exemplo), vale o do modelo.
   const daFrase = ajusteDaBaseNaFrase(fala, e.base);
+  if (!familias.length && !Object.keys(daFrase).length) {
+    if (naProposta) rastro.push("na proposta, e a frase nao trouxe quantidade de familia");
+    return e;
+  }
   const doModelo: { salgados?: number; docinhos?: number; boloKg?: number } = {};
   for (const i of familias) {
     const pref = prefixoDaFamilia(nomeDaFamilia(i.produto) ?? "");

@@ -74,6 +74,34 @@ const CASOS = [
     dano: "o caminho mais comum da festa nao pode mudar",
   },
   {
+    // TROCAR DE CEREBRO NAO PODE MUDAR QUANTO A PADARIA COBRA.
+    //
+    // Medido em 02/09/2026 trocando o modelo: pra esta frase o gpt-4.1-mini
+    // devolvia "50x salgado ;; 50x docinho" e o deepseek-v4-flash nao devolvia
+    // item nenhum. Com o segundo, o ajuste sumia de novo e a conversa voltava a
+    // travar na proposta.
+    //
+    // O numero e o "a mais" estao ESCRITOS na frase, e a padaria acabou de
+    // perguntar exatamente isso. Depender do modelo pra uma conta que o codigo
+    // sabe fazer sozinho e fragilidade minha, nao defeito do modelo.
+    nome: "o ajuste vale mesmo com o modelo devolvendo NADA",
+    fala: "quero 50 salgados a mais e 50 docinhos a mais",
+    leitura: { itens: [] },
+    base: { salgados: 250, docinhos: 150, boloKg: 2 },
+    total: 53130,
+    aceita: true,
+    dano: "cada troca de cerebro traria de volta o travamento da proposta",
+  },
+  {
+    nome: "e frase sem quantidade nenhuma nao mexe na base",
+    fala: "e ai, tudo bem?",
+    leitura: { itens: [] },
+    base: { salgados: 200, docinhos: 100, boloKg: 2 },
+    total: 41880,
+    aceita: false,
+    dano: "conversa fiada fechando a proposta sem ele responder",
+  },
+  {
     nome: "produto nomeado NAO e base: 100 coxinha e item",
     fala: "quero 100 coxinha",
     leitura: { itens: [{ produto: "coxinha", qtd: 100 }] },
