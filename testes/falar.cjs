@@ -46,14 +46,20 @@ const psql = (sql) =>
       "psql -U hub -d enderecodigital_hub -A -F'|' -t -c \"" + sql.replace(/"/g, '\\"') + "\"",
   );
 
-async function limpar() {
-  const de = "(select id from docepao.clientes where telefone='" + FONE + "')";
+// `--limpar` sozinho zera a conversa de teste; com um telefone, zera aquela.
+// Serve pra deixar o painel limpo antes de uma medicao de verdade, e por isso
+// vive AQUI e nao num comando solto: quem apaga conversa e uma ferramenta com
+// nome, que passa pelo mesmo caminho todas as vezes.
+async function limpar(fone = FONE) {
+  const de = "(select id from docepao.clientes where telefone='" + fone + "')";
+  await psql("delete from docepao.pedido_fotos where cliente_id in " + de).catch(() => {});
+  await psql("delete from docepao.fila_impressao where pedido_id in (select id from docepao.pedidos where cliente_id in " + de + ")").catch(() => {});
   await psql("delete from docepao.pedido_itens where pedido_id in (select id from docepao.pedidos where cliente_id in " + de + ")").catch(() => {});
   await psql("delete from docepao.pedidos where cliente_id in " + de).catch(() => {});
   await psql("delete from docepao.pedido_montagem where cliente_id in " + de).catch(() => {});
   await psql("delete from docepao.mensagens where cliente_id in " + de).catch(() => {});
-  await psql("delete from docepao.clientes where telefone='" + FONE + "'").catch(() => {});
-  console.log("conversa do " + FONE + " zerada.");
+  await psql("delete from docepao.clientes where telefone='" + fone + "'").catch(() => {});
+  console.log("conversa do " + fone + " zerada.");
 }
 
 async function ver() {
@@ -103,7 +109,7 @@ async function pedido() {
 (async () => {
   const arg = process.argv[2];
   if (!arg) return console.error('uso: node testes/falar.cjs "sua mensagem"  |  --limpar  |  --ver  |  --pedido');
-  if (arg === "--limpar") return limpar();
+  if (arg === "--limpar") return limpar(process.argv[3] || FONE);
   if (arg === "--ver") return ver();
   if (arg === "--pedido") return pedido();
 
