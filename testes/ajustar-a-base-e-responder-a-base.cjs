@@ -1,144 +1,147 @@
-// QUEM AJUSTA A BASE DA FESTA RESPONDEU A BASE.
+// QUEM AJUSTA A BASE RESPONDEU A BASE, E A CONTA MUDA JUNTO.
 //
-// POR QUE ISTO EXISTE
+// Conversa dele, 02/09/2026, e travou o pedido inteiro:
 //
-// A padaria oferece a base com estas palavras: "da R$ 628,20 no total, e da pra
-// AJUSTAR o que voce quiser". Medido em 27/08/2026, numa festa de 30 pessoas, o
-// que acontecia com quem aceitava o convite:
+//   padaria >> Pra 20 pessoas, uma base boa é 200 salgados, 100 docinhos e
+//              2 kg de bolo. Dá R$ 418,80, e dá pra ajustar o que você quiser.
+//   cliente >> (botão) Quero ajustar
+//   padaria >> Claro, é só dizer o que muda.
+//   cliente >> quero 50 salgados a mais e 50 docinhos a mais
+//   padaria >> Pra 20 pessoas, uma base boa é 200 salgados... (A MESMA)
+//   cliente >> Quero mudar pra 50 salgados a mais e 50 docinhos a mais q isso
+//   padaria >> Qual cor você quer para a forminha dos docinhos?
 //
-//   cliente >> oi, quero fazer uma festa pra 30 pessoas
-//   padaria >> Pra 30 pessoas, 300 salgados, 150 docinhos e 3 kg de bolo...
-//   cliente >> nao quero docinho, so salgado e bolo
-//   padaria >> Pra 30 pessoas, 300 salgados, 0 docinhos e 3 kg de bolo...
-//   cliente >> coxinha e risoles de carne, metade de cada
-//   padaria >> Pra 30 pessoas, 300 salgados, 0 docinhos e 3 kg de bolo...
-//   cliente >> bolo de ninho com nutella, 3 kg
-//   padaria >> Acho que nao estou conseguindo entender direito por aqui.
-//   cliente >> dia 12/09 as 16h, nome Rita Bender, pix
-//   padaria >> Acho que nao estou conseguindo entender direito por aqui.
-//   cliente >> pode confirmar
-//   padaria >> Acho que nao estou conseguindo entender direito por aqui.
+// A padaria OFERECE o ajuste, ele ajusta duas vezes, e a proposta sai igual.
+// Depois disso a conversa nunca mais andou: os docinhos que ele escolheu, os
+// salgados, tudo foi descartado, e vinte minutos depois ela propos a MESMA base
+// do comeco. Ele tinha razao em desistir.
 //
-// A base foi recalculada CERTO (os docinhos zeraram na segunda fala), e mesmo
-// assim a pergunta voltou, porque `baseAceita` so era ligado por duas coisas: o
-// botao "Pode ser" e um `aceitouBase` do modelo. Ajustar nao era nenhuma das
-// duas, entao a etapa da base nunca se cumpria.
+// TRES BURACOS NA MESMA FUNCAO, e o modelo nao tem culpa de nenhum: no rastro
+// ele leu certo em todas as mensagens.
 //
-// A festa inteira se perdeu: o cliente ainda mandou o bolo, a data, o nome e o
-// pagamento, e ouviu a mesma frase quatro vezes.
+//   1. O numero vinha do MODELO, e ele nao acerta "a mais": devolveu 100 numa
+//      mensagem e 150 na outra, quando o certo era 250. A conta agora sai da
+//      FRASE, que e onde o "50" e o "a mais" estao escritos.
+//   2. O TOTAL nao era refeito: a base dizia 100 salgados e seguia cobrando os
+//      R$ 418,80 de 200. O cliente le um numero e paga outro.
+//   3. AJUSTAR nao contava como RESPONDER, e a etapa da base so se cumpre com
+//      `baseAceita`. A conversa ficava presa ali pra sempre.
 //
-// O QUE ESTE TESTE COBRA
-//
-//   1. ajustar a base MARCA a base como respondida;
-//   2. a pergunta da base NAO volta depois do ajuste;
-//   3. a conversa segue viva, sem cair no chamado pra equipe;
-//   4. e o contrario: quem recusa uma familia ANTES de ver proposta nenhuma nao
-//      respondeu pergunta alguma, e a base tem que ser oferecida do mesmo jeito,
-//      ja sem o que ele dispensou. Sem isto o conserto viraria um pulo de etapa.
+// A ISCA: tirando o `respondeuAProposta` de `fluxo.ts`, o primeiro caso volta a
+// ficar preso na proposta.
 //
 // Roda com: node testes/ajustar-a-base-e-responder-a-base.cjs
 const path = require("node:path");
 const fs = require("node:fs");
 const { execFileSync } = require("node:child_process");
 
-const sonda = path.join(__dirname, "_sonda-base-ajustada.mts");
+const CASOS = [
+  {
+    nome: "\"50 a mais\" soma em cima do que foi proposto, e a conta acompanha",
+    fala: "quero 50 salgados a mais que isso e 50 docinhos também a mais",
+    leitura: { itens: [{ produto: "salgado", qtd: 100 }, { produto: "docinho", qtd: 100 }] },
+    base: { salgados: 250, docinhos: 150, boloKg: 2 },
+    total: 53130,
+    aceita: true,
+    perguntaNaoTem: "uma base boa",
+    dano: "a conversa ficou presa na proposta e o cliente desistiu do pedido",
+  },
+  {
+    nome: "numero sem \"a mais\" e absoluto",
+    fala: "quero 300 salgados",
+    leitura: { itens: [{ produto: "salgado", qtd: 300 }] },
+    base: { salgados: 300, docinhos: 100, boloKg: 2 },
+    total: 51880,
+    aceita: true,
+    dano: "somar onde ele trocou dobra o pedido dele",
+  },
+  {
+    nome: "\"a menos\" tira",
+    fala: "50 salgados a menos",
+    leitura: { itens: [{ produto: "salgado", qtd: 50 }] },
+    base: { salgados: 150, docinhos: 100, boloKg: 2 },
+    total: 36880,
+    aceita: true,
+    dano: "cobrar 50 salgados que ele mandou tirar",
+  },
+  {
+    nome: "aceitar a proposta continua igual",
+    fala: "pode ser assim mesmo",
+    leitura: { aceitouBase: true },
+    base: { salgados: 200, docinhos: 100, boloKg: 2 },
+    total: 41880,
+    aceita: true,
+    dano: "o caminho mais comum da festa nao pode mudar",
+  },
+  {
+    nome: "produto nomeado NAO e base: 100 coxinha e item",
+    fala: "quero 100 coxinha",
+    leitura: { itens: [{ produto: "coxinha", qtd: 100 }] },
+    base: { salgados: 200, docinhos: 100, boloKg: 2 },
+    total: 41880,
+    dano: "quem escolhe o tipo estaria mudando a conta da festa sem querer",
+  },
+];
+
+const sonda = path.join(__dirname, "_sonda-ajuste-base.mts");
 fs.writeFileSync(
   sonda,
   [
     'import { responder } from "../lib/ia/fluxo/fluxo.ts";',
-    "",
-    "const VAZIO = {",
-    "  ehFesta:false, pessoas:null, base:null, baseAceita:false, itens:[], naoQuer:[],",
-    "  dados:{nome:null,data:null,hora:null,pagamento:null}, pecas:null, topoNome:null,",
-    "  topoIdade:null, tema:null, forminha:null, prato:null, ultimaFala:null, insistiu:0,",
-    "  retomarEm:null, assunto:null, etapasJaPerguntadas:[],",
-    "};",
-    "const com = (p) => ({ ...VAZIO, ...p });",
-    "",
-    "// A festa de 30 pessoas com a base JA OFERECIDA, que e o estado exato em que",
-    "// a conversa medida estava quando o cliente ajustou.",
-    "const baseOferecida = com({",
-    "  ehFesta:true, pessoas:30, baseAceita:false,",
-    "  base:{salgados:300,docinhos:150,boloKg:3,totalCentavos:62820},",
-    "  etapasJaPerguntadas:['base_da_festa'],",
-    "});",
-    "",
-    "// 1, 2 e 3: ele ajusta.",
-    "const ajustou = await responder(baseOferecida as never,",
-    "  { texto: 'nao quero docinho, so salgado e bolo' } as never,",
-    "  (async () => ({ naoQuer: ['docinho'] })) as never);",
-    "",
-    "// E na sequencia escolhe os sabores, que e onde a conversa medida ja tinha",
-    "// desistido de andar.",
-    "const escolheu = await responder(ajustou.estado as never,",
-    "  { texto: 'coxinha e risoles de carne, metade de cada' } as never,",
-    "  (async () => ({ itens:[{produto:'coxinha',qtd:0},{produto:'risoles de carne',qtd:0}] })) as never);",
-    "",
-    "// 4: recusa ANTES de qualquer proposta. Aqui a base tem que ser oferecida.",
-    "const semProposta = com({ ehFesta:true, pessoas:30, baseAceita:false, base:null });",
-    "const cedoDemais = await responder(semProposta as never,",
-    "  { texto: 'nao quero docinho' } as never,",
-    "  (async () => ({ naoQuer: ['docinho'] })) as never);",
-    "",
-    "console.log(JSON.stringify({",
-    "  aceitouAoAjustar: ajustou.estado.baseAceita,",
-    "  falaDepoisDoAjuste: ajustou.fala.texto,",
-    "  chamouEquipeNoAjuste: ajustou.precisaHumano === true,",
-    "  itensDepoisDeEscolher: escolheu.estado.itens,",
-    "  falaDepoisDeEscolher: escolheu.fala.texto,",
-    "  chamouEquipeNaEscolha: escolheu.precisaHumano === true,",
-    "  aceitouCedoDemais: cedoDemais.estado.baseAceita,",
-    "}));",
+    "const CASOS = " + JSON.stringify(CASOS) + ";",
+    "const saiu = [];",
+    "for (const c of CASOS) {",
+    "  const base = {",
+    "    ehFesta:true, pessoas:20,",
+    "    base:{salgados:200,docinhos:100,boloKg:2,totalCentavos:41880}, baseAceita:false,",
+    "    naoQuer:[], itens:[], dados:{nome:null,data:null,hora:null,pagamento:null},",
+    "    pecas:null, topoNome:null, topoIdade:null, tema:null, forminha:null, prato:null,",
+    "    ultimaFala:'Claro, é só dizer o que muda.', insistiu:0, retomarEm:null, assunto:null,",
+    "    etapasJaPerguntadas:['abertura','quantas_pessoas','base_da_festa'],",
+    "    etapasAdiadas:[], pecasMandadas:[],",
+    "  };",
+    "  const r = await responder(base as never, { texto: c.fala }, (async () => c.leitura) as never);",
+    "  saiu.push({ base: r.estado.base, aceita: !!r.estado.baseAceita, pergunta: String(r.fala.texto || '') });",
+    "}",
+    "console.log(JSON.stringify(saiu));",
   ].join("\n"),
-  "utf8",
 );
 
 let bruto;
 try {
-  bruto = execFileSync("npx", ["tsx", "_sonda-base-ajustada.mts"], {
+  bruto = execFileSync("npx", ["tsx", "_sonda-ajuste-base.mts"], {
     cwd: __dirname, encoding: "utf8", timeout: 180000, shell: process.platform === "win32",
   });
 } finally {
   try { fs.unlinkSync(sonda); } catch {}
 }
-const r = JSON.parse(bruto.trim().split("\n").pop());
-const falhas = [];
 
-const cobra = (rotulo, ok, detalhe) => {
-  if (ok) {
-    console.log("ok    " + rotulo);
-  } else {
-    falhas.push(rotulo);
-    console.log("ERRO  " + rotulo);
-    if (detalhe) console.log("        " + detalhe);
+const saiu = JSON.parse(bruto.trim().split("\n").pop());
+let erros = 0;
+console.log("== ajustar a base e responder a base ==");
+CASOS.forEach((c, n) => {
+  const r = saiu[n];
+  const problemas = [];
+  for (const campo of ["salgados", "docinhos", "boloKg"]) {
+    if (Number(r.base?.[campo]) !== Number(c.base[campo])) {
+      problemas.push(campo + " ficou " + r.base?.[campo] + ", esperado " + c.base[campo]);
+    }
   }
-};
+  if (c.total != null && Number(r.base?.totalCentavos) !== c.total) {
+    problemas.push(
+      "o total ficou R$ " + (Number(r.base?.totalCentavos) / 100).toFixed(2) +
+      ", esperado R$ " + (c.total / 100).toFixed(2),
+    );
+  }
+  if (c.aceita != null && r.aceita !== c.aceita) {
+    problemas.push(c.aceita ? "a conversa continuou presa na proposta" : "fechou a proposta sem ele responder");
+  }
+  if (c.perguntaNaoTem && new RegExp(c.perguntaNaoTem, "i").test(r.pergunta)) {
+    problemas.push("repetiu a proposta: " + JSON.stringify(r.pergunta.slice(0, 60)));
+  }
+  console.log((problemas.length ? "ERRO  " : "ok    ") + c.nome + (problemas.length ? "  ->  " + problemas.join("; ") + "; " + c.dano : ""));
+  if (problemas.length) erros++;
+});
 
-const ehABase = (t) => /uma base boa|base boa é|Quantas pessoas/i.test(String(t || ""));
-
-cobra("ajustar a base marca a base como respondida", r.aceitouAoAjustar === true,
-  "baseAceita = " + JSON.stringify(r.aceitouAoAjustar));
-cobra("a pergunta da base nao volta depois do ajuste", !ehABase(r.falaDepoisDoAjuste),
-  String(r.falaDepoisDoAjuste || "").slice(0, 90));
-cobra("o ajuste nao chama a equipe", r.chamouEquipeNoAjuste === false);
-
-// A base de 300 salgados repartida entre as duas escolhas: 150 e 150. Sem o
-// conserto os dois ficavam em zero, porque repartirABase so roda com a base
-// aceita, e era exatamente isso que nao acontecia.
-const qtds = (r.itensDepoisDeEscolher || []).map((i) => Number(i.qtd) || 0);
-cobra("a base se reparte entre os sabores escolhidos", qtds.length === 2 && qtds.every((q) => q > 0),
-  "quantidades: " + JSON.stringify(qtds));
-cobra("escolher sabor nao chama a equipe", r.chamouEquipeNaEscolha === false);
-cobra("a pergunta da base nao volta depois da escolha", !ehABase(r.falaDepoisDeEscolher),
-  String(r.falaDepoisDeEscolher || "").slice(0, 90));
-
-// O outro lado: sem proposta na mesa, recusar nao responde nada.
-cobra("recusar antes da proposta NAO pula a base", r.aceitouCedoDemais !== true,
-  "baseAceita = " + JSON.stringify(r.aceitouCedoDemais));
-
-console.log("");
-if (falhas.length) {
-  console.log("REPROVOU");
-  process.exit(1);
-}
-console.log("PASSOU");
+console.log(erros ? "REPROVOU EM " + erros : "PASSOU");
+process.exit(erros ? 1 : 0);

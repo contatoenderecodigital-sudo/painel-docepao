@@ -40,7 +40,7 @@ import { produtoNoComeco, produtoPorNome, produtosDaCasa, coresDoCardapio, unida
 import { comoOClienteLe } from "../dados/grafia";
 import { semAcento as semAc, PALAVRAS_VAZIAS, listaEmPortugues, numerosEscritos } from "../texto";
 import { escreverObs, lerObs, mexerNaObs, type Embalagem } from "@/lib/banco/obs-do-bolo";
-import { calcularBase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
+import { calcularBase, baseComQuantidades, ajusteDaBaseNaFrase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
 import { dataDeRetirada, disseQuantidade, pediuPraFalarComGente, respostaAoValor } from "./falas-do-cliente";
 import { retiradaForaDoExpediente, avisoDeEspera } from "@/lib/padaria-aberta";
@@ -639,28 +639,61 @@ function oClienteNomeouEsteProduto(fala: string, produto: string): boolean {
  *
  * "vamos fazer 150 salgados entao" nao pede pra recalcular pelas pessoas. O
  * numero novo e o da familia, e a proposta passa a ser esse.
+ *
+ * TRES BURACOS, MEDIDOS NA CONVERSA DELE DE 02/09/2026, e juntos travaram o
+ * pedido inteiro:
+ *
+ *   padaria >> Pra 20 pessoas: 200 salgados, 100 docinhos, 2 kg. R$ 418,80.
+ *   cliente >> (botao) Quero ajustar
+ *   cliente >> quero 50 salgados a mais e 50 docinhos a mais
+ *   padaria >> Pra 20 pessoas: 200 salgados, 100 docinhos... (A MESMA)
+ *
+ *   1. O NUMERO VINHA DO MODELO, e ele nao acerta "a mais": devolveu 100 numa
+ *      mensagem e 150 na outra, quando o certo era 250. A conta agora sai da
+ *      FRASE, que e onde o "50" e o "a mais" estao escritos.
+ *
+ *   2. O TOTAL NAO ERA REFEITO: a base passava a dizer 100 salgados e continuava
+ *      cobrando os R$ 418,80 de 200. O cliente leria um numero e pagaria outro.
+ *
+ *   3. AJUSTAR NAO CONTAVA COMO RESPONDER. A etapa da base so se cumpre com
+ *      `baseAceita`, entao a conversa ficava presa nela: os docinhos que ele
+ *      escolheu depois, os salgados, tudo foi descartado, e vinte minutos
+ *      depois a padaria propos a mesma base do comeco. O modelo tinha lido
+ *      certo em todas as mensagens. Quem jogou fora fui eu.
+ *
+ * Ajustar e responder: era o que a propria padaria tinha oferecido.
  */
-function atualizarBasePeloTotalDito(e: Estado, l: Leitura): Estado {
+function atualizarBasePeloTotalDito(e: Estado, l: Leitura, fala = "", etapa?: EtapaId): Estado {
   if (!e.base || !l.itens?.length) return e;
-  const base = { ...e.base };
-  let mudou = false;
-  for (const i of l.itens) {
-    const fam = nomeDaFamilia(i.produto);
+
+  // So familia muda base. "100 coxinha" e item, e nao proposta.
+  const familias = l.itens.filter((i) => nomeDaFamilia(i.produto) && Number(i.qtd) > 0);
+  if (!familias.length) return e;
+
+  // A frase manda, porque e onde esta o "a mais". Sem numero na frase (o cliente
+  // respondeu "pode ser 150" numa mensagem so, por exemplo), vale o do modelo.
+  const daFrase = ajusteDaBaseNaFrase(fala, e.base);
+  const doModelo: { salgados?: number; docinhos?: number; boloKg?: number } = {};
+  for (const i of familias) {
+    const pref = prefixoDaFamilia(nomeDaFamilia(i.produto) ?? "");
     const qtd = Number(i.qtd);
-    if (!fam || !(qtd > 0)) continue;
-    const pref = prefixoDaFamilia(fam);
-    if (pref === "salgado" && base.salgados !== qtd) {
-      base.salgados = qtd;
-      mudou = true;
-    } else if (pref === "docinho" && base.docinhos !== qtd) {
-      base.docinhos = qtd;
-      mudou = true;
-    } else if (pref === "bolo" && base.boloKg !== qtd) {
-      base.boloKg = qtd;
-      mudou = true;
-    }
+    if (pref === "salgado") doModelo.salgados = qtd;
+    else if (pref === "docinho") doModelo.docinhos = qtd;
+    else if (pref === "bolo") doModelo.boloKg = qtd;
   }
-  return mudou ? { ...e, base } : e;
+  const mudou = { ...doModelo, ...daFrase };
+
+  const nova = baseComQuantidades(e, mudou);
+  if (!nova) return e;
+  const igual =
+    nova.salgados === e.base.salgados &&
+    nova.docinhos === e.base.docinhos &&
+    nova.boloKg === e.base.boloKg;
+  if (igual) return e;
+
+  // Ajustou na etapa da base: isso E a resposta da proposta, e a conversa segue.
+  const respondeuAProposta = etapa === "base_da_festa";
+  return { ...e, base: nova, baseAceita: e.baseAceita || respondeuAProposta };
 }
 
 /**
@@ -2114,7 +2147,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
     }
   }
 
-  novo = atualizarBasePeloTotalDito(novo, l);
+  novo = atualizarBasePeloTotalDito(novo, l, falaDoCliente, etapa);
   // DELEGAR E DIZER "ESCOLHE VOCE". RESPONDER UMA OPCAO E O CONTRARIO DISSO.
   //
   // Medido conversando com o servidor em 31/08/2026:

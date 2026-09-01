@@ -65,6 +65,113 @@ function oQueEleQuer(p: PedidoEmMontagem): { salgado: boolean; doce: boolean; bo
 }
 
 /**
+ * A BASE COM AS QUANTIDADES QUE ELE PEDIU.
+ *
+ * Medido na conversa dele de 02/09/2026, e travou o pedido inteiro:
+ *
+ *   padaria >> Pra 20 pessoas, uma base boa e 200 salgados, 100 docinhos e 2 kg
+ *              de bolo. Da R$ 418,80, e da pra ajustar o que voce quiser.
+ *   cliente >> (botao) Quero ajustar
+ *   padaria >> Claro, e so dizer o que muda.
+ *   cliente >> quero 50 salgados a mais e 50 docinhos a mais
+ *   padaria >> Pra 20 pessoas, uma base boa e 200 salgados... (A MESMA)
+ *
+ * A padaria oferece o ajuste com todas as letras, ele ajusta, e a proposta sai
+ * IGUAL. Como a etapa da base so se cumpre com `baseAceita`, a conversa ficou
+ * presa ali: os docinhos que ele escolheu depois, os salgados, tudo foi
+ * descartado, e vinte minutos depois a padaria propos a mesma base do comeco.
+ *
+ * O PRECO SAI DOS UNITARIOS DA PROPOSTA, e nao de uma cotacao nova. Cotar
+ * "salgado" de novo faz o motor escolher outro produto da familia (salgado
+ * assado no lugar do frito) e o total muda sem ninguem ter mudado nada: o
+ * cliente veria R$ 636,80 depois de pedir 50 a mais sobre R$ 418,80.
+ */
+export function baseComQuantidades(
+  p: PedidoEmMontagem,
+  novas: { salgados?: number; docinhos?: number; boloKg?: number },
+): Base | null {
+  const atual = p.base ?? calcularBase(p);
+  if (!atual) return null;
+
+  const pessoas = Number(p.pessoas) || 0;
+  const c = pessoas > 0 ? motorPadrao.sugerirPorPessoas(pessoas, oQueEleQuer(p)) : null;
+  const unitDe = (rx: RegExp): number => {
+    const linha = (c?.linhas ?? []).find((l) => rx.test(String(l.categoria ?? "")));
+    return Number(linha?.unit || 0);
+  };
+
+  const salgados = Math.max(0, Math.round(novas.salgados ?? atual.salgados));
+  const docinhos = Math.max(0, Math.round(novas.docinhos ?? atual.docinhos));
+  const boloKg = Math.max(0, Number(novas.boloKg ?? atual.boloKg));
+
+  const total =
+    salgados * unitDe(/^salgado/i) +
+    docinhos * unitDe(/^doce|^docinho/i) +
+    boloKg * unitDe(/^bolo/i);
+
+  return {
+    salgados,
+    docinhos,
+    boloKg,
+    // Sem unitario (caso raro de familia recusada), o total da proposta antiga
+    // seria mentira: melhor manter o que ja estava do que anunciar numero novo
+    // com peca faltando.
+    totalCentavos: total > 0 ? Math.round(total * 100) : atual.totalCentavos,
+  };
+}
+
+/**
+ * O QUE ELE MUDOU NA BASE, LIDO DA FRASE.
+ *
+ * O modelo nao acerta "a mais": pra "50 salgados a mais" sobre 200 ele devolveu
+ * 100 numa mensagem e 150 na seguinte, as duas erradas. O numero cru esta na
+ * frase, e "a mais" e "a menos" sao a conta, entao a conta e feita aqui.
+ *
+ * Sem "a mais"/"a menos" na frase, o numero e absoluto: "quero 300 salgados"
+ * sao 300 salgados.
+ */
+export function ajusteDaBaseNaFrase(
+  fala: unknown,
+  base: Base,
+): { salgados?: number; docinhos?: number; boloKg?: number } {
+  const t = String(fala ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+  if (!t) return {};
+
+  const mudou: { salgados?: number; docinhos?: number; boloKg?: number } = {};
+  const familias: [RegExp, "salgados" | "docinhos" | "boloKg", number][] = [
+    [/salgad/, "salgados", base.salgados],
+    [/docinh|doce/, "docinhos", base.docinhos],
+    [/bolo/, "boloKg", base.boloKg],
+  ];
+
+  for (const [reFamilia, campo, atual] of familias) {
+    // O numero que vem ANTES ou DEPOIS do nome da familia, na mesma parte da
+    // frase. Partir por "e" e por virgula e o que separa "50 salgados a mais e
+    // 50 docinhos a mais" em duas contas independentes.
+    for (const parte of t.split(/,| e /)) {
+      if (!reFamilia.test(parte)) continue;
+      const num = parte.match(/([0-9]+(?:[.,][0-9]+)?)/);
+      if (!num) continue;
+      const valor = Number(String(num[1]).replace(",", "."));
+      if (!Number.isFinite(valor)) continue;
+      // "a mais" e "a menos" tambem chegam separados por "e": o pedaco pode ser
+      // so "50 docinhos tambem a mais", ou vir sem eles e valer pra frase toda.
+      // Sem barra invertida nesta regex de proposito: o shell e o python ja
+      // comeram a borda de palavra duas vezes neste projeto, e ela sai igual
+      // com [^a-z] nas pontas.
+      const soma = /(^|[^a-z])a mais([^a-z]|$)/.test(parte) || /(^|[^a-z])a mais([^a-z]|$)/.test(t);
+      const tira = /(^|[^a-z])a menos([^a-z]|$)/.test(parte) || /(^|[^a-z])a menos([^a-z]|$)/.test(t);
+      mudou[campo] = tira ? Math.max(0, atual - valor) : soma ? atual + valor : valor;
+      break;
+    }
+  }
+  return mudou;
+}
+
+/**
  * A BASE, CALCULADA PELO MOTOR.
  *
  * O mesmo motor que faz a conta do pedido fechado: se ele errar, erram os dois
