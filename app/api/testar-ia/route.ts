@@ -23,6 +23,7 @@ import { comORecadoDaFoto } from "@/lib/ia/texto";
 import { acharOuCriarCliente, salvarFotoPendente } from "@/lib/banco/conversas";
 import { atenderComFluxoNovo } from "@/lib/ia/fluxo/atender";
 import OpenAI from "openai";
+import { clienteDoCerebro } from "@/lib/ia/cliente-do-cerebro";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -182,7 +183,7 @@ export async function POST(req: NextRequest) {
     const jaAtendeu = (corpo.mensagens ?? []).some((m) => m?.de === "ia");
 
     resp = await atenderComFluxoNovo(
-      new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+      clienteDoCerebro(),
       negocioId,
       clienteId,
       { texto: textoDoTurno, botaoId: corpo.botaoId ?? null },

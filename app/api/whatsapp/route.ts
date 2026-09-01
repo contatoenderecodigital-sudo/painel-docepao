@@ -13,6 +13,7 @@
 // ============================================================================
 
 import OpenAI from "openai";
+import { clienteDoCerebro } from "@/lib/ia/cliente-do-cerebro";
 import { registrarUsoIA } from "@/lib/ia/uso";
 import { atenderComFluxoNovo, ehDoFluxoNovo } from "@/lib/ia/fluxo/atender";
 import { NextRequest, after } from "next/server";
@@ -685,7 +686,7 @@ async function processar(corpo: WebhookPayload) {
           if (avisoDaMarcada) textoJunto = avisoDaMarcada + textoJunto;
 
           const novo = await atenderComFluxoNovo(
-            new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+            clienteDoCerebro(),
             negocioId,
             clienteId,
             { texto: textoJunto, botaoId },

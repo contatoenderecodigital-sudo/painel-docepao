@@ -32,8 +32,11 @@ import OpenAI from "openai";
 import { SOBRE_O_QUE, SITUACOES, type Leitura } from "./leitura";
 import { ETAPAS_DA_FESTA } from "./etapas";
 import type { Pensar } from "./fluxo";
+import { modeloDoCerebro } from "../cliente-do-cerebro";
 
-const MODELO = process.env.OPENAI_MODEL_FLUXO || "gpt-4.1-mini";
+// O modelo mora num lugar so, com o provedor: ver lib/ia/cliente-do-cerebro.ts.
+// Lido A CADA CHAMADA de proposito: assim trocar a variavel no painel do deploy
+// vale na proxima mensagem, sem esperar o processo reiniciar.
 
 /**
  * O formato que o modelo tem que devolver. Nada alem disto e lido.
@@ -92,7 +95,7 @@ export function pensarComOpenAI(
 ): Pensar {
   return async ({ instrucao, mensagem }) => {
     const r = await cliente.chat.completions.create({
-      model: MODELO,
+      model: modeloDoCerebro(),
       // Temperatura baixa: aqui nao se quer criatividade, se quer leitura.
       temperature: 0,
       response_format: { type: "json_object" },
