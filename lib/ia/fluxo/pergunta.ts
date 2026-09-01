@@ -122,9 +122,41 @@ function falaDaBase(p: PedidoEmMontagem): string {
     partes.length === 1
       ? partes[0]
       : partes.slice(0, -1).join(", ") + " e " + partes[partes.length - 1];
+  // O PREÇO DO SALGADO NÃO É UM SÓ, E A PROPOSTA PRECISA DIZER ISSO.
+  //
+  // Medido conversando com a produção em 02/09/2026, festa de 25 pessoas:
+  //
+  //   proposta >> 250 salgados, 125 docinhos e 2,5 kg de bolo. Dá R$ 523,50.
+  //   cliente  >> "sei lá, o que vocês tiverem"
+  //   pedido   >> R$ 538,50
+  //
+  // A conta não estava errada: os 250 salgados estavam lá. É que o FRITO é
+  // R$ 1,00 e o ASSADO é R$ 1,25, a proposta estima tudo como frito, e o sortido
+  // que a casa monta mistura os dois. Quinze reais a mais do que foi anunciado.
+  //
+  // Decisão dele em 02/09: *"tá escrito no cardápio que ela manda que é 1,25 o
+  // assado e 1,00 o frito, aí é só mandar junto pro cliente"*. Então a proposta
+  // diz a diferença com todas as letras, e ninguém paga surpresa.
+  //
+  // OS DOIS NÚMEROS SAEM DO MOTOR, que é quem cobra: se a dona mudar o preço, a
+  // frase muda junto. Sem os dois preços na mão, a frase simplesmente não sai.
+  const umDeCada = motorPadrao.cotarPorItens([
+    { item: "coxinha", qtd: 1 },
+    { item: "pastel assado", qtd: 1 },
+  ]);
+  const frito = Number(umDeCada.linhas?.[0]?.unit ?? 0);
+  const assado = Number(umDeCada.linhas?.[1]?.unit ?? 0);
+  const avisoDoSalgado =
+    b.salgados > 0 && frito > 0 && assado > frito
+      ? String.fromCharCode(10, 10) +
+        "O salgado frito sai " + brl(frito) + " e o assado " + brl(assado) +
+        ", então o total muda um pouco conforme os tipos que você escolher."
+      : "";
+
   return (
     "Pra " + p.pessoas + " pessoas, uma base boa é " + lista + "." + String.fromCharCode(10, 10) +
-    "Dá " + brl(b.totalCentavos / 100) + " no total, e dá pra ajustar o que você quiser."
+    "Dá " + brl(b.totalCentavos / 100) + " no total, e dá pra ajustar o que você quiser." +
+    avisoDoSalgado
   );
 }
 

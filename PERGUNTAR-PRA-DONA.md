@@ -151,14 +151,19 @@ Não é erro de conta. O salgado FRITO é R$ 1,00 e o ASSADO é R$ 1,25, e a
 proposta estima tudo como frito. Quando a casa monta o sortido, entram esfirra,
 empadinha e pastel assado, e a conta sobe R$ 15,00.
 
-Três caminhos, e a escolha é dela:
+**RESOLVIDO EM 02/09/2026, POR ELE:** *"tá escrito no cardápio que ela manda que
+é 1,25 o assado e 1,00 o frito, aí é só mandar junto pro cliente"*.
 
-1. o sortido da casa usa só frito, e a conta bate com a proposta;
-2. a proposta já sai dizendo "de R$ 523,50 a R$ 585,00, conforme os tipos";
-3. fica como está, e o cliente vê a diferença só no resumo final.
+A proposta passou a dizer os dois preços, com os números saindo do motor:
 
-O que NÃO dá é a padaria cobrar mais do que anunciou sem avisar: é o tipo de
-coisa que vira discussão no balcão.
+> Dá R$ 523,50 no total, e dá pra ajustar o que você quiser.
+>
+> O salgado frito sai R$ 1,00 e o assado R$ 1,25, então o total muda um pouco
+> conforme os tipos que você escolher.
+
+Continua valendo perguntar pra dona SE ela prefere que a casa monte o sortido só
+com frito, pra fechar exatamente no valor anunciado. Mas ninguém mais paga
+surpresa.
 
 ---
 
