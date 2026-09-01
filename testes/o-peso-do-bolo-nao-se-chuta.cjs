@@ -141,6 +141,35 @@ const CASOS = [
     dano: "o mesmo beco, na resposta mais curta que existe",
   },
   {
+    // O ESTRAGO QUE A PERGUNTA DO PESO FEZ SOZINHA, medido em 01/09/2026:
+    //
+    //   padaria >> Quantos quilos voce quer?
+    //   cliente >> nao quero topo nem papel de arroz nem prato
+    //   padaria >> (a mesma pergunta)
+    //   cliente >> dia 12 as 15h
+    //   pedido  >> 12 kg de bolo biz     R$ 598,80 no lugar de R$ 99,80
+    //
+    // Foi defeito meu, do dia anterior: ensinei a ler numero solto como peso e
+    // nao disse o que e "solto". Enquanto a pergunta ficasse de pe, qualquer
+    // numero de qualquer frase virava quilo.
+    nome: "\"dia 12 as 15h\" NAO e doze quilos",
+    itens: [{ produto: "bolo biz", categoria: "bolo_festa", qtd: 0, unidade: "kg", obs: null }],
+    ultimaPergunta: "O bolo é vendido por quilo. Quantos quilos você quer? A gente faz de 300 g até 6 kg.",
+    fala: "dia 12 as 15h",
+    leitura: { itens: [], dados: { data: "12/09/2026", hora: "15:00" } },
+    peso: 0,
+    dano: "R$ 499,00 a mais num bolo so, e o cliente so descobre no resumo",
+  },
+  {
+    nome: "e a data sem hora tambem nao",
+    itens: [{ produto: "bolo biz", categoria: "bolo_festa", qtd: 0, unidade: "kg", obs: null }],
+    ultimaPergunta: "O bolo é vendido por quilo. Quantos quilos você quer? A gente faz de 300 g até 6 kg.",
+    fala: "pode ser dia 20",
+    leitura: { itens: [], dados: { data: "20/09/2026" } },
+    peso: 0,
+    dano: "vinte quilos de bolo, R$ 998,00",
+  },
+  {
     nome: "numero solto FORA da pergunta do peso nao vira peso",
     itens: [{ produto: "pao frances", categoria: "padaria", qtd: 0, unidade: "kg", obs: null }],
     ultimaPergunta: "Quer levar docinho junto?",

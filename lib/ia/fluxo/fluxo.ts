@@ -813,6 +813,36 @@ function perguntaDePeso(e: Estado): boolean {
 }
 
 /**
+ * ESTA FRASE PODE SER A RESPOSTA DO PESO?
+ *
+ * Medido conversando com a producao em 01/09/2026, e custava R$ 499,00 num bolo
+ * so:
+ *
+ *   padaria >> O bolo e vendido por quilo. Quantos quilos voce quer?
+ *   cliente >> nao quero topo nem papel de arroz nem prato
+ *   padaria >> (a mesma pergunta, porque nao havia peso na frase)
+ *   cliente >> dia 12 as 15h
+ *   pedido  >> 12 kg de bolo biz          R$ 598,80 no lugar de R$ 99,80
+ *
+ * Foi defeito MEU, de 31/08: eu ensinei a padaria a ler numero solto como peso
+ * depois da pergunta do peso, e nao disse o que e "solto". Enquanto a pergunta
+ * ficar de pe, qualquer numero de qualquer frase virava quilo.
+ *
+ * Dois sinais objetivos, e nenhuma lista de palavras minha:
+ *
+ *   - a frase tem NO MAXIMO UM numero. "dia 12 as 15h" tem dois, e ninguem
+ *     responde peso com dois numeros;
+ *   - o modelo nao leu DADO de retirada nesta frase. Quem esta marcando dia,
+ *     hora, nome ou pagamento nao esta falando de quilo.
+ *
+ * "2", "dois", "um e meio", "2 kg" e "pode ser 500g" continuam passando.
+ */
+function frasePodeSerPeso(fala: unknown, leuDados: boolean): boolean {
+  if (leuDados) return false;
+  return (String(fala ?? "").match(/[0-9]+(?:[.,][0-9]+)?/g) ?? []).length <= 1;
+}
+
+/**
  * O PESO QUE ESTA ESCRITO NUMA FRASE.
  *
  * Entende o que a clientela da padaria escreve: "2 kg", "2kg", "500g", "700
@@ -1862,7 +1892,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         //
         // E a mesma regra do "Sim" digitado: quem da sentido a resposta e a
         // pergunta que acabou de sair, e nao a forma da frase.
-        if (!peso && perguntaDePeso(e)) {
+        if (!peso && perguntaDePeso(e) && frasePodeSerPeso(falaDoCliente, Boolean(l.dados))) {
           peso = pesoNaFala(String(falaDoCliente || ""), true);
           if (peso) rastro.push("a padaria tinha perguntado o peso; li \"" + falaDoCliente + "\" como quilos");
         }
@@ -2224,7 +2254,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
   //
   // So mexe em item vendido por quilo que esta esperando peso (qtd zerada), e
   // no primeiro deles: a padaria pergunta um de cada vez.
-  if (perguntaDePeso(e)) {
+  if (perguntaDePeso(e) && frasePodeSerPeso(falaDoCliente, Boolean(l.dados))) {
     const pesoDito = pesoNaFala(String(falaDoCliente || ""), true);
     if (pesoDito > 0 && pesoDito <= 30) {
       const n = novo.itens.findIndex(
