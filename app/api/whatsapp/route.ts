@@ -13,7 +13,7 @@
 // ============================================================================
 
 import OpenAI from "openai";
-import { clienteDoCerebro } from "@/lib/ia/cliente-do-cerebro";
+import { clienteDoCerebro, modeloDoCerebro } from "@/lib/ia/cliente-do-cerebro";
 import { registrarUsoIA } from "@/lib/ia/uso";
 import { atenderComFluxoNovo, ehDoFluxoNovo } from "@/lib/ia/fluxo/atender";
 import { NextRequest, after } from "next/server";
@@ -736,7 +736,13 @@ async function processar(corpo: WebhookPayload) {
           await salvarMensagem(negocioId, clienteId, "assistant", novo.texto, { wamid: wamid ?? undefined }).catch((e) => logWhatsapp("salvar resposta", e));
           await registrarUsoIA(
             negocioId,
-            process.env.OPENAI_MODEL_FLUXO || "gpt-4.1-mini",
+            // O MODELO GRAVADO TEM QUE SER O QUE RESPONDEU.
+            //
+            // Aqui estava a variavel de ambiente lida direto, e com o cerebro
+            // vindo do banco isso virou mentira na hora: a conta dizia
+            // deepseek-v4-flash enquanto quem respondia era o pro. Custo de IA
+            // se mede pelo que aconteceu, nao pelo que estava configurado.
+            modeloDoCerebro(credsTenant.modeloIa),
             { tokensIn: novo.uso.tokensIn, tokensOut: novo.uso.tokensOut, cacheRead: novo.uso.cacheRead },
             "whatsapp-fluxo-novo",
             clienteId,
