@@ -516,7 +516,33 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // O numero de pessoas so serve pra SUGERIR uma base. Quem ja esta dizendo o
     // que quer nao precisa de sugestao, e e a mesma regra do resto do fluxo:
     // perguntou, ele falou outra coisa, a padaria segue.
-    pulavel: (p) => !p.ehFesta || jaPerguntouEEleNaoRespondeu(p, "quantas_pessoas"),
+    // E QUEM JA DITOU QUANTIDADE NAO PRECISA NEM DA PRIMEIRA PERGUNTA.
+    //
+    // Medido conversando com a producao em 01/09/2026:
+    //
+    //   cliente >> oi, quero 100 coxinha pra sabado as 9h
+    //   padaria >> Quantas pessoas vao para a festa?
+    //
+    // Ele disse o que quer, quanto quer e pra quando. O numero de pessoas so
+    // serve pra SUGERIR uma base, e ninguem precisa de sugestao depois de ter
+    // decidido: a pergunta vira burocracia na primeira mensagem, que e onde o
+    // cliente desiste. Quem marcou festa ali foi o modelo, e nao ele.
+    //
+    // QUANTIDADE DITADA E MAIOR QUE UM, E NAO PODE SER FAMILIA.
+    //
+    // "Quero encomendar pra uma festa bolo e docinhos e salgados" tambem chega
+    // com item de quantidade 1, porque o modelo devolve 1 pra "um bolo" mesmo
+    // quando ninguem falou numero. Pular ali matava a proposta da festa inteira,
+    // e um teste que ja existia pegou: ela passava a perguntar o sabor do bolo
+    // antes de dizer quanto custa.
+    //
+    // O que separa os dois e o numero que o CLIENTE ditou: "100 coxinha" e
+    // escolha feita, "bolo" e assunto aberto.
+    pulavel: (p) =>
+      !p.ehFesta ||
+      jaPerguntouEEleNaoRespondeu(p, "quantas_pessoas") ||
+      (!p.baseAceita &&
+        p.itens.some((i) => Number(i.qtd) > 1 && !ehNomeDeFamilia(i.produto))),
   },
   {
     id: "base_da_festa",
