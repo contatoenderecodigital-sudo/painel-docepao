@@ -139,6 +139,29 @@ depende de saber se a IA aceita na hora ou passa pra equipe.
 
 ---
 
+**9. A proposta da festa pode fechar acima do valor que ela anunciou?**
+
+Medido conversando em 02/09/2026, numa festa de 25 pessoas:
+
+> proposta >> 250 salgados, 125 docinhos e 2,5 kg de bolo. Dá R$ 523,50.
+> cliente  >> "sei lá, o que vocês tiverem"
+> pedido   >> R$ 538,50
+
+Não é erro de conta. O salgado FRITO é R$ 1,00 e o ASSADO é R$ 1,25, e a
+proposta estima tudo como frito. Quando a casa monta o sortido, entram esfirra,
+empadinha e pastel assado, e a conta sobe R$ 15,00.
+
+Três caminhos, e a escolha é dela:
+
+1. o sortido da casa usa só frito, e a conta bate com a proposta;
+2. a proposta já sai dizendo "de R$ 523,50 a R$ 585,00, conforme os tipos";
+3. fica como está, e o cliente vê a diferença só no resumo final.
+
+O que NÃO dá é a padaria cobrar mais do que anunciou sem avisar: é o tipo de
+coisa que vira discussão no balcão.
+
+---
+
 ## O QUE OS ÁUDIOS JÁ RESPONDERAM
 
 Seis perguntas saíram da lista em 30/08/2026. Cada uma com a fala dela e onde a

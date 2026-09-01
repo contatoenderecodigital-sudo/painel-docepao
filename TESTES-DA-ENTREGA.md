@@ -52,12 +52,12 @@ Preenchido conforme roda. Sem "quase": ou passou inteira, ou está aberta.
 
 | # | rodou | resultado |
 |---|---|---|
-| 1 | | |
-| 2 | | |
-| 3 | | |
-| 4 | 02/09 | achou 2 defeitos de dinheiro, os dois consertados |
-| 5 | | |
-| 6 | | |
+| 1 | 02/09 | 2 defeitos, consertados (peso vazando entre produtos; "O cuca") |
+| 2 | 02/09 | 2 defeitos de R$ 120, consertados (meia a meia; duas pizzas) |
+| 3 | 02/09 | passou inteira: 300 salgados, 150 docinhos, 3 kg, R$ 628,20 |
+| 4 | 02/09 | 3 defeitos de dinheiro, todos consertados |
+| 5 | 02/09 | passou inteira: festa + pizza, R$ 538,80, conta batendo item a item |
+| 6 | 02/09 | passou; sobrou uma pergunta pra dona (proposta x sortido, R$ 15) |
 | 7 | | |
 | 8 | | |
 | 9 | | |
