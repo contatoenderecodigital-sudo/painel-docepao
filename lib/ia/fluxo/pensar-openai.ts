@@ -92,10 +92,11 @@ Pedido novo vai em itens, nunca só em confirmou. confirmou só fecha o pedido j
 export function pensarComOpenAI(
   cliente: OpenAI,
   registrar?: (uso: { tokensIn: number; tokensOut: number; cacheRead: number }) => void,
+  modeloDoNegocio: string | null = null,
 ): Pensar {
   return async ({ instrucao, mensagem }) => {
     const r = await cliente.chat.completions.create({
-      model: modeloDoCerebro(),
+      model: modeloDoCerebro(modeloDoNegocio),
       // Temperatura baixa: aqui nao se quer criatividade, se quer leitura.
       temperature: 0,
       response_format: { type: "json_object" },

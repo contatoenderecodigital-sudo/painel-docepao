@@ -686,7 +686,9 @@ async function processar(corpo: WebhookPayload) {
           if (avisoDaMarcada) textoJunto = avisoDaMarcada + textoJunto;
 
           const novo = await atenderComFluxoNovo(
-            clienteDoCerebro(),
+            // O cerebro pode ser trocado pelo BANCO, sem deploy: e assim que
+            // dois modelos sao comparados com as mesmas frases no mesmo dia.
+            clienteDoCerebro({ url: credsTenant.iaBaseUrl, chave: credsTenant.iaApiKey }),
             negocioId,
             clienteId,
             { texto: textoJunto, botaoId },
@@ -694,6 +696,7 @@ async function processar(corpo: WebhookPayload) {
             // cumprimenta de novo. Quem sabe disso e a tabela de mensagens: o
             // pedido em montagem nao guarda quem falou o que.
             jaFalou,
+            credsTenant.modeloIa,
           );
           console.log("[fluxo-novo] " + novo.rastro.join(" / "));
 

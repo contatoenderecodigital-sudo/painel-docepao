@@ -212,12 +212,32 @@ export type CredsWhatsapp = {
   token: string | null;
   wabaId: string | null; // usado pra listar/enviar templates aprovados
   iaAtiva: boolean;
+  /** O cerebro deste negocio, quando ele tem um proprio (senao vale o ambiente). */
+  modeloIa: string | null;
+  iaBaseUrl: string | null;
+  iaApiKey: string | null;
 };
 export async function carregarCredsWhatsapp(negocioId: string): Promise<CredsWhatsapp> {
-  const n = await queryUm<{ phone_id: string | null; token: string | null; waba_id: string | null; ia_ativa: boolean }>(
+  const n = await queryUm<{
+    phone_id: string | null; token: string | null; waba_id: string | null; ia_ativa: boolean;
+    modelo_ia: string | null; ia_base_url: string | null; ia_api_key: string | null;
+  }>(
     `select config->>'whatsapp_phone_id' as phone_id, config->>'whatsapp_token' as token,
             config->>'whatsapp_waba_id' as waba_id,
-            coalesce((config->>'ia_ativa')::boolean, true) as ia_ativa
+            coalesce((config->>'ia_ativa')::boolean, true) as ia_ativa,
+            -- O CEREBRO DESTE NEGOCIO, quando ele tem um proprio.
+            --
+            -- Vem junto das credenciais porque e lido na MESMA hora, em toda
+            -- mensagem: uma consulta a mais so pra saber o modelo seria peso sem
+            -- motivo.
+            --
+            -- Trocar o modelo pelo banco vale na PROXIMA FRASE, sem deploy. Em
+            -- 02/09/2026 trocar pela variavel de ambiente custou quatro
+            -- tentativas e meia hora, e o container continuava subindo com o
+            -- valor velho. Comparar dois cerebros nao pode custar isso.
+            config->>'modelo_ia' as modelo_ia,
+            config->>'ia_base_url' as ia_base_url,
+            config->>'ia_api_key' as ia_api_key
        from negocios where id = $1`,
     [negocioId],
   );
@@ -226,6 +246,9 @@ export async function carregarCredsWhatsapp(negocioId: string): Promise<CredsWha
     token: n?.token ?? null,
     wabaId: n?.waba_id ?? null,
     iaAtiva: n?.ia_ativa ?? true,
+    modeloIa: n?.modelo_ia ?? null,
+    iaBaseUrl: n?.ia_base_url ?? null,
+    iaApiKey: n?.ia_api_key ?? null,
   };
 }
 

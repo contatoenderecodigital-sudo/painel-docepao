@@ -23,20 +23,24 @@
 
 import OpenAI from "openai";
 
-/** O modelo que lê a conversa. Uma fonte só, lida do ambiente. */
-export function modeloDoCerebro(): string {
-  return process.env.OPENAI_MODEL_FLUXO || "gpt-4.1-mini";
+/**
+ * O MODELO QUE LÊ A CONVERSA.
+ *
+ * A ordem é: o que o banco diz para ESTE negócio, depois a variável de ambiente,
+ * depois o padrão. O banco vem primeiro por um motivo prático, medido em
+ * 02/09/2026: trocar a variável no painel do deploy exigiu quatro tentativas e
+ * meia hora, e o container continuava subindo com o valor antigo. Comparar dois
+ * cérebros com as mesmas frases não pode custar meia hora por troca.
+ *
+ * `negocios.config.modelo_ia` é lido a cada mensagem, então a troca vale na
+ * próxima frase, sem deploy nenhum. E é por negócio: no dia em que houver duas
+ * padarias, uma pode testar o cérebro novo sem a outra sentir.
+ */
+export function modeloDoCerebro(doBanco?: string | null): string {
+  return String(doBanco ?? "").trim() || process.env.OPENAI_MODEL_FLUXO || "gpt-4.1-mini";
 }
 
-/** O provedor, em uma palavra, pro log e pra contabilidade. */
-export function provedorDoCerebro(): string {
-  const url = String(process.env.IA_BASE_URL || "").trim();
-  if (!url) return "openai";
-  if (/deepseek/i.test(url)) return "deepseek";
-  return url.replace(/^https?:\/\//, "").split("/")[0];
-}
-
-let avisou = false;
+let avisou = "";
 
 /**
  * O cliente que fala com o provedor escolhido.
@@ -46,14 +50,20 @@ let avisou = false;
  * conversa roda em outro provedor. Sem ela, ligar o DeepSeek desligaria a
  * transcrição junto, e o cliente que manda áudio ficaria sem resposta.
  */
-export function clienteDoCerebro(): OpenAI {
-  const baseURL = String(process.env.IA_BASE_URL || "").trim() || undefined;
-  const apiKey = String(process.env.IA_API_KEY || process.env.OPENAI_API_KEY || "").trim();
+export function clienteDoCerebro(doBanco?: { url?: string | null; chave?: string | null }): OpenAI {
+  const baseURL = String(doBanco?.url || process.env.IA_BASE_URL || "").trim() || undefined;
+  const apiKey = String(
+    doBanco?.chave || process.env.IA_API_KEY || process.env.OPENAI_API_KEY || "",
+  ).trim();
 
-  if (!avisou) {
-    avisou = true;
+  // O aviso sai UMA vez por combinacao: trocando o modelo pelo banco, o log
+  // precisa dizer que trocou, senao a medicao seguinte compara sem saber com o
+  // que esta comparando.
+  const assinatura = String(baseURL) + "|" + modeloDoCerebro();
+  if (avisou !== assinatura) {
+    avisou = assinatura;
     console.log(
-      "[cerebro] provedor=" + provedorDoCerebro() +
+      "[cerebro] provedor=" + (baseURL ? (/deepseek/i.test(baseURL) ? "deepseek" : baseURL) : "openai") +
         " modelo=" + modeloDoCerebro() +
         (baseURL ? " url=" + baseURL : "") +
         (apiKey ? "" : " SEM CHAVE"),

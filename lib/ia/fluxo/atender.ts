@@ -119,6 +119,11 @@ export async function atenderComFluxoNovo(
   // So serve pro cumprimento: quem chega e cumprimentado, quem ja esta na
   // conversa nao ouve "boa noite" de novo a cada mensagem.
   jaAtendeu = false,
+  // O MODELO DESTE NEGOCIO, quando ele tem um proprio no banco.
+  //
+  // Trocar o cerebro pelo banco vale na proxima frase, sem deploy: e o que
+  // torna possivel medir dois modelos com as mesmas falas no mesmo dia.
+  modeloDoNegocio: string | null = null,
 ): Promise<RespostaDoFluxo> {
   const uso = { tokensIn: 0, tokensOut: 0, cacheRead: 0, chamadas: 0 };
   const contar = (u: { tokensIn: number; tokensOut: number; cacheRead?: number }) => {
@@ -292,7 +297,7 @@ export async function atenderComFluxoNovo(
   // Sem roteiro fixo: quem escolhe e o tipo do pedido, e a escolha se refaz a
   // cada mensagem. Quem so cumprimentou segue o roteiro comum, que e curto, e
   // troca pro da festa no instante em que falar de festa.
-  const r = await responder(antes, mensagem, pensarComOpenAI(cliente, contar));
+  const r = await responder(antes, mensagem, pensarComOpenAI(cliente, contar, modeloDoNegocio));
 
   await gravarEstado(negocioId, clienteId, antes, r.estado);
 
