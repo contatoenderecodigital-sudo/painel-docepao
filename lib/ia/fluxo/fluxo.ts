@@ -663,7 +663,7 @@ function oClienteNomeouEsteProduto(fala: string, produto: string): boolean {
  *
  * Ajustar e responder: era o que a propria padaria tinha oferecido.
  */
-function atualizarBasePeloTotalDito(e: Estado, l: Leitura, fala = "", etapa?: EtapaId): Estado {
+function atualizarBasePeloTotalDito(e: Estado, l: Leitura, fala = "", etapa?: EtapaId, rastro: string[] = []): Estado {
   if (!e.base || !l.itens?.length) return e;
 
   // So familia muda base. "100 coxinha" e item, e nao proposta.
@@ -684,7 +684,10 @@ function atualizarBasePeloTotalDito(e: Estado, l: Leitura, fala = "", etapa?: Et
   const mudou = { ...doModelo, ...daFrase };
 
   const nova = baseComQuantidades(e, mudou);
-  if (!nova) return e;
+  if (!nova) {
+    rastro.push("nao consegui refazer a base com " + JSON.stringify(mudou));
+    return e;
+  }
   const igual =
     nova.salgados === e.base.salgados &&
     nova.docinhos === e.base.docinhos &&
@@ -693,6 +696,10 @@ function atualizarBasePeloTotalDito(e: Estado, l: Leitura, fala = "", etapa?: Et
 
   // Ajustou na etapa da base: isso E a resposta da proposta, e a conversa segue.
   const respondeuAProposta = etapa === "base_da_festa";
+  rastro.push(
+    "ele mudou a base: " + nova.salgados + " salgados, " + nova.docinhos +
+      " docinhos, " + nova.boloKg + " kg" + (respondeuAProposta ? " (e isso responde a proposta)" : ""),
+  );
   return { ...e, base: nova, baseAceita: e.baseAceita || respondeuAProposta };
 }
 
@@ -2147,7 +2154,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
     }
   }
 
-  novo = atualizarBasePeloTotalDito(novo, l, falaDoCliente, etapa);
+  novo = atualizarBasePeloTotalDito(novo, l, falaDoCliente, etapa, rastro);
   // DELEGAR E DIZER "ESCOLHE VOCE". RESPONDER UMA OPCAO E O CONTRARIO DISSO.
   //
   // Medido conversando com o servidor em 31/08/2026:
