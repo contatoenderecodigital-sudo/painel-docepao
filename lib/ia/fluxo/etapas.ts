@@ -86,7 +86,7 @@ export type Etapa = {
 
 import { saboresQueFaltam, ehSalgadoDoCardapio } from "./sabor";
 import { produtoNoComeco, produtoPorNome } from "../dados/produtos";
-import { ehNomeDeFamilia } from "./generico";
+import { ehNomeDeFamilia, categoriasDaFamilia } from "./generico";
 import { unidadeDoPedido } from "../dados/produtos";
 import { categoriasSemEtapaPropria } from "./leitura";
 import { formasDoCliente } from "../texto";
@@ -423,7 +423,22 @@ const temGenerico = (p: PedidoEmMontagem, pref: string) =>
  *
  * Na festa o peso vem da proposta que ele aceitou, entao nao chega aqui zerado.
  */
-const faltaPesoDoBolo = (p: PedidoEmMontagem) => faltaPeso(p, "bolo_festa");
+
+/**
+ * FALTA QUANTIDADE EM ALGUM ITEM DESTA FAMILIA?
+ *
+ * `faltaQuantidade` recebe CATEGORIA, e familia nao e categoria: "salgado" sao
+ * duas (`salgado_frito` e `salgado_assado`). Perguntar pela categoria crua
+ * deixaria metade dos salgados de fora, que e o tipo de meia-guarda que este
+ * projeto ja pagou caro.
+ *
+ * A traducao de familia pra categorias sai de `generico.ts`, que e a fonte
+ * unica desses nomes.
+ */
+const faltaQuantidadeDe = (p: PedidoEmMontagem, familia: string) =>
+  categoriasDaFamilia(familia).some((cat) => faltaQuantidade(p, cat));
+
+const faltaQuantidadeDoBolo = (p: PedidoEmMontagem) => faltaQuantidade(p, "bolo_festa");
 
 /**
  * QUALQUER PRODUTO VENDIDO POR QUILO SEM O PESO DITO.
@@ -438,27 +453,44 @@ const faltaPesoDoBolo = (p: PedidoEmMontagem) => faltaPeso(p, "bolo_festa");
  *
  * A categoria e opcional: sem ela, vale pra casa inteira.
  */
-const faltaPeso = (p: PedidoEmMontagem, categoria?: string) =>
+const faltaQuantidade = (p: PedidoEmMontagem, categoria?: string) =>
   p.itens.some((i) => {
     if (categoria && String(i.categoria || "") !== categoria) return false;
     if (Number(i.qtd) > 0) return false;
     // Nome de familia ainda vai virar produto: o peso se pergunta depois de
     // saber o que e.
     if (ehNomeDeFamilia(i.produto)) return false;
-    // O PAO TAMBEM PERGUNTA, POR DECISAO DELE EM 31/08/2026.
+    // NA FESTA A QUANTIDADE VEM DA PROPOSTA QUE ELE ACEITOU.
     //
-    // Eu tinha tirado a padaria daqui, porque a dona diz que o cliente pede por
-    // unidade ("as vezes a pessoa encomendou 50 pao frances") e a casa cobra por
-    // peso ("o pao frances e R$ 11,99 o quilo"). Ele decidiu o contrario, e a
-    // regra dele e mais simples: se o cardapio diz quilo, a padaria AVISA que e
-    // por quilo e pede em quilo.
+    // Ali ele JA concordou, e o codigo reparte o total entre o que ele escolheu.
+    // Perguntar de novo seria a padaria pedindo duas vezes a mesma coisa. Fora
+    // da festa nao ha proposta nenhuma, e ai zero quer dizer que ninguem falou.
+    if (p.ehFesta && p.baseAceita) return false;
+    // TODO PRODUTO PRECISA DE QUANTIDADE, E NAO SO OS VENDIDOS POR QUILO.
+    //
+    // Regra dele, em 02/09/2026: *"sempre que pedir coisa de KG ou UNID de
+    // qualquer produto tem que pedir pra pessoa qual a quantidade, se nao vai
+    // ficar bugando sem preco as coisas com unidades erradas, PRA TODOS OS
+    // PRODUTOS"*.
+    //
+    // Ate aqui esta guarda so olhava quem e vendido em quilo. Quem e por
+    // unidade (coxinha, brigadeiro, cupcake) passava com a quantidade que o
+    // modelo tivesse chutado, e o chute virava dinheiro na comanda e no caixa.
+    // Medido na conversa dele de 02/09/2026: o pedido inteiro fechou com um de
+    // cada porque ninguem perguntou.
+    //
+    // O PAO ENTRA AQUI PELA MESMA PORTA, POR DECISAO DELE EM 31/08/2026.
+    //
+    // Eu tinha tirado a padaria desta guarda, porque a dona diz que o cliente
+    // pede por unidade ("as vezes a pessoa encomendou 50 pao frances") e a casa
+    // cobra por peso ("o pao frances e R$ 11,99 o quilo"). Ele decidiu o
+    // contrario, e a regra dele e mais simples: se o cardapio diz quilo, a
+    // padaria AVISA que e por quilo e pede em quilo.
     //
     // Palavra dele: "se a categoria eh KG nao UNID tu fala pra ele, q eh em kg,
-    // ai tem escolher em kg nao em quantidade".
-    //
-    // Com isso "50 pao frances" para de virar 50 kg (R$ 599,50) sem precisar de
-    // conversao nenhuma: o cliente escolhe na mesma unidade em que a casa cobra.
-    return unidadeDoPedido(String(i.produto), String(i.categoria || "")) === "kg";
+    // ai tem escolher em kg nao em quantidade". Quem escreve a pergunta na
+    // unidade certa e `pergunta.ts`, lendo `unidadeDoPedido`.
+    return true;
   });
 
 /**
@@ -617,8 +649,15 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // Recheio de salgado NAO pula com `jaPerguntou`. Forminha do docinho tambem
     // nao: trava com a pergunta, nunca em silencio. Quem ignorou uma vez
     // continua ouvindo, ate escolher.
+    // A QUANTIDADE ENTRA AQUI PELO MESMO MOTIVO QUE ENTROU NO BOLO.
+    //
+    // Regra dele, 02/09/2026: *"sempre que o cliente pedir salgados tem que
+    // pedir quantos ele vai querer de cada, se ele já não tiver dito ou
+    // concordado"*. Zero quer dizer que ninguem falou; na festa ele ja
+    // concordou com a proposta e `faltaQuantidade` sai da frente sozinha.
     cumprida: (p) =>
-      temSalgado(p) && !faltaSaborDoSalgado(p) && !temGenerico(p, "salgado"),
+      temSalgado(p) && !faltaSaborDoSalgado(p) && !temGenerico(p, "salgado") &&
+      !faltaQuantidadeDe(p, "salgado"),
     // Fora da festa ninguem oferece salgado a quem pediu uma torta.
     // Na festa ela pergunta por iniciativa propria (a proposta ja combinou o
     // total). No pedido comum ela so entra se o cliente TIVER pedido salgado:
@@ -662,11 +701,14 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     //
     // A dona pergunta sempre, e nao e detalhe: ela monta a forminha antes de
     // rechear, entao a cor precisa estar na comanda quando a producao comeca.
+    // Mesma regra do salgado, e a frase dele foi a mesma: *"sempre que o
+    // cliente pedir docinhos tem que pedir quantos ele vai querer de cada"*.
     cumprida: (p) =>
       temCategoria(p, "docinho") &&
       !faltaSabor(p, "docinho") &&
       !semForminha(p) &&
-      !temGenerico(p, "docinho"),
+      !temGenerico(p, "docinho") &&
+      !faltaQuantidadeDe(p, "docinho"),
     // Mesma regra do salgado: iniciativa so com base aceita.
     pulavel: (p) => {
       if (faltaSabor(p, "docinho")) return false;
@@ -744,7 +786,7 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       // O cliente teve que corrigir a padaria, e quem nao percebe paga metade.
       // Zero quer dizer "ninguem falou o peso"; na festa o peso vem da proposta
       // que ele aceitou e nao chega aqui zerado.
-      temCategoria(p, "bolo") && !temGenerico(p, "bolo") && !faltaPesoDoBolo(p),
+      temCategoria(p, "bolo") && !temGenerico(p, "bolo") && !faltaQuantidadeDoBolo(p),
     // O SABOR DO BOLO VALE FORA DA FESTA TAMBEM.
     //
     // Ate 23/08/2026 esta etapa era pulada em todo pedido que nao fosse festa,
@@ -789,8 +831,8 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // torta, calzone, pizza redonda). Sem o peso dito, todos fechavam com 1 kg
     // calado. Medido em 31/08/2026: "quero um empadao de frango" saia R$ 34,90,
     // e quem queria dois pagava metade.
-    cumprida: (p) => !temGenericoDoResto(p) && !faltaSaborDoResto(p) && !faltaPeso(p),
-    pulavel: (p) => !temGenericoDoResto(p) && !faltaSaborDoResto(p) && !faltaPeso(p),
+    cumprida: (p) => !temGenericoDoResto(p) && !faltaSaborDoResto(p) && !faltaQuantidade(p),
+    pulavel: (p) => !temGenericoDoResto(p) && !faltaSaborDoResto(p) && !faltaQuantidade(p),
   },
   {
     id: "pecas_do_bolo",

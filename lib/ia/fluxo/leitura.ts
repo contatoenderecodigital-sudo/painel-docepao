@@ -668,15 +668,33 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "\"cancelar\". Pergunta de pedido já feito = \"status\"." + String.fromCharCode(10) +
     "- Pergunta e reclamação NÃO viram item.";
 
-  // NA FESTA, O NUMERO JA FOI COMBINADO.
+  // QUANTIDADE QUE O CLIENTE NAO DISSE E ZERO. SEMPRE, E EM TODO PRODUTO.
   //
-  // Ele aceitou "300 salgados no total" e agora diz quais quer. Se o modelo
-  // inventar uma quantidade, ela briga com a proposta; se devolver 0, o codigo
-  // reparte os 300 entre o que ele escolheu.
+  // Regra dele, em 02/09/2026: *"sempre que o cliente quiser bolo ele tem que
+  // pedir quantos kg, se ele já não tiver dito ou concordado"*, e a mesma coisa
+  // pra docinho, pra salgado e pro resto.
+  //
+  // ATE HOJE ISTO SO VALIA DENTRO DA FESTA. Fora dela o modelo devolvia 1 por
+  // padrao, e 1 é indistinguível de "ele disse um". Medido na conversa dele de
+  // 02/09/2026:
+  //
+  //   cliente >> quero bolo, salgados, docinhos e cupcakes
+  //   modelo  >> 1x bolo ;; 1x salgado ;; 1x docinho ;; 1x cupcake
+  //   pedido  >> fechou em R$ 77,65, com UM de cada e o bolo sem peso nenhum
+  //
+  // Ele nao tinha dito quantidade de coisa nenhuma. O pedido inteiro era um
+  // chute, e o chute vira dinheiro errado na comanda e no caixa.
+  //
+  // ZERO QUER DIZER "NINGUEM FALOU", e nao "zero unidades". Quem cobra a
+  // resposta e a etapa, em `etapas.ts`: item em zero nao deixa o pedido fechar,
+  // e a padaria pergunta na unidade em que a casa cobra.
+  //
+  // NA FESTA ELE JA CONCORDOU, e por isso a frase muda: ali o total saiu da
+  // proposta que ele aceitou, e o codigo reparte em vez de perguntar de novo.
   const semNumero =
     p.baseAceita && p.base
       ? " Se ele NÃO disser a quantidade, devolva qtd 0: o total já foi combinado na proposta."
-      : "";
+      : " Não disse quantidade? qtd 0, nunca 1.";
 
   // A RECUSA E RESPOSTA, NAO SILENCIO.
   //
@@ -834,6 +852,16 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "com a etapa dela. Perguntar já diz do que ele quer falar." + String.fromCharCode(10) +
       "Se ele só cumprimentou, devolva {} e não invente nada: quem diz o que " +
       "quer é ele." +
+      // A ABERTURA E ONDE O CHUTE DE QUANTIDADE MAIS CUSTOU.
+      //
+      // Medido na conversa dele de 02/09/2026: "quero bolo, salgados, docinhos
+      // e cupcakes" foi lido AQUI, e voltou "1x bolo ;; 1x salgado ;; 1x
+      // docinho ;; 1x cupcake". Ele nao tinha dito quantidade nenhuma, e o
+      // pedido inteiro virou um de cada.
+      //
+      // As quatro etapas de produto ja diziam isto ao modelo; a abertura, que e
+      // por onde todo pedido entra, nao dizia.
+      semNumero +
       // A ABERTURA TAMBEM ANOTA PRODUTO, E O TIPO NAO E SABOR.
       //
       // Quem pergunta o preco antes de pedir chega aqui com o pedido vazio,
