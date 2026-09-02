@@ -24,27 +24,43 @@ const DOMINGO = [
   { de: 16 * 60, ate: 20 * 60 },
 ];
 
-function agoraEmSaoPaulo(): { minutos: number; domingo: boolean } {
-  const agora = new Date();
-  const partes = new Intl.DateTimeFormat("pt-BR", {
+/**
+ * UM INSTANTE VIRA UM NÚMERO DE MINUTOS DE PAREDE DE SÃO PAULO.
+ *
+ * Tudo aqui é combinado e lido em horário de São Paulo, então virar parede uma
+ * vez e comparar parede com parede daí pra frente é o certo. Converter pra UTC
+ * no meio do caminho só criaria uma chance de errar uma hora duas vezes por ano,
+ * no horário de verão.
+ */
+export function instanteDeParede(quando = new Date()): number {
+  const partes = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Sao_Paulo",
-    hour: "2-digit",
-    minute: "2-digit",
-    weekday: "short",
-    hour12: false,
-  }).formatToParts(agora);
-  const pega = (t: string) => partes.find((x) => x.type === t)?.value ?? "";
-  const minutos = Number(pega("hour")) * 60 + Number(pega("minute"));
-  // "dom." em pt-BR. Domingo tem intervalo no meio do dia; feriado a gente não
-  // sabe, e por isso a mensagem nunca promete hora exata.
-  const domingo = /dom/i.test(pega("weekday"));
-  return { minutos, domingo };
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(quando);
+  const p = (t: string) => Number(partes.find((x) => x.type === t)?.value ?? 0);
+  return Date.UTC(p("year"), p("month") - 1, p("day"), p("hour") % 24, p("minute")) / 60000;
+}
+
+/**
+ * A PADARIA ESTAVA (OU ESTARÁ) ABERTA NESTE INSTANTE?
+ *
+ * A mesma pergunta de `padariaAberta`, só que com o relógio na mão em vez do
+ * relógio da parede. É o que o lembrete da retirada usa pra decidir se pode
+ * escrever pro cliente agora, e é o que faz o teste dele conseguir medir um
+ * domingo às 14h sem esperar domingo chegar.
+ *
+ * Feriado a gente não sabe, e por isso ninguém aqui promete hora exata.
+ */
+export function abertaNoInstante(minutoDeParede: number): boolean {
+  const d = new Date(minutoDeParede * 60000);
+  const minutos = d.getUTCHours() * 60 + d.getUTCMinutes();
+  const faixas = d.getUTCDay() === 0 ? DOMINGO : SEMANA;
+  return faixas.some((f) => minutos >= f.de && minutos < f.ate);
 }
 
 export function padariaAberta(): boolean {
-  const { minutos, domingo } = agoraEmSaoPaulo();
-  const faixas = domingo ? DOMINGO : SEMANA;
-  return faixas.some((f) => minutos >= f.de && minutos < f.ate);
+  return abertaNoInstante(instanteDeParede());
 }
 
 // O que dizer pro cliente quando a conversa precisa de gente.

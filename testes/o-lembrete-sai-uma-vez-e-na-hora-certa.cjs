@@ -1,25 +1,35 @@
 // O LEMBRETE SAI UMA VEZ, E NA HORA CERTA.
 //
-// Pedido dele em 02/09/2026: *"colocar um tempo ali de avisar 10 horas antes do
-// horário que eles agendaram para buscar o produto deles"*.
+// Pedido dele em 02/09/2026, e ele mudou de ideia no meio da tarde, pra melhor:
+// primeiro foi *"avisar 10 horas antes"*, e logo depois *"não é melhor então 24
+// horas antes? nos horários de funcionamento da padaria?"*.
+//
+// E melhor por duas razoes que o de dez nao tinha. Dez horas antes de uma
+// retirada as 18:30 e as 08:30 DO MESMO DIA: quem quer mudar a hora descobre com
+// o bolo ja na producao. E vinte e quatro horas caem na MESMA hora do dia, que e
+// horario de padaria por construcao, enquanto o de dez caia na madrugada sozinho
+// (retirada as 13:00 avisava as 03:00) e precisava de uma regra de silencio so
+// pra consertar isso.
 //
 // MENSAGEM PRO CLIENTE NAO E ERRO DE PRECO. Errar aqui e a padaria escrevendo
-// as tres da manha, ou escrevendo duas vezes, ou "lembrando" alguem do pedido
+// com a loja fechada, ou escrevendo duas vezes, ou "lembrando" alguem do pedido
 // que ele acabou de combinar. Nao da pra medir isso em producao sem incomodar
 // gente de verdade, e por isso a decisao mora numa funcao pura: aqui ela roda
-// mil vezes de graca, com o relogio na mao.
+// com o relogio na mao, inclusive num domingo as 14h.
 //
-// A ISCA: trocando o `HORAS_ANTES` de 10 pra 0 em `lib/ia/lembrete.ts`, os casos
-// de hora ficam vermelhos; apagando a guarda do `aprovadoEm`, o caso do pedido
-// recem-aprovado fica.
+// AS ISCAS:
+//   - `HORAS_ANTES` de 24 pra 0 derruba os casos de hora;
+//   - tirar o `abertaNoInstante` derruba os dois casos de padaria fechada;
+//   - tirar a folga do `aprovadoEm` derruba o do pedido recem-combinado.
 //
 // Roda com: node testes/o-lembrete-sai-uma-vez-e-na-hora-certa.cjs
 const path = require("node:path");
 const fs = require("node:fs");
 const { execFileSync } = require("node:child_process");
 
-// A retirada de todos os casos, salvo quando o caso diz outra: 10/09 as 18:30.
-// Dez horas antes disso e 08:30 do mesmo dia, que esta fora da madrugada.
+// A retirada de todos os casos, salvo quando o caso diz outra: QUINTA 10/09 as
+// 18:30. Vinte e quatro horas antes disso e QUARTA 09/09 as 18:30, com a padaria
+// aberta (segunda a sabado, 6h30 as 20h).
 const PEDIDO = {
   id: "p1",
   telefone: "5549999990000",
@@ -32,24 +42,24 @@ const PEDIDO = {
 
 const CASOS = [
   {
-    nome: "as 08:30 do dia, dez horas antes, o aviso sai",
+    nome: "vinte e quatro horas antes, com a padaria aberta, o aviso sai",
     pedido: PEDIDO,
-    agora: "2026-09-10 08:30",
+    agora: "2026-09-09 18:30",
     avisar: true,
     dano: "o cliente nao e lembrado, que e o pedido dele inteiro",
   },
   {
-    nome: "um minuto antes das dez horas, ainda nao",
+    nome: "um minuto antes das vinte e quatro horas, ainda nao",
     pedido: PEDIDO,
-    agora: "2026-09-10 08:29",
+    agora: "2026-09-09 18:29",
     avisar: false,
     porque: "ainda nao e hora",
     dano: "avisar cedo demais e a padaria escrevendo sem motivo",
   },
   {
     nome: "avisado uma vez, nao avisa de novo",
-    pedido: { ...PEDIDO, lembreteEm: "2026-09-10T08:30" },
-    agora: "2026-09-10 12:00",
+    pedido: { ...PEDIDO, lembreteEm: "2026-09-09T18:30" },
+    agora: "2026-09-10 09:00",
     avisar: false,
     porque: "ja avisado",
     dano: "a padaria mandando o mesmo lembrete a cada rodada do relogio, pra sempre",
@@ -62,35 +72,76 @@ const CASOS = [
     porque: "a retirada ja passou",
     dano: "'seu pedido fica pronto hoje as 18:30' chegando tres dias depois",
   },
+  // ------------------------------------------------------------------ horario
+  // "NOS HORARIOS DE FUNCIONAMENTO DA PADARIA", que foi a pergunta dele.
+  //
+  // O motivo nao e so nao acordar ninguem: o lembrete convida a responder ("da
+  // pra buscar mais tarde?"), e responder pro vazio e pior que nao ter recebido.
   {
-    // A MADRUGADA. Retirada as 13:00 daria aviso as 03:00.
-    nome: "retirada as 13:00 avisa as 21:00 da vespera, e nao as 03:00",
-    pedido: { ...PEDIDO, retiradaHora: "13:00" },
+    // A HORA JA PASSOU E A PADARIA ESTA FECHADA.
+    //
+    // Acontece de verdade quando o relogio nao rodou na hora: container
+    // reiniciando, deploy, ponte da impressora desligada a noite. A hora do
+    // aviso (quarta 18:30) ficou pra tras, e as 21:00 a loja ja fechou.
+    //
+    // Sem esta guarda a primeira rodada da noite despejaria os lembretes
+    // atrasados todos de uma vez, com a padaria de porta fechada.
+    nome: "com a hora passada e a padaria fechada, o aviso espera",
+    pedido: PEDIDO,
     agora: "2026-09-09 21:00",
+    avisar: false,
+    porque: "a padaria esta fechada agora",
+    dano: "despejar lembrete as nove da noite, sem ninguem pra responder",
+  },
+  {
+    nome: "e sai assim que ela abre no dia seguinte",
+    pedido: PEDIDO,
+    agora: "2026-09-10 06:30",
     avisar: true,
-    dano: "a padaria escrevendo as tres da manha e acordando o cliente",
+    dano: "o lembrete atrasado sumir de vez em vez de sair na abertura",
   },
   {
-    nome: "e as 03:00 dessa mesma retirada nao sai nada de novo",
-    pedido: { ...PEDIDO, retiradaHora: "13:00", lembreteEm: "2026-09-09T21:00" },
-    agora: "2026-09-10 03:00",
+    // O INTERVALO DE DOMINGO, que e o unico buraco no meio do dia.
+    // Retirada SEGUNDA 14/09 as 14:00 -> alvo DOMINGO 13/09 as 14:00, que cai
+    // entre as 12h e as 16h, quando a padaria fecha pro almoco.
+    nome: "o intervalo de domingo tambem segura o aviso",
+    pedido: { ...PEDIDO, retiradaData: "2026-09-14", retiradaHora: "14:00" },
+    agora: "2026-09-13 14:00",
     avisar: false,
-    porque: "ja avisado",
-    dano: "o aviso antecipado nao pode virar dois avisos",
+    porque: "a padaria esta fechada agora",
+    dano: "escrever no intervalo de domingo, com a loja de porta fechada",
   },
   {
-    // QUEM ACABOU DE COMBINAR NAO PRECISA SER LEMBRADO.
-    nome: "pedido aprovado depois da hora do aviso nao gera lembrete",
-    pedido: { ...PEDIDO, retiradaData: "2026-09-10", retiradaHora: "12:00", aprovadoEm: "2026-09-10T09:00" },
-    agora: "2026-09-10 09:01",
+    nome: "e sai as 16h, quando ela reabre",
+    pedido: { ...PEDIDO, retiradaData: "2026-09-14", retiradaHora: "14:00" },
+    agora: "2026-09-13 16:00",
+    avisar: true,
+    dano: "o domingo ficaria sem lembrete nenhum",
+  },
+  // ------------------------------------------------------- combinado ha pouco
+  {
+    nome: "quem acabou de combinar nao e lembrado no segundo seguinte",
+    pedido: { ...PEDIDO, retiradaData: "2026-09-10", retiradaHora: "09:00", aprovadoEm: "2026-09-09T15:00" },
+    agora: "2026-09-09 15:01",
     avisar: false,
-    porque: "aprovado depois da hora do aviso",
+    porque: "combinado agora ha pouco",
     dano: "lembrar o cliente de um pedido que ele combinou um minuto atras",
+  },
+  {
+    // E A ENCOMENDA DA TARDE PRA MANHA SEGUINTE NAO FICA SEM AVISO.
+    //
+    // Esta e a que mais precisa dele, e com "aprovado depois da hora do aviso"
+    // (a regra do desenho de 10 horas) ela ficava sem nenhum.
+    nome: "mas ele recebe o aviso da noite, tres horas depois",
+    pedido: { ...PEDIDO, retiradaData: "2026-09-10", retiradaHora: "09:00", aprovadoEm: "2026-09-09T15:00" },
+    agora: "2026-09-09 18:00",
+    avisar: true,
+    dano: "quem encomenda pra amanha cedo nunca ser lembrado",
   },
   {
     nome: "sem data de retirada nao da pra avisar",
     pedido: { ...PEDIDO, retiradaData: null },
-    agora: "2026-09-10 08:30",
+    agora: "2026-09-09 18:30",
     avisar: false,
     porque: "sem data",
     dano: "mandar 'fica pronto' sem saber quando",
@@ -98,7 +149,7 @@ const CASOS = [
   {
     nome: "sem telefone nao da pra avisar",
     pedido: { ...PEDIDO, telefone: null },
-    agora: "2026-09-10 08:30",
+    agora: "2026-09-09 18:30",
     avisar: false,
     porque: "sem telefone",
     dano: "quebrar a rodada inteira por causa de um cadastro sem numero",
@@ -108,19 +159,20 @@ const CASOS = [
 // O TEXTO tambem e medido: e o que o cliente le.
 const TEXTOS = [
   {
-    nome: "no dia, ele le 'hoje'",
+    nome: "na vespera, ele le 'amanha'",
     pedido: PEDIDO,
-    agora: "2026-09-10 08:30",
-    tem: ["Renata", "hoje", "18:30"],
+    agora: "2026-09-09 18:30",
+    tem: ["Renata", "amanhã", "18:30"],
     naoTem: ["Souza", "10/09"],
     dano: "'dia 10/09' faz quem le abrir o calendario; e o sobrenome nao e como gente escreve",
   },
   {
-    nome: "na vespera, ele le 'amanha'",
-    pedido: { ...PEDIDO, retiradaHora: "13:00" },
-    agora: "2026-09-09 21:00",
-    tem: ["amanhã", "13:00"],
-    dano: "o cliente entender que e hoje e ir na padaria no dia errado",
+    nome: "no proprio dia, ele le 'hoje'",
+    pedido: { ...PEDIDO, retiradaData: "2026-09-10", retiradaHora: "09:00", aprovadoEm: "2026-09-09T15:00" },
+    agora: "2026-09-10 07:00",
+    tem: ["hoje", "09:00"],
+    naoTem: ["amanhã"],
+    dano: "o cliente entender que e amanha e nao ir buscar hoje",
   },
 ];
 

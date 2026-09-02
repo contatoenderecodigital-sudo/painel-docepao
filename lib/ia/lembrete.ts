@@ -15,17 +15,40 @@
 //  um caso no teste com o nome do estrago que ela evita.
 // ============================================================================
 
-/** Quantas horas antes da retirada o cliente é lembrado. Pedido dele. */
-export const HORAS_ANTES = 10;
+import { abertaNoInstante } from "../padaria-aberta";
 
 /**
- * A PADARIA NÃO ESCREVE DE MADRUGADA.
+ * QUANTAS HORAS ANTES DA RETIRADA O CLIENTE É LEMBRADO.
  *
- * Dez horas antes de uma retirada às 13:00 é 03:00. Ninguém manda mensagem de
- * padaria às três da manhã, e quem recebe acorda com o celular. A faixa de
- * silêncio vai das 21:00 às 07:00.
+ * Começou em 10, que foi o primeiro número dele, e virou 24 na mesma tarde de
+ * 02/09/2026, quando ele perguntou: *"não é melhor então 24 horas antes? nos
+ * horários de funcionamento da padaria?"*.
+ *
+ * É melhor, e por duas razões que o de 10 não tinha:
+ *
+ *   1. DEZ HORAS ANTES É O MESMO DIA. Pra uma retirada às 18:30, o aviso saía
+ *      às 08:30 daquela manhã. Quem quer mudar a hora, ou avisar que não vai
+ *      poder buscar, descobre com o bolo já na produção. Vinte e quatro horas
+ *      dão um dia inteiro pros dois lados.
+ *   2. VINTE E QUATRO HORAS CAI NA MESMA HORA DO DIA. Retirada às 18:30 avisa
+ *      às 18:30 da véspera, que é horário de padaria por construção. O aviso de
+ *      dez horas caía na madrugada sozinho (retirada às 13:00 avisava às 03:00)
+ *      e precisava de uma regra de silêncio só pra consertar isso.
  */
-export const SILENCIO = { comeca: 21, termina: 7 };
+export const HORAS_ANTES = 24;
+
+/**
+ * O PEDIDO QUE ACABOU DE SER COMBINADO NÃO PRECISA DE LEMBRETE.
+ *
+ * Quem encomenda pra daqui a dezoito horas passou da hora do aviso antes mesmo
+ * de a equipe aprovar. Sem folga, o lembrete sairia no segundo seguinte à
+ * aprovação, e o cliente acabou de falar com a padaria: ser "lembrado" ali
+ * parece robô quebrado.
+ *
+ * Três horas, e não "não avisa nunca": a encomenda da tarde pra manhã seguinte
+ * merece o aviso da noite, e é a que mais precisa dele.
+ */
+export const FOLGA_DEPOIS_DE_APROVAR = 3;
 
 export type PedidoPraLembrar = {
   id: string;
@@ -76,33 +99,18 @@ export function minutosDaParede(data: unknown, hora: unknown): number | null {
   return Date.UTC(ano, mes - 1, dia, horas, minutos) / 60000;
 }
 
-/** A hora do dia (0 a 23) de um instante de parede. */
-function horaDe(minuto: number): number {
-  return new Date(minuto * 60000).getUTCHours();
-}
-
-/** As 21:00 do dia deste instante, em minutos de parede. */
-function asVinteEUmaDe(minuto: number): number {
-  const d = new Date(minuto * 60000);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), SILENCIO.comeca, 0) / 60000;
-}
-
 /**
- * QUANDO ESTE PEDIDO DEVE SER LEMBRADO, em minutos de parede.
+ * A PARTIR DE QUANDO ESTE PEDIDO PODE SER LEMBRADO, em minutos de parede.
  *
- * Dez horas antes da retirada, e nunca dentro da madrugada: caindo lá, ANTECIPA
- * pra última 21:00 antes dela. Antecipar e nunca adiar é decisão, e a razão é
- * que lembrete atrasado não serve pra nada: quem ia buscar às 13:00 já saiu de
- * casa. Chegar cedo demais só faz o cliente saber antes.
+ * É o instante da retirada menos as vinte e quatro horas, e mais nada: quem
+ * decide se dá pra escrever AGORA é o expediente da padaria, logo abaixo. Não
+ * antecipar nem adiar aqui é o que deixa esta conta ser uma subtração, em vez
+ * de uma regra de calendário que ninguém consegue conferir de cabeça.
  */
 export function quandoAvisar(p: PedidoPraLembrar): number | null {
   const retirada = minutosDaParede(p.retiradaData, p.retiradaHora);
   if (retirada === null) return null;
-  let alvo = retirada - HORAS_ANTES * 60;
-  const h = horaDe(alvo);
-  if (h >= SILENCIO.comeca) alvo = asVinteEUmaDe(alvo);
-  else if (h < SILENCIO.termina) alvo = asVinteEUmaDe(alvo) - 24 * 60;
-  return alvo;
+  return retirada - HORAS_ANTES * 60;
 }
 
 export type PorQueNao =
@@ -111,7 +119,8 @@ export type PorQueNao =
   | "ja avisado"
   | "ainda nao e hora"
   | "a retirada ja passou"
-  | "aprovado depois da hora do aviso";
+  | "a padaria esta fechada agora"
+  | "combinado agora ha pouco";
 
 /**
  * ESTE PEDIDO PRECISA DE LEMBRETE AGORA?
@@ -134,15 +143,21 @@ export function estaNaHora(
   // tabela ia gerar "seu pedido fica pronto hoje às 18:30" três dias depois.
   if (agora >= retirada) return { avisar: false, porque: "a retirada ja passou" };
   if (agora < alvo) return { avisar: false, porque: "ainda nao e hora" };
-  // QUEM ACABOU DE COMBINAR NÃO PRECISA SER LEMBRADO.
+  // A PADARIA SÓ ESCREVE COM ALGUÉM LÁ DENTRO.
   //
-  // Pedido aprovado às 09:00 pra retirar às 12:00 do mesmo dia: a hora do aviso
-  // (02:00, antecipada pras 21:00 da véspera) já passou faz tempo, e sem esta
-  // guarda o lembrete sairia no segundo seguinte à aprovação. O cliente acabou
-  // de falar com a padaria; ser "lembrado" ali parece robô quebrado.
+  // Pedido dele em 02/09/2026: *"nos horários de funcionamento da padaria?"*. E
+  // o motivo não é só não acordar ninguém: o lembrete convida a responder ("é
+  // hoje mesmo?", "dá pra buscar mais tarde?"), e responder pro vazio é pior que
+  // não ter recebido. Com a padaria aberta, tem gente pra atender.
+  //
+  // O HORÁRIO SAI DE `padaria-aberta.ts`, que é o mesmo que a Dora fala pro
+  // cliente e o mesmo que barra retirada fora do expediente. Uma segunda lista
+  // aqui viraria duas verdades sobre a mesma coisa, que é o defeito que mais se
+  // repetiu neste sistema.
+  if (!abertaNoInstante(agora)) return { avisar: false, porque: "a padaria esta fechada agora" };
   const aprovado = p.aprovadoEm ? minutosDaParede(p.aprovadoEm.slice(0, 10), p.aprovadoEm.slice(11)) : null;
-  if (aprovado !== null && aprovado > alvo) {
-    return { avisar: false, porque: "aprovado depois da hora do aviso" };
+  if (aprovado !== null && agora - aprovado < FOLGA_DEPOIS_DE_APROVAR * 60) {
+    return { avisar: false, porque: "combinado agora ha pouco" };
   }
   return { avisar: true };
 }
@@ -188,13 +203,7 @@ export function textoDoLembrete(p: PedidoPraLembrar, agora: number, padaria: str
   );
 }
 
-/** O agora, em minutos de parede de São Paulo. */
-export function agoraEmSaoPaulo(quando = new Date()): number {
-  const partes = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", hour12: false,
-  }).formatToParts(quando);
-  const p = (t: string) => Number(partes.find((x) => x.type === t)?.value ?? 0);
-  return Date.UTC(p("year"), p("month") - 1, p("day"), p("hour") % 24, p("minute")) / 60000;
-}
+// O "agora" e o expediente moram em `padaria-aberta.ts`, que já era a fonte
+// única do horário da casa. Reexportados aqui só pra quem usa o lembrete não
+// precisar importar de dois lugares.
+export { instanteDeParede } from "../padaria-aberta";

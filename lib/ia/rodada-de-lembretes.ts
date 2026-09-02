@@ -29,7 +29,7 @@ import {
   estaNaHora,
   textoDoLembrete,
   quandoEmPalavras,
-  agoraEmSaoPaulo,
+  instanteDeParede,
   minutosDaParede,
 } from "./lembrete";
 
@@ -85,7 +85,7 @@ export async function rodarLembretes(
   resultado.olhados = pedidos.length;
   if (!pedidos.length) return resultado;
 
-  const agora = agoraEmSaoPaulo();
+  const agora = instanteDeParede();
   const creds = await carregarCredsWhatsapp(negocioId);
   const padaria = opcoes?.padaria ?? "";
 

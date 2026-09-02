@@ -36,12 +36,27 @@ Sem lista de palavras: quem manda e o pedido no banco, e nao o jeito que ele
 escreveu. Medido: com o rascunho vazio, TODA primeira mensagem de quem volta cai
 nessa etapa.
 
-### 3. O lembrete de 10 horas antes
+### 3. O lembrete de 24 horas antes, no horario da padaria
+
+Comecou em 10 horas, que foi o primeiro numero dele, e virou 24 na mesma tarde,
+quando ele perguntou: *"nao e melhor entao 24 horas antes? nos horarios de
+funcionamento da padaria?"*. E melhor, por duas razoes:
+
+- **Dez horas antes e o mesmo dia.** Retirada as 18:30 avisava as 08:30 daquela
+  manha, e quem quer mudar a hora descobre com o bolo ja na producao.
+- **Vinte e quatro horas caem na mesma hora do dia**, que e horario de padaria
+  por construcao. O de dez caia na madrugada sozinho (retirada as 13:00 avisava
+  as 03:00) e precisava de uma regra de silencio so pra consertar isso.
+
+O horario sai de `padaria-aberta.ts`, que ja era a fonte unica: o mesmo que a
+Dora fala pro cliente e o mesmo que barra retirada fora do expediente.
 
 Decisao pura em `lib/ia/lembrete.ts`, com o relogio na mao no teste: uma vez so
-(marca gravada no pedido), nunca de madrugada (retirada as 13:00 avisa as 21:00
-da vespera, e nao as 03:00), nunca depois da retirada, e nunca pra quem acabou
-de combinar o pedido.
+(marca gravada no pedido), so com a padaria ABERTA (inclusive o intervalo de
+domingo, das 12h as 16h), nunca depois da retirada, e nao nas tres primeiras
+horas depois de a equipe aprovar. Essa folga de tres horas e o que deixa a
+encomenda da tarde pra manha seguinte receber o aviso da noite, em vez de ficar
+sem nenhum.
 
 O relogio pega carona na batida da ponte da impressora, entao funciona sem cron
 nenhum. A rota `POST /api/lembretes` (Bearer PONTE_TOKEN) existe pra quem quiser
