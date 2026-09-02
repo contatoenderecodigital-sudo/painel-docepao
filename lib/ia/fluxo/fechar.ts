@@ -27,7 +27,7 @@
 // ============================================================================
 
 import { registrarPedido, grudarFotosNoPedido } from "@/lib/banco/conversas";
-import { motorPadrao } from "../orcamento";
+import { motorPadrao, type LinhaCotacao } from "../orcamento";
 import type { Estado } from "./fluxo";
 import { prazoDoTopoAperta } from "./falas-do-cliente";
 import { saboresQueFaltam, saboresAlemDoLimite, faltaCorDaForminha, MARCA_SABOR_A_CONFIRMAR } from "./sabor";
@@ -77,6 +77,58 @@ export type PedidoFechado = {
   totalCentavos: number;
   linhas: { item: string; qtd: number; unidade: "un" | "kg"; unit: number; subtotal: number; obs?: string }[];
 };
+
+/**
+ * AS LINHAS DO PEDIDO, COM O NOME QUE O CLIENTE ACEITOU.
+ *
+ * O motor cota pelo cardapio e devolve o nome canonico. Mas o cliente aceitou o
+ * nome que a padaria escreveu no resumo, e e esse que tem que ir pra comanda.
+ * Medido em 31/08/2026, num pedido de festa que fechou pelo WhatsApp:
+ *
+ *   resumo que ele confirmou   2 kg de bolo brigadeiro com 0% lactose
+ *   gravado no pedido          bolo brigadeiro
+ *   preco gravado              R$ 55,90/kg  (certo)
+ *
+ * O dinheiro estava certo e a COMANDA errada: a confeitaria receberia "bolo
+ * brigadeiro" e faria com lactose, pra um cliente que pediu sem. Isso deixa de
+ * ser prejuizo e vira problema de saude.
+ *
+ * CASA POR POSICAO, e so quando as duas listas tem o mesmo tamanho. O motor
+ * PULA item que nao acha no cardapio, e ai as posicoes andam: melhor o nome
+ * canonico que um nome trocado de lugar.
+ *
+ * AS LINHAS QUE O MOTOR ACRESCENTOU SAEM DA CONTA ANTES DE COMPARAR. Ele pode
+ * acrescentar o papel de arroz citado so na observacao do bolo, que sao R$ 12
+ * que sumiriam do pedido; ela vem marcada com `extra: true`. Sem tirar as
+ * extras, a conta de tamanho dava diferente e TODO o pedido perdia o nome.
+ * Medido em 02/09/2026: um bolo com papel na observacao entra com 1 item e sai
+ * com 2 linhas. Extra nunca recebe nome do pedido, entao o indice anda so nas
+ * linhas que vieram dele.
+ *
+ * EXPORTADA DE PROPOSITO. O teste que cobra esta regra copiava a conta dentro
+ * dele, e teste que copia a regra passa verde com a regra quebrada.
+ */
+export function linhasComONomeQueEleAceitou(
+  daCotacao: LinhaCotacao[],
+  itens: { produto: string }[],
+) {
+  const doPedido = daCotacao.filter((l) => !l.extra);
+  const mesmaOrdem = doPedido.length === itens.length;
+  let daVez = 0;
+  return daCotacao.map((l) => ({
+    item: !l.extra && mesmaOrdem ? String(itens[daVez++].produto || l.item) : String(l.item),
+    categoria: String(l.categoria ?? ""),
+    qtd: Number(l.qtd) || 0,
+    // "un" ou "kg", nao string qualquer: a unidade decide como o cupom escreve a
+    // linha e como o painel mostra o campo.
+    unidade: unidadeDoItem(l.unidade),
+    unit: Number(l.unit) || 0,
+    subtotal: Number(l.subtotal) || 0,
+    // undefined, nao null: e o que `LinhaCotacao` espera. Observacao vazia
+    // gravada como null vira "null" escrito na comanda em alguns caminhos.
+    obs: l.obs ?? undefined,
+  }));
+}
 
 /** Falta alguma coisa pro pedido poder fechar? Devolve o que falta, em portugues. */
 export function oQueFaltaPraFechar(e: Estado): string[] {
@@ -241,21 +293,7 @@ export async function fecharPedido(
   // Casa por POSICAO, que e a ordem em que o motor cota, e so quando as duas
   // listas tem o mesmo tamanho. Se o motor pular ou juntar alguma linha, o nome
   // dele volta a valer: melhor o nome canonico que um nome trocado de lugar.
-  const mesmaOrdem = (cot.linhas ?? []).length === e.itens.length;
-  const linhas = (cot.linhas ?? []).map((l, n) => ({
-    item: mesmaOrdem ? String(e.itens[n].produto || l.item) : String(l.item),
-    categoria: String(l.categoria ?? ""),
-    qtd: Number(l.qtd) || 0,
-    // "un" ou "kg", nao string qualquer: a unidade decide como o cupom escreve
-    // a linha e como o painel mostra o campo.
-    unidade: unidadeDoItem(l.unidade),
-    unit: Number(l.unit) || 0,
-    subtotal: Number(l.subtotal) || 0,
-    // undefined, nao null: e o que LinhaCotacao espera, e foi o compilador que
-    // pegou a diferenca. Observacao vazia gravada como null vira "null" escrito
-    // na comanda em alguns caminhos.
-    obs: l.obs ?? undefined,
-  }));
+  const linhas = linhasComONomeQueEleAceitou(cot.linhas ?? [], e.itens);
 
   // A cotacao pode voltar vazia se nenhum item bater com o cardapio. Fechar
   // assim apagaria o pedido de verdade que estivesse gravado.

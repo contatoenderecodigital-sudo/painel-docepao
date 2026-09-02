@@ -52,7 +52,33 @@ export type Rendimento = {
   confirmar?: boolean;
 };
 
-export type LinhaCotacao = { item: string; categoria: string; qtd: number; unit: number; subtotal: number; obs?: string; unidade?: "un" | "kg" };
+export type LinhaCotacao = {
+  item: string;
+  categoria: string;
+  qtd: number;
+  unit: number;
+  subtotal: number;
+  obs?: string;
+  unidade?: "un" | "kg";
+  /**
+   * ESTA LINHA FOI ACRESCENTADA PELO MOTOR, e nao veio do pedido.
+   *
+   * Hoje so o papel de arroz citado na observacao do bolo. Existe porque quem
+   * fecha o pedido casa as linhas com os itens POR POSICAO, e so quando as duas
+   * listas tem o mesmo tamanho. Uma linha a mais quebrava esse casamento e o
+   * pedido inteiro perdia o nome que o cliente aceitou:
+   *
+   *   resumo que ele confirmou   2 kg de bolo brigadeiro com 0% lactose
+   *   gravado no pedido          bolo brigadeiro
+   *
+   * O dinheiro ficava certo e a COMANDA errada: a confeitaria faria com lactose
+   * pra quem pediu sem, que deixa de ser prejuizo e vira problema de saude.
+   *
+   * Com a marca, o fechamento tira as extras da conta antes de comparar, e o
+   * casamento por posicao volta a valer.
+   */
+  extra?: true;
+};
 export type Cotacao = {
   linhas: LinhaCotacao[];
   avisos: string[];
@@ -373,7 +399,10 @@ export function criarMotor(produtos: Produto[], rend: Rendimento = {}): Motor {
       const ref = PRECOS[norm("papel de arroz")] ?? produtos.find((p) => norm(p.nome).includes("papel de arroz"));
       if (ref) {
         total += ref.preco;
-        linhas.push({ item: ref.nome, categoria: ref.categoria, qtd: 1, unit: ref.preco, subtotal: ref.preco, unidade: "un" });
+        // `extra: true` marca que esta linha NAO veio do pedido: ela e do motor.
+        // Sem a marca, o fechamento perdia o casamento por posicao e o pedido
+        // inteiro voltava com os nomes canonicos do cardapio.
+        linhas.push({ item: ref.nome, categoria: ref.categoria, qtd: 1, unit: ref.preco, subtotal: ref.preco, unidade: "un", extra: true });
         avisos.push("Papel de arroz estava só na observação; lancei como item pra entrar no total.");
       }
     }

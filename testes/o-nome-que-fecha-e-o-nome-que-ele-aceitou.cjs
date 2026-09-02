@@ -43,6 +43,26 @@ const CASOS = [
     dano: "a cozinha faria so brigadeiro num bolo que o cliente pediu misto",
   },
   {
+    // O PAPEL DE ARROZ CITADO SO NA OBSERVACAO faz o motor ACRESCENTAR uma
+    // linha: entra 1 item e saem 2. Ate 02/09/2026 isso derrubava a conta de
+    // tamanho, e o pedido INTEIRO voltava com o nome canonico do cardapio.
+    //
+    // O nome perdido aqui e justo o do sem lactose, que e o caso em que o
+    // comentario do proprio `fechar.ts` diz que "deixa de ser prejuizo e vira
+    // problema de saude".
+    nome: "linha acrescentada pelo motor nao apaga o nome que ele aceitou",
+    itens: [{ produto: "bolo brigadeiro com 0% lactose", categoria: "bolo_festa", qtd: 2, obs: "papel de arroz | tema futebol" }],
+    temNome: "bolo brigadeiro com 0% lactose",
+    unit: 55.9,
+    dano: "o bolo sai COM lactose e o cliente pediu sem, por causa de uma linha de R$ 12",
+  },
+  {
+    nome: "e o papel de arroz acrescentado continua na conta",
+    itens: [{ produto: "bolo brigadeiro", categoria: "bolo_festa", qtd: 2, obs: "papel de arroz" }],
+    temNome: "papel de arroz",
+    dano: "R$ 12 que somem do pedido e reaparecem como prejuizo na producao",
+  },
+  {
     nome: "produto simples continua fechando com o nome do cardapio",
     itens: [{ produto: "coxinha", categoria: "salgado_frito", qtd: 100, obs: "frango" }],
     temNome: "coxinha",
@@ -58,15 +78,17 @@ fs.writeFileSync(
     'import { motorPadrao } from "../lib/ia/orcamento.ts";',
     'import { paraOMotor } from "../lib/ia/fluxo/cotar.ts";',
     'import { unidadeDoPedido } from "../lib/ia/dados/produtos.ts";',
+    'import { linhasComONomeQueEleAceitou } from "../lib/ia/fluxo/fechar.ts";',
     "const CASOS = " + JSON.stringify(CASOS) + ";",
     "const saiu = [];",
     "for (const c of CASOS) {",
     "  const itens = c.itens.map((i) => ({ ...i, unidade: unidadeDoPedido(i.produto, i.categoria) }));",
     "  const cot = motorPadrao.cotarPorItens(paraOMotor(itens as never));",
-    "  // A MESMA CONTA QUE `fecharPedido` faz pra montar a linha gravada.",
-    "  const mesmaOrdem = (cot.linhas ?? []).length === itens.length;",
-    "  saiu.push((cot.linhas ?? []).map((l, n) => ({",
-    "    item: mesmaOrdem ? String(itens[n].produto || l.item) : String(l.item),",
+    "  // A REGRA DE VERDADE, e nao uma copia dela: ate 02/09/2026 esta sonda",
+    "  // refazia a conta do `fecharPedido` aqui dentro, e por isso ficava verde",
+    "  // com a regra quebrada. Agora chama a mesma funcao que o fechamento usa.",
+    "  saiu.push(linhasComONomeQueEleAceitou(cot.linhas ?? [], itens as never).map((l) => ({",
+    "    item: l.item,",
     "    unit: Number(l.unit) || 0,",
     "  })));",
     "}",
