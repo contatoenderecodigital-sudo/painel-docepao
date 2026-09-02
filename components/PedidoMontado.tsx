@@ -178,7 +178,42 @@ const OPCAO = { background: "#3d1219", color: "#fff7eb" } as const;
 const campo =
   "min-w-0 bg-white/8 rounded-lg px-2.5 py-2 text-[13px] text-cream placeholder:text-cream/35 focus:outline-none focus:ring-2 focus:ring-cobre/25 border border-white/8";
 
-type OpcaoCardapio = { nome: string; categoria: Categoria; unidade: Unidade; sabores: string[] };
+type OpcaoCardapio = {
+  nome: string;
+  categoria: Categoria;
+  unidade: Unidade;
+  sabores: string[];
+  /**
+   * O produto pede escolha de sabor? Vem RESPONDIDO de `lib/cardapio-opcoes.ts`,
+   * pela mesma funcao que a conversa usa (`pedeEscolhaDeSabor`).
+   *
+   * Opcional porque o painel pode estar aberto com uma resposta antiga da rota
+   * em cache; nesse caso vale o tamanho da lista, que e a conta velha.
+   */
+  pedeSabor?: boolean;
+};
+
+/**
+ * ESTE ITEM PRECISA QUE ALGUEM ESCOLHA O SABOR?
+ *
+ * A RESPOSTA VEM DO CARDAPIO, e nao de uma conta feita aqui. O painel decidia
+ * por `sabores.length > 0`, que e a regra ANTIGA, e por isso discordava da
+ * conversa em oito produtos:
+ *
+ *   coxinha        cardapio: recheio FIXO de frango
+ *   a IA           nunca pergunta, certo
+ *   o painel       marcava "Sabor *" e avisava "sem o sabor a cozinha nao
+ *                  sabe o que fazer"
+ *
+ * A equipe via alarme vermelho num item que nao tem escolha nenhuma. Regra dele,
+ * 02/09/2026: so pede sabor quem tem MAIS DE UM. Painel e conversa agora leem a
+ * mesma resposta.
+ */
+function pedeSabor(cardapio: OpcaoCardapio[], produto: string): boolean {
+  const o = doCardapio(cardapio, produto);
+  if (!o) return false;
+  return o.pedeSabor ?? (o.sabores?.length ?? 0) > 1;
+}
 
 // Do nome do produto pra categoria da tela. O cardapio manda; a tabela abaixo
 // e so pro que a equipe lancou na mao e nao existe no cardapio.
@@ -230,6 +265,7 @@ function saboresDe(cardapio: OpcaoCardapio[], produto: string): string[] {
 }
 
 function semSaborEscolhido(cardapio: OpcaoCardapio[], it: Item): boolean {
+  if (!pedeSabor(cardapio, it.produto)) return false;
   const ops = saboresDe(cardapio, it.produto);
   if (!ops.length) return false;
   const obs = (it.obs ?? "").toLowerCase();
@@ -1042,6 +1078,10 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
                     esquece o sabor e erra o nome, e sabor faltando é a cozinha
                     fazendo o padrão e o cliente descobrindo na festa. */}
                 {(() => {
+                  // QUEM NAO TEM ESCOLHA NAO GANHA BLOCO DE ESCOLHA. A coxinha
+                  // e sempre de frango: mostrar "Sabor *" nela e pedir pra
+                  // equipe escolher o que nao tem escolha.
+                  if (!pedeSabor(cardapio, it.produto)) return null;
                   const ops = saboresDe(cardapio, it.produto);
                   if (!ops.length) return null;
                   const atual = (it.obs ?? "").toLowerCase();

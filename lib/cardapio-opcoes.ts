@@ -31,10 +31,36 @@
 //  Movido e trocado na leitura do `app/`, 28/08/2026.
 // ============================================================================
 
-import { produtosDaCasa, categoriaDoPedido, coresDoCardapio } from "@/lib/ia/dados/produtos";
+import { produtosDaCasa, categoriaDoPedido, coresDoCardapio, pedeEscolhaDeSabor } from "@/lib/ia/dados/produtos";
 import { unidadeDoItem } from "@/lib/tipos";
 
-export type Opcao = { nome: string; categoria: string; unidade: "un" | "kg"; sabores: string[] };
+export type Opcao = {
+  nome: string;
+  categoria: string;
+  unidade: "un" | "kg";
+  sabores: string[];
+  /**
+   * ESTE PRODUTO PEDE QUE ALGUEM ESCOLHA O SABOR?
+   *
+   * A RESPOSTA VAI PRONTA, e nao so a lista de sabores. Ate 02/09/2026 daqui
+   * saia apenas `sabores`, e o painel era obrigado a decidir por conta propria
+   * "tem sabor pra escolher?" olhando o tamanho da lista. Ele inventou a regra
+   * antiga (`sabores.length > 0`) e passou a discordar da conversa:
+   *
+   *   coxinha        cardapio: recheio FIXO de frango
+   *   a IA           nunca pergunta, certo
+   *   o painel       marcava "Sabor *" em vermelho e avisava
+   *                  "sem o sabor a cozinha nao sabe o que fazer"
+   *
+   * A equipe via um alarme num item que nao tem escolha nenhuma, e os dois lados
+   * do sistema diziam coisas opostas sobre a mesma linha.
+   *
+   * Nao dava pro painel chamar `pedeEscolhaDeSabor` sozinho: o campo que ela le
+   * (`saborFixo`) nem chegava ate la. Agora a decisao e tomada AQUI, uma vez, na
+   * mesma funcao que a conversa usa, e o painel so le o sim ou nao.
+   */
+  pedeSabor: boolean;
+};
 
 /** A lista pronta: o cardapio inteiro, uma vez so. */
 export const OPCOES: Opcao[] = produtosDaCasa().map((p) => ({
@@ -43,6 +69,7 @@ export const OPCOES: Opcao[] = produtosDaCasa().map((p) => ({
   categoria: categoriaDoPedido(p.nome),
   unidade: unidadeDoItem(p.unidade),
   sabores: p.sabores ?? [],
+  pedeSabor: pedeEscolhaDeSabor(p),
 }));
 
 /**
