@@ -145,12 +145,17 @@ O detalhe dos vinte e um está no `DIARIO-DA-IA.md`, com o que cada um custava.
 4. **"Sim" digitado vale como botão** nas perguntas de peça.
 5. **Responder uma opção da lista não é delegar.**
 
-### AINDA É REMENDO, E ELE JÁ COBROU
+### ERA REMENDO, E FECHOU DEPOIS (conferido em 02/09/2026)
 
-- **quantidade e unidade** (kg contra unidade): cada caminho lembra de perguntar
-  ao catálogo por conta própria. Não há trava única.
-- **o texto do cliente e o texto da comanda** são montados em dois lugares
-  diferentes. Hoje concordam; nada garante que continuem concordando.
+Os dois que ele cobrou aqui viraram trava com teste, e este parágrafo fica pra
+não mandar ninguém consertar o que já está consertado:
+
+- **quantidade e unidade**: `unidadeDoItem`, em `lib/tipos.ts`, é a decisão
+  única, e `a-unidade-do-item-e-uma-decisao-so.cjs` cobra os seis lugares que
+  respondiam por conta própria.
+- **o texto do cliente e o texto da comanda**:
+  `o-que-o-cliente-leu-e-o-que-a-cozinha-recebe.cjs` compara produto, quantidade
+  e total dos dois lados.
 
 A conferência antes de fechar (`oQueFaltaPraFechar`) JÁ existe e já cobre item,
 quantidade, dia, hora, nome, pagamento, sabor faltando, sabor além do limite e
