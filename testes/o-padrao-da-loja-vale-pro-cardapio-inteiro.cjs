@@ -38,6 +38,7 @@ fs.writeFileSync(
   [
     'import { produtosDaCasa, pedeEscolhaDeSabor } from "../lib/ia/dados/produtos.ts";',
     'import { roteiroDoPedido, etapaDaVez } from "../lib/ia/fluxo/etapas.ts";',
+    'import { oQueFaltaPraFechar } from "../lib/ia/fluxo/fechar.ts";',
     "",
     "// As etapas que ainda estao falando DO PRODUTO. Parar numa delas quer dizer",
     "// que a padaria ainda tem o que perguntar sobre o que ele pediu.",
@@ -51,8 +52,10 @@ fs.writeFileSync(
     "  etapasJaPerguntadas: [], etapasAdiadas: [], pecasMandadas: [],",
     "});",
     "const ondePara = (p) => etapaDaVez(p as never, roteiroDoPedido(p as never)).id;",
+    "const oQueFalta = (p) => oQueFaltaPraFechar(p as never);",
     "",
     "const semSabor = [], perguntamATooa = [], semQuantidade = [], travados = [];",
+    "const fechamSemQtd = [], fechamSemSabor = [], naoFecham = [];",
     "const pecasNoCaseiro = [], semPecasNaFesta = [];",
     "",
     "for (const p of produtosDaCasa()) {",
@@ -76,6 +79,23 @@ fs.writeFileSync(
     "    semQuantidade.push(p.nome + ' (por ' + p.unidade + ') -> foi parar em ' + soQtd);",
     "  }",
     "",
+    "  // 3b. O FECHAMENTO TAMBEM COBRA. Etapa e fechamento sao dois guardas do",
+    "  // mesmo dinheiro: um diz o que PERGUNTAR, o outro o que pode ser REGISTRADO.",
+    "  const faltaComZero = oQueFalta(pedido(p.nome, p.categoria, 0, oSabor));",
+    "  if (!faltaComZero.some((x) => /quant|quilo|kg/i.test(x))) {",
+    "    fechamSemQtd.push(p.nome + ' -> o fechamento nao cobra a quantidade: ' + (faltaComZero.join('; ') || '(nada)'));",
+    "  }",
+    "  if (escolhe) {",
+    "    const faltaSemSabor = oQueFalta(pedido(p.nome, p.categoria, 2, null));",
+    "    if (!faltaSemSabor.some((x) => /sabor|qual/i.test(x))) {",
+    "      fechamSemSabor.push(p.nome + ' -> o fechamento nao cobra o sabor: ' + (faltaSemSabor.join('; ') || '(nada)'));",
+    "    }",
+    "  }",
+    "  const faltaCompleto = oQueFalta(pedido(p.nome, p.categoria, 2, oSabor));",
+    "  if (faltaCompleto.length) {",
+    "    naoFecham.push(p.nome + ' -> com sabor e quantidade ainda falta: ' + faltaCompleto.join('; '));",
+    "  }",
+    "",
     "  // 4. E COM OS DOIS, A CONVERSA SEGUE.",
     "  const completo = ondePara(pedido(p.nome, p.categoria, 2, oSabor));",
     "  if (DE_PRODUTO.includes(completo)) {",
@@ -94,6 +114,7 @@ fs.writeFileSync(
     "console.log(JSON.stringify({",
     "  total: produtosDaCasa().length,",
     "  semSabor, perguntamATooa, semQuantidade, travados, pecasNoCaseiro, semPecasNaFesta,",
+    "  fechamSemQtd, fechamSemSabor, naoFecham,",
     "}));",
   ].join("\n"),
 );
@@ -155,6 +176,28 @@ cobra(
   "bolo de FESTA que pula topo e papel de arroz",
   r.semPecasNaFesta,
   "o bolo decorado sai sem as pecas, e elas sao metade do ticket",
+);
+
+// O FECHAMENTO E O SEGUNDO GUARDA DO MESMO DINHEIRO.
+//
+// A etapa decide o que PERGUNTAR; o `oQueFaltaPraFechar` decide o que pode ser
+// REGISTRADO. Ja aconteceu de um saber e o outro nao: a cor da forminha era
+// cobrada pela etapa e nao pelo fechamento, e quem chegava na confirmacao por
+// outro caminho (pedido simples, dados na primeira mensagem) fechava sem cor.
+cobra(
+  "produto que o FECHAMENTO deixa registrar sem quantidade",
+  r.fechamSemQtd,
+  "o pedido vira comanda com quantidade que ninguem disse",
+);
+cobra(
+  "produto que o FECHAMENTO deixa registrar sem sabor",
+  r.fechamSemSabor,
+  "a cozinha recebe a linha sem recheio e alguem liga pro cliente",
+);
+cobra(
+  "produto que o FECHAMENTO trava mesmo completo",
+  r.naoFecham,
+  "trava que nunca solta e pior que trava que falta: o pedido nao fecha nunca",
 );
 
 console.log(falhas.length ? "REPROVOU EM: " + falhas.join(", ") : "PASSOU: o padrao vale nos " + r.total + " produtos");
