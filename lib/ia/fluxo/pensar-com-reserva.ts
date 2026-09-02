@@ -57,7 +57,7 @@ export function pensarComReserva(
         erro instanceof Error ? erro.message : String(erro),
       );
       const deReserva = pensarComOpenAI(
-        clienteDoCerebro({ url: reserva.url }),
+        clienteDoCerebro({ url: reserva.url, ehReserva: true }),
         registrar,
         reserva.modelo,
       );

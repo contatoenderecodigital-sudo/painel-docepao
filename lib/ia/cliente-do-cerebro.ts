@@ -50,7 +50,12 @@ let avisou = "";
  * conversa roda em outro provedor. Sem ela, ligar o DeepSeek desligaria a
  * transcrição junto, e o cliente que manda áudio ficaria sem resposta.
  */
-export function clienteDoCerebro(doBanco?: { url?: string | null; chave?: string | null }): OpenAI {
+export function clienteDoCerebro(doBanco?: {
+  url?: string | null;
+  chave?: string | null;
+  /** Este cliente e o cerebro RESERVA? Ele usa a chave reserva do ambiente. */
+  ehReserva?: boolean;
+}): OpenAI {
   // "openai" NO BANCO DESLIGA O PROVEDOR DE FORA, mesmo com a variavel de
   // ambiente apontando pra ele.
   //
@@ -74,6 +79,16 @@ export function clienteDoCerebro(doBanco?: { url?: string | null; chave?: string
   // seria pior: ela vaza em backup, em dump e na tela de quem abre a tabela.
   const doAmbiente = (): string => {
     const url = String(baseURL ?? "");
+    // A RESERVA NO MESMO PROVEDOR E OUTRA CHAVE, e nao outro modelo.
+    //
+    // Decisao dele em 02/09/2026: "acho melhor so criar outra API pra Doce Pao;
+    // se nao vai ter configuracao no Haiku, nao compensa".
+    //
+    // Esta certo pro caso dele: a falha comum nao e a OpenAI cair, e a chave
+    // ficar sem credito ou bater o limite de uso. Uma segunda chave resolve isso
+    // sem trocar de modelo, entao a leitura continua sendo a que foi afinada
+    // durante semanas. Trocar de provedor custaria qualidade, medido hoje.
+    if (doBanco?.ehReserva && !url) return process.env.OPENAI_API_KEY_RESERVA || "";
     if (/anthropic|claude/i.test(url)) return process.env.CLAUDE_API_KEY || "";
     if (/deepseek/i.test(url)) return process.env.IA_API_KEY || "";
     if (/googleapis|gemini/i.test(url)) return process.env.GEMINI_API_KEY || "";
