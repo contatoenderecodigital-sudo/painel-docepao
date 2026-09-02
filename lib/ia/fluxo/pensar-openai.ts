@@ -98,7 +98,21 @@ export function pensarComOpenAI(
     const r = await cliente.chat.completions.create({
       model: modeloDoCerebro(modeloDoNegocio),
       // Temperatura baixa: aqui nao se quer criatividade, se quer leitura.
-      temperature: 0,
+      //
+      // OS MODELOS gpt-5 NAO ACEITAM ISTO, e recusam a chamada inteira:
+      //
+      //   Unsupported value: 'temperature' does not support 0 with this model.
+      //   Only the default (1) value is supported.
+      //
+      // Medido em 02/09/2026, trocando o cerebro pra gpt-5-mini: a padaria
+      // respondeu "tive um probleminha aqui agora" pra TODA mensagem. Um campo
+      // que o modelo novo nao aceita derruba o atendimento inteiro, e o cliente
+      // nunca sabe por que.
+      //
+      // Quem manda no formato e o modelo: se ele so aceita o padrao, vai o
+      // padrao. A leitura nao depende disso pra ser fiel — ela depende da
+      // instrucao e do `response_format` json, que continuam iguais.
+      ...(/^(gpt-5|o[0-9])/i.test(modeloDoCerebro(modeloDoNegocio)) ? {} : { temperature: 0 }),
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: instrucao + "\n\n" + FORMATO },
