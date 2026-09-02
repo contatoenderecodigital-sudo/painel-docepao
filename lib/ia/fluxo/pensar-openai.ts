@@ -95,6 +95,9 @@ export function pensarComOpenAI(
   modeloDoNegocio: string | null = null,
 ): Pensar {
   return async ({ instrucao, mensagem }) => {
+    // Quem manda no formato e o provedor, e a URL diz qual e.
+    const anthropic = /anthropic|claude/i.test(String(process.env.IA_BASE_URL || "")) ||
+      /^claude-/i.test(modeloDoCerebro(modeloDoNegocio));
     const r = await cliente.chat.completions.create({
       model: modeloDoCerebro(modeloDoNegocio),
       // Temperatura baixa: aqui nao se quer criatividade, se quer leitura.
@@ -113,7 +116,17 @@ export function pensarComOpenAI(
       // padrao. A leitura nao depende disso pra ser fiel — ela depende da
       // instrucao e do `response_format` json, que continuam iguais.
       ...(/^(gpt-5|o[0-9])/i.test(modeloDoCerebro(modeloDoNegocio)) ? {} : { temperature: 0 }),
-      response_format: { type: "json_object" },
+      // O FORMATO JSON TEM NOME DIFERENTE EM CADA PROVEDOR.
+      //
+      // Medido em 02/09/2026, ligando o Claude Haiku:
+      //
+      //   400 response_format.type: Input should be 'json_schema'
+      //
+      // A Anthropic nao aceita o `json_object` da OpenAI. Sem o campo, o modelo
+      // costuma devolver o JSON dentro de um bloco de codigo, e o leitor abaixo
+      // ja sabe tirar a cerca: a instrucao continua mandando devolver JSON, que
+      // e o que de fato garante o formato nos dois.
+      ...(anthropic ? {} : { response_format: { type: "json_object" as const } }),
       messages: [
         { role: "system", content: instrucao + "\n\n" + FORMATO },
         { role: "user", content: mensagem },
@@ -154,7 +167,16 @@ export function pensarComOpenAI(
       cacheRead: u?.prompt_tokens_details?.cached_tokens ?? 0,
     });
 
-    const bruto = r.choices?.[0]?.message?.content ?? "{}";
+    // O JSON PODE VIR DENTRO DE UMA CERCA DE CODIGO.
+    //
+    // Sem `response_format`, que e o caso da Anthropic, o modelo devolve o
+    // objeto embrulhado em ```json ... ```. O conteudo esta certo; so a casca e
+    // que atrapalha, e jogar a leitura fora por causa dela seria perder o pedido
+    // inteiro do cliente.
+    const bruto = String(r.choices?.[0]?.message?.content ?? "{}")
+      .replace(/^\s*```(?:json)?\s*/i, "")
+      .replace(/\s*```\s*$/i, "")
+      .trim() || "{}";
     try {
       const lido = JSON.parse(bruto) as Leitura;
       // Campo vazio que o modelo mandou por educacao nao vira mudanca: "dados"
