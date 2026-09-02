@@ -39,6 +39,7 @@ fs.writeFileSync(
     'import { produtosDaCasa, pedeEscolhaDeSabor } from "../lib/ia/dados/produtos.ts";',
     'import { roteiroDoPedido, etapaDaVez } from "../lib/ia/fluxo/etapas.ts";',
     'import { oQueFaltaPraFechar } from "../lib/ia/fluxo/fechar.ts";',
+    'import { falaDaEtapa } from "../lib/ia/fluxo/pergunta.ts";',
     "",
     "// As etapas que ainda estao falando DO PRODUTO. Parar numa delas quer dizer",
     "// que a padaria ainda tem o que perguntar sobre o que ele pediu.",
@@ -53,9 +54,16 @@ fs.writeFileSync(
     "});",
     "const ondePara = (p) => etapaDaVez(p as never, roteiroDoPedido(p as never)).id;",
     "const oQueFalta = (p) => oQueFaltaPraFechar(p as never);",
+    "// O QUE A PADARIA FALA DE VERDADE naquela etapa. Bloquear sem saber",
+    "// perguntar nao protege nada: mata o pedido.",
+    "const oQueFala = (p) => {",
+    "  const vez = etapaDaVez(p as never, roteiroDoPedido(p as never));",
+    "  return String(falaDaEtapa(vez as never, p as never, 0, []).texto || '');",
+    "};",
     "",
     "const semSabor = [], perguntamATooa = [], semQuantidade = [], travados = [];",
     "const fechamSemQtd = [], fechamSemSabor = [], naoFecham = [];",
+    "const naoSabemPerguntarQtd = [];",
     "const pecasNoCaseiro = [], semPecasNaFesta = [];",
     "",
     "for (const p of produtosDaCasa()) {",
@@ -77,6 +85,14 @@ fs.writeFileSync(
     "  const soQtd = ondePara(pedido(p.nome, p.categoria, 0, oSabor));",
     "  if (!DE_PRODUTO.includes(soQtd)) {",
     "    semQuantidade.push(p.nome + ' (por ' + p.unidade + ') -> foi parar em ' + soQtd);",
+    "  }",
+    "",
+    "  // 3a. E ELA PRECISA SABER PERGUNTAR. A etapa segurar sem ter frase e o",
+    "  // defeito que mata o pedido: a padaria repete a pergunta que ele ja",
+    "  // respondeu ate desistir na quarta vez.",
+    "  const falaDaQtd = oQueFala(pedido(p.nome, p.categoria, 0, oSabor));",
+    "  if (!/quant[oa]s/i.test(falaDaQtd)) {",
+    "    naoSabemPerguntarQtd.push(p.nome + ' (por ' + p.unidade + ') -> a padaria diz: ' + JSON.stringify(falaDaQtd.slice(0, 70)));",
     "  }",
     "",
     "  // 3b. O FECHAMENTO TAMBEM COBRA. Etapa e fechamento sao dois guardas do",
@@ -114,7 +130,7 @@ fs.writeFileSync(
     "console.log(JSON.stringify({",
     "  total: produtosDaCasa().length,",
     "  semSabor, perguntamATooa, semQuantidade, travados, pecasNoCaseiro, semPecasNaFesta,",
-    "  fechamSemQtd, fechamSemSabor, naoFecham,",
+    "  fechamSemQtd, fechamSemSabor, naoFecham, naoSabemPerguntarQtd,",
     "}));",
   ].join("\n"),
 );
@@ -184,6 +200,19 @@ cobra(
 // REGISTRADO. Ja aconteceu de um saber e o outro nao: a cor da forminha era
 // cobrada pela etapa e nao pelo fechamento, e quem chegava na confirmacao por
 // outro caminho (pedido simples, dados na primeira mensagem) fechava sem cor.
+// A GUARDA QUE BLOQUEIA TEM QUE SABER PERGUNTAR.
+//
+// Em 02/09/2026 a etapa passou a exigir quantidade de todo produto, e a
+// PERGUNTA continuou existindo so pro quilo. Resultado: coxinha sem quantidade
+// segurava o pedido (certo) e a padaria repetia "Quais salgados voce quer?"
+// (errado), ate morrer na quarta insistencia. Guarda que bloqueia sem saber
+// perguntar nao protege nada: mata o pedido inteiro.
+cobra(
+  "produto que a padaria segura mas NAO sabe perguntar a quantidade",
+  r.naoSabemPerguntarQtd,
+  "a padaria repete a pergunta que ele ja respondeu ate o pedido morrer",
+);
+
 cobra(
   "produto que o FECHAMENTO deixa registrar sem quantidade",
   r.fechamSemQtd,

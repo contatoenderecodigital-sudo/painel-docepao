@@ -573,6 +573,11 @@ function falaDoDocinho(p: PedidoEmMontagem, aviso: string): Fala {
     };
   }
 
+  // A QUANTIDADE VEM ANTES DA COR DA FORMINHA. Escolher a cor de um docinho
+  // cuja quantidade ninguem sabe e perguntar o detalhe antes do essencial.
+  const semQtdDoc = itemEsperandoQuantidade(p);
+  if (semQtdDoc) return perguntaDaQuantidade(semQtdDoc.produto, String(semQtdDoc.categoria || ""), aviso);
+
   return falaDaForminha(p) ?? {
     texto: aviso + "Agora os docinhos: quais você quer?",
     botoes: [],
@@ -931,6 +936,116 @@ export function quandoDoPedido(
   return p.data + (p.hora ? " às " + p.hora : "");
 }
 
+/**
+ * O ITEM QUE ESTA ESPERANDO A QUANTIDADE, e a pergunta dele.
+ *
+ * POR QUE ISTO EXISTE, e custou o pedido inteiro
+ *
+ * Em 02/09/2026 a etapa passou a exigir quantidade de TODO produto, e nao so
+ * dos vendidos por quilo (regra dele: *"sempre que pedir coisa de KG ou UNID de
+ * qualquer produto tem q pedir pra pessoa qual a quantidade, PRA TODOS OS
+ * PRODUTOS"*). So que a PERGUNTA continuou existindo so pro quilo. Resultado
+ * medido no mesmo dia:
+ *
+ *   pedido  >> coxinha de frango, sem quantidade
+ *   etapa   >> nao cumprida, certo: falta a quantidade
+ *   padaria >> "Quais salgados voce quer?"      <- ele ja respondeu isso
+ *   cliente >> "coxinha"
+ *   padaria >> "Quais salgados voce quer?"      <- de novo, pra sempre
+ *
+ * Guarda que bloqueia sem saber perguntar nao protege nada: ela mata o pedido.
+ * E a mesma familia do defeito que este projeto ja documentou no papel de arroz
+ * ("a conversa NUNCA fecha, porque ninguem responde isso").
+ *
+ * A UNIDADE MANDA NA FRASE, e ela sai do cardapio:
+ *
+ *   kg  ->  "O empadao e vendido por quilo, R$ 34,90 o quilo. Quantos quilos?"
+ *   un  ->  "Quantas coxinhas voce quer? Sai R$ 1,00 cada."
+ *
+ * Devolve null quando nao ha item esperando quantidade.
+ */
+function itemEsperandoQuantidade(p: PedidoEmMontagem) {
+  // NOME DE FAMILIA AINDA VAI VIRAR PRODUTO. Perguntar "quantos salgados?"
+  // antes de saber QUAIS salgados e perguntar na ordem errada.
+  return p.itens.find((i) => !(Number(i.qtd) > 0) && !ehNomeDeFamilia(i.produto)) ?? null;
+}
+
+function perguntaDaQuantidade(produto: string, categoria: string, aviso: string): Fala {
+  const emQuilo = unidadeDoPedido(produto, categoria) === "kg";
+  // O PRECO SAI DO MOTOR, como todo numero que ela fala.
+  const unit = Number(motorPadrao.cotarPorItens([{ item: produto, qtd: 1 }]).linhas?.[0]?.unit ?? 0);
+  const artigo = artigoDoProduto(produto);
+
+  if (emQuilo) {
+    // A PADARIA DIZ QUE E POR QUILO ANTES DE PERGUNTAR.
+    //
+    // Regra dele, 31/08/2026: "se a categoria eh KG nao UNID tu fala pra ele, q
+    // eh em kg, ai tem escolher em kg nao em quantidade". Sem o aviso, quem
+    // pediu "50 pao frances" nao entende por que a padaria esta falando de
+    // quilo, e "50 pao frances" volta a virar 50 kg (R$ 599,50).
+    return {
+      texto:
+        aviso + artigo + produto + (artigo === "A " ? " é vendida por quilo" : " é vendido por quilo") +
+        (unit > 0 ? ", " + brl(unit) + " o quilo" : "") +
+        ". Quantos quilos você quer?",
+      botoes: [],
+      cardapio: null,
+      podeReescrever: false,
+      chave: "peso",
+    };
+  }
+
+  // POR UNIDADE A FRASE E OUTRA, e o preco de cada um vai junto: e o que faz o
+  // cliente escolher sabendo quanto vai dar, em vez de descobrir no resumo.
+  //
+  // O GENERO SAI DO MESMO LUGAR QUE JA DECIDIA "a cuca e vendida": coxinha e
+  // feminina, e "Quantos coxinhas" e a frase que faz o cliente perceber que
+  // esta falando com um robo.
+  const quantos = artigo === "A " ? "Quantas " : "Quantos ";
+  const preco = unit > 0 ? " Sai " + brl(unit) + " cada." : "";
+
+  // NOME COMPOSTO NAO ENTRA NO PLURAL. "cupcake grande" vira "cupcakes
+  // grandes", com os DOIS no plural, e "mini bolha" nao vira "minis bolhas":
+  // acertar isso pediria um dicionario, e dicionario meu e o tipo de lista que
+  // envelhece mal neste projeto.
+  //
+  // A saida e uma frase que nao precisa de plural nenhum, e que uma atendente
+  // diria igual: "Quantos voce quer de cupcake grande?".
+  if (produto.trim().includes(" ")) {
+    return {
+      texto: aviso + quantos + "você quer de " + produto + "?" + preco,
+      botoes: [],
+      cardapio: null,
+      podeReescrever: false,
+      chave: "quantidade",
+    };
+  }
+
+  return {
+    texto: aviso + quantos + plural(produto) + " você quer?" + preco,
+    botoes: [],
+    cardapio: null,
+    podeReescrever: false,
+    chave: "quantidade",
+  };
+}
+
+/**
+ * O PLURAL DO PRODUTO, pra pergunta sair como gente fala.
+ *
+ * "Quantos coxinha voce quer?" e o tipo de frase que faz o cliente perceber que
+ * esta falando com um robo. Nao e dicionario: e a regra que cobre o cardapio
+ * desta casa, e nome que ja acaba em "s" fica como esta.
+ */
+function plural(produto: string): string {
+  const nome = String(produto ?? "").trim();
+  if (!nome || /s$/i.test(nome)) return nome;
+  if (/(ão)$/i.test(nome)) return nome.replace(/ão$/i, "ões");
+  if (/(r|z|n)$/i.test(nome)) return nome + "es";
+  if (/l$/i.test(nome)) return nome.replace(/l$/i, "is");
+  return nome + "s";
+}
+
 export function falaDaEtapa(
   etapa: Etapa,
   p: PedidoEmMontagem,
@@ -1005,6 +1120,12 @@ export function falaDaEtapa(
       // separa os dois e o catalogo, nao uma lista minha.
       const semSabor = perguntaDoSabor(p, "salgado");
       if (semSabor) return semSabor;
+      // E DEPOIS DO SABOR, A QUANTIDADE. A ordem e a dele: primeiro o que e,
+      // depois quanto. Sem isto a etapa segurava o pedido (certo) e a padaria
+      // repetia "Quais salgados voce quer?" pra sempre (errado), ate morrer na
+      // quarta insistencia. Medido em 02/09/2026.
+      const semQtdSal = itemEsperandoQuantidade(p);
+      if (semQtdSal) return perguntaDaQuantidade(semQtdSal.produto, String(semQtdSal.categoria || ""), aviso);
       return {
         texto: aviso + "Quais salgados você quer?",
         botoes: [],
@@ -1045,36 +1166,12 @@ export function falaDaEtapa(
       //
       // A pergunta vem depois do sabor, que e a ordem em que uma atendente
       // pergunta: primeiro o que e, depois o tamanho.
-      const semPesoAqui = p.itens.find(
-        (i) =>
-          !(Number(i.qtd) > 0) &&
-          !ehNomeDeFamilia(i.produto) &&
-          unidadeDoPedido(String(i.produto), String(i.categoria || "")) === "kg",
-      );
+      // AQUI ELA SO SABIA PERGUNTAR QUILO. Onze produtos desta etapa sao por
+      // peso, mas o cupcake, o franciscano e o mini x sao por unidade, e pra
+      // eles a etapa segurava o pedido sem ter o que dizer.
+      const semPesoAqui = itemEsperandoQuantidade(p);
       if (semPesoAqui) {
-        // A PADARIA DIZ QUE E POR QUILO ANTES DE PERGUNTAR.
-        //
-        // Regra dele, 31/08/2026: "se a categoria eh KG nao UNID tu fala pra
-        // ele, q eh em kg, ai tem escolher em kg nao em quantidade".
-        //
-        // Sem o aviso, quem pediu "50 pao frances" nao entende por que a padaria
-        // esta falando de quilo. Com ele, o cliente escolhe na mesma unidade em
-        // que a casa cobra, e some o "50 pao frances = 50 kg = R$ 599,50".
-        //
-        // O PRECO DO QUILO SAI DO MOTOR, como todo numero que ela fala.
-        const oQuilo = Number(
-          motorPadrao.cotarPorItens([{ item: semPesoAqui.produto, qtd: 1 }]).linhas?.[0]?.unit ?? 0,
-        );
-        return {
-          texto:
-            aviso + artigoDoProduto(semPesoAqui.produto) + semPesoAqui.produto + (artigoDoProduto(semPesoAqui.produto) === "A " ? " é vendida por quilo" : " é vendido por quilo") +
-            (oQuilo > 0 ? ", " + brl(oQuilo) + " o quilo" : "") +
-            ". Quantos quilos você quer?",
-          botoes: [],
-          cardapio: null,
-          podeReescrever: false,
-          chave: "peso",
-        };
+        return perguntaDaQuantidade(semPesoAqui.produto, String(semPesoAqui.categoria || ""), aviso);
       }
       // Sem familia em aberto, o que falta e recheio. A pergunta sai com as
       // opcoes do proprio cardapio daquele item, e nao de uma lista fixa.
