@@ -77,18 +77,97 @@ const limpo = (t: unknown) => semAcento(String(t ?? ""));
 //
 // Regra do dono, 27/08/2026: "nada pode ser so uma lista tua". Nome de familia
 // nao e opiniao de arquivo: e uma coisa so, escrita num lugar so.
-const FAMILIAS: Record<string, string[]> = {
-  pizza: ["pizza"],
+/**
+ * OS AGRUPAMENTOS E APELIDOS QUE O CATALOGO NAO SABE DIZER.
+ *
+ * Sao decisoes, e por isso ficam escritas: "salgado" cobre frito E assado,
+ * "bolo" cobre festa E caseiro (e NAO o bolo salgado, que e outro produto),
+ * "doce" e como muita gente chama o docinho, e "torta" cobre a fria e a
+ * recheada. Nenhuma dessas relacoes esta no cardapio; elas sao de quem atende.
+ *
+ * O RESTO SAI DO CATALOGO, logo abaixo. Aqui so entra o que precisa de decisao.
+ */
+const AGRUPAMENTOS: Record<string, string[]> = {
   salgado: ["salgado_frito", "salgado_assado"],
   // O cliente diz "salgado frito" sem escolher qual, e isso continua sendo
   // familia: o que falta e o produto, e nao o modo de preparo.
   "salgado frito": ["salgado_frito"],
   "salgado assado": ["salgado_assado"],
   doce: ["docinho"],
-  docinho: ["docinho"],
   bolo: ["bolo_festa", "bolo_caseiro"],
   "bolo recheado": ["bolo_festa"],
+  // "torta" nao e nome de produto nenhum (os produtos sao "torta fria", "torta
+  // doce", "torta especial"), entao ela pode agrupar as duas categorias.
+  torta: ["torta_fria", "torta_recheada"],
 };
+
+/**
+ * AS FAMILIAS QUE SAEM DO PROPRIO CARDAPIO.
+ *
+ * POR QUE ISTO DEIXOU DE SER LISTA MINHA
+ *
+ * Aqui havia oito nomes digitados a mao, e o cardapio tem QUINZE categorias.
+ * Medido em 02/09/2026, conversando com a producao:
+ *
+ *   cliente >> quero bolo, salgados, docinhos e cupcakes
+ *   rastro  >> TIREI DO PEDIDO, nao existe no cardapio: 1x cupcake
+ *
+ * Existem quatro cupcakes na casa. "cupcake" nao e nome de produto (os produtos
+ * sao "cupcake pequeno", "cupcake grande"), e sim nome de GRUPO -- so que este
+ * arquivo nao sabia disso, e a guarda que impede produto inventado apagou o
+ * pedido do cliente. O proprio comentario acima ja dizia a regra do dono: "nada
+ * pode ser so uma lista tua".
+ *
+ * AS DUAS CONDICOES, e as duas sao necessarias:
+ *
+ *   MAIS DE UM PRODUTO. Categoria de um produto so nao e grupo: nomear o
+ *   calzone JA e escolher o calzone.
+ *
+ *   O NOME NAO PODE SER DE UM PRODUTO. Medido antes de escrever isto, e ele
+ *   sozinho evitaria cinco regressoes: `empadao`, `calzone`, `franciscano`,
+ *   `torta fria` e `bolo salgado` sao categoria E produto ao mesmo tempo. Nome
+ *   de familia e tratado no fluxo como "ainda vai virar produto", entao a
+ *   padaria NUNCA perguntaria a quantidade de um empadao.
+ *
+ * Cadastrar uma categoria nova com dois produtos passa a valer sozinho, que e o
+ * ponto: o dia em que a dona criar "salgado de forno" ninguem precisa vir aqui.
+ */
+function familiasDoCardapio(): Record<string, string[]> {
+  const quantos = new Map<string, number>();
+  const nomes = new Set<string>();
+  for (const p of produtosDaCasa()) {
+    quantos.set(p.categoria, (quantos.get(p.categoria) ?? 0) + 1);
+    nomes.add(semAcento(p.nome));
+  }
+  const saiu: Record<string, string[]> = {};
+  for (const [categoria, n] of quantos) {
+    if (n < 2) continue;
+    const legivel = String(categoria).replace(/_/g, " ").trim();
+    if (!legivel || nomes.has(semAcento(legivel))) continue;
+    // O QUE UM AGRUPAMENTO JA COBRE NAO ENTRA DE NOVO POR AQUI.
+    //
+    // "bolo festa" e "bolo caseiro" vivem dentro de "bolo", e "torta recheada"
+    // dentro de "torta". Cadastrar os dois nomes fazia a familia larga disputar
+    // com a estreita, e o portao pegou na hora, em tres testes:
+    //
+    //   cliente >> quero 50 de morango
+    //   virou   >> 50 ~ bolo festa      (esperado: 50 ~ bolo)
+    //   conta   >> 50 kg de bolo morango, R$ 2.345,00
+    //
+    // Quem tem a decisao de como o grupo se chama e o agrupamento, escrito por
+    // gente. A derivacao so preenche o que ninguem decidiu.
+    const jaCoberto = Object.keys(AGRUPAMENTOS).some(
+      (chave) => semAcento(legivel) === semAcento(chave) || semAcento(legivel).startsWith(semAcento(chave) + " "),
+    );
+    if (jaCoberto) continue;
+    saiu[legivel] = [categoria];
+  }
+  return saiu;
+}
+
+// O agrupamento GANHA da derivacao quando os dois falam do mesmo nome: ele e
+// decisao de quem atende, e a derivacao e so o que o cardapio revela.
+const FAMILIAS: Record<string, string[]> = { ...familiasDoCardapio(), ...AGRUPAMENTOS };
 
 /**
  * As chaves de `FAMILIAS` reduzidas do mesmo jeito que a entrada, pra os dois
