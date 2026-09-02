@@ -63,13 +63,24 @@ export function clienteDoCerebro(doBanco?: { url?: string | null; chave?: string
     doBancoUrl.toLowerCase() === "openai"
       ? undefined
       : doBancoUrl || String(process.env.IA_BASE_URL || "").trim() || undefined;
-  // Sem URL de fora, a chave e a da OpenAI: usar a do DeepSeek ali seria mandar
-  // a chave de um provedor pro outro.
-  const apiKey = String(
-    baseURL
-      ? doBanco?.chave || process.env.IA_API_KEY || process.env.OPENAI_API_KEY || ""
-      : process.env.OPENAI_API_KEY || "",
-  ).trim();
+  // CADA PROVEDOR TEM A CHAVE DELE, e a URL diz qual e.
+  //
+  // Medido em 02/09/2026, ligando o Claude Haiku: a chave que ia era a do
+  // DeepSeek (`IA_API_KEY`), porque o codigo so sabia "tem URL de fora, entao usa
+  // a chave de fora". Mandar a chave de um provedor pro outro da 401, e o cliente
+  // recebe "tive um probleminha" sem ninguem entender por que.
+  //
+  // As chaves ja moram no ambiente, cada uma com o nome do dono. Chave em banco
+  // seria pior: ela vaza em backup, em dump e na tela de quem abre a tabela.
+  const doAmbiente = (): string => {
+    const url = String(baseURL ?? "");
+    if (/anthropic|claude/i.test(url)) return process.env.CLAUDE_API_KEY || "";
+    if (/deepseek/i.test(url)) return process.env.IA_API_KEY || "";
+    if (/googleapis|gemini/i.test(url)) return process.env.GEMINI_API_KEY || "";
+    if (url) return process.env.IA_API_KEY || process.env.OPENAI_API_KEY || "";
+    return process.env.OPENAI_API_KEY || "";
+  };
+  const apiKey = String(doBanco?.chave || doAmbiente()).trim();
 
   // O aviso sai UMA vez por combinacao: trocando o modelo pelo banco, o log
   // precisa dizer que trocou, senao a medicao seguinte compara sem saber com o
