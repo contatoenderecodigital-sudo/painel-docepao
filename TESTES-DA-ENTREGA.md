@@ -58,9 +58,29 @@ Preenchido conforme roda. Sem "quase": ou passou inteira, ou está aberta.
 | 4 | 02/09 | 3 defeitos de dinheiro, todos consertados |
 | 5 | 02/09 | passou inteira: festa + pizza, R$ 538,80, conta batendo item a item |
 | 6 | 02/09 | passou; sobrou uma pergunta pra dona (proposta x sortido, R$ 15) |
-| 7 | | |
-| 8 | | |
-| 9 | | |
-| 10 | | |
-| 11 | | |
-| 12 | | |
+| 7 | falta | depende de um audio de verdade; o testador so escreve texto |
+| 8 | 02/09 | 2 defeitos, consertados (reclamacao virava pedido; desconto ignorado) |
+| 9 | 02/09 | passou inteira: sumiu e voltou, R$ 100,00 |
+| 10 | 02/09 | 1 defeito, consertado (a reescrita trocava o assunto da pergunta) |
+| 11 | 02/09 | passou inteira: bolo com topo, papel, tema e prato |
+| 12 | 02/09 | 1 defeito, consertado ("quero um de 2 kg" nao virava pedido) |
+
+---
+
+## O cerebro, medido em 02/09/2026
+
+Tres modelos rodados contra as MESMAS seis falas dele:
+
+| modelo | acertos | custo por chamada | serve? |
+|---|---|---|---|
+| **gpt-4.1-mini** | **6 de 6** | R$ 0,0021 | e o que esta no ar |
+| DeepSeek V4 Flash | 3 de 6 | R$ 0,0007 | le pior |
+| DeepSeek V4 Pro | 2 de 6 | R$ 0,0021 | le pior, e devolve quantidade ZERO |
+| gpt-5-mini | nao leu | R$ 0,0066 | raciocina antes: 475 tokens invisiveis e estoura o tempo |
+| gpt-5.6-luna | 3 de 6 | R$ 0,0025 | mais novo, le menos |
+
+A familia gpt-5 nao serve pra este uso: ela e feita pra pensar, e aqui o trabalho
+e ler uma frase de padaria e devolver JSON em segundos.
+
+E a REESCRITA esta desligada (`config.reescrita = nao`): era uma segunda chamada
+de IA por mensagem, dobrava o custo, e trocava o assunto da pergunta.
