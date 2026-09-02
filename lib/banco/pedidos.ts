@@ -8,6 +8,7 @@
 import { query, queryUm, transacao } from "./db";
 import type { Pedido, PedidoStatus, ItemPedido } from "../tipos";
 import { unidadeDoItem, horaDaRetirada } from "../tipos";
+import { unidadeDoPedido } from "../ia/dados/produtos";
 
 type LinhaFila = {
   id: string;
@@ -358,10 +359,24 @@ export async function adicionarItem(
     if (p.status === "aprovado" || p.status === "impresso") {
       throw new Error("pedido já aprovado: não dá pra mexer nos itens");
     }
+    // A UNIDADE SAI DO CARDAPIO, E NAO DE UM 'un' ESCRITO NO SQL.
+    //
+    // Aqui estava `'un'` literal, e o valor gravado GANHA de todas as escadas
+    // seguintes: `unidadeDoTicket` so consulta o cardapio quando o campo esta
+    // vazio. Ou seja, um empadao lancado pela equipe ficava "1,5 un" na comanda
+    // da cozinha para sempre, e nenhuma camada de baixo podia corrigir.
+    //
+    // A conta nao muda (a equipe digita o preco unitario, entao qtd x preco
+    // fecha igual), mas o papel que o padeiro le, sim.
+    //
+    // `unidadeDoPedido` e a mesma fonte que o fluxo usa, e ela ja trata o caso
+    // dificil do bolo de festa, em que o nome do item e o SABOR e nenhuma regra
+    // de nome alcanca. Nome que o cardapio nao conhece continua caindo em "un",
+    // que e o certo: item avulso da equipe quase sempre e peca.
     await q(
       `insert into pedido_itens (pedido_id, produto, categoria, qtd, unit_centavos, subtotal_centavos, unidade)
-       values ($1, $2, 'extra', $3, $4, $5, 'un')`,
-      [pedidoId, item.produto, item.qtd, item.unitCentavos, subtotal],
+       values ($1, $2, 'extra', $3, $4, $5, $6)`,
+      [pedidoId, item.produto, item.qtd, item.unitCentavos, subtotal, unidadeDoPedido(String(item.produto ?? ""))],
     );
     // Marca que a EQUIPE mexeu: a partir daqui a IA não sobrescreve mais este
     // pedido. Sem isso ela registrava de novo com a lista antiga, o item que a
