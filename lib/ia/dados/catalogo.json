@@ -226,6 +226,8 @@
   },
   "bolos_recheados": {
     "_nota": "3 faixas de preço POR QUILO: o valor da faixa é o preço do quilo e a quantidade registrada é o peso (ex: 1,5 kg = 1,5 x o valor). 1 quilo serve 10 pessoas (100 g por pessoa), confirmado pela dona. Tamanhos: redondo de 300 g a 5,5 kg, quadrado de 2,5 kg a 6 kg. Bolo misto vale o sabor mais caro.",
+    "sabores_ate": 2,
+    "_nota_sabores_ate": "DOIS SABORES NO MAXIMO por bolo, e o preço é o do mais caro. Decisão dele em 02/09/2026: 'bolo de festa eh limite de 2 sabor só no maximo pra misturar ai fica o preco do mais caro'. A dona confirma a mistura e o preço no áudio docepao1608 (3) ('Sim, dá pra misturar. Com certeza. A gente sempre vai cobrar o valor mais caro'), mas não disse número: o teto de dois é dele. Sem teto, três ou quatro sabores entravam num bolo só e a cozinha recebia um pedido que ela não monta.",
     "unidade": "kg",
     "faixas": [
       {

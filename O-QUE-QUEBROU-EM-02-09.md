@@ -166,3 +166,32 @@ node scripts/ver-cardapio.mjs --md       vira CARDAPIO.md
 Ele le pelo MESMO caminho que a IA (`produtosDaCasa()`), e nao pelo JSON cru. Se
 o relatorio mostrar uma coisa e a padaria fizer outra, o defeito esta no leitor,
 que e exatamente o que se quer de uma conferida.
+
+---
+
+## O PADRAO DA LOJA, escrito por ele e cobrado nos 86 produtos
+
+Ele fechou a regra em 02/09/2026, e ela vale pro cardapio inteiro:
+
+1. Produto **sem sabor, ou com um so**: nao pergunta sabor.
+2. Produto com **mais de um sabor**: e obrigatorio perguntar qual.
+3. **Sempre** perguntar a quantidade, na unidade do produto (kg ou unidade).
+   Quantidade ficticia nao passa.
+4. A ordem e essa: primeiro o sabor, quando for necessario, depois a quantidade.
+5. **Bolo de festa** passa por topo e papel de arroz. **Bolo caseiro nao**: a
+   dona chama isso de "bolo decorado" no audio DOCEPAORESPOSTASDONA (1), e
+   caseiro nao e decorado.
+6. **Bolo de festa aceita 2 sabores no maximo**, e o preco e o do mais caro.
+7. A pizza tem a regra dela: **de forma (inteira) ate 4 sabores**, R$ 120,00,
+   serve 6 a 8; **meia** ate 2, R$ 60,00; **redonda** ate 2, R$ 41,90 o quilo.
+   Sao 31 sabores, 21 salgados e 10 doces.
+
+**A prova nao e a minha palavra.** `testes/o-padrao-da-loja-vale-pro-cardapio-inteiro.cjs`
+varre os 86 produtos, um a um, e cobra os seis pontos. Com o conserto da
+quantidade desligado, **54 produtos** fecham sem quantidade; com o do bolo
+desligado, **15 bolos caseiros** voltam a ser perguntados de topo. Foi medido
+nos dois sentidos.
+
+Nao e teste de exemplo: regra que vale "em quase todos" e a que produz o pedido
+errado justo no produto que ninguem lembrou de testar. Foi assim que o cupcake e
+a mini bolha doce passaram.

@@ -32,6 +32,7 @@ import type { Estado } from "./fluxo";
 import { prazoDoTopoAperta } from "./falas-do-cliente";
 import { saboresQueFaltam, saboresAlemDoLimite, faltaCorDaForminha, MARCA_SABOR_A_CONFIRMAR } from "./sabor";
 import { ehNomeDeFamilia, nomeDaFamilia } from "./generico";
+import { saboresPorBoloDeFesta } from "../dados/produtos";
 import { semAcento as semAc } from "../texto";
 import { paraOMotor } from "./cotar";
 import { unidadeDoItem } from "../../tipos";
@@ -117,6 +118,33 @@ export function oQueFaltaPraFechar(e: Estado): string[] {
   // lista, entao a padaria nunca recusa fechar sem dizer o que fazer.
   for (const f of saboresAlemDoLimite(e.itens)) {
     falta.push("quais " + f.limite + " sabores no " + f.produto);
+  }
+
+  // O BOLO DE FESTA TEM O MESMO TETO, e ele conta LINHAS e nao palavras.
+  //
+  // Decisao dele em 02/09/2026: *"bolo de festa eh limite de 2 sabor so no
+  // maximo pra misturar, ai fica o preco do mais caro"*. A dona confirma a
+  // mistura e o preco num audio (docepao1608 (3)); o teto de dois e dele.
+  //
+  // NAO DA PRA REUSAR O `saboresAlemDoLimite` AQUI. Na pizza os sabores sao uma
+  // lista dentro de UM item; no bolo cada sabor e um PRODUTO proprio ("bolo
+  // laka", "bolo bombom"), porque o prefixo e o que separa o bolo do docinho de
+  // mesmo nome. Sao duas formas diferentes da mesma regra.
+  //
+  // Sem teto, tres ou quatro sabores viravam um bolo so e a cozinha recebia um
+  // pedido que ela nao monta.
+  const tetoDoBolo = saboresPorBoloDeFesta();
+  if (tetoDoBolo > 0) {
+    const saboresDeBolo = e.itens.filter(
+      (i) => String(i.categoria || "") === "bolo_festa" &&
+        String(i.produto).trim().toLowerCase() !== "bolo",
+    );
+    if (saboresDeBolo.length > tetoDoBolo) {
+      falta.push(
+        "quais " + tetoDoBolo + " sabores do bolo (voce escolheu " +
+          saboresDeBolo.map((i) => i.produto).join(", ") + ")",
+      );
+    }
   }
 
   // A COR DA FORMINHA E DA PRODUCAO, IGUAL AO SABOR.

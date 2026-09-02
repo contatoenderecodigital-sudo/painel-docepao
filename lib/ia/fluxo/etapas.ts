@@ -919,7 +919,25 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       // valida: tem topo que e so o desenho.
       return Boolean(p.tema && (p.escrito || (p.topoNome && p.topoIdade)));
     },
-    pulavel: (p) => !temCategoria(p, "bolo"),
+    // TOPO E PAPEL DE ARROZ SAO DO BOLO DECORADO, E NAO DE TODO BOLO.
+    //
+    // Aqui era `!temCategoria(p, "bolo")`, e "bolo" e a FAMILIA: cobre
+    // `bolo_festa` e `bolo_caseiro`. Entao quem encomendava um bolo caseiro de
+    // cenoura de R$ 30,90, vendido inteiro por unidade, ouvia:
+    //
+    //   padaria >> quer papel de arroz com a foto impressa (R$ 12,00)?
+    //   padaria >> o bolo vai com topo?
+    //
+    // Achado por ele em 02/09/2026: *"o topo eh so pra bolo de festa ne, o
+    // outro bolo eh caseiro, eh diferente completamente, nem pede papel arroz
+    // la tambem ne?"*. Ele esta certo, e a dona ja tinha dito qual e o recorte,
+    // no audio DOCEPAORESPOSTASDONA (1): *"na parte do BOLO DECORADO, o que for
+    // topos de bolo e papel de arroz tem que ser encomendado com dois dias de
+    // antecedencia"*. Caseiro nao e decorado.
+    //
+    // Oferecer peca de R$ 12 e de R$ 30 em cima de um bolo de R$ 30 faz o
+    // cliente achar que a padaria nao entendeu o que ele pediu.
+    pulavel: (p) => !temCategoria(p, "bolo_festa"),
   },
   {
     id: "oferta",

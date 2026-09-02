@@ -222,6 +222,8 @@ let cache: ProdutoDaCasa[] | null = null;
 
 /** Os sabores da pizza, preenchidos ao montar a lista e usados pela redonda e pelo calzone. */
 let saboresDaPizza: string[] = [];
+/** Quantos sabores cabem num bolo de festa. Sai do catalogo; 0 = sem teto. */
+let boloMistoAte = 0;
 /** Os mesmos sabores, separados por tipo: quem junta pizza precisa saber. */
 let saboresPorTipo: { doces: string[]; salgados: string[] } = { doces: [], salgados: [] };
 
@@ -290,8 +292,14 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
   // O prefixo "bolo" entra aqui e vale para o sistema inteiro. Sem ele,
   // "brigadeiro" é o docinho de R$ 1,25 e um bolo de 2 kg sai por R$ 2,50.
   const bolos = (catalogo as unknown as {
-    bolos_recheados: { faixas: { faixa: string; preco: number; sabores: string[] }[] };
+    bolos_recheados: { faixas: { faixa: string; preco: number; sabores: string[] }[]; sabores_ate?: number };
   }).bolos_recheados;
+  // QUANTOS SABORES CABEM NUM BOLO DE FESTA.
+  //
+  // Decisao dele em 02/09/2026: dois no maximo, e o preco e o do mais caro. O
+  // numero mora no catalogo, e nao aqui, pelo mesmo motivo de sempre: o dia em
+  // que a dona mudar, muda num lugar so.
+  boloMistoAte = Number(bolos.sabores_ate) > 0 ? Number(bolos.sabores_ate) : 0;
 
   for (const f of bolos.faixas) {
     for (const s of f.sabores) {
@@ -545,6 +553,18 @@ export function desempatarPorFamilia(
  * Quem fecha o pedido e quem pergunta le isto. Nao existe uma lista paralela
  * de "salgado que pede recheio".
  */
+/**
+ * QUANTOS SABORES CABEM NUM BOLO DE FESTA, pelo catalogo.
+ *
+ * Chama `produtosDaCasa()` antes de responder porque o numero e preenchido na
+ * leitura: perguntar sem a lista carregada devolveria zero e o teto sumiria em
+ * silencio, que e o jeito mais caro de uma regra desaparecer.
+ */
+export function saboresPorBoloDeFesta(): number {
+  produtosDaCasa();
+  return boloMistoAte;
+}
+
 export function pedeEscolhaDeSabor(
   p: Pick<ProdutoDaCasa, "saborFixo" | "sabores"> | null | undefined,
 ): boolean {
