@@ -503,6 +503,7 @@ async function processar(corpo: WebhookPayload) {
       const montado = await lerMontagem(negocioId, clienteId).catch(() => null);
       // O pedido que ele ja fez e que ainda esta andando. Enquanto o ticket nao
       // imprime, toda mensagem dele chega em cima DESTE pedido, nao no vazio.
+      let pedidoAprovado: { data: string | null; hora: string | null; totalCentavos: number } | null = null;
       const emAberto = await pedidoEmAberto(negocioId, clienteId).catch(() => null);
 
       // PEDIDO AINDA NAO IMPRESSO VOLTA PRO RASCUNHO QUANDO ELE QUER MUDAR.
@@ -537,6 +538,19 @@ async function processar(corpo: WebhookPayload) {
       // restaurar sempre nao cria pedido fantasma.
       try {
         const naoImpresso = emAberto && !emAberto.impresso && emAberto.status !== "aprovado";
+
+        // O PEDIDO JA APROVADO VAI PRO FLUXO, pra conversa saber que ele existe.
+        //
+        // Sem isto ela reabria a fala de fechamento em cima de um pedido que a
+        // equipe ja tinha confirmado, e o cliente lia como se tivesse voltado
+        // pra fila. Medido na conversa dele de 02/09/2026.
+        if (emAberto && (emAberto.status === "aprovado" || emAberto.impresso)) {
+          pedidoAprovado = {
+            data: emAberto.retiradaData,
+            hora: emAberto.retiradaHora,
+            totalCentavos: emAberto.totalCentavos,
+          };
+        }
         const rascunhoVazio = (montado?.itens?.length ?? 0) === 0;
         if (naoImpresso && rascunhoVazio && emAberto) {
           console.log("[whatsapp] pedido em aberto ainda nao impresso; devolvendo pro rascunho");
@@ -701,6 +715,7 @@ async function processar(corpo: WebhookPayload) {
             credsTenant.modeloReserva
               ? { modelo: credsTenant.modeloReserva, url: credsTenant.reservaBaseUrl }
               : null,
+            pedidoAprovado,
           );
           console.log("[fluxo-novo] " + novo.rastro.join(" / "));
 

@@ -73,6 +73,13 @@ const NAO_PRECISA_GRAVAR = {
   // coxinha em toda mensagem seguinte.
   recheiosTrocados: "vive um turno so: vira a frase do recheio da casa e e limpo junto",
   saboresAConfirmar: "vive um turno so: vira frase pra equipe depois de insistir no sabor e e limpo na mesma passada",
+  // O PEDIDO APROVADO JA TEM DONO, e o dono nao e a conversa.
+  //
+  // Ele mora na tabela `pedidos`, e quem manda nele e a equipe apertando o botao
+  // no painel. Guardar uma copia no rascunho criaria duas verdades sobre a mesma
+  // coisa, que e o defeito que mais se repetiu neste sistema. E lido do banco a
+  // cada mensagem, junto do pedido em aberto.
+  pedidoAprovado: "vem da tabela de pedidos a cada mensagem: copiar pro rascunho seria a segunda verdade",
 };
 
 const sonda = path.join(__dirname, "_sonda-memoria.mjs");

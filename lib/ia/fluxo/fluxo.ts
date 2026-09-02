@@ -110,6 +110,18 @@ export type Estado = PedidoEmMontagem & {
    */
   restricoesTiradas?: string[];
   /**
+   * O PEDIDO QUE A EQUIPE JA APROVOU, quando existe.
+   *
+   * Medido na conversa dele de 02/09/2026: a equipe aprovou as 01:20, ele
+   * escreveu "Ok, obrigada!" as 01:26, e a padaria respondeu "seu pedido foi pra
+   * fila da equipe, o topo entra a parte" — a fala de FECHAMENTO, de novo, num
+   * pedido que ja estava confirmado e indo pra producao.
+   *
+   * A conversa nao sabia que o pedido tinha saido da fila. Com isto ela sabe, e
+   * passa a falar do pedido que existe em vez de reabrir o que ja fechou.
+   */
+  pedidoAprovado?: { data: string | null; hora: string | null; totalCentavos: number } | null;
+  /**
    * A SUGESTAO DO MINIMO POR SABOR, quando FOMOS NOS que dividimos.
    *
    * "Num cento de salgados, o ideal e sempre 20 (...). Mas assim, sempre
@@ -2833,6 +2845,60 @@ export async function responder(
   let leituraDesteTurno: Leitura | null = null;
 
   const roteiro = () => etapas ?? roteiroDoPedido(estado);
+  // O PEDIDO JA APROVADO E ASSUNTO ENCERRADO, E NAO PEDIDO EM MONTAGEM.
+  //
+  // Medido na conversa dele de 02/09/2026:
+  //
+  //   01:20  equipe  >> A nossa equipe confirmou o seu pedido. Fica pra 10/09.
+  //   01:26  cliente >> Ok, obrigada!
+  //   01:26  padaria >> Pronto, seu pedido foi pra fila da equipe... o topo
+  //                     entra a parte...
+  //
+  // Ela repetiu a fala de FECHAMENTO num pedido que ja estava confirmado e indo
+  // pra producao. Pra quem le, parece que o pedido voltou pra fila.
+  //
+  // Com o pedido aprovado, a conversa passa a falar DELE: o que ele pedir de
+  // novo continua virando pedido novo, e mudanca no que ja foi aprovado e da
+  // equipe, porque a cozinha ja esta com aquilo na mao.
+  if (estado.pedidoAprovado && !estado.itens.length) {
+    const p = estado.pedidoAprovado;
+    const quando = p.data ? p.data + (p.hora ? " às " + p.hora : "") : null;
+    const querMudar = /(muda|mudar|troca|trocar|cancela|cancelar|tira|tirar|acrescenta|adiciona)/i.test(
+      semAc(String(mensagem.texto ?? "")),
+    );
+    const soAgradeceu = /(obrigad|valeu|show|beleza|ok|otimo|perfeito|joia)/i.test(
+      semAc(String(mensagem.texto ?? "")),
+    ) && String(mensagem.texto ?? "").trim().split(/\s+/).length <= 4;
+
+    if (querMudar || soAgradeceu) {
+      rastro.push("pedido ja aprovado; falei dele em vez de reabrir o fechamento");
+      return {
+        fala: {
+          texto: querMudar
+            ? "Seu pedido já está confirmado com a equipe" +
+              (quando ? " pra " + quando : "") +
+              ", e eles já estão com ele pra produzir. Vou chamar alguém da equipe pra ver essa mudança com você."
+            : "Imagina! Seu pedido está confirmado" +
+              (quando ? " pra " + quando : "") +
+              ". Qualquer coisa é só chamar por aqui.",
+          botoes: [],
+          cardapio: null,
+          podeReescrever: false,
+        },
+        estado,
+        etapa: "registrado",
+        rastro,
+        chamouIA: false,
+        confirmouEscrevendo: false,
+        precisaHumano: querMudar,
+        motivoHumano: querMudar
+          ? "O cliente quer mudar um pedido JA APROVADO" + (quando ? " (retirada " + quando + ")" : "") +
+            ". Ele escreveu: \"" + String(mensagem.texto ?? "").trim() + "\""
+          : null,
+      };
+    }
+  }
+
   const etapaAgora = etapaDaVez(estado, roteiro());
   rastro.push("etapa: " + etapaAgora.id);
 

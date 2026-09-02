@@ -42,6 +42,13 @@ const VIVEM_UM_TURNO = [
   "recheiosTrocados", // "o risolis eu anotei de carne", aviso do que foi ajustado
   "restricoesTiradas", // "sem lactose a gente nao faz", dito uma vez
   "saboresAConfirmar", // "anotei, a equipe confirma", dito uma vez
+  // O PEDIDO APROVADO NAO E GUARDADO PORQUE JA TEM DONO.
+  //
+  // Ele vive na tabela `pedidos`, e quem manda nele e a equipe, apertando o
+  // botao no painel. Guardar uma copia no rascunho da conversa criaria duas
+  // verdades sobre a mesma coisa, que e o defeito que mais se repetiu neste
+  // sistema. Ele e lido do banco a cada mensagem, junto do pedido em aberto.
+  "pedidoAprovado",
 ];
 
 function camposDoTipo(texto, nome) {

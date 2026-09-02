@@ -128,6 +128,9 @@ export async function atenderComFluxoNovo(
   // O cerebro RESERVA, que assume quando o primeiro cai. Sem ele, o erro sobe
   // como antes e o cliente ouve "tive um probleminha".
   reserva: Reserva | null = null,
+  // O pedido que a equipe JA aprovou, quando existe: com ele a conversa fala do
+  // pedido em vez de reabrir a fala de fechamento.
+  pedidoAprovado: { data: string | null; hora: string | null; totalCentavos: number } | null = null,
 ): Promise<RespostaDoFluxo> {
   const uso = { tokensIn: 0, tokensOut: 0, cacheRead: 0, chamadas: 0 };
   const contar = (u: { tokensIn: number; tokensOut: number; cacheRead?: number }) => {
@@ -296,7 +299,7 @@ export async function atenderComFluxoNovo(
   // O que ja estava gravado manda: a dona pode ter editado na tela entre uma
   // mensagem e outra do cliente, e o que ela mexeu vale mais que a memoria.
   const doBanco = await lerEstadoDoBanco(negocioId, clienteId);
-  const antes: Estado = { ...VAZIO, ...doBanco } as Estado;
+  const antes: Estado = { ...VAZIO, ...doBanco, pedidoAprovado } as Estado;
 
   // Sem roteiro fixo: quem escolhe e o tipo do pedido, e a escolha se refaz a
   // cada mensagem. Quem so cumprimentou segue o roteiro comum, que e curto, e
