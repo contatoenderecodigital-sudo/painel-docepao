@@ -4163,12 +4163,29 @@ export async function responder(
         .map(({ i }) => String(i.obs ?? "").trim())
         .filter(Boolean);
       const ficam = new Set(pizzas.slice(1).map(({ idx }) => idx));
+      // A QUANTIDADE DA PIZZA QUE SOBRA E A MAIOR DAS QUE SE JUNTARAM, E NAO 1.
+      //
+      // Aqui estava `Math.max(1, Number(i.qtd) || 1)`, e era o unico lugar deste
+      // projeto que escrevia `|| 1` num campo de quantidade. Ele transformava em
+      // 1 o ZERO que o leitor tinha devolvido de proposito, DEPOIS de o leitor
+      // obedecer a regra ("nao disse quantidade? qtd 0, nunca 1").
+      //
+      // O estrago: quem escreve "quero pizza meio calabresa meio frango" sem
+      // numero fechava com UMA pizza, calado. Pizza inteira e R$ 120,00, entao
+      // quem queria duas pagava metade. E as duas guardas que existem pra
+      // impedir isso (`faltaQuantidade` e `oQueFaltaPraFechar`) nunca chegavam a
+      // ver o zero: ele ja tinha sido tapado aqui.
+      //
+      // MAIOR, e nao soma: as linhas que se juntam sao a MESMA pizza, entao
+      // somar faria "meio calabresa meio frango" virar duas. Com todas em zero o
+      // resultado e zero, e ai a padaria pergunta, que e o certo.
+      const quantasPizzas = Math.max(...pizzas.map(({ i }) => Number(i.qtd) || 0));
       estado = {
         ...estado,
         itens: estado.itens
           .map((i, idx) =>
             idx === pizzas[0].idx
-              ? { ...i, qtd: Math.max(1, Number(i.qtd) || 1), obs: sabores.join(" | ") || i.obs }
+              ? { ...i, qtd: quantasPizzas, obs: sabores.join(" | ") || i.obs }
               : i,
           )
           .filter((_, idx) => !ficam.has(idx)),

@@ -109,6 +109,66 @@ const CASOS = [
   },
 ];
 
+// A PIZZA TEM UM CAMINHO PROPRIO, E ELE TAPAVA O ZERO.
+//
+// A fusao "meia a meia e uma pizza so" escrevia `Math.max(1, qtd || 1)`, o
+// unico `|| 1` num campo de quantidade neste projeto. Ele transformava em 1 o
+// zero que o leitor tinha devolvido DE PROPOSITO, e as duas guardas que existem
+// pra segurar isso nunca chegavam a ver o zero.
+//
+// Pizza inteira e R$ 120,00: quem escrevia "quero pizza meio calabresa meio
+// frango" sem numero fechava com uma, calado.
+//
+// Roda pelo fluxo de verdade, e nao pela etapa: o defeito morava no caminho.
+const PIZZAS = [
+  {
+    nome: "pizza meia a meia SEM numero fica em zero, e a padaria pergunta",
+    fala: "quero pizza meio calabresa meio frango",
+    itens: [{ produto: "pizza inteira", qtd: 0, sabor: "calabresa" }, { produto: "pizza inteira", qtd: 0, sabor: "frango" }],
+    esperado: 0,
+    dano: "R$ 120,00 numa pizza que ninguem disse quantas eram",
+  },
+  {
+    nome: "e com o numero dito, o numero dele manda",
+    fala: "quero 2 pizzas meio calabresa meio frango",
+    itens: [{ produto: "pizza inteira", qtd: 2, sabor: "calabresa" }, { produto: "pizza inteira", qtd: 2, sabor: "frango" }],
+    esperado: 2,
+    dano: "juntar as duas linhas nao pode mudar o que ele pediu",
+  },
+];
+
+const sondaPizza = path.join(__dirname, "_sonda-pizza-qtd.mts");
+fs.writeFileSync(
+  sondaPizza,
+  [
+    'import { responder } from "../lib/ia/fluxo/fluxo.ts";',
+    "const PIZZAS = " + JSON.stringify(PIZZAS) + ";",
+    "const saiu = [];",
+    "for (const c of PIZZAS) {",
+    "  const base = {",
+    "    ehFesta:false, pessoas:null, base:null, baseAceita:false, naoQuer:[], itens:[],",
+    "    dados:{nome:null,data:null,hora:null,pagamento:null},",
+    "    pecas:null, topoNome:null, topoIdade:null, tema:null, forminha:null, prato:null,",
+    "    ultimaFala:null, insistiu:0, retomarEm:null, assunto:null,",
+    "    etapasJaPerguntadas:['abertura'], etapasAdiadas:[], pecasMandadas:[],",
+    "  };",
+    "  const r = await responder(base as never, { texto: c.fala }, (async () => ({ itens: c.itens })) as never);",
+    "  const pz = r.estado.itens.filter((i) => String(i.categoria) === 'pizza');",
+    "  saiu.push(pz.reduce((t, i) => t + Number(i.qtd), 0));",
+    "}",
+    "console.log(JSON.stringify(saiu));",
+  ].join("\n"),
+);
+let brutoPizza;
+try {
+  brutoPizza = execFileSync("npx", ["tsx", "_sonda-pizza-qtd.mts"], {
+    cwd: __dirname, encoding: "utf8", timeout: 180000, shell: process.platform === "win32",
+  });
+} finally {
+  try { fs.unlinkSync(sondaPizza); } catch {}
+}
+const daPizza = JSON.parse(brutoPizza.trim().split("\n").pop());
+
 const sonda = path.join(__dirname, "_sonda-quantidade.mts");
 fs.writeFileSync(
   sonda,
@@ -157,6 +217,15 @@ CASOS.forEach((c, n) => {
   console.log(
     (ok ? "ok    " : "ERRO  ") + c.nome +
       (ok ? "" : "  ->  a conversa foi parar em \"" + r.etapa + "\"; " + c.dano),
+  );
+  if (!ok) erros++;
+});
+
+PIZZAS.forEach((c, n) => {
+  const ok = daPizza[n] === c.esperado;
+  console.log(
+    (ok ? "ok    " : "ERRO  ") + c.nome +
+      (ok ? "" : "  ->  a pizza ficou com " + daPizza[n] + ", esperado " + c.esperado + "; " + c.dano),
   );
   if (!ok) erros++;
 });
