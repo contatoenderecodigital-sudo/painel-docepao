@@ -260,6 +260,39 @@ function doCardapio(cardapio: OpcaoCardapio[], produto: string): OpcaoCardapio |
 // so ia descobrir na hora da retirada. Quem sabe se o item precisa de sabor e o
 // proprio cardapio: se o produto tem lista de sabores e nenhum deles aparece na
 // observacao, o item esta sem recheio definido.
+
+/**
+ * O QUE VAI PRO BANCO E O QUE FICA DE FORA, quando a equipe salva.
+ *
+ * PURA E EXPORTADA DE PROPOSITO. Dentro do `salvar` isto nao podia ser medido, e
+ * conserto que ninguem mede volta. E ja voltou: o descarte silencioso do papel
+ * de arroz foi consertado em 31/08/2026 e a mesma familia sobreviveu duas linhas
+ * acima, no filtro de quantidade.
+ *
+ * TRES CASOS, e eles sao diferentes:
+ *
+ *   linha vazia (sem nome)        sai calada. E a linha que nasce quando alguem
+ *                                 clica "Acrescentar item" e nao preenche: nao
+ *                                 carrega informacao nenhuma.
+ *   com nome e sem quantidade     sai, MAS a tela diz o nome dela. A equipe viu
+ *                                 o item na tela; sumir calado faz ela ir embora
+ *                                 achando que gravou.
+ *   com nome e quantidade         vai pro banco.
+ *
+ * Nao bloqueia o salvamento inteiro por causa de uma linha: a equipe salva no
+ * meio do caminho o tempo todo, e travar o botao faria ela perder correcao
+ * pronta. A regra da casa e a de sempre: a padaria nao decide calada.
+ */
+export function oQueSalvaEOQueFicaDeFora<T extends { produto: string; qtd: number }>(
+  linhas: T[],
+): { salva: T[]; semQuantidade: T[] } {
+  const temNome = (x: T) => String(x.produto ?? "").trim() !== "";
+  return {
+    salva: linhas.filter((x) => temNome(x) && x.qtd > 0),
+    semQuantidade: linhas.filter((x) => temNome(x) && !(x.qtd > 0)),
+  };
+}
+
 function saboresDe(cardapio: OpcaoCardapio[], produto: string): string[] {
   return doCardapio(cardapio, produto)?.sabores ?? [];
 }
@@ -453,8 +486,24 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
     setSalvando(true);
     setErro(null);
     try {
-      const limpos = itens
-        .filter((x) => x.produto.trim() !== "" && x.qtd > 0)
+      // ITEM QUE ELA DIGITOU E NAO E JOGADO FORA CALADO.
+      //
+      // Aqui o filtro tirava toda linha com quantidade zero, sem dizer nada. A
+      // equipe via o item na tela, clicava Salvar, a tela dizia "Salvo", e o
+      // item nao tinha ido. E o mesmo descarte silencioso que o comentario logo
+      // abaixo conta ter custado os R$ 12,00 do papel de arroz em todo pedido
+      // com bolo: ele foi consertado ali e sobreviveu duas linhas acima.
+      //
+      // LINHA VAZIA CONTINUA SAINDO, e nao e o mesmo caso: e a linha que nasce
+      // quando alguem clica "Acrescentar item" e nao preenche. Ela nao carrega
+      // informacao nenhuma, e travar o salvamento por causa dela faria a equipe
+      // perder a correcao que ja estava pronta.
+      //
+      // QUEM TEM NOME E FICA SEM QUANTIDADE E AVISADO, e o resto salva do mesmo
+      // jeito. Bloquear o botao inteiro tambem faria ela perder trabalho pronto,
+      // e a regra da casa aqui e a de sempre: a padaria nao decide calada.
+      const { salva, semQuantidade } = oQueSalvaEOQueFicaDeFora(itens);
+      const limpos = salva
         // O PAPEL DE ARROZ VAI JUNTO, COMO QUALQUER LINHA.
         //
         // Aqui existia um filtro que jogava a linha do papel fora antes de
@@ -508,6 +557,18 @@ export default function PedidoMontado({ clienteId, versao }: { clienteId: string
       setBrutos(limpos);
       setSujo(false);
       setSalvo(true);
+      // O AVISO SAI DEPOIS DE SALVAR, com o nome de cada linha que ficou de
+      // fora. Sem ele a tela dizia "Salvo" e a equipe ia embora achando que
+      // estava tudo gravado.
+      if (semQuantidade.length) {
+        setErro(
+          "Salvei o resto, mas " +
+            (semQuantidade.length === 1 ? "esta linha ficou de fora" : "estas linhas ficaram de fora") +
+            " por estar sem quantidade: " +
+            semQuantidade.map((x) => x.produto.trim()).join(", ") +
+            ". Ponha a quantidade e salve de novo.",
+        );
+      }
       // A gravacao pode mudar a lista (papel de arroz da observacao entra como
       // item): a tela le de volta o que ficou gravado, nao o que ela mandou.
       versaoCarregada.current = "";
