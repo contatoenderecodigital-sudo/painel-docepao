@@ -129,10 +129,22 @@ export function pensarComOpenAI(
       // uma, e o arquivo 1 fez a conta: 22 parado + 30 de IA + 4 de "digitando"
       // dava 56 de 60.
       //
-      // Com 15s e uma repeticao, o pior caso desta chamada e 30s. Sobram 20 pro
-      // resto do turno, que e o que o resto do turno usa.
-      timeout: 15000,
-      maxRetries: 1,
+      // MODELO QUE PENSA PRECISA DE MAIS QUE QUINZE SEGUNDOS.
+      //
+      // Ele em 02/09/2026: "15 segundos e muito pouco pra IA responder, tem que
+      // deixar ela no tempo dela".
+      //
+      // Esta razao: com 15s e uma repeticao o pior caso ja era 30s, e sobravam
+      // 20 do turno de 60 pro resto. So que os modelos novos (a familia gpt-5)
+      // raciocinam antes de responder, e o gpt-5-mini estourou os 15 em toda
+      // mensagem: a padaria respondeu "tive um probleminha" pra tudo.
+      //
+      // 25 segundos SEM repeticao tem o mesmo pior caso de antes (25 < 30), e da
+      // ao modelo dez segundos a mais pra pensar. A repeticao sai de proposito:
+      // repetir uma chamada que demorou demais e o jeito mais rapido de estourar
+      // o turno inteiro, e a segunda tentativa costuma demorar o mesmo tanto.
+      timeout: 25000,
+      maxRetries: 0,
     });
 
     const u = r.usage;
