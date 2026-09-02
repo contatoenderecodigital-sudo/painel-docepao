@@ -3421,6 +3421,49 @@ export async function responder(
       rastro.push("ele falou em desconto; isso e conversa de gente");
     }
 
+    // "QUERO UM DE 2 KG" DEPOIS DE ELA CITAR UM PRODUTO E AQUELE PRODUTO.
+    //
+    // Medido conversando com a producao em 02/09/2026:
+    //
+    //   cliente >> voces fazem bolo sem lactose?
+    //   padaria >> Fazemos sim: temos bolo 0% lactose, R$ 55,90 o quilo.
+    //   cliente >> quero um de 2 kg entao
+    //   padaria >> O que voce precisa?        (tres vezes)
+    //
+    // O "um" e o bolo que ELA acabou de oferecer. Sem nome de produto na frase o
+    // modelo nao tem o que anotar, e o pedido nao tinha onde entrar: a conversa
+    // ficou repetindo a pergunta com a venda ja feita.
+    //
+    // E a mesma regra do "Sim" digitado e da resposta do peso: quem da sentido a
+    // resposta e a fala que ACABOU de sair. So vale quando ela citou UM produto
+    // (numa lista de opcoes o cliente precisa dizer qual) e quando ele deu
+    // quantidade ou peso, que e o que separa "quero um" de conversa solta.
+    if (!limpa.itens?.length && !limpa.perguntou?.sobre) {
+      const citados = [...new Set(produtosNaFrase(String(estado.ultimaFala ?? "")))];
+      const temNumero = /[0-9]/.test(String(mensagem.texto ?? "")) ||
+        numerosEscritos({ umEUma: true }).some(([palavra]) =>
+          new RegExp("(^|[^a-z0-9])" + palavra + "([^a-z0-9]|$)", "i").test(semAc(String(mensagem.texto ?? ""))),
+        );
+      const nomeouOutro = produtosNaFrase(String(mensagem.texto ?? "")).length > 0;
+      // E DATA NAO E PEDIDO.
+      //
+      // A primeira versao desta regra ressuscitou o defeito de 01/09 na hora: em
+      // "dia 12 as 15h", com a padaria tendo citado o bolo, o 12 virava doze
+      // quilos. O alarme daquele dia pegou antes de subir.
+      //
+      // Os sinais sao os mesmos de la: no maximo UM numero na frase, e o modelo
+      // nao pode ter lido dado de retirada nela.
+      const pareceData = !frasePodeSerPeso(mensagem.texto, Boolean(limpa.dados));
+      if (citados.length === 1 && temNumero && !nomeouOutro && !pareceData) {
+        // O NUMERO DA FRASE E A QUANTIDADE. "quero 50 entao" sao cinquenta, e
+        // nao um: sem isto a padaria anotava 1 e o cliente so via no resumo.
+        const numero = semAc(String(mensagem.texto ?? "")).match(/([0-9]+(?:[.,][0-9]+)?)/);
+        const quanto = numero ? Number(String(numero[1]).replace(",", ".")) : 1;
+        limpa.itens = [{ produto: citados[0], qtd: quanto > 0 ? quanto : 1 }];
+        rastro.push("ela tinha citado " + citados[0] + "; o \"um\" da resposta e esse produto");
+      }
+    }
+
     // RECLAMACAO NAO VIRA PEDIDO.
     //
     // Medido conversando com a producao em 02/09/2026:
