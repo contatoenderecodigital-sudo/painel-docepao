@@ -1,9 +1,70 @@
 # O que falta fazer
 
-Arquivo vivo do painel da Doce Pão. Atualizado em 31/08/2026.
+Arquivo vivo do painel da Doce Pao. Atualizado em 02/09/2026.
 
-Regra dele: **não dizer "falta pouco".** Dizer o que está feito e o que está
+Regra dele: **nao dizer "falta pouco".** Dizer o que esta feito e o que esta
 aberto, com nome, e com a prova ao lado quando houver.
+
+---
+
+## 02/09/2026, DEPOIS DO TESTE DELE: O PEDIDO APROVADO PASSA A EXISTIR
+
+Ele testou a conversa inteira na producao e apontou tres coisas. As tres estao
+feitas, com teste e isca medida. Portao em **155 verdes**.
+
+### 1. Ela sabe que o pedido foi aprovado
+
+Ele agradeceu depois da equipe confirmar, e ela respondeu a fala de FECHAMENTO
+("seu pedido foi pra fila da equipe"), como se o pedido tivesse voltado.
+
+Agora o pedido aprovado chega no fluxo a cada mensagem. O obrigado recebe
+"Imagina! Seu pedido esta confirmado pra 10/09/2026 as 18:30", e quem quer mudar
+vai pra equipe com o motivo, porque a cozinha ja esta com aquilo na mao.
+
+### 2. Quem volta perto da data ouve do pedido
+
+*"Ela vai ver que aquele cliente ja fez algum pedido, ela olha a base dele e ve
+que ele tem aquele pedido para tal dia, dai ela pergunta se e sobre o pedido ou
+se e outra coisa."*
+
+A abertura mudou: quem chama com um pedido confirmado em aberto ouve
+
+    Boa tarde, tudo bem? Vi aqui que voce tem um pedido confirmado com a gente
+    pra 10/09/2026 as 18:30. E sobre ele que voce quer falar ou e outra coisa?
+
+Sem lista de palavras: quem manda e o pedido no banco, e nao o jeito que ele
+escreveu. Medido: com o rascunho vazio, TODA primeira mensagem de quem volta cai
+nessa etapa.
+
+### 3. O lembrete de 10 horas antes
+
+Decisao pura em `lib/ia/lembrete.ts`, com o relogio na mao no teste: uma vez so
+(marca gravada no pedido), nunca de madrugada (retirada as 13:00 avisa as 21:00
+da vespera, e nao as 03:00), nunca depois da retirada, e nunca pra quem acabou
+de combinar o pedido.
+
+O relogio pega carona na batida da ponte da impressora, entao funciona sem cron
+nenhum. A rota `POST /api/lembretes` (Bearer PONTE_TOKEN) existe pra quem quiser
+um cron de verdade.
+
+**FALTA UMA COISA, E E DA META.** Fora da janela de 24 horas so entra template
+aprovado, e o lembrete quase sempre cai fora dela (o cliente fechou na semana
+passada). Precisa cadastrar na conta da Doce Pao:
+
+    nome:       lembrete_retirada
+    categoria:  UTILITY
+    idioma:     pt_BR
+    corpo:      Oi, {{1}}! Passando pra lembrar do seu pedido na Doce Pao que
+                fica pronto {{2}}. Qualquer coisa e so me chamar por aqui.
+
+Enquanto ele nao existir, o lembrete so sai pra quem escreveu nas ultimas 24
+horas, e o log diz com todas as letras o que falta cadastrar.
+
+### E o "frita" da comanda
+
+*"Falou frito ali no pastel."* A mini bolha so existe frita, entao "frita" na
+comanda e ruido. Quem decide e o catalogo: bate com a categoria do produto, sai;
+contraria ("mini bolha assada"), fica, porque ai e pedido de verdade.
 
 ---
 
