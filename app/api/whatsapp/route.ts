@@ -698,6 +698,9 @@ async function processar(corpo: WebhookPayload) {
             jaFalou,
             credsTenant.modeloIa,
             credsTenant.reescrita,
+            credsTenant.modeloReserva
+              ? { modelo: credsTenant.modeloReserva, url: credsTenant.reservaBaseUrl }
+              : null,
           );
           console.log("[fluxo-novo] " + novo.rastro.join(" / "));
 

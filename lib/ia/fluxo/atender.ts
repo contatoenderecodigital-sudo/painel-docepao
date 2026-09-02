@@ -23,7 +23,7 @@
 
 import type OpenAI from "openai";
 import { responder, type Estado } from "./fluxo";
-import { pensarComOpenAI } from "./pensar-openai";
+import { pensarComReserva, type Reserva } from "./pensar-com-reserva";
 import { dizerComJeito } from "./dizer";
 import { lerEstadoDoBanco, gravarEstado, zerar } from "./gravar";
 import { fecharPedido } from "./fechar";
@@ -125,6 +125,9 @@ export async function atenderComFluxoNovo(
   // torna possivel medir dois modelos com as mesmas falas no mesmo dia.
   modeloDoNegocio: string | null = null,
   reescritaLigada = true,
+  // O cerebro RESERVA, que assume quando o primeiro cai. Sem ele, o erro sobe
+  // como antes e o cliente ouve "tive um probleminha".
+  reserva: Reserva | null = null,
 ): Promise<RespostaDoFluxo> {
   const uso = { tokensIn: 0, tokensOut: 0, cacheRead: 0, chamadas: 0 };
   const contar = (u: { tokensIn: number; tokensOut: number; cacheRead?: number }) => {
@@ -298,7 +301,7 @@ export async function atenderComFluxoNovo(
   // Sem roteiro fixo: quem escolhe e o tipo do pedido, e a escolha se refaz a
   // cada mensagem. Quem so cumprimentou segue o roteiro comum, que e curto, e
   // troca pro da festa no instante em que falar de festa.
-  const r = await responder(antes, mensagem, pensarComOpenAI(cliente, contar, modeloDoNegocio));
+  const r = await responder(antes, mensagem, pensarComReserva(cliente, contar, modeloDoNegocio, reserva));
 
   await gravarEstado(negocioId, clienteId, antes, r.estado);
 

@@ -218,12 +218,16 @@ export type CredsWhatsapp = {
   iaApiKey: string | null;
   /** A frase sai reescrita pela IA? `config.reescrita = nao` desliga. */
   reescrita: boolean;
+  /** O cerebro que assume quando o primeiro cai. */
+  modeloReserva: string | null;
+  reservaBaseUrl: string | null;
 };
 export async function carregarCredsWhatsapp(negocioId: string): Promise<CredsWhatsapp> {
   const n = await queryUm<{
     phone_id: string | null; token: string | null; waba_id: string | null; ia_ativa: boolean;
     modelo_ia: string | null; ia_base_url: string | null; ia_api_key: string | null;
     reescrita: string | null;
+    modelo_reserva: string | null; reserva_base_url: string | null;
   }>(
     `select config->>'whatsapp_phone_id' as phone_id, config->>'whatsapp_token' as token,
             config->>'whatsapp_waba_id' as waba_id,
@@ -241,7 +245,9 @@ export async function carregarCredsWhatsapp(negocioId: string): Promise<CredsWha
             config->>'modelo_ia' as modelo_ia,
             config->>'ia_base_url' as ia_base_url,
             config->>'ia_api_key' as ia_api_key,
-            config->>'reescrita' as reescrita
+            config->>'reescrita' as reescrita,
+            config->>'modelo_reserva' as modelo_reserva,
+            config->>'reserva_base_url' as reserva_base_url
        from negocios where id = $1`,
     [negocioId],
   );
@@ -255,6 +261,9 @@ export async function carregarCredsWhatsapp(negocioId: string): Promise<CredsWha
     iaApiKey: n?.ia_api_key ?? null,
     // "nao" desliga a segunda chamada de IA que deixa a frase natural.
     reescrita: (n?.reescrita ?? "").trim().toLowerCase() !== "nao",
+    // O cerebro reserva, quando o negocio tem um configurado.
+    modeloReserva: n?.modelo_reserva ?? null,
+    reservaBaseUrl: n?.reserva_base_url ?? null,
   };
 }
 
