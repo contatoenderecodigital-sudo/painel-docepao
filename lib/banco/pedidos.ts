@@ -634,3 +634,119 @@ export async function recuperadoNoMes(
   );
   return { recuperadoCentavos: Number(l?.total) || 0, recuperadosQtd: Number(l?.qtd) || 0 };
 }
+
+
+// ============================================================================
+//  O LEMBRETE DA RETIRADA
+//
+//  Pedido dele em 02/09/2026: avisar o cliente 10 horas antes do horario que ele
+//  agendou pra buscar. QUEM DECIDE quando avisar e `lib/ia/lembrete.ts`, que e
+//  funcao pura e tem teste; aqui e so a ida ao banco.
+// ============================================================================
+
+export type LinhaDeLembrete = {
+  id: string;
+  telefone: string | null;
+  clienteNome: string | null;
+  clienteId: string;
+  retiradaData: string | null;
+  retiradaHora: string | null;
+  aprovadoEm: string | null;
+  lembreteEm: string | null;
+  /** Quando o cliente escreveu pela ultima vez. Decide template ou texto. */
+  ultimaDoCliente: string | null;
+};
+
+/**
+ * OS PEDIDOS QUE PODEM PRECISAR DE LEMBRETE HOJE OU AMANHA.
+ *
+ * A janela de dois dias existe pra consulta nao varrer o historico inteiro: o
+ * aviso mais adiantado que a regra produz e as 21:00 da vespera, entao nada
+ * fora de "ontem, hoje e amanha" pode estar na hora. Quem confere a hora de
+ * verdade e a funcao pura, com o relogio na mao.
+ *
+ * As datas voltam JA no fuso de Sao Paulo, escritas como parede: o resto da
+ * decisao compara parede com parede e nao precisa saber de fuso nenhum.
+ */
+export async function pedidosQuePodemPrecisarDeLembrete(
+  negocioId: string,
+): Promise<LinhaDeLembrete[]> {
+  const linhas = await query<{
+    id: string;
+    cliente_id: string;
+    telefone: string | null;
+    cliente_nome: string | null;
+    retirada_data: string | null;
+    retirada_hora: string | null;
+    aprovado_em: string | null;
+    lembrete_em: string | null;
+    ultima_do_cliente: string | null;
+  }>(
+    `select p.id, p.cliente_id, c.telefone, c.nome as cliente_nome,
+            to_char(p.retirada_data, 'YYYY-MM-DD') as retirada_data,
+            p.retirada_hora,
+            to_char(coalesce(p.aprovado_em, p.confirmado_em, p.criado_em)
+                      at time zone 'America/Sao_Paulo', 'YYYY-MM-DD"T"HH24:MI') as aprovado_em,
+            to_char(p.lembrete_em at time zone 'America/Sao_Paulo', 'YYYY-MM-DD"T"HH24:MI') as lembrete_em,
+            to_char((select max(m.criado_em) from mensagens m
+                      where m.cliente_id = p.cliente_id and m.papel = 'user')
+                      at time zone 'America/Sao_Paulo', 'YYYY-MM-DD"T"HH24:MI') as ultima_do_cliente
+       from pedidos p
+       left join clientes c on c.id = p.cliente_id
+      where p.negocio_id = $1
+        and p.status in ('aprovado', 'impresso')
+        and p.lembrete_em is null
+        and p.retirada_data is not null
+        and p.retirada_data between (now() at time zone 'America/Sao_Paulo')::date - 1
+                                and (now() at time zone 'America/Sao_Paulo')::date + 1
+      order by p.retirada_data asc, p.retirada_hora asc`,
+    [negocioId],
+  );
+  return linhas.map((l) => ({
+    id: l.id,
+    clienteId: l.cliente_id,
+    telefone: l.telefone,
+    clienteNome: l.cliente_nome,
+    retiradaData: l.retirada_data,
+    retiradaHora: horaDaRetirada(l.retirada_hora),
+    aprovadoEm: l.aprovado_em,
+    lembreteEm: l.lembrete_em,
+    ultimaDoCliente: l.ultima_do_cliente,
+  }));
+}
+
+/**
+ * MARCA QUE O LEMBRETE SAIU, e so se ainda nao tinha saido.
+ *
+ * O `and lembrete_em is null` NAO e enfeite: duas rodadas do relogio podem se
+ * cruzar (o cron dispara, a rodada demora, o cron dispara de novo). Sem ele as
+ * duas mandariam a mesma mensagem. Devolve false quando outra rodada chegou
+ * primeiro, e ai esta nao manda nada.
+ */
+export async function marcarLembreteEnviado(
+  pedidoId: string,
+  negocioId: string,
+): Promise<boolean> {
+  const l = await queryUm<{ id: string }>(
+    `update pedidos set lembrete_em = now()
+      where id = $1 and negocio_id = $2 and lembrete_em is null
+      returning id`,
+    [pedidoId, negocioId],
+  );
+  return !!l;
+}
+
+/**
+ * TIRA A MARCA quando o envio falhou.
+ *
+ * A rodada marca ANTES de mandar, pra duas rodadas nao mandarem a mesma coisa.
+ * Quando a Meta recusa (template nao aprovado, numero invalido), a marca precisa
+ * sair: senao o pedido fica marcado como avisado sem ninguem ter sido avisado, e
+ * o cliente chega na padaria sem lembrete e sem explicacao.
+ */
+export async function desmarcarLembrete(pedidoId: string, negocioId: string): Promise<void> {
+  await query("update pedidos set lembrete_em = null where id = $1 and negocio_id = $2", [
+    pedidoId,
+    negocioId,
+  ]);
+}

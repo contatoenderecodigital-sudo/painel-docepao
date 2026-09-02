@@ -35,6 +35,7 @@
 //   app/api/fila/route.ts                  a ponte da impressora, Bearer PONTE_TOKEN
 //   app/api/whatsapp/route.ts              o webhook da Meta, assinatura HMAC
 //   app/api/whatsapp/provisionar/route.ts  vem do hub, x-provision-secret
+//   app/api/lembretes/route.ts             o relogio do lembrete, Bearer PONTE_TOKEN
 //
 // Nenhuma delas tem login pra apresentar, e cada uma se defende com um segredo.
 // A quarta, `cobranca/rodar`, usa o ambiente E exige sessao ou o token do
@@ -57,6 +58,13 @@ const PODEM = new Map([
   [path.join("app", "api", "whatsapp", "route.ts"), "assinatura da Meta"],
   [path.join("app", "api", "whatsapp", "provisionar", "route.ts"), "PROVISION_SECRET"],
   [path.join("app", "api", "cobranca", "rodar", "route.ts"), "sessao ou token do relogio"],
+  // O RELOGIO DO LEMBRETE usa o MESMO token da ponte, e nao um novo.
+  //
+  // Decisao de 02/09/2026: e o mesmo grau de confianca (uma maquina da casa
+  // falando com o painel), e cada variavel de ambiente a mais e uma a mais pra
+  // errar no deploy. Mexer numa custou meia hora e quatro tentativas naquele
+  // mesmo dia.
+  [path.join("app", "api", "lembretes", "route.ts"), "PONTE_TOKEN"],
 ]);
 
 const arquivos = [];

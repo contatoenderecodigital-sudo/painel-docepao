@@ -917,6 +917,20 @@ export function falaDaConfirmacao(p: PedidoEmMontagem, totalCentavos: number): s
  * Funcao pura: mesma entrada, mesma saida. Nao le banco, nao chama modelo, nao
  * manda mensagem. Por isso o fluxo inteiro se testa de graca.
  */
+/**
+ * QUANDO O PEDIDO APROVADO VAI SER RETIRADO, escrito de um jeito só.
+ *
+ * A data e a hora vêm da tabela `pedidos` e podem faltar (pedido aprovado antes
+ * de a data ser combinada). Sem lugar único, cada fala montaria a sua e uma
+ * delas ia acabar dizendo "às null".
+ */
+export function quandoDoPedido(
+  p: { data: string | null; hora: string | null } | null | undefined,
+): string | null {
+  if (!p?.data) return null;
+  return p.data + (p.hora ? " às " + p.hora : "");
+}
+
 export function falaDaEtapa(
   etapa: Etapa,
   p: PedidoEmMontagem,
@@ -1178,6 +1192,40 @@ export function falaDaEtapa(
       //
       // Aqui a pergunta e aberta de proposito: quem chega pode querer uma
       // festa, dez paes ou so o preco da torta, e e ele quem diz.
+      // QUEM JA TEM PEDIDO CONFIRMADO OUVE DELE ANTES DE QUALQUER PERGUNTA.
+      //
+      // Pedido dele em 02/09/2026: *"ela vai ver que aquele cliente já fez algum
+      // pedido, ela olha a base dele e vê que ele tem aquele pedido para tal
+      // dia, daí ela pergunta se é sobre o pedido ou se é outra coisa"*.
+      //
+      // Ele está certo, e é o que qualquer balconista faz: quem liga na véspera
+      // da festa está ligando POR CAUSA da festa, e ouvir "o que você precisa?"
+      // como se fosse a primeira vez é o que faz o cliente achar que ninguém
+      // anotou nada.
+      //
+      // AQUI NÃO TEM PALAVRA NENHUMA SENDO ADIVINHADA. Não é a frase do cliente
+      // que decide: é o pedido que existe no banco. Quem volta a chamar com um
+      // pedido aprovado em aberto ouve isto, tenha ele escrito "oi", "e o meu
+      // pedido?" ou nada disso. Medido: com o rascunho vazio, TODA primeira
+      // mensagem de quem volta cai nesta etapa.
+      //
+      // E a pergunta continua aberta ("ou é outra coisa?"), senão a padaria
+      // fecharia a porta pra quem só quer comprar pão.
+      if (p.pedidoAprovado) {
+        const quando = quandoDoPedido(p.pedidoAprovado);
+        return {
+          texto:
+            saudacaoDaHora() + ", tudo bem? Vi aqui que você tem um pedido confirmado com a gente" +
+            (quando ? " pra " + quando : "") +
+            ". É sobre ele que você quer falar ou é outra coisa?",
+          botoes: [],
+          cardapio: null,
+          // A DATA NÃO PASSA PELA REESCRITA. Ela é a informação que o cliente
+          // veio buscar, e trocar um número aqui manda gente na padaria no dia
+          // errado.
+          podeReescrever: false,
+        };
+      }
       return {
         texto: saudacaoDaHora() + ", tudo bem? O que você precisa?",
         botoes: [],

@@ -62,6 +62,51 @@ const CASOS = [
     equipe: false,
     dano: "a conversa normal nao pode mudar por causa desta regra",
   },
+  // ------------------------------------------------------------------
+  // O CLIENTE QUE VOLTA PERTO DA DATA.
+  //
+  // Segunda parte do pedido dele de 02/09/2026: *"ela vai ver que aquele
+  // cliente ja fez algum pedido, ela olha a base dele e ve que ele tem aquele
+  // pedido para tal dia, dai ela pergunta se e sobre o pedido ou se e outra
+  // coisa"*.
+  //
+  // Quando o pedido e registrado o rascunho e limpo, entao a mensagem seguinte
+  // dele chega com a conversa do zero e cai na ABERTURA. Medido: as quatro
+  // falas abaixo caem todas ali, escreva ele o que escrever. Por isso a decisao
+  // mora na abertura e nao numa lista de palavras: quem manda e o pedido que
+  // existe no banco, e nao o jeito que ele falou.
+  {
+    nome: "quem volta com pedido confirmado ouve dele na abertura",
+    aprovado: APROVADO,
+    jaPerguntadas: [],
+    ultima: null,
+    fala: "oi",
+    tem: ["10/09/2026", "18:30", "outra coisa"],
+    naoTem: ["O que você precisa"],
+    equipe: false,
+    dano: "quem liga na vespera da festa ouve 'o que voce precisa?' e acha que ninguem anotou nada",
+  },
+  {
+    nome: "e ele nao precisa citar o pedido pra ser entendido",
+    aprovado: APROVADO,
+    jaPerguntadas: [],
+    ultima: null,
+    fala: "que horas eu busco mesmo",
+    tem: ["18:30"],
+    equipe: false,
+    dano: "obrigar o cliente a escrever a palavra certa pra ser atendido",
+  },
+  {
+    nome: "sem pedido aprovado, a abertura continua a de sempre",
+    aprovado: null,
+    jaPerguntadas: [],
+    ultima: null,
+    fala: "oi",
+    tem: ["O que você precisa"],
+    naoTem: ["pedido confirmado"],
+    equipe: false,
+    dano: "falar de pedido pra quem nunca pediu nada",
+  },
 ];
 
 const sonda = path.join(__dirname, "_sonda-aprovado.mts");
@@ -76,8 +121,9 @@ fs.writeFileSync(
     "    ehFesta:false, pessoas:null, base:null, baseAceita:false, naoQuer:[], itens:[],",
     "    dados:{nome:'Renata',data:'10/09/2026',hora:'18:30',pagamento:'pix'},",
     "    pecas:null, topoNome:null, topoIdade:null, tema:null, forminha:null, prato:null,",
-    "    ultimaFala:'A nossa equipe confirmou o seu pedido.', insistiu:0, retomarEm:null,",
-    "    assunto:null, etapasJaPerguntadas:['abertura','dados','confirmacao'],",
+    "    ultimaFala: c.ultima === undefined ? 'A nossa equipe confirmou o seu pedido.' : c.ultima,",
+    "    insistiu:0, retomarEm:null,",
+    "    assunto:null, etapasJaPerguntadas: c.jaPerguntadas ?? ['abertura','dados','confirmacao'],",
     "    etapasAdiadas:[], pecasMandadas:[], pedidoAprovado: c.aprovado,",
     "  };",
     "  const r = await responder(base as never, { texto: c.fala }, (async () => ({ itens: [] })) as never);",

@@ -233,7 +233,7 @@ export function obsSemRestricao(obs: unknown, produto?: unknown): string | null 
  * `metade` aqui e fração, dado do mundo, igual a um numero: nao e lista de
  * produto. Recado de verdade ("sem cebola", "forminha rosa") passa.
  */
-export function obsPraComanda(obs: unknown): string | null {
+export function obsPraComanda(obs: unknown, produto?: unknown): string | null {
   const bruto = String(obs ?? "").trim();
   if (!bruto) return null;
   const limpo = bruto
@@ -242,10 +242,46 @@ export function obsPraComanda(obs: unknown): string | null {
     .filter(Boolean)
     .filter((p) => {
       const t = semAcMin(p);
-      return t !== "metade" && t !== "metade de cada" && t !== "meio a meio";
+      if (t === "metade" || t === "metade de cada" || t === "meio a meio") return false;
+      return !soRepeteOProduto(t, produto);
     })
     .join(" | ");
   return limpo || null;
+}
+
+/**
+ * O RECADO QUE SÓ REPETE O QUE O PRODUTO JÁ É NÃO É RECADO.
+ *
+ * Achado por ele na conversa de 02/09/2026: *"falou frito ali no pastel"*. O
+ * cliente escreveu "pastel bolha frita", o modelo devolveu "frita" na
+ * observação, e a comanda saiu com
+ *
+ *     50 un mini bolha   > frita
+ *
+ * A mini bolha só existe frita. Ninguém na cozinha faz nada diferente por causa
+ * dessa palavra, e recado que não muda produção é ruído: quem lê a comanda para
+ * pra entender se aquilo quer dizer alguma coisa.
+ *
+ * QUEM DECIDE É O CATÁLOGO, E NÃO UMA LISTA MINHA. A categoria do produto já
+ * diz se ele é frito ou assado. Se a palavra bate com o que ele já é, sai; se
+ * CONTRARIA ("mini bolha assada"), fica, porque aí é um pedido de verdade e
+ * quem responde é a cozinha, não este arquivo.
+ *
+ * Vale só pra observação de UMA palavra: "frita bem sequinha" é recado, e
+ * continua indo inteiro.
+ */
+function soRepeteOProduto(parte: string, produto: unknown): boolean {
+  const nome = String(produto ?? "").trim();
+  if (!nome) return false;
+  const jeito = semAcMin(parte).replace(/s$/, "");
+  // "frito", "frita", "assado", "assada" — o radical é o que o catálogo usa na
+  // categoria, e é ele que vai casar.
+  const radical = /^(frit|assad)[oa]$/.test(jeito) ? jeito.slice(0, -1) : null;
+  if (!radical) return false;
+  const alvo = semAcMin(nome);
+  const daCasa = produtosDaCasa().find((p) => semAcMin(p.nome) === alvo);
+  if (!daCasa) return false;
+  return semAcMin(String(daCasa.categoria ?? "")).includes(radical);
 }
 
 /**

@@ -28,6 +28,19 @@ export async function GET(req: NextRequest) {
   // A pergunta da ponte E o sinal de vida dela: carimba antes de responder.
   // Falha aqui nao pode atrapalhar a impressao, entao segue mesmo se der erro.
   marcarPonteViva(NEGOCIO).catch((e) => console.error("[fila] sinal de vida:", e));
+  // O LEMBRETE DA RETIRADA PEGA CARONA NA BATIDA DA PONTE.
+  //
+  // Ele precisa de um relogio, e o unico relogio que este sistema ja tem e a
+  // ponte da impressora perguntando pela fila a cada poucos segundos. Assim o
+  // aviso de 10 horas antes funciona sem cron nenhum configurado, e continua
+  // funcionando se alguem configurar um (a marca no banco garante uma mensagem
+  // por pedido, e a rodada tem trava de um minuto).
+  //
+  // FIRE AND FORGET, igual ao sinal de vida logo acima: a impressao da cozinha
+  // nao pode esperar por uma consulta de lembrete, nem quebrar se ela falhar.
+  import("@/lib/ia/rodada-de-lembretes")
+    .then((m) => m.rodarLembretes(NEGOCIO, { padaria: "Doce Pão" }))
+    .catch((e) => console.error("[fila] rodada de lembretes:", e));
   const jobs = await jobsPendentes(NEGOCIO);
   return Response.json({ jobs });
 }

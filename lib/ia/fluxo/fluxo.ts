@@ -29,7 +29,7 @@
 // ============================================================================
 
 import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
-import { falaDaEtapa, pecaDoCardapio, type Fala } from "./pergunta";
+import { falaDaEtapa, pecaDoCardapio, quandoDoPedido, type Fala } from "./pergunta";
 import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitura } from "./leitura";
 import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase, ondeCadaProdutoAparece, familiaDoQueEleNomeou } from "./leitor-da-frase";
 import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida, formasDoCliente } from "../texto";
@@ -109,18 +109,8 @@ export type Estado = PedidoEmMontagem & {
    * normal, mas é pior que avisar: quem pede sem lactose tem motivo.
    */
   restricoesTiradas?: string[];
-  /**
-   * O PEDIDO QUE A EQUIPE JA APROVOU, quando existe.
-   *
-   * Medido na conversa dele de 02/09/2026: a equipe aprovou as 01:20, ele
-   * escreveu "Ok, obrigada!" as 01:26, e a padaria respondeu "seu pedido foi pra
-   * fila da equipe, o topo entra a parte" — a fala de FECHAMENTO, de novo, num
-   * pedido que ja estava confirmado e indo pra producao.
-   *
-   * A conversa nao sabia que o pedido tinha saido da fila. Com isto ela sabe, e
-   * passa a falar do pedido que existe em vez de reabrir o que ja fechou.
-   */
-  pedidoAprovado?: { data: string | null; hora: string | null; totalCentavos: number } | null;
+  // O `pedidoAprovado` mora em `PedidoEmMontagem`, e nao aqui: quem mais precisa
+  // dele e a fala da abertura, que so enxerga aquele tipo. Ver `etapas.ts`.
   /**
    * A SUGESTAO DO MINIMO POR SABOR, quando FOMOS NOS que dividimos.
    *
@@ -2019,7 +2009,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         obsItem = obsSemRestricao(obsItem, produto);
         restricoesTiradas.push(...tiradas);
       }
-      obsItem = obsPraComanda(obsItem);
+      obsItem = obsPraComanda(obsItem, produto);
 
       // O PESO DO BOLO E QUANTIDADE, NAO OBSERVACAO.
       //
@@ -2225,7 +2215,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
           .map((x) => x.trim())
           .filter(Boolean);
         const semRepetir = pedacos.filter((x, n) => pedacos.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === n);
-        itens[achou] = { ...itens[achou], ...linha, obs: obsPraComanda(semRepetir.join(" | ")) };
+        itens[achou] = { ...itens[achou], ...linha, obs: obsPraComanda(semRepetir.join(" | "), itens[achou].produto) };
       } else itens.push(linha);
     }
     novo.itens = itens;
@@ -2861,8 +2851,7 @@ export async function responder(
   // novo continua virando pedido novo, e mudanca no que ja foi aprovado e da
   // equipe, porque a cozinha ja esta com aquilo na mao.
   if (estado.pedidoAprovado && !estado.itens.length) {
-    const p = estado.pedidoAprovado;
-    const quando = p.data ? p.data + (p.hora ? " às " + p.hora : "") : null;
+    const quando = quandoDoPedido(estado.pedidoAprovado);
     const querMudar = /(muda|mudar|troca|trocar|cancela|cancelar|tira|tirar|acrescenta|adiciona)/i.test(
       semAc(String(mensagem.texto ?? "")),
     );

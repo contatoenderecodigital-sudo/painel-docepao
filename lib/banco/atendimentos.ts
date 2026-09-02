@@ -14,7 +14,7 @@ import { TZ_PADARIA } from "../fuso-padaria";
 
 type MsgBruta = {
   id: string;
-  autor: "cliente" | "ia" | "equipe" | "cobranca";
+  autor: "cliente" | "ia" | "equipe" | "cobranca" | "lembrete";
   conteudo: string;
   hora: string;
   data: string;

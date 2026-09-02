@@ -189,6 +189,19 @@ export type PedidoEmMontagem = {
    */
   pecasMandadas?: string[];
   /**
+   * O PEDIDO QUE A EQUIPE JA APROVOU, quando existe.
+   *
+   * Ele NAO nasce aqui: vive na tabela `pedidos`, e quem manda nele e a equipe,
+   * apertando o botao no painel. Chega junto do estado a cada mensagem porque a
+   * conversa precisa saber que ele existe.
+   *
+   * Mora neste tipo, e nao so no `Estado`, porque quem mais precisa dele e a
+   * FALA DA ABERTURA: quem volta a chamar dias depois tem que ouvir do pedido
+   * dele antes de qualquer pergunta, e a fala da etapa so ve o
+   * `PedidoEmMontagem`.
+   */
+  pedidoAprovado?: { data: string | null; hora: string | null; totalCentavos: number } | null;
+  /**
    * DE QUEM E O ANIVERSARIO, E QUANTOS ANOS FAZ.
    *
    * Pedido do dono, e ele tem razao: "importantissimo". O topo e fabricado com

@@ -120,7 +120,7 @@ export async function padariaJaFalouNaConversa(
 // aos olhos do detector, e isso virou conserto la.
 
 export type ExtraMensagem = {
-  autor?: "cliente" | "ia" | "equipe" | "cobranca";
+  autor?: "cliente" | "ia" | "equipe" | "cobranca" | "lembrete";
   tipo?: "texto" | "imagem" | "audio" | "documento" | "video";
   mime?: string | null;
   dados?: string | null; // base64, sem prefixo data:

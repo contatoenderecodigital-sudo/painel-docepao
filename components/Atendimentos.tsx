@@ -194,6 +194,7 @@ function Balao({ m, primeiro, onImagem }: { m: Pend; primeiro: boolean; onImagem
         {!isCliente && m.de === "equipe" && primeiro && <div className="text-[10px] text-cream/45 mb-0.5 text-right pr-1">Você</div>}
         {!isCliente && m.de === "ia" && primeiro && <div className="text-[10px] text-cream/45 mb-0.5 text-right pr-1 flex items-center justify-end gap-1"><Bot size={11} /> Atendente</div>}
         {!isCliente && m.de === "cobranca" && primeiro && <div className="text-[10px] mb-0.5 text-right pr-1 flex items-center justify-end gap-1" style={{ color: "#e7cf94" }}><Zap size={11} /> Cobrança automática</div>}
+        {!isCliente && m.de === "lembrete" && primeiro && <div className="text-[10px] mb-0.5 text-right pr-1 flex items-center justify-end gap-1" style={{ color: "#e7cf94" }}><Clock size={11} /> Lembrete da retirada</div>}
         <div>
         <div className={bolhaBase} style={{ ...bolhaStyle, padding: m.tipo === "imagem" && src ? 4 : undefined }}>
           {/* IMAGEM */}

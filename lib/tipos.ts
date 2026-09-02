@@ -160,7 +160,12 @@ export type Mensagem = {
   // 'cobranca' e a mensagem automatica do orcamento parado: sai sem o cliente
   // ter escrito antes, entao no chat ela se identifica em vez de se passar
   // pela atendente.
-  de: "cliente" | "ia" | "equipe" | "cobranca";
+  //
+  // 'lembrete' e a mesma ideia, do outro lado do pedido: o aviso de 10 horas
+  // antes da retirada. Autor proprio porque a dona precisa distinguir, olhando
+  // o chat, o que saiu do relogio do que saiu da conversa. Confundir os dois
+  // faria ela achar que a IA falou sozinha com o cliente.
+  de: "cliente" | "ia" | "equipe" | "cobranca" | "lembrete";
   texto: string;
   hora: string; // HH:MM
   data?: string; // YYYY-MM-DD (America/Sao_Paulo) — pra separar por dia no chat

@@ -298,7 +298,7 @@ export function nomeComOsDoisSabores(item: ItemMontagem): ItemMontagem {
 
 // A observacao do jeito que a cozinha precisa ler: sem pedaco repetido e sem
 // recado interno sobre o que ainda falta perguntar.
-function observacaoLimpa(obs?: string | null): string | null {
+function observacaoLimpa(obs?: string | null, produto?: string | null): string | null {
   const bruto = String(obs ?? "").trim();
   if (!bruto) return null;
   const pedacos = bruto
@@ -317,7 +317,7 @@ function observacaoLimpa(obs?: string | null): string | null {
     vistos.add(chave);
     unicos.push(t);
   }
-  const limpo = obsPraComanda(unicos.join(", ").trim());
+  const limpo = obsPraComanda(unicos.join(", ").trim(), produto);
   return limpo || null;
 }
 
@@ -491,7 +491,7 @@ export async function anotarItem(
   itemBruto: ItemMontagem,
 ): Promise<Montagem> {
   const m = await lerMontagem(negocioId, clienteId);
-  const item = nomeComOsDoisSabores({ ...itemBruto, obs: observacaoLimpa(itemBruto.obs) });
+  const item = nomeComOsDoisSabores({ ...itemBruto, obs: observacaoLimpa(itemBruto.obs, itemBruto.produto) });
   const i = linhaQueRecebe(m.itens, item);
 
   if (i >= 0) {
@@ -511,7 +511,7 @@ export async function anotarItem(
         : marca(antiga).includes(marca(nova))
           ? antiga
           : nova;
-    m.itens[i] = { ...m.itens[i], ...item, obs: observacaoLimpa(obs) };
+    m.itens[i] = { ...m.itens[i], ...item, obs: observacaoLimpa(obs, item.produto) };
   } else {
     m.itens.push(item);
     // O detalhe sai de dentro do genérico: o cliente pediu 300 assados e agora
