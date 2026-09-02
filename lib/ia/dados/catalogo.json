@@ -490,13 +490,21 @@
       "preco": 5,
       "categoria": "cupcake",
       "unidade": "un",
-      "_nota": "5 a 6 cm"
+      "sabores": [
+        "4 leites",
+        "brigadeiro"
+      ],
+      "_nota": "5 a 6 cm. OS SABORES SAO OS MESMOS DO PEQUENO, decisao dele em 02/09/2026 lendo o CARDAPIO.md: 'cupcake grande eh o mesmo sabor do pequeno'. Ate ali o grande estava sem sabor nenhum e a padaria nao perguntava, entao a cozinha recebia 'cupcake grande' sem saber de que fazer. A dona da os sabores uma vez so, falando dos pequenos (audio docepaonew), e diz 'independente do sabor' ao falar de preco: a lista e da familia, e nao do tamanho."
     },
     {
       "nome": "cupcake grande recheado",
       "preco": 7,
       "categoria": "cupcake",
-      "unidade": "un"
+      "unidade": "un",
+      "sabores": [
+        "4 leites",
+        "brigadeiro"
+      ]
     },
     {
       "nome": "franciscano",
@@ -598,9 +606,7 @@
       "preco": 1.25,
       "categoria": "salgado_frito",
       "unidade": "un",
-      "sabores": [
-        "banana"
-      ],
+      "recheio": "banana",
       "_nota": "ENTRA no cardapio, confirmado no audio docepao16082 (2), 16/08/2026: 'se o cliente pedir, voce consegue fazer, por exemplo, pastel doce de banana. E uma coisa que a gente faz, so que a gente cobra 1,25. A gente ate nao tem no cardapio, mas da pra colocar (...) incluindo no cardapio tambem pasteis doce, pastel bolha doce'. E a mesma bolha frita, so que doce, e custa R$ 1,25 em vez de R$ 1,00. O cliente chama de 'pastel bolha doce' ou 'pastel doce'; o nome fica 'mini bolha doce' de proposito, pra casar com a familia da 'mini bolha' e nao roubar o pedido salgado no motor de preco (nome mais completo ganha: 'pastel bolha doce' fazia 'pastel bolha' virar o doce e cobrar R$ 0,25 a mais em cada um). O salgado continua sendo 'mini bolha' a R$ 1,00."
     },
     {

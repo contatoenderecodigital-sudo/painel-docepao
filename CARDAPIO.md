@@ -36,8 +36,8 @@
 
 | produto | preco | unidade | sabores |
 | --- | --- | --- | --- |
-| cupcake grande | R$ 5,00 | un | fixo: - |
-| cupcake grande recheado | R$ 7,00 | un | fixo: - |
+| cupcake grande | R$ 5,00 | un | 2: 4 leites, brigadeiro |
+| cupcake grande recheado | R$ 7,00 | un | 2: 4 leites, brigadeiro |
 | cupcake pequeno | R$ 2,00 | un | 2: 4 leites, brigadeiro |
 | cupcake pequeno recheado | R$ 3,00 | un | 2: 4 leites, brigadeiro |
 
@@ -45,13 +45,13 @@
 
 | produto | preco | unidade | sabores |
 | --- | --- | --- | --- |
-| franciscano | R$ 12,00 | un | 8: calabresa, bacon, frango, presunto e queijo, salsicha com presunto e queijo, salsicha presunto queijo e bacon... |
+| franciscano | R$ 12,00 | un | 8: calabresa, bacon, frango, presunto e queijo, salsicha com presunto e queijo, salsicha presunto queijo e bacon, só bacon, calabresa com bacon |
 
 **categoria `calzone`**
 
 | produto | preco | unidade | sabores |
 | --- | --- | --- | --- |
-| calzone | R$ 41,90 | kg | 31: bacon, bacon com milho, bacon com brócolis, 4 queijos, filé ao molho madeira com fritas, filé acebolado... |
+| calzone | R$ 41,90 | kg | 31: bacon, bacon com milho, bacon com brócolis, 4 queijos, filé ao molho madeira com fritas, filé acebolado, frango com catupiry, alho e óleo, hot dog, moda da casa, lombinho, lombinho com abacaxi, brócolis, milho, bolonhesa, vegetariana, strogonoff de frango, strogonoff de gado, calabresa, calabresa acebolada, portuguesa, abacaxi com coco, brigadeiro, prestígio, crocante, califórnia, banana, chocolate preto com morango, chocolate branco com morango, chocolate com confete, banana com suspiro |
 
 **categoria `padaria`**
 
@@ -60,7 +60,7 @@
 | cachorro-quente | R$ 19,90 | kg | fixo: - |
 | cachorro-quente mini | R$ 20,90 | kg | fixo: - |
 | cuca | R$ 22,90 | kg | fixo: - |
-| cuca recheada | R$ 26,90 | kg | 7: chocolate, doce de leite, abacaxi, vinho, goiaba, frutas vermelhas... |
+| cuca recheada | R$ 26,90 | kg | 7: chocolate, doce de leite, abacaxi, vinho, goiaba, frutas vermelhas, limão |
 | pao de x | R$ 19,90 | kg | fixo: - |
 | pao doce | R$ 22,90 | kg | fixo: - |
 | pao frances | R$ 11,99 | kg | fixo: - |
@@ -132,7 +132,7 @@
 | leite ninho com avelã | R$ 1,75 | un | fixo: - |
 | olho de sogra | R$ 1,75 | un | fixo: - |
 | ouriço | R$ 1,75 | un | fixo: - |
-| trufa | R$ 2,25 | un | 9: morango, uva, cereja, café, nozes, limão... |
+| trufa | R$ 2,25 | un | 9: morango, uva, cereja, café, nozes, limão, amendoim, maracujá, brigadeiro |
 
 ## FAMILIA: pizza   (categorias: pizza)
 
@@ -141,9 +141,9 @@
 
 | produto | preco | unidade | sabores |
 | --- | --- | --- | --- |
-| pizza inteira | R$ 120,00 | un | 31: bacon, bacon com milho, bacon com brócolis, 4 queijos, filé ao molho madeira com fritas, filé acebolado... |
-| pizza meia | R$ 60,00 | un | 31: bacon, bacon com milho, bacon com brócolis, 4 queijos, filé ao molho madeira com fritas, filé acebolado... |
-| pizza redonda | R$ 41,90 | kg | 31: bacon, bacon com milho, bacon com brócolis, 4 queijos, filé ao molho madeira com fritas, filé acebolado... |
+| pizza inteira | R$ 120,00 | un | 31: bacon, bacon com milho, bacon com brócolis, 4 queijos, filé ao molho madeira com fritas, filé acebolado, frango com catupiry, alho e óleo, hot dog, moda da casa, lombinho, lombinho com abacaxi, brócolis, milho, bolonhesa, vegetariana, strogonoff de frango, strogonoff de gado, calabresa, calabresa acebolada, portuguesa, abacaxi com coco, brigadeiro, prestígio, crocante, califórnia, banana, chocolate preto com morango, chocolate branco com morango, chocolate com confete, banana com suspiro |
+| pizza meia | R$ 60,00 | un | 31: bacon, bacon com milho, bacon com brócolis, 4 queijos, filé ao molho madeira com fritas, filé acebolado, frango com catupiry, alho e óleo, hot dog, moda da casa, lombinho, lombinho com abacaxi, brócolis, milho, bolonhesa, vegetariana, strogonoff de frango, strogonoff de gado, calabresa, calabresa acebolada, portuguesa, abacaxi com coco, brigadeiro, prestígio, crocante, califórnia, banana, chocolate preto com morango, chocolate branco com morango, chocolate com confete, banana com suspiro |
+| pizza redonda | R$ 41,90 | kg | 31: bacon, bacon com milho, bacon com brócolis, 4 queijos, filé ao molho madeira com fritas, filé acebolado, frango com catupiry, alho e óleo, hot dog, moda da casa, lombinho, lombinho com abacaxi, brócolis, milho, bolonhesa, vegetariana, strogonoff de frango, strogonoff de gado, calabresa, calabresa acebolada, portuguesa, abacaxi com coco, brigadeiro, prestígio, crocante, califórnia, banana, chocolate preto com morango, chocolate branco com morango, chocolate com confete, banana com suspiro |
 
 ## FAMILIA: salgado   (categorias: salgado_frito, salgado_assado)
 
@@ -158,7 +158,7 @@
 | coxinha | R$ 1,00 | un | fixo: frango |
 | croquete | R$ 1,00 | un | fixo: carne com catupiry |
 | mini bolha | R$ 1,00 | un | 4: carne, queijo, presunto, frango |
-| mini bolha doce | R$ 1,25 | un | 1: banana |
+| mini bolha doce | R$ 1,25 | un | fixo: banana |
 | mini pão de queijo | R$ 1,00 | un | fixo: queijo |
 | risólis | R$ 1,00 | un | 2: carne, frango |
 | salsicha frita | R$ 1,00 | un | fixo: salsicha |

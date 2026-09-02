@@ -183,6 +183,10 @@ fs.writeFileSync(
     "  }",
     "}",
     "",
+    "// ESCOLHA PRECISA DE MAIS DE UMA OPCAO. Regra geral dele, 02/09/2026.",
+    "const deUmaOpcaoSo = produtosDaCasa()",
+    "  .filter((p) => !p.saborFixo && p.sabores.length === 1)",
+    "  .map((p) => p.nome + ' -> ' + p.sabores.join(', ') + ' (marque como recheio fixo)');",
     "const incomodam = [];",
     "for (const p of semSabor) {",
     "  const falta = oQueFaltaPraFechar(pedidoCom(p.nome, null));",
@@ -222,6 +226,7 @@ fs.writeFileSync(
     "console.log(JSON.stringify({",
     "  comSabor: comSabor.length, semSabor: semSabor.length,",
     "  fechamSemEscolher, naoPerguntam, naoPerguntamNoMeio, naoFechamComOSabor, incomodam,",
+    "  deUmaOpcaoSo,",
     "  naoPerguntamNaConversa, pecaErrada, etapaViraSalgado, jaPerguntouPulou,",
     "  fechouEscrevendo, perguntamFixoNaConversa,",
     "  docinhos: docinhos.length, fechamSemCor, naoPerguntamCor, perguntamCorEmPao,",
@@ -281,6 +286,19 @@ cobra("produto que nao fecha nem com o sabor escolhido", r.naoFechamComOSabor);
 // 4. E QUEM NAO TEM SABOR NAO E INCOMODADO. Perguntar o recheio da coxinha, que
 // e fixo, e fazer o cliente escolher o que nao tem escolha.
 cobra("produto de sabor fixo sendo perguntado a toa", r.incomodam);
+
+// 5. E ESCOLHA PRECISA DE MAIS DE UMA OPCAO.
+//
+// Regra dele, 02/09/2026, lendo o CARDAPIO.md: "todos que nao tem mais de 1
+// opcao de sabor pra escolher nao precisa pedir, pq ja tem o sabor predefinido.
+// Somente os q tem mais de 1 sabor precisa pedir qual a pessoa quer... eh uma
+// regra geral".
+//
+// A conta era `sabores.length > 0`, e dependia de o catalogo ter usado o campo
+// certo: `recheio` no singular pra fixo, `sabores` no plural pra escolher. Um
+// "s" mudava o comportamento. Com a contagem, cadastrar errado deixa de virar
+// pergunta boba, e esta varredura cobra o cardapio INTEIRO, e nao um exemplo.
+cobra("produto com UMA opcao de sabor ainda tratado como escolha", r.deUmaOpcaoSo);
 
 // 5. E VALE PRO JEITO QUE O CLIENTE ESCREVE, nao so pro nome do cardapio.
 cobra("grafia do cliente que FECHA sem perguntar o sabor", r.grafiaNaoPergunta);

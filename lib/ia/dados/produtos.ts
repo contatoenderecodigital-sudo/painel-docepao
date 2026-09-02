@@ -376,7 +376,24 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
     // calzone sem saber de quê.
     const n = limpo(o.nome);
     const usaOsDaPizza = n === "pizza redonda" || n.startsWith("calzone");
-    const sabores = o.sabores?.length ? o.sabores : usaOsDaPizza ? saboresDaPizza : [];
+    // `recheio` NO SINGULAR VALE AQUI TAMBEM, e nao so nos salgados.
+    //
+    // O cabecalho deste arquivo ja declarava a regra ("`recheio` no singular
+    // quer dizer 'ja vem pronto, nao pergunta'"), mas so o leitor dos salgados
+    // a cumpria. Aqui embaixo o campo era ignorado, e o produto virava sabor
+    // fixo com a lista VAZIA: a padaria parava de perguntar, certo, mas o
+    // recheio sumia da comanda, e a cozinha recebia o nome pelado.
+    //
+    // Achado em 02/09/2026, marcando a "mini bolha doce" como fixa de banana a
+    // pedido dele. Dois leitores respondendo diferente a mesma pergunta e o
+    // defeito que mais se repetiu neste projeto.
+    const sabores = o.recheio
+      ? [o.recheio]
+      : o.sabores?.length
+        ? o.sabores
+        : usaOsDaPizza
+          ? saboresDaPizza
+          : [];
 
     põe({
       nome: o.nome,
@@ -385,7 +402,7 @@ export function produtosDaCasa(): ProdutoDaCasa[] {
       categoria: String(o.categoria ?? "outro"),
       grupo: grupoDeOutros(o),
       sabores,
-      saborFixo: !sabores.length,
+      saborFixo: Boolean(o.recheio) || !sabores.length,
       saboresAte: Number(o.sabores_ate) > 0 ? Number(o.sabores_ate) : undefined,
       valorTipico:
         Array.isArray(o.valor_tipico) && o.valor_tipico.length === 2
@@ -531,7 +548,19 @@ export function desempatarPorFamilia(
 export function pedeEscolhaDeSabor(
   p: Pick<ProdutoDaCasa, "saborFixo" | "sabores"> | null | undefined,
 ): boolean {
-  return Boolean(p && !p.saborFixo && p.sabores.length > 0);
+  // ESCOLHA PRECISA DE MAIS DE UMA OPCAO. Uma opcao so nao e escolha.
+  //
+  // Regra dele, em 02/09/2026, lendo o CARDAPIO.md: *"todos que nao tem mais de
+  // 1 opcao de sabor pra escolher nao precisa pedir, pq ja tem o sabor
+  // predefinido. Somente os q tem mais de 1 sabor precisa pedir qual a pessoa
+  // quer... eh uma regra geral"*.
+  //
+  // Ate aqui a conta era `sabores.length > 0`, e dependia de o catalogo ter
+  // usado o campo certo: `recheio` no singular pra fixo, `sabores` no plural
+  // pra escolher. Um "s" mudava o comportamento, e um produto cadastrado com
+  // lista de UM item fazia a padaria perguntar uma coisa que tem uma resposta
+  // so. Com a contagem, cadastrar errado deixa de virar pergunta boba.
+  return Boolean(p && !p.saborFixo && p.sabores.length > 1);
 }
 
 /**

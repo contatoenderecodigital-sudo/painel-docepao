@@ -62,7 +62,7 @@ for (const [fam, grupos] of [...porFamilia].sort((a, b) => String(a[0]).localeCo
       const sab = p.saborFixo
         ? "fixo: " + (p.sabores?.[0] ?? "-")
         : p.sabores?.length
-          ? p.sabores.length + ": " + p.sabores.slice(0, 6).join(", ") + (p.sabores.length > 6 ? "..." : "")
+          ? p.sabores.length + ": " + (md ? p.sabores.join(", ") : p.sabores.slice(0, 6).join(", ") + (p.sabores.length > 6 ? "..." : ""))
           : "nao pergunta";
       if (md) {
         linha("| " + p.nome + " | " + preco + " | " + p.unidade + " | " + sab + " |");

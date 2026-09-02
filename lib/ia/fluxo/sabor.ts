@@ -120,11 +120,28 @@ export function saborQueFalta(produto: string, obs?: string | null): { nome: str
   const daCasa =
     produtoNoComeco(produto) ?? produtoPorNome(produto) ??
     produtoNoComeco(canonico) ?? produtoPorNome(canonico);
-  const item = daCasa && pedeEscolhaDeSabor(daCasa)
-    ? { nome: daCasa.nome, opcoes: daCasa.sabores }
-    : // Nome que o catalogo nao resolve: sobra o casamento pelo comeco, que
-      // ainda pega "esfirra de carne" escrito por extenso.
-      comEscolha()
+  // QUANDO O CATALOGO RESOLVEU O PRODUTO, A PALAVRA E DELE. FIXO E FIXO.
+  //
+  // O casamento por comeco so existe pra nome que o catalogo NAO resolve
+  // ("esfirra de carne" escrito por extenso). Ele estava rodando tambem quando
+  // o catalogo resolvia e dizia "sabor fixo", e ai o prefixo pegava o VIZINHO:
+  //
+  //   mini bolha doce   ->  fixo de banana, nao pergunta
+  //   comeca com...     ->  "mini bolha", que tem 4 sabores
+  //   padaria           >>  "O mini bolha doce vai de quê? Tem carne, queijo..."
+  //
+  // Medido em 02/09/2026, marcando a bolha doce como fixa a pedido dele. O
+  // teste `quem-tem-sabor-tem-que-escolher` pegou na hora.
+  //
+  // Regra dele, na mesma conversa: *"todos que nao tem mais de 1 opcao de sabor
+  // pra escolher nao precisa pedir, somente os q tem mais de 1 sabor precisa
+  // pedir qual a pessoa quer"*. Produto resolvido e sem escolha nao pergunta, e
+  // nao existe segunda chance de perguntar por semelhanca de nome.
+  const item = daCasa
+    ? pedeEscolhaDeSabor(daCasa)
+      ? { nome: daCasa.nome, opcoes: daCasa.sabores }
+      : undefined
+    : comEscolha()
         .filter((c) => nome.startsWith(semAcMin(c.nome)) || nome === semAcMin(c.nome))
         .sort((a, b) => b.nome.length - a.nome.length)[0];
   if (!item) return null;
