@@ -3768,7 +3768,33 @@ export async function responder(
       const nomeadoNaFrase = produtosNaFrase(String(mensagem.texto ?? ""))[0];
       if (nomeadoNaFrase) limpa.perguntou = { ...limpa.perguntou, familia: nomeadoNaFrase };
 
+      // "QUAIS TEM?" DEPOIS DE UMA ESCOLHA E PERGUNTA PELAS OPCOES, E NAO PELO PRECO.
+      //
+      // Medido na conversa dele de 02/09/2026:
+      //
+      //   padaria >> Qual salgado voce quer?
+      //   cliente >> quais tem?
+      //   padaria >> Do jeito que esta, seu pedido fica em R$ 77,65.
+      //
+      // Ele perguntou QUAIS existem e ouviu o total do pedido. O modelo leu
+      // aquilo como pergunta de preco, e o codigo obedeceu.
+      //
+      // QUEM DESEMPATA E O CONTEXTO, E NAO A FRASE. A padaria acabou de fazer
+      // uma pergunta de escolha; a resposta natural a "quais tem?" ali e a
+      // lista, e ela ja esta montada na propria etapa. Nao ha lista de palavras
+      // aqui: o sinal e a ultima fala ter sido uma escolha e ele nao ter nomeado
+      // nenhum produto na pergunta ("quanto e a coxinha?" nomeia, e segue pro
+      // preco, que e o certo).
+      //
+      // Deixar a etapa responder tambem manda a peca do cardapio junto, que e o
+      // que o cliente precisa pra escolher.
+      const ultimaFoiEscolha = /qual|quais|quer\?/i.test(semAc(String(estado.ultimaFala ?? "")));
+      const perguntouAsOpcoes =
+        ultimaFoiEscolha && !nomeadoNaFrase && !limpa.perguntou.familia &&
+        /\b(quais|quais sao|o que tem|que tem|opcoes|tipos)\b/.test(semAc(String(mensagem.texto ?? "")));
+
       const perguntouOTotal =
+        !perguntouAsOpcoes &&
         limpa.perguntou.sobre === "preco" && !limpa.perguntou.familia && estado.itens.length > 0;
       let resposta = perguntouOTotal
         ? {
@@ -3783,7 +3809,34 @@ export async function responder(
               ) + ".",
             precisaHumano: false,
           }
-        : respostaDeInformacao(limpa.perguntou);
+        : perguntouAsOpcoes
+          ? null
+          : respostaDeInformacao(limpa.perguntou);
+      if (perguntouAsOpcoes) {
+        // Cai fora daqui SEM responder: a etapa da vez monta a pergunta com as
+        // opcoes e manda a peca do cardapio junto, que e o que ele pediu.
+        rastro.push("ele perguntou quais opcoes existem; deixei a etapa responder com a lista");
+        // E A PERGUNTA VOLTA, porque ele NAO a ignorou: ele pediu a lista dela.
+        //
+        // "perguntado uma vez, perguntado pra sempre" existe pra a padaria nao
+        // insistir com quem mudou de assunto. Quem responde "quais tem?" nao
+        // mudou de assunto: esta respondendo, e precisa das opcoes pra escolher.
+        //
+        // Sem isto a etapa se dava por resolvida e a conversa PULAVA:
+        //
+        //   padaria >> Qual salgado voce quer?
+        //   cliente >> quais tem?
+        //   padaria >> Quer levar docinho ou bolo junto?
+        //
+        // O `insistiu` continua protegendo contra laco: quatro vezes a mesma
+        // pergunta sem ele responder nada continua chamando a equipe.
+        estado = {
+          ...estado,
+          etapasJaPerguntadas: (estado.etapasJaPerguntadas ?? []).filter(
+            (x) => x !== etapaAgora.id && !String(x).startsWith(etapaAgora.id + ":"),
+          ),
+        };
+      }
       if (resposta) {
         rastro.push("ele perguntou sobre " + limpa.perguntou.sobre + "; respondi sem anotar nada");
 
