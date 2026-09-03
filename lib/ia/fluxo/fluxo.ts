@@ -30,7 +30,10 @@
 
 import { etapaDaVez, roteiroDoPedido, type Etapa, type EtapaId, type PedidoEmMontagem } from "./etapas";
 import { falaDaEtapa, pecaDoCardapio, quandoDoPedido, type Fala } from "./pergunta";
-import { instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, type Leitura } from "./leitura";
+import {
+  instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, resumoDoAnotado,
+  type Leitura, type TurnoDaConversa,
+} from "./leitura";
 import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase, ondeCadaProdutoAparece, familiaDoQueEleNomeou } from "./leitor-da-frase";
 import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida, formasDoCliente } from "../texto";
 import { identificarProduto } from "./produto";
@@ -181,9 +184,25 @@ export type Estado = PedidoEmMontagem & {
 export type Pensar = (args: {
   instrucao: string;
   mensagem: string;
-  /** A ultima fala da padaria, pro modelo saber o que foi perguntado. */
-  perguntaDaPadaria?: string | null;
+  /**
+   * A CONVERSA ATE AQUI, do mais antigo ao mais novo, sem a mensagem atual.
+   *
+   * Vai como turnos de conversa de verdade (`assistant` / `user`). E o que faz
+   * "10" depois de "Quantas pessoas vao na festa?" ser dez pessoas, e o que
+   * deixa o modelo saber de qual item era a pergunta do sabor. Medido 5 de 5
+   * em 03/09/2026, inclusive com o codigo escolhendo a etapa ERRADA.
+   */
+  historico?: TurnoDaConversa[];
+  /**
+   * O QUE JA ESTA ANOTADO NO PEDIDO, como lembrete DEPOIS do historico.
+   *
+   * Fora do `system` de proposito: o system e o prefixo que a OpenAI guarda em
+   * cache, e o pedido muda a cada mensagem. E depois do historico porque a
+   * ordem de anotar que ficava so no comeco da instrucao era ignorada (17/08).
+   */
+  anotado?: string | null;
 }) => Promise<Leitura>;
+export type { TurnoDaConversa } from "./leitura";
 
 export type Resposta = {
   fala: Fala;
@@ -2870,6 +2889,10 @@ export async function responder(
   // escolhe e o tipo do pedido, e a escolha e refeita DEPOIS de ler a mensagem:
   // "festa pra 20 pessoas" troca o roteiro no meio da propria mensagem.
   etapas: Etapa[] | null = null,
+  // A CONVERSA ATE AQUI, lida do banco por quem chama. Sem ela (os testes), a
+  // ultima fala da padaria faz as vezes do historico, que e o minimo que da
+  // sentido a uma resposta curta.
+  historico: TurnoDaConversa[] | null = null,
 ): Promise<Resposta> {
   const rastro: string[] = [];
   let estado: Estado = { ...estadoAtual };
@@ -3055,12 +3078,16 @@ export async function responder(
   } else if (mensagem.texto.trim()) {
     // ----------------------------------------------------------- texto livre
     const instrucao = instrucaoDaEtapa(etapaAgora.id, estado);
-    // A PERGUNTA DA PADARIA VAI JUNTO. Sem ela o modelo le a frase do cliente no
-    // vazio, e "10" depois de "quantas pessoas?" vira dez quilos de bolo.
+    // A CONVERSA VAI JUNTO, E O PEDIDO ANOTADO TAMBEM. Sem isso o modelo le a
+    // frase do cliente no vazio, e "10" depois de "quantas pessoas?" vira dez
+    // quilos de bolo. Medido 5 de 5 em 03/09/2026.
     const crua = await pensar({
       instrucao,
       mensagem: mensagem.texto,
-      perguntaDaPadaria: estado.ultimaFala ?? null,
+      historico:
+        historico ??
+        (estado.ultimaFala ? [{ papel: "assistant" as const, conteudo: String(estado.ultimaFala) }] : []),
+      anotado: resumoDoAnotado(estado),
     });
     chamouIA = true;
 

@@ -63,7 +63,7 @@ fs.writeFileSync(
     "  // lembrar de vir aqui acrescentar.",
     "  instrucoes: ETAPAS_DA_FESTA.map((x) => x.id).map((e) => {",
     "    const inteira = instrucaoDaEtapa(e as never, vazio as never);",
-    "    const soRegra = inteira.split('Cardápio da etapa.')[0];",
+    "    const soRegra = inteira.split('Cardápio da casa')[0];",
     "    return { e, n: inteira.length, regra: soRegra.length };",
     "  }),",
     "};",
@@ -142,13 +142,21 @@ for (const { e, n, regra } of r.instrucoes) {
   // e a mais cara delas veio do teste da Kemilly, que disse "nao quero topo"
   // tres vezes e continuou sendo perguntada. Cortar ali e reintroduzir defeito
   // conhecido pra ganhar caractere.
-  if (regra > 1400) {
+  // O TETO SUBIU EM 03/09/2026, E O MOTIVO ESTA MEDIDO. O 1400 nasceu quando a
+  // instrucao era so a da etapa e o modelo era cego: a regra tinha que ser
+  // curta porque era a unica coisa que ele via. Agora as regras de catalogo que
+  // estavam repartidas por etapa (prefixo do bolo, peso em quilos, mini pizza,
+  // uma linha por sabor, qtd 0) vao num bloco so, em toda mensagem, e a conversa
+  // vai junto. O que faz o modelo se perder e regra que se contradiz, nao regra
+  // que cabe em 2.500 caracteres.
+  if (regra > 2800) {
     falhas.push("a REGRA da etapa " + e + " ja tem " + regra + " caracteres; esta virando carta");
   }
-  // E o teto do total existe so pra pegar crescimento desgovernado, e nao pra
-  // impedir a dona de cadastrar produto.
-  if (n > 2500) {
-    falhas.push("a instrucao da etapa " + e + " passou de 2500 com o cardapio junto: " + n);
+  // O CARDAPIO INTEIRO VAI EM TODA ETAPA (86 produtos, com apelidos). O teto do
+  // total existe so pra pegar crescimento desgovernado, e nao pra impedir a dona
+  // de cadastrar produto.
+  if (n > 7000) {
+    falhas.push("a instrucao da etapa " + e + " passou de 7000 com o cardapio junto: " + n);
   }
 }
 

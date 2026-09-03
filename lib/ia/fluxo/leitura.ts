@@ -57,6 +57,9 @@ export const SOBRE_O_QUE = [
 ] as const;
 export type SobreOQue = (typeof SOBRE_O_QUE)[number];
 
+/** Uma fala da conversa, do jeito que o modelo a recebe. */
+export type TurnoDaConversa = { papel: "user" | "assistant"; conteudo: string };
+
 /** O que a IA pode devolver. Nada alem disto entra no pedido. */
 export type Leitura = {
   /** Itens que ele pediu, do vocabulario DESTA etapa. */
@@ -502,59 +505,75 @@ function hojeEmSaoPaulo(): string {
  * a IA precisava saber tudo pra decidir tudo; aqui ela decide uma coisa so.
  */
 /**
- * O CARDAPIO QUE A INSTRUCAO MOSTRA, QUE NAO E O MESMO QUE O PORTAO COBRA.
+ * O CARDAPIO INTEIRO, AGRUPADO POR CATEGORIA, DO JEITO QUE O CLIENTE FALA.
  *
- * Nas tres etapas de produto os dois coincidem, e por isso durante muito tempo
- * pareceram a mesma coisa. Na OFERTA eles divergem, e a diferenca importa:
+ * Ate 03/09/2026 o modelo via so o vocabulario DA ETAPA, e era instruido a
+ * calar sobre o resto ("devolva falouDeOutraEtapa em vez de anotar"). Quem
+ * pedia "50 brigadeiro e um bolo de 2 kg" na etapa do docinho tinha o bolo
+ * jogado fora, e o codigo remontava por regex o que a instrucao tinha mandado
+ * o modelo esconder. Com o cardapio inteiro e a conversa junto, o modelo
+ * anota tudo e quem separa por familia e o `aplicar`, que ja sabe a categoria.
  *
- *   mostrar   docinho e bolo, que e o que a padaria acabou de oferecer
- *   cobrar    nada, porque na oferta o cliente tambem manda dado da retirada,
- *             corrige quantidade e pede salgado de novo
- *
- * Se a oferta cobrasse o que mostra, um salgado dito ali seria guardado pra uma
- * etapa que ja passou, e etapa que ja passou nao volta sozinha: o item ficaria
- * parado pra sempre. Mostrar sem cobrar da ao modelo o vocabulario e nao tira
- * nada do cliente.
+ * Agrupado porque a categoria e informacao: e ela que diz que "brigadeiro" em
+ * "bolo festa (por quilo)" e outro produto do "brigadeiro" em "docinho".
+ * Nenhum nome escrito aqui: tudo sai de `produtosDaCasa()`.
  */
-function cardapioDaInstrucao(etapa: EtapaId): string[] {
-  // A PRIMEIRA MENSAGEM E ONDE O CLIENTE PEDE, e ela era a unica sem cardapio.
-  //
-  // Ele em 02/09/2026: "isso a IA que tem que entender, toda IA que ja conversei
-  // entende quando falo errado". Ela entende MESMO — nas etapas do salgado e do
-  // resto do cardapio, onde a lista vai junto, "pao de queijo" volta como "mini
-  // pão de queijo" sem ninguem escrever regra nenhuma. Na abertura a lista nao
-  // ia, entao ela devolvia o nome como o cliente escreveu e sobrava pro codigo
-  // adivinhar por texto, que e o que ele nao quer.
-  //
-  // AQUI E SO A INSTRUCAO, e nao o que a etapa aceita. Na primeira tentativa eu
-  // mexi no `vocabularioDaEtapa`, que serve aos dois, e o roteiro mudou junto: o
-  // bolo avulso passou a caber na abertura e parou de ir pra etapa do bolo. Um
-  // teste que ja existia pegou.
-  if (etapa === "abertura") {
-    // SEM OS TRINTA SABORES DE BOLO, e sem apelido.
-    //
-    // A lista inteira estourou o teto de 2.500 da instrucao (3.035), e o teto
-    // existe por um motivo medido: instrucao comprida faz o modelo se perder.
-    //
-    // Os sabores de bolo sao a maior parte dela e sao os que MENOS fazem falta
-    // aqui: quem diz "quero um bolo de laka" na primeira mensagem cai na etapa
-    // do bolo, e la a lista vai completa. O que precisa ser reconhecido de
-    // primeira e o que NAO tem etapa pra perguntar depois: pao, cuca, pizza,
-    // torta, empadao, cupcake.
-    return daLista(
-      ...categoriasDaEtapa("salgado"),
-      ...categoriasDaEtapa("docinho"),
-      ...categoriasSemEtapaPropria(),
+export function cardapioDaCasaParaOModelo(): string {
+  const porCategoria = new Map<string, { nomes: string[]; unidade: string }>();
+  for (const p of produtosDaCasa()) {
+    const cat = String(p.categoria || "outro");
+    const grupo = porCategoria.get(cat) ?? { nomes: [], unidade: p.unidade };
+    if (!grupo.nomes.includes(p.nomeCurto)) grupo.nomes.push(p.nomeCurto);
+    porCategoria.set(cat, grupo);
+  }
+  const linhas: string[] = [];
+  for (const [cat, g] of porCategoria) {
+    // Apelido que repete um nome ja listado nao entra duas vezes.
+    const vistos = new Set<string>();
+    const nomes = comOsApelidos(g.nomes).filter((n) => {
+      const chave = semAc(n);
+      if (vistos.has(chave)) return false;
+      vistos.add(chave);
+      return true;
+    });
+    linhas.push("- " + cat.replace(/_/g, " ") + (g.unidade === "kg" ? " (por quilo)" : "") + ": " + nomes.join(", "));
+  }
+  return linhas.join("\n");
+}
+
+/**
+ * O QUE JA ESTA ANOTADO, como lembrete curto depois da conversa.
+ *
+ * Vai como mensagem de sistema DEPOIS do historico e antes da frase do cliente,
+ * nunca dentro do prefixo do system (que e o que a OpenAI guarda em cache). E o
+ * que deixa o modelo saber que "muda pra 100" fala das 200 coxinhas que ja
+ * estao no pedido, e que o "2 kg" e do bolo que ja foi escolhido.
+ */
+export function resumoDoAnotado(p: PedidoEmMontagem): string | null {
+  const partes: string[] = [];
+  if (p.itens.length) {
+    partes.push(
+      "itens: " +
+        p.itens
+          .map((i) => (Number(i.qtd) > 0 ? i.qtd + " " : "(sem quantidade) ") + i.produto + (i.obs ? " (" + i.obs + ")" : ""))
+          .join("; "),
     );
   }
-  if (etapa === "oferta") {
-    return comOsApelidos(daLista(...categoriasDaEtapa("docinho"), ...categoriasDaEtapa("bolo")));
-  }
-  return vocabularioDaEtapa(etapa);
+  if (p.ehFesta) partes.push("é festa" + (p.pessoas ? " pra " + p.pessoas + " pessoas" : ""));
+  const d: Partial<PedidoEmMontagem["dados"]> = p.dados ?? {};
+  const retirada = [
+    d.data ? "dia " + d.data : null,
+    d.hora ? "às " + d.hora : null,
+    d.nome ? "no nome de " + d.nome : null,
+    d.pagamento ? "pagamento " + d.pagamento : null,
+  ].filter(Boolean);
+  if (retirada.length) partes.push("retirada: " + retirada.join(", "));
+  if (p.naoQuer?.length) partes.push("não quer: " + p.naoQuer.join(", "));
+  if (!partes.length) return null;
+  return "Já está anotado no pedido. " + partes.join(". ") + ".";
 }
 
 export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
-  const vocab = cardapioDaInstrucao(etapa);
   // QUEM ENTENDE ERRO DE DIGITAÇÃO É QUEM TEM CONTEXTO, E ISSO É A IA.
   //
   // O cardápio já ia na instrução, mas nada mandava ela RESPONDER com o nome
@@ -588,14 +607,19 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
   // escreveu, o portão barra, e a padaria diz "não achei isso no cardápio" e
   // mostra o que tem. Que é o que uma atendente faria: ela entende "brigadero",
   // e não entrega brigadeiro pra quem pediu macaron.
-  const lista = vocab.length
-    ? "\n\nCardápio da etapa. Use o nome daqui mesmo que ele erre; " +
-      "se não for nenhum, repita o que ele escreveu: " + vocab.join(", ") + "."
-    : "";
+  // O CARDAPIO INTEIRO, EM TODA ETAPA. A lista por etapa era o que obrigava o
+  // modelo a calar sobre o que nao coubesse nela, e o codigo a adivinhar o
+  // resto por regex. Ver `cardapioDaCasaParaOModelo`.
+  const lista =
+    "\n\nCardápio da casa. Use o nome daqui mesmo que ele erre a escrita; " +
+    "se não for nenhum, repita o que ele escreveu:\n" + cardapioDaCasaParaOModelo();
 
   const comum =
-    "Você é a atendente de uma padaria e está anotando um pedido. " +
-    "Leia SÓ a última mensagem do cliente e diga o que mudou no pedido. " +
+    "Você é a atendente de uma padaria anotando um pedido pelo WhatsApp. " +
+    "Você vê a conversa até aqui e o que já está anotado. " +
+    "Diga o que a ÚLTIMA mensagem do cliente muda no pedido, entendendo ela pelo contexto: " +
+    "a pergunta que a padaria acabou de fazer é o que dá sentido a uma resposta curta " +
+    "(\"10\", \"sim\", \"2 kg\", \"de frango\"). " +
     "Não escreva resposta pro cliente, não invente valor, não decida a próxima pergunta." +
     String.fromCharCode(10, 10) +
     // ESTE BLOCO ENTRA EM TODA ETAPA, ENTAO CADA PALAVRA AQUI CUSTA EM TODAS.
@@ -618,6 +642,12 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     //   A ROTA C. Quem escrevia "meu pao veio queimado" caia no fluxo de pedido
     //   e recebia oferta de docinho.
     "SEMPRE, em qualquer etapa:" + String.fromCharCode(10) +
+    // NADA SOME. A instrucao antiga mandava o modelo devolver falouDeOutraEtapa
+    // "em vez de anotar" o que nao fosse da etapa. O item sumia sem rastro e o
+    // codigo tentava remontar pela frase. Agora ele anota tudo, e quem separa
+    // por familia e o `aplicar`, que sabe a categoria de cada produto.
+    "- Anote TUDO que ele pediu, de qualquer família, mesmo que a padaria tenha " +
+    "perguntado de outra coisa. Nada some." + String.fromCharCode(10) +
     "- dia, hora, nome de quem retira e forma de pagamento vão em dados." + String.fromCharCode(10) +
     // CORRIGIR O QUE JA PEDIU VALE EM QUALQUER ETAPA, igual a data.
     //
@@ -753,8 +783,8 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
   // alguem, em vez de sumir da lista sem ninguem notar.
   const daEtapa: Record<EtapaId, string> = {
     quantas_pessoas:
-      "A etapa é QUANTAS PESSOAS vão na festa. Devolva o número em pessoas. " +
-      "Se ele falar de outra coisa, devolva falouDeOutraEtapa.",
+      "A padaria acabou de perguntar QUANTAS PESSOAS vão na festa. Um número " +
+      "solto aqui é pessoas. Se ele falar de outra coisa, anote o que ele disse.",
     base_da_festa:
       "A etapa é ACEITAR A BASE da festa que a padaria acabou de propor. " +
       "Se ele aceitou como está, aceitouBase = true. Se ele pediu para mudar " +
@@ -764,40 +794,23 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "{} nessa frase e erro: a escolha da casa muda o pedido. " +
       "Aceitar a proposta não é pedir pra casa escolher.",
     salgado:
-      "A etapa é ESCOLHER OS SALGADOS. Só existe salgado aqui: se ele falar de " +
-      "docinho ou de bolo, devolva falouDeOutraEtapa em vez de anotar." +
-      " Mini pizza é salgado assado. Pizza, pizza redonda, pizza inteira, pizza " +
-      "meia e calzone não são salgado: anote o item mesmo assim, sem carimbar " +
-      "de salgado. O pedido mistura familias na mesma conversa." +
-      recusa("salgado") + semNumero +
-      " Pediu pra casa escolher os tipos? delegaEscolha = true, sem itens." +
-      porSabor +
-      lista,
+      "A padaria está perguntando QUAIS SALGADOS ele quer. Uma resposta curta " +
+      "aqui (\"de frango\", \"50 de cada\") é sobre os salgados." +
+      recusa("salgado"),
     docinho:
-      "A etapa é ESCOLHER OS DOCINHOS. Só existe docinho aqui: se ele falar de " +
-      "bolo ou de salgado, devolva falouDeOutraEtapa em vez de anotar. " +
-      "Nome que o cardapio tambem vende como bolo: aqui e o docinho, sem prefixo de bolo. " +
-      "Se ele disser a cor da forminha, devolva em forminha." +
-      recusa("docinho") + semNumero +
-      " Pediu pra casa escolher os tipos? delegaEscolha = true, sem itens." +
-      porSabor +
-      lista,
+      "A padaria está perguntando QUAIS DOCINHOS ele quer (e depois a cor da " +
+      "forminha). Nome que o cardápio também vende como bolo é o docinho aqui, " +
+      "sem o prefixo de bolo, a não ser que ele fale de bolo." +
+      recusa("docinho"),
     bolo:
-      "A etapa é ESCOLHER O BOLO. Só sabor de bolo aqui: se ele falar de " +
-      "docinho, devolva falouDeOutraEtapa, mesmo que o cardapio tenha o mesmo " +
-      "nome nas duas familias. Use o nome do cardapio com o prefixo do bolo. " +
-      "Caseiro so se ele disse caseiro. O peso em quilos vai na quantidade." +
-      " Embalagem: prato \"aberto\" ou \"tampa\"." +
-      recusa("bolo") + semNumero +
-      " Pediu pra casa escolher o sabor? delegaEscolha = true, sem itens." +
-      porSabor +
-      lista,
+      "A padaria está perguntando O SABOR DO BOLO (e depois o peso). Nome que o " +
+      "cardápio também vende como docinho é o bolo aqui, com o prefixo. " +
+      "Embalagem: prato \"aberto\" ou \"tampa\"." +
+      recusa("bolo"),
     resto_do_cardapio:
-      "A etapa e ESCOLHER QUAL, dentro do que ele ja pediu: pizza, torta, " +
-      "empadao, cupcake, pao, cuca, calzone. Ele ja nomeou a familia; falta " +
-      "o TIPO ou o RECHEIO. Use o nome do cardapio inteiro (por exemplo " +
-      "\"pizza inteira\", nao \"inteira\"). O recheio vai no campo sabor." +
-      semNumero + porSabor + lista,
+      "A padaria está perguntando QUAL TIPO ou RECHEIO do que ele já pediu " +
+      "(pizza, torta, empadão, cupcake, pão, cuca, calzone). Use o nome do " +
+      "cardápio inteiro (\"pizza inteira\", não \"inteira\").",
     pecas_do_bolo:
       "A etapa é TOPO E PAPEL DE ARROZ, e o NOME e a IDADE do aniversariante." +
       String.fromCharCode(10) +
@@ -817,15 +830,7 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "A padaria acabou de oferecer DOCINHO ou BOLO junto com o que ele pediu. " +
       "Se ele quer, devolva os itens; se recusou, devolva naoQuer com " +
       "\"docinho\" e \"bolo\". Se falou de outra coisa, leia normalmente: a oferta é " +
-      "opcional e não trava a conversa." + String.fromCharCode(10) +
-      // O CARDAPIO SAI PELO MESMO CANO DAS OUTRAS ETAPAS, e nao despejado aqui
-      // dentro. A primeira versao colava os 42 nomes no meio da regra, e o
-      // teste que mede o tamanho conta como REGRA tudo que vem antes do marcador
-      // "Cardápio da etapa.". A instrucao da oferta virou a maior do sistema
-      // (1788) e passou despercebida porque o teste media uma lista de cinco
-      // etapas escrita a mao, e a oferta nao estava nela.
-      "Aqui valem docinho E bolo ao mesmo tempo. Quantidade em unidades é " +
-      "docinho; peso em quilos é bolo." + lista,
+      "opcional e não trava a conversa.",
     dados:
       "A etapa é PEGAR OS DADOS DA RETIRADA: nome de quem retira, dia, hora e " +
       "forma de pagamento. Devolva só o que ele falou nesta mensagem. " +
@@ -851,69 +856,44 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "Se ele PERGUNTOU de uma família sem quantidade, devolva falouDeOutraEtapa " +
       "com a etapa dela. Perguntar já diz do que ele quer falar." + String.fromCharCode(10) +
       "Se ele só cumprimentou, devolva {} e não invente nada: quem diz o que " +
-      "quer é ele." +
-      // A ABERTURA E ONDE O CHUTE DE QUANTIDADE MAIS CUSTOU.
-      //
-      // Medido na conversa dele de 02/09/2026: "quero bolo, salgados, docinhos
-      // e cupcakes" foi lido AQUI, e voltou "1x bolo ;; 1x salgado ;; 1x
-      // docinho ;; 1x cupcake". Ele nao tinha dito quantidade nenhuma, e o
-      // pedido inteiro virou um de cada.
-      //
-      // As quatro etapas de produto ja diziam isto ao modelo; a abertura, que e
-      // por onde todo pedido entra, nao dizia.
-      semNumero +
-      // A ABERTURA TAMBEM ANOTA PRODUTO, E O TIPO NAO E SABOR.
-      //
-      // Quem pergunta o preco antes de pedir chega aqui com o pedido vazio,
-      // entao a etapa da vez e esta, e nao a do produto. Foi assim no caso do
-      // Rodrigo: ele pergunta na primeira mensagem e pede na segunda.
-      //
-      // A PRIMEIRA TENTATIVA FOI SO COLAR O `porSabor` AQUI (cabcdac), e ela
-      // piorou: sem cardapio na etapa, o modelo nao tinha como saber que
-      // "inteiras" e o tamanho da pizza, e escreveu isso como SABOR.
-      //
-      //   antes  >> pizza inteira ~ calabresa | frango com catupiry
-      //   depois >> pizza inteira ~ calabresa | inteira | frango com catupiry
-      //
-      // A cozinha ia receber ordem de montar uma pizza sabor "inteira".
-      // Revertido em 8654e30.
-      //
-      // Por isso a frase daqui diz as DUAS coisas: quantas linhas, e onde a
-      // palavra do tamanho mora. Nas quatro etapas de produto o `porSabor`
-      // sozinho basta, porque la vai o cardapio junto e ele ancora o que e
-      // sabor de verdade.
-      // TERCEIRA REDACAO DESTA REGRA, e as duas anteriores pediam a coisa errada.
-      //
-      //   cabcdac  "uma linha por sabor"           -> o modelo achou que
-      //            (revertido em 8654e30)             "inteiras" era SABOR
-      //   0f288b7  "duas linhas, uma por sabor,    -> nao estragou a comanda,
-      //            o tamanho fica no produto"         e nao moveu o dinheiro:
-      //                                               medido ao vivo, continuou
-      //                                               1 pizza a R$ 120,00
-      //
-      // As duas falavam de LINHA e de SABOR. O que o modelo erra nao e nenhum
-      // dos dois: e o NUMERO. Ele le "2 inteiras, uma de calabresa e uma de
-      // frango" e devolve qtd 1, porque a pizza inteira aceita ate quatro
-      // sabores e uma pizza de dois sabores e um pedido legitimo.
-      //
-      // Entao a frase agora fala so de quantidade, que e o que esta errado.
-      " O número que ele disse é a quantidade: \"2 inteiras\" são 2, mesmo que " +
-      "ele detalhe os sabores depois." +
-      // O CARDAPIO ENTRA AQUI TAMBEM, e esta e a etapa que mais precisava dele.
-      //
-      // A abertura e onde o cliente PEDE, e era a unica etapa sem a lista: o
-      // modelo devolvia o nome como o cliente escreveu ("pao de queijo") e
-      // sobrava pro codigo adivinhar por texto. Com a lista, ele responde com o
-      // nome da casa ("mini pão de queijo"), que e o que ele ja faz nas outras
-      // etapas sem ninguem escrever regra nenhuma.
-      lista,
+      "quer é ele.",
   };
 
-  const jaTem = p.itens.length
-    ? "\n\nJá está anotado: " + p.itens.map((i) => i.qtd + " " + i.produto).join(", ") + "."
-    : "";
+  // AS REGRAS DO CARDAPIO VALEM EM TODA ETAPA, E POR ISSO MORAM NUM BLOCO SO.
+  //
+  // Ate 03/09/2026 cada uma vivia so na etapa onde alguem tinha visto o
+  // defeito: "qtd 0, nunca 1" so na festa (e o pedido de 02/09 fechou "um de
+  // cada" na abertura), "uma linha por sabor" so nas etapas de produto (e a
+  // pizza dupla fechou como uma na abertura), o prefixo do bolo so na etapa do
+  // bolo (e o bolo virou docinho fora dela). Regra que vale num caminho e nao
+  // em todos e o que produz o pedido errado justo no caminho que ninguem
+  // testou.
+  //
+  //   "2 inteiras" sao 2: o modelo lia "2 inteiras, uma de calabresa e uma de
+  //   frango" como UMA pizza de dois sabores (R$ 120,00 em vez de R$ 240,00).
+  //   Terceira redacao desta regra; as duas anteriores falavam de linha e de
+  //   sabor, e o que ele errava era o numero.
+  //
+  //   O prefixo do bolo existe porque "brigadeiro" e docinho de R$ 1,25 E bolo
+  //   de R$ 46,90 o quilo. Quem desempata e o contexto, que agora ele tem.
+  const regrasDoCardapio =
+    "REGRAS DO CARDÁPIO, em qualquer etapa:" + String.fromCharCode(10) +
+    "-" + semNumero + String.fromCharCode(10) +
+    "- O número que ele disse é a quantidade: \"2 inteiras\" são 2, mesmo que " +
+    "ele detalhe os sabores depois." + porSabor + String.fromCharCode(10) +
+    "- O sabor ou recheio vai no campo sabor; recado pra cozinha vai em obs." + String.fromCharCode(10) +
+    "- Bolo: o peso em quilos vai na quantidade. Sabor de bolo se escreve com o " +
+    "prefixo (\"bolo 4 leites\", \"bolo brigadeiro\"); caseiro só se ele disse " +
+    "caseiro (\"bolo caseiro cenoura\"). O mesmo nome sem prefixo é o docinho. " +
+    "Quem desempata é o contexto: o que a padaria perguntou e a unidade " +
+    "(quilo é bolo, unidades é docinho)." + String.fromCharCode(10) +
+    "- Mini pizza é salgado assado. Pizza inteira, meia, redonda e calzone não " +
+    "são salgado. Use o nome inteiro (\"pizza inteira\", não \"inteira\")." + String.fromCharCode(10) +
+    "- Cor da forminha dos docinhos vai em forminha." + String.fromCharCode(10) +
+    "- Pediu pra casa escolher os tipos ou o sabor? delegaEscolha true, sem itens. " +
+    "Aceitar a proposta não é pedir pra casa escolher.";
 
-  return comum + "\n\n" + (daEtapa[etapa] ?? "") + jaTem;
+  return comum + String.fromCharCode(10, 10) + regrasDoCardapio + String.fromCharCode(10, 10) + (daEtapa[etapa] ?? "") + lista;
 }
 
 /**

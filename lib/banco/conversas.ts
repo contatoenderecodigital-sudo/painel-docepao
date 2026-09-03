@@ -11,6 +11,7 @@ import { query, queryUm, transacao } from "./db";
 import type { Mensagem, PedidoParaGravar } from "./tipos-da-conversa";
 import { unidadeDoItem, horaDaRetirada } from "../tipos";
 import { dataDeRetirada } from "../ia/fluxo/falas-do-cliente";
+import type { TurnoDaConversa } from "../ia/fluxo/leitura";
 export type { Mensagem } from "./tipos-da-conversa";
 
 const LIMITE_HISTORICO = 40; // ultimas N mensagens que a IA enxerga. 20 truncava conversa
@@ -78,6 +79,46 @@ export async function padariaJaFalouNaConversa(
     [negocioId, clienteId, LIMITE_HISTORICO],
   );
   return !!linha;
+}
+
+/**
+ * A CONVERSA ATE AQUI, DO JEITO QUE O MODELO PRECISA VER.
+ *
+ * Ate 03/09/2026 o modelo recebia so a frase do cliente. "10" depois de
+ * "Quantas pessoas vao na festa?" virou 10 kg de bolo, R$ 469,00, e metade das
+ * guardas do fluxo existia so pra adivinhar o que o modelo nao via. Medido em
+ * 03/09/2026 (mede-a-cegueira): com a conversa no prompt ele acerta 5 de 5,
+ * mesmo quando o codigo escolhe a etapa errada.
+ *
+ * Devolve as ultimas `limite` falas com texto, da mais antiga pra mais nova, e
+ * SEM as falas do cliente que ainda nao foram respondidas: elas SAO a mensagem
+ * atual (o webhook grava a fala antes de chamar o fluxo, e junta as pendentes
+ * num texto so). Mandar de novo seria o cliente falando duas vezes.
+ *
+ * O texto e cortado em 400 caracteres por fala: e contexto, nao arquivo. O que
+ * o modelo precisa e saber do que a conversa esta falando.
+ */
+export async function ultimasMensagens(
+  negocioId: string,
+  clienteId: string,
+  limite = 12,
+): Promise<TurnoDaConversa[]> {
+  const linhas = await query<{ papel: string; conteudo: string }>(
+    `select papel, conteudo from (
+       select papel, conteudo, criado_em from mensagens
+        where negocio_id = $1 and cliente_id = $2
+          and papel in ('user', 'assistant')
+          and coalesce(conteudo, '') <> ''
+        order by criado_em desc limit $3
+     ) ultimas order by criado_em asc`,
+    [negocioId, clienteId, limite],
+  );
+  const turnos: TurnoDaConversa[] = linhas.map((l) => ({
+    papel: l.papel === "user" ? "user" : "assistant",
+    conteudo: String(l.conteudo ?? "").trim().slice(0, 400),
+  }));
+  while (turnos.length && turnos[turnos.length - 1].papel === "user") turnos.pop();
+  return turnos;
 }
 
 // AQUI FICAVAM O CORTE DO PEDIDO FECHADO E O RESUMO DELE, E OS DOIS ERAM DO

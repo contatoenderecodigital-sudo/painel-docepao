@@ -94,7 +94,7 @@ export function pensarComOpenAI(
   registrar?: (uso: { tokensIn: number; tokensOut: number; cacheRead: number }) => void,
   modeloDoNegocio: string | null = null,
 ): Pensar {
-  return async ({ instrucao, mensagem, perguntaDaPadaria }) => {
+  return async ({ instrucao, mensagem, historico, anotado }) => {
     // Quem manda no formato e o provedor, e a URL diz qual e.
     const anthropic = /anthropic|claude/i.test(String(process.env.IA_BASE_URL || "")) ||
       /^claude-/i.test(modeloDoCerebro(modeloDoNegocio));
@@ -147,12 +147,26 @@ export function pensarComOpenAI(
       // virou uma regra nova. Ha guardas que sao literalmente esta linha
       // reimplementada em regex, lendo `estado.ultimaFala` na mao.
       //
-      // Vai como `assistant`, que e o papel de quem falou aquilo: assim o modelo
-      // ve um turno de conversa, e nao mais uma regra colada na instrucao.
+      // A conversa vai como turnos de verdade (`assistant` e `user`), e nao mais
+      // como uma regra colada na instrucao. Primeiro foi so a ultima pergunta
+      // da padaria (medido 5 de 5 em 03/09/2026); agora vai a conversa recente
+      // inteira, que e o que deixa o modelo saber de qual item era a pergunta
+      // do sabor sem o codigo adivinhar por regex.
+      //
+      // O QUE JA ESTA ANOTADO vai depois do historico e antes da frase, como
+      // mensagem de sistema curta. Fora do prefixo do system de proposito: o
+      // prefixo e o que a OpenAI guarda em cache, e o pedido muda a cada
+      // mensagem.
       messages: [
         { role: "system", content: instrucao + "\n\n" + FORMATO },
-        ...(String(perguntaDaPadaria ?? "").trim()
-          ? [{ role: "assistant" as const, content: String(perguntaDaPadaria).trim() }]
+        ...(historico ?? [])
+          .filter((t) => String(t?.conteudo ?? "").trim())
+          .map((t) => ({
+            role: (t.papel === "user" ? "user" : "assistant") as "user" | "assistant",
+            content: String(t.conteudo).trim(),
+          })),
+        ...(String(anotado ?? "").trim()
+          ? [{ role: "system" as const, content: String(anotado).trim() }]
           : []),
         { role: "user", content: mensagem },
       ],

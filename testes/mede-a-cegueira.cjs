@@ -110,7 +110,7 @@ fs.writeFileSync(
     "  for (let n = 0; n < VEZES; n++) {",
     "    let veredito: string;",
     "    try {",
-    "      const l = await pensar({ instrucao, mensagem: MENSAGEM, perguntaDaPadaria: v.comConversa ? PERGUNTA : null });",
+    "      const l = await pensar({ instrucao, mensagem: MENSAGEM, historico: v.comConversa ? [{ papel: 'assistant', conteudo: PERGUNTA }] : [] });",
     "      veredito = classificar(l as Record<string, unknown>);",
     "    } catch (e) {",
     "      veredito = 'ERRO: ' + String((e as Error)?.message ?? e).slice(0, 80);",

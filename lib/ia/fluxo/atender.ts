@@ -35,6 +35,7 @@ import {
   registrarAceiteCliente,
   devolverPedidoParaEquipe,
 } from "@/lib/banco/pedidos";
+import { ultimasMensagens } from "@/lib/banco/conversas";
 
 export type RespostaDoFluxo = {
   texto: string;
@@ -301,10 +302,23 @@ export async function atenderComFluxoNovo(
   const doBanco = await lerEstadoDoBanco(negocioId, clienteId);
   const antes: Estado = { ...VAZIO, ...doBanco, pedidoAprovado } as Estado;
 
+  // A CONVERSA RECENTE VAI PRO MODELO. Falhar aqui nao pode calar a padaria: sem
+  // historico o fluxo usa a ultima fala dela, que e o que valia ate 03/09/2026.
+  const historico = await ultimasMensagens(negocioId, clienteId).catch((e) => {
+    console.error("[fluxo-novo] falha ao carregar a conversa recente:", e);
+    return null;
+  });
+
   // Sem roteiro fixo: quem escolhe e o tipo do pedido, e a escolha se refaz a
   // cada mensagem. Quem so cumprimentou segue o roteiro comum, que e curto, e
   // troca pro da festa no instante em que falar de festa.
-  const r = await responder(antes, mensagem, pensarComReserva(cliente, contar, modeloDoNegocio, reserva));
+  const r = await responder(
+    antes,
+    mensagem,
+    pensarComReserva(cliente, contar, modeloDoNegocio, reserva),
+    null,
+    historico,
+  );
 
   await gravarEstado(negocioId, clienteId, antes, r.estado);
 
