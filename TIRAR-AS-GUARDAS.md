@@ -205,6 +205,13 @@ Se alguma delas cair, o prejuizo e imediato e ja aconteceu antes.
 
 ## 5. AS GUARDAS QUE DEVEM MORRER, NA ORDEM
 
+**ESTADO EM 03/09/2026 (madrugada):** Fila 2 inteira saiu (B-7, B-8, B-9, B-10,
+C-1, C-2 virou catalogo, C-3 ficou por ser regra de UX). Fila 1: B-2 virou marca
+de estado, B-3 saiu, B-6 pelo modelo, B-4 e B-5 ficaram como rede. Fila 3:
+B-11 e B-14 sairam; B-12, B-13, B-15, B-16 ficaram como rede. Listas: 2909,
+3610 sairam. Fila 4 e as demais listas ficam pra proxima sessao. Detalhe e
+provas em `PLANO-DE-EXECUCAO.md`, no fim.
+
 Cada uma: remover, rodar o portao, **medir uma conversa contra o banco**, commitar
 sozinha. Nunca duas juntas.
 

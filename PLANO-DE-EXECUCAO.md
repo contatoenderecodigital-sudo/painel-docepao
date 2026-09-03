@@ -246,3 +246,44 @@ banco, nunca só o portão.
 - Não liga a reescrita (decisão dele: dobrava o custo e trocava a pergunta).
 - Não mexe em painel, cupom, ponte, lembrete nem cobrança, a não ser os itens
   nomeados na Fase 3.
+
+
+---
+
+## ESTADO EM 03/09/2026, de madrugada (o que ficou feito, com nome)
+
+Commits, na ordem, todos no ar e conferidos pelo SHA do container:
+
+| commit | o que | prova |
+| --- | --- | --- |
+| `0051b30` | a pergunta da padaria vai pro modelo; teto de 6 kg no fim | mede-a-cegueira 5 de 5 |
+| `5e4fd0c` | Fase 1a: historico (12 falas), pedido anotado e cardapio inteiro no prompt | portao 166; conversa contra o banco |
+| `9d5657e` | Fase 1b: o portao por etapa saiu (barrados, guardados, injetor da frase, dicaDaEtapa) | portao 166; "10" virou 10 pessoas em producao |
+| `04cd172` | Fase 3: rascunho limpo ao registrar; foraDoHorario sem return; ultimaFala nas saidas; fecha_sim no botao; fora_do_assunto; aviso do dia; sem janela de 40 no cumprimento | portao 167 |
+| `de62bf7` | pedidoNaFila: "obrigada!" depois de fechar nao repete o resumo | producao: 1 pedido, nao 2 |
+| `c44ef20` | Fila 1: perguntaDePeso vira marca de estado (`etapa:peso`); B-3 saiu; comprovante pelo modelo | modelo real 15 de 15 no peso |
+| `50ef6f8` | Fila 3: delegaEscolha nao e anulado; situacao ganha do item; listas do pedido aprovado sairam; bolo com nome inteiro no cardapio | modelo real 3 de 3 em cada cena |
+| `53bfe74` | delegaEm: delegar salgado e docinho nao entrega o sabor do bolo | producao: bolo sem sabor chutado |
+| (este) | fora_do_assunto no formato: numero errado nao ouve "O que voce precisa?" | modelo real 3 de 3 |
+
+**O que ficou como REDE** (roda so quando o modelo nao devolveu; nunca desfaz o
+que ele leu): desempate do sabor pela ultima fala (B-5), aviso do recheio fixo
+(B-4), peca nomeada na frase (B-12), sabor solto nao e assunto novo (B-13),
+produto montado sobre palavra de sabor (B-16), `semInvencao` (B-15, o modelo com
+contexto nao inventou mais na medicao), `acabouDePerguntar` (B-1: nao bloqueia o
+modelo, so escolhe a instrucao certa), o "Sim" digitado das pecas.
+
+**O que NAO foi feito hoje:** Fila 4 (as 350 linhas de distribuicao de sabor,
+`fluxo.ts` em torno de `esperando`/`peloFixo`) e as listas 3016 (contraste),
+3822 (`ultimaFoiEscolha`), 1916 (janela de 4 palavras), 4156, 1727 e 4131 (pizza).
+Ficam pra proxima sessao, uma por commit, cada uma medida antes.
+
+**Aberto e medido em producao hoje:**
+- "brigadeiro" respondendo a pergunta da cor da forminha repete a pergunta da
+  cor (o cliente respondeu a pergunta errada; aceitavel, mas a padaria podia
+  dizer "brigadeiro e o docinho; qual a cor?").
+- `[cerebro] provedor=openai modelo=deepseek-v4-flash` no log e so o log: a
+  chamada usa o modelo do banco (gpt-4.1-mini). O container tem
+  `IA_BASE_URL=https://api.deepseek.com` e `OPENAI_MODEL_FLUXO=deepseek-v4-flash`
+  no ambiente sem `IA_API_KEY`: so o valor "openai" no banco segura a producao.
+  Tirar as duas variaveis do Coolify e decisao do dono.
