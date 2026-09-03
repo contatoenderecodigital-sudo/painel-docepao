@@ -199,6 +199,50 @@ export function identificarProduto(nomeBruto: string, categoria?: string, frase?
 
   const textoDoContexto = [bruto, frase].filter(Boolean).join(" ");
 
+  // O SABOR DITO DENTRO DE UMA ETAPA E O SABOR DE UM PRODUTO DAQUELA ETAPA.
+  //
+  // Palavra dele, 02/09/2026: *"se ele tiver falando com o cara sobre tal
+  // produto e ele falar o sabor, e obvio o que e"*. Ele tem razao, e a padaria
+  // fazia o contrario. Medido:
+  //
+  //   padaria >> "Agora os docinhos: quais voce quer?"
+  //   cliente >> "morango"
+  //   padaria >> "O bolo morango e vendido por quilo, R$ 49,90 o quilo..."
+  //
+  // A conversa era sobre DOCINHO e ela foi pro BOLO. O motivo e que a busca so
+  // casa por NOME, e nenhum docinho se chama morango: morango e SABOR da trufa.
+  // O bolo morango era o unico candidato com esse nome, entao ele ganhava sem
+  // disputa -- e um bolo de R$ 49,90 o quilo no lugar de uma trufa de R$ 2,25.
+  //
+  // Aqui a etapa procura antes: se a palavra e sabor de algum produto DESTA
+  // familia, e esse produto, com a palavra no recheio. So quando ela NAO e nome
+  // de produto (senao "brigadeiro" no docinho deixaria de ser o brigadeiro pra
+  // virar sabor de outra coisa), e so quando a familia tem UM produto com esse
+  // sabor: com dois, quem escolhe e a pergunta, e nao este arquivo.
+  const daEtapa = semAcMin(String(categoria ?? ""));
+  if (daEtapa) {
+    const cats = categoriasDaFamilia(daEtapa);
+    const doGrupo = cats.length ? cats : [daEtapa];
+    const daFamilia = produtosDaCasa().filter((x) => doGrupo.includes(String(x.categoria)));
+    // A COMPARACAO E DENTRO DA FAMILIA DA ETAPA, e nao no cardapio inteiro.
+    //
+    // Na primeira tentativa eu perguntei "esta palavra e nome de algum produto
+    // da casa?", e ela e: "morango" e o nome curto do BOLO morango. Com isso o
+    // bloco nunca disparava, que era exatamente o defeito.
+    //
+    // A pergunta certa e "esta palavra e nome de algum produto DESTA etapa?".
+    // No docinho, "brigadeiro" e (e segue pelo caminho normal), "morango" nao e
+    // (e ai vale como sabor da trufa).
+    const nomeDaFamilia = daFamilia.some((x) => semAcMin(x.nome) === t0 || semAcMin(x.nomeCurto) === t0);
+    if (!nomeDaFamilia) {
+      const comEsseSabor = daFamilia.filter((x) => x.sabores.some((sab) => semAcMin(sab) === t0));
+      if (comEsseSabor.length === 1) {
+        const achado = comEsseSabor[0];
+        return { produto: achado.nome, recheio: bruto.trim() || null, unidade: achado.unidade, unico: true };
+      }
+    }
+  }
+
   // ------------------------------------------------------------ candidatos
   // Cada candidato sabe o nome que o sistema deve escrever (o canônico) e a
   // forma pela qual o cliente pode ter escrito.
