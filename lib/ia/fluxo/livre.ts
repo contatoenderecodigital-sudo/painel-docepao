@@ -122,18 +122,18 @@ export function instrucaoLivre(): string {
     "REGRAS DA CASA (não invente fora disso):",
     "- Preço é SÓ o do cardápio abaixo. Se não souber um valor, diga que a equipe confirma. Nunca dê desconto: desconto é com a equipe.",
     "- Só existe o que está no cardápio. Sabor que não está na lista: anote como \"a confirmar\" e diga que a equipe confirma se a casa faz.",
-    "- Todo item precisa de quantidade dita pelo cliente (unidades, ou quilos no que é vendido por quilo). Nunca chute: pergunte.",
-    "- Bolo de festa: vendido por quilo, de 300 g a 6 kg, até 2 sabores (vale o preço do mais caro). Topo de bolo é orçado pela equipe (não dê valor). Papel de arroz com foto: R$ 12,00.",
-    "- Bolo de festa também pergunta: papel de arroz? topo? tema e o que vai escrito (nome e idade), só depois do sabor e do peso.",
-    "- Docinhos pedem a cor da forminha (uma cor pro pedido; cores: amarelo, azul, branca, dourada, laranja, lilás, marrom, pink, prata, preta, rosa, roxo, verde, vermelha).",
+    "- Todo item precisa de quantidade dita pelo cliente (unidades, ou quilos no que é vendido por quilo) e, se o produto tem lista de sabores, do sabor escolhido. Nunca chute nenhum dos dois: assim que ele citar um item, a sua próxima pergunta é a quantidade (ou o sabor, se faltar). Na festa a quantidade sai da sugestão que ele aceitou.",
+    "- Você NUNCA escolhe sabor nem produto por ele. O sabor do bolo é sempre dele. Sortido só quando ele pedir pra você escolher, e só de salgados e docinhos.",
+    "- Bolo de festa, nesta ordem, uma pergunta por vez: 1) o sabor; 2) se ele quer misturar com um segundo sabor (até 2, vale o preço do mais caro); 3) quantos quilos (de 300 g a 6 kg; na festa sugira o da base); 4) papel de arroz com a foto impressa (R$ 12,00), sim ou não; 5) topo de bolo, sim ou não (o valor do topo é a equipe que orça, não dê valor); 6) se tiver topo ou papel: o tema e o que vai escrito (nome e idade). O que ele já respondeu numa frase só, não pergunte de novo.",
+    "- Docinhos: depois de saber quais e quantos, pergunte a cor da forminha POR ESCRITO, listando as cores (amarelo, azul, branca, dourada, laranja, lilás, marrom, pink, prata, preta, rosa, roxo, verde, vermelha). Uma cor pro pedido. Nunca mande cardápio pra isso.",
     "- Festa: sugira 10 salgados, 5 docinhos e 100 g de bolo por pessoa (diga os números e o valor), e o cliente ajusta. " +
       "Quando ele aceitar a sugestão, VOCÊ anota as quantidades: reparta o total da família entre os tipos que ele escolher " +
       "(75 docinhos = 40 brigadeiro e 35 beijinho) e diga isso na resposta. Se ele pedir pra você escolher os tipos, escolha " +
       "você mesma 4 ou 5 do cardápio (respeitando o que ele não quer), anote com as quantidades e diga quais foram. " +
       "Mínimo sugerido por sabor: " + (sugerir || 20) + " unidades" + (saboresNoCento ? ", " + saboresNoCento + " sabores no cento" : "") + " (sugira, não recuse).",
-    "- Quando perguntar quais salgados, docinhos, bolo ou pizza a pessoa quer, mande a peça do cardápio junto (campo cardapio), uma vez só cada.",
+    "- Mande a peça do cardápio (campo cardapio) só quando a pessoa NÃO sabe o que quer ou pede pra ver as opções. Se ela já disse exatamente o que quer (\"50 brigadeiro\"), não mande cardápio: anote e pergunte o que falta.",
     "- O que você disser que anotou TEM que vir em itens no mesmo JSON, com quantidade. O PEDIDO ANOTADO do lembrete é a única verdade: não diga no resumo nada que não esteja nele.",
-    "- Se ele pedir pra VOCÊ escolher os tipos de uma família (\"os salgados escolhe você\"), mande escolherPorMim: [\"salgado\"] (ou docinho, bolo): a casa monta o sortido pelo cardápio e ele aparece no lembrete na próxima mensagem. Diga que você montou e siga pra próxima pergunta.",
+    "- Se ele pedir pra VOCÊ escolher os tipos de salgado ou docinho (\"os salgados escolhe você\"), mande escolherPorMim: [\"salgado\"] (ou docinho): a casa monta o sortido pelo cardápio e ele aparece no lembrete na próxima mensagem. Diga que você montou e siga pra próxima pergunta. Bolo nunca entra aí.",
     "- Sabor de bolo (4 leites, laka, prestígio, brigadeiro, mineira...) dito quando o bolo está em aberto é o bolo: produto \"bolo <sabor>\", com o peso combinado (na festa, o da sugestão).",
     "- Restrição alimentar: só o que o cardápio tem (0% lactose é sabor de bolo de festa). Sem glúten, vegano ou diet a casa não faz: diga que vai confirmar com a equipe, sem prometer.",
     "- Pra fechar um pedido você precisa de: itens com quantidade, dia e hora da retirada (dentro do horário), nome de quem retira e forma de pagamento. Quando tiver tudo, mostre o resumo com os valores e pergunte se pode fechar. Quando ele disser que sim, confirmou = true.",
@@ -204,7 +204,7 @@ export function lembreteDoPedido(e: Estado, extra: { pedidoNaFila?: boolean; agu
     partes.push("É festa, ainda sem número de pessoas.");
   }
   if (e.naoQuer?.length) partes.push("Ele não quer: " + e.naoQuer.join(", ") + ".");
-  const falta = [...oQueFaltaPraFechar(e), ...faltaDaFesta(e)];
+  const falta = [...oQueFaltaPraFechar(e), ...faltaSabor(e), ...faltaDaFesta(e)];
   if (e.itens.length) partes.push(falta.length ? "FALTA PRA FECHAR: " + falta.join("; ") + "." : "Está tudo completo: mostre o resumo e pergunte se pode fechar, se ainda não perguntou.");
   if (e.pedidoAprovado) {
     const quando = quandoDoPedido(e.pedidoAprovado);
@@ -216,6 +216,19 @@ export function lembreteDoPedido(e: Estado, extra: { pedidoNaFila?: boolean; agu
   if (extra.avisoDoDia) partes.push("Aviso da padaria hoje: " + extra.avisoDoDia);
   if (e.pecasMandadas?.length) partes.push("Peças de cardápio já mandadas nesta conversa (não mande de novo): " + e.pecasMandadas.join(", ") + ".");
   return partes.join("\n");
+}
+
+/** Produto com lista de sabores e sem sabor escolhido: a padaria pergunta antes de fechar. */
+export function faltaSabor(e: Estado): string[] {
+  const falta: string[] = [];
+  for (const i of e.itens) {
+    const p = produtoPorNome(i.produto) ?? produtoNoComeco(i.produto);
+    if (!p || p.saborFixo || p.sabores.length < 2) continue;
+    const obs = semAcento(String(i.obs ?? ""));
+    const tem = p.sabores.some((sab) => obs.includes(semAcento(sab))) || /a confirmar/.test(obs);
+    if (!tem) falta.push("o sabor do " + i.produto + " (" + p.sabores.slice(0, 8).join(", ") + (p.sabores.length > 8 ? "..." : "") + ")");
+  }
+  return falta;
 }
 
 /** Na festa, familia da sugestao que ele nao recusou e nao anotou ainda nao deixa fechar. */
@@ -414,6 +427,7 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string): 
   // a casa escolhe pra ele, pelo cardapio
   for (const fam of l.escolherPorMim ?? []) {
     const chave = semAcento(String(fam)).replace(/s$/, "");
+    if (chave.startsWith("bolo")) { rastro.push("escolherPorMim bolo: o sabor do bolo e do cliente, nao montei"); continue; }
     const cats = categoriasDaFamilia(chave);
     if (!cats.length) continue;
     const jaTem = e.itens.filter((i) => cats.includes(String(i.categoria))).reduce((t, i) => t + (Number(i.qtd) || 0), 0);
@@ -459,7 +473,20 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string): 
   if (avisos.length) texto = [texto, ...avisos].filter(Boolean).join("\n\n");
   if (!texto.trim()) texto = "Me conta o que você precisa que eu anoto.";
 
-  const cardapio = l.cardapio && (PECAS as readonly string[]).includes(l.cardapio) && !(e.pecasMandadas ?? []).includes(l.cardapio) ? l.cardapio : null;
+  // A PECA NAO VAI QUANDO ELE JA DISSE O QUE QUER DAQUELA FAMILIA.
+  const familiaDaPeca: Record<string, string> = { salgados: "salgado", docinhos: "docinho", "bolos-festa": "bolo", "bolos-caseiros": "bolo", pizza: "pizza" };
+  const nomeouDaFamilia = (peca: string) => {
+    const pref = familiaDaPeca[peca];
+    return Boolean(pref && (l.itens ?? []).some((i) => {
+      const p = produtoPorNome(String(i.produto)) ?? produtoNoComeco(String(i.produto));
+      return p && String(p.categoria).startsWith(pref);
+    }));
+  };
+  const cardapio =
+    l.cardapio && (PECAS as readonly string[]).includes(l.cardapio) && !(e.pecasMandadas ?? []).includes(l.cardapio) && !nomeouDaFamilia(l.cardapio)
+      ? l.cardapio
+      : null;
+  if (l.cardapio && !cardapio && nomeouDaFamilia(String(l.cardapio))) rastro.push("nao mandei o cardapio de " + l.cardapio + ": ele ja disse o que quer");
   if (cardapio) e.pecasMandadas = [...(e.pecasMandadas ?? []), cardapio];
 
   e.ultimaFala = texto;
@@ -543,7 +570,7 @@ export async function atenderLivre(
   let pedidoId: string | undefined;
   let textoFinal = r.texto;
   if (r.confirmou && !pedidoNaFila && !pedidoAprovado) {
-    const falta = [...oQueFaltaPraFechar(r.estado), ...faltaDaFesta(r.estado)];
+    const falta = [...oQueFaltaPraFechar(r.estado), ...faltaSabor(r.estado), ...faltaDaFesta(r.estado)];
     if (!falta.length) {
       try {
         const fechado = await fecharPedido(negocioId, clienteId, r.estado);
