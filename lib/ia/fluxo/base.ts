@@ -30,6 +30,7 @@
 //     Aceitar a base E o pedido. Aqui ela vira item na hora.
 // ============================================================================
 
+import { semAcento } from "../texto";
 import { motorPadrao } from "../orcamento";
 import { minimoPorSaborDoCatalogo, produtosDaCasa } from "../dados/produtos";
 import type { PedidoEmMontagem } from "./etapas";
@@ -266,11 +267,19 @@ export function avisoDePoucoPorSabor(qtds: number[]): string | null {
 export function sortidoDaCasa(
   categorias: string[],
   total: number,
+  // O QUE ELE DISSE QUE NAO QUER NAO ENTRA NO SORTIDO. "os salgados escolhe
+  // voce mas coxinha nao gosto": a coxinha era tirada e o sortido repunha 24
+  // (matriz de entrega, conversa 6, 03/09/2026).
+  excluir: string[] = [],
 ): { produto: string; categoria: string; qtd: number; obs: string | null }[] {
   if (!(total > 0) || !categorias.length) return [];
   const soFesta = categorias.includes("bolo_festa");
+  const fora = excluir.map((x) => semAcento(String(x)).trim()).filter(Boolean);
   const candidatos = produtosDaCasa().filter(
-    (p) => categorias.includes(p.categoria) && (!soFesta || p.categoria === "bolo_festa"),
+    (p) =>
+      categorias.includes(p.categoria) &&
+      (!soFesta || p.categoria === "bolo_festa") &&
+      !fora.some((x) => semAcento(p.nomeCurto) === x || semAcento(p.nome) === x || semAcento(p.nome).startsWith(x + " ")),
   );
   if (!candidatos.length) return [];
 

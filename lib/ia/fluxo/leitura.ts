@@ -959,8 +959,9 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "são salgado. Use o nome inteiro (\"pizza inteira\", não \"inteira\")." + String.fromCharCode(10) +
     "- Cor da forminha dos docinhos vai em forminha." + String.fromCharCode(10) +
     "- Pediu pra casa escolher os tipos ou o sabor? delegaEscolha true, sem itens, e delegaEm " +
-    "com as famílias que ele delegou (salgado, docinho, bolo). Delegou tudo? as três. " +
-    "Aceitar a proposta não é pedir pra casa escolher.";
+    "SEMPRE junto, só com as famílias que ele mandou a casa escolher (\"os salgados escolhe você\" = " +
+    "[\"salgado\"], e nada mais). Delegou tudo? as três. O que ele disse que não quer ou não gosta " +
+    "(\"coxinha não\") vai em naoQuer. Aceitar a proposta não é pedir pra casa escolher.";
 
   return comum + String.fromCharCode(10, 10) + regrasDoCardapio + String.fromCharCode(10, 10) + (daEtapa[etapa] ?? "") + lista;
 }

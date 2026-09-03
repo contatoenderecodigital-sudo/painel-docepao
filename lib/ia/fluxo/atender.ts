@@ -24,6 +24,7 @@
 import type OpenAI from "openai";
 import { responder, type Estado } from "./fluxo";
 import type { Leitura } from "./leitura";
+import { modoLivre, atenderLivre } from "./livre";
 import { pensarComReserva, type Reserva } from "./pensar-com-reserva";
 import { dizerComJeito } from "./dizer";
 import { lerEstadoDoBanco, gravarEstado, zerar } from "./gravar";
@@ -138,6 +139,11 @@ export async function atenderComFluxoNovo(
   // ouve isso, em vez do resumo de novo.
   pedidoNaFila = false,
 ): Promise<RespostaDoFluxo> {
+  // A CONVERSA LIVRE (03/09/2026): a IA conversa, o codigo guarda o dinheiro.
+  // `IA_LIVRE=nao` volta pro fluxo de etapas abaixo.
+  if (modoLivre()) {
+    return atenderLivre(cliente, negocioId, clienteId, mensagem, modeloDoNegocio, pedidoAprovado, pedidoNaFila);
+  }
   const uso = { tokensIn: 0, tokensOut: 0, cacheRead: 0, chamadas: 0 };
   const contar = (u: { tokensIn: number; tokensOut: number; cacheRead?: number }) => {
     uso.tokensIn += u.tokensIn;
