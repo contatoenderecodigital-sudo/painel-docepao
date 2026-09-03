@@ -209,6 +209,13 @@ export type Leitura = {
    * sobre a ultima fala; agora o modelo, que ve a conversa, diz.
    */
   comprovante?: boolean;
+  /**
+   * A PADARIA MANDOU O VALOR FINAL (com o topo orcado pela equipe) e perguntou
+   * se esta certo. Ele aceitou = true; recusou, achou caro ou quer mudar o
+   * valor = false. Ate 03/09/2026 isto era uma lista de palavras ANTES do
+   * modelo, e "beleza, mas muda pra sexta" virava aceite e perdia a mudanca.
+   */
+  aceitouValor?: boolean;
 };
 
 /**
@@ -742,7 +749,10 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "Quer falar com uma pessoa, a dona, a equipe ou um atendente = \"humano\"." + String.fromCharCode(10) +
     "- Pediu pra apagar tudo e começar o pedido do zero = recomecar true (não é tirar item)." + String.fromCharCode(10) +
     "- Pergunta e reclamação NÃO viram item." + String.fromCharCode(10) +
-    "- Foto que chega depois de a padaria pedir o comprovante do pix = comprovante true.";
+    "- Foto que chega depois de a padaria pedir o comprovante do pix = comprovante true." + String.fromCharCode(10) +
+    "- A padaria mandou o VALOR FINAL do pedido (com o topo) e perguntou se está certo? " +
+    "Aceitou = aceitouValor true; recusou, achou caro ou quer outro valor = aceitouValor false. " +
+    "Se ele aceitou mas pediu pra mudar outra coisa (data, item), mande as duas coisas."
 
   // QUANTIDADE QUE O CLIENTE NAO DISSE E ZERO. SEMPRE, E EM TODO PRODUTO.
   //
@@ -935,7 +945,9 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "- O sabor ou recheio vai no campo sabor; recado pra cozinha vai em obs." + String.fromCharCode(10) +
     "- Bolo: o peso em quilos vai na quantidade. Sabor de bolo se escreve com o " +
     "prefixo (\"bolo 4 leites\", \"bolo brigadeiro\"); caseiro só se ele disse " +
-    "caseiro (\"bolo caseiro cenoura\"). O mesmo nome sem prefixo é o docinho. " +
+    "caseiro (\"bolo caseiro cenoura\"). Sabor de bolo que NÃO está na lista (ninho, " +
+    "pistache): produto \"bolo\" e o sabor no campo sabor, nunca um nome inventado. " +
+    "O mesmo nome sem prefixo é o docinho. " +
     "Quem desempata é o contexto: o que a padaria perguntou e a unidade " +
     "(quilo é bolo, unidades é docinho)." + String.fromCharCode(10) +
     "- Mini pizza é salgado assado. Pizza inteira, meia, redonda e calzone não " +
@@ -1189,6 +1201,15 @@ export function leituraQueCabeNaEtapa(
     }
 
     if (!cabe) {
+      // "bolo leite ninho" nao existe, mas "bolo" existe: e um bolo com um sabor
+      // que a casa nao tem na lista. Vira a familia "bolo" com o sabor a
+      // confirmar pela equipe (caminho que ja existe), em vez de sumir com a
+      // linha. Medido em 03/09/2026: "misto de brigadeiro com ninho".
+      const m = /^ *bolo +(caseiro +)?(.+)$/i.exec(String(i.produto));
+      if (m && m[2].trim()) {
+        barrados.push(i.produto + " (sabor fora da lista; vira bolo com sabor a confirmar)");
+        return [{ ...i, produto: m[1] ? "bolo caseiro" : "bolo", sabor: [i.sabor, m[2].trim()].filter(Boolean).join(" ") }];
+      }
       naoExistem.push(i.produto);
       return [];
     }

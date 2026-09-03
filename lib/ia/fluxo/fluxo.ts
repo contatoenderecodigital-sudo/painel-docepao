@@ -45,7 +45,7 @@ import { semAcento as semAc, PALAVRAS_VAZIAS, listaEmPortugues, numerosEscritos 
 import { escreverObs, lerObs, mexerNaObs, type Embalagem } from "@/lib/banco/obs-do-bolo";
 import { calcularBase, baseComQuantidades, ajusteDaBaseNaFrase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
-import { dataDeRetirada, disseQuantidade, respostaAoValor } from "./falas-do-cliente";
+import { dataDeRetirada, disseQuantidade } from "./falas-do-cliente";
 import { retiradaForaDoExpediente, avisoDeEspera } from "@/lib/padaria-aberta";
 import { coresDaForminha, faltaCorDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista, saboresQueFaltam } from "./sabor";
 import { restricoesQueACasaNaoFaz, misturaQueACasaFaz, obsSemRestricao, obsPraComanda, avisoDaRestricao, produtoDaRestricaoNaFrase } from "./restricao";
@@ -2699,6 +2699,7 @@ export function perguntaDeQualTirar(
  * leu a mensagem e ela nao mudou o pedido.
  */
 function leituraVazia(l: Leitura | null | undefined): boolean {
+  if (l && typeof l.aceitouValor === "boolean") return false;
   return Object.values(l ?? {}).every((v) => v == null || v === false || (Array.isArray(v) && !v.length));
 }
 
@@ -2718,11 +2719,16 @@ export async function responder(
   // lia isso e nada lia: nao havia prompt onde enfiar. Agora vai junto do que
   // esta anotado, e o modelo responde sabendo.
   avisoDoDia: string | null = null,
+  // A PADARIA MANDOU O VALOR FINAL E ESPERA O SIM OU NAO. O modelo precisa
+  // saber disso pra ler "beleza" como aceite e "muito caro" como recusa.
+  aguardandoValor = false,
 ): Promise<Resposta> {
   const rastro: string[] = [];
   let estado: Estado = { ...estadoAtual };
   let chamouIA = false;
   let naoTemos: string[] = [];
+  /** Sabor de bolo que a casa nao tem, anotado como "misto com X" pra equipe confirmar. */
+  const saboresForaDaLista: string[] = [];
   let confirmouEscrevendo = false;
   let precisaHumano = false;
   // POR QUE ELA CHAMOU A EQUIPE, e nao so QUE chamou.
@@ -2785,7 +2791,13 @@ export async function responder(
       historico:
         historico ??
         (estado.ultimaFala ? [{ papel: "assistant" as const, conteudo: String(estado.ultimaFala) }] : []),
-      anotado: [resumoDoAnotado(estado), avisoDoDia ? "Aviso da padaria hoje: " + avisoDoDia : null]
+      anotado: [
+        resumoDoAnotado(estado),
+        avisoDoDia ? "Aviso da padaria hoje: " + avisoDoDia : null,
+        aguardandoValor
+          ? "A padaria acabou de mandar o VALOR FINAL do pedido (com o topo orçado pela equipe) e perguntou se está certo: leia a resposta como aceitouValor true ou false."
+          : null,
+      ]
         .filter(Boolean)
         .join(" ") || null,
     });
@@ -2931,6 +2943,39 @@ export async function responder(
     }
 
     const { limpa, barrados, naoExistem, paraDepois } = leituraQueCabeNaEtapa(etapaAgora.id, crua);
+
+    // BOLO COM SABOR QUE A CASA NAO TEM (03/09/2026). O modelo devolve "bolo"
+    // com o sabor no campo (regra do cardapio). Tres saidas, pelo catalogo:
+    //   - o sabor EXISTE como bolo ("bolo" + "laka"): vira o produto de verdade;
+    //   - nao existe e ha OUTRO bolo na mesma leitura ("misto de brigadeiro com
+    //     ninho"): vira "misto com ninho (sabor a confirmar)" no bolo que
+    //     existe, e a equipe e chamada. Antes, a familia "bolo" solta virava
+    //     ajuste da base (1 kg) e a fusao do misto escrevia "brigadeiro e
+    //     brigadeiro";
+    //   - nao existe e esta sozinho: fica como familia com o sabor, e a etapa
+    //     do bolo pergunta de novo mostrando a lista (caminho da insistencia).
+    if (limpa.itens?.length) {
+      const bolos = limpa.itens.filter((i) => /^bolo/i.test(String(i.produto).trim()));
+      const soFamilia = bolos.filter((i) => /^bolo( caseiro)?$/i.test(String(i.produto).trim()) && String(i.sabor ?? "").trim());
+      for (const f of soFamilia) {
+        const sabor = String(f.sabor).trim();
+        const deVerdade = produtoPorNome(f.produto + " " + sabor) ?? produtoNoComeco(f.produto + " " + sabor);
+        if (deVerdade) {
+          f.produto = deVerdade.nome;
+          f.sabor = null;
+          rastro.push("\"" + f.produto + "\" e bolo do cardapio; usei o nome dele");
+          continue;
+        }
+        const dono = bolos.find((b) => b !== f && !soFamilia.includes(b));
+        if (dono) {
+          dono.obs = [dono.obs, "misto com " + sabor + " (" + MARCA_SABOR_A_CONFIRMAR + ")"].filter(Boolean).join(" | ");
+          if (Number(dono.qtd) <= 0 && Number(f.qtd) > 0) dono.qtd = Number(f.qtd);
+          limpa.itens = limpa.itens.filter((i) => i !== f);
+          saboresForaDaLista.push(dono.produto + " misto com " + sabor);
+          rastro.push("sabor de bolo fora da lista (" + sabor + "); virou misto no " + dono.produto + ", a confirmar pela equipe");
+        }
+      }
+    }
     if (barrados.length) rastro.push("barrado nesta etapa: " + barrados.join(", "));
 
     // AQUI MORAVAM 150 LINHAS QUE REMONTAVAM PELA FRASE O QUE A INSTRUCAO TINHA
@@ -4585,6 +4630,20 @@ export async function responder(
   //
   // A hora continuava faltando, e por isso a pergunta volta. Voltar esta certo.
   // Desistir e que nao.
+  if (saboresForaDaLista.length && !aceitouSaborInsistido) {
+    // O mesmo aviso do sabor insistido, sem esperar insistencia: o misto ja
+    // esta anotado e a equipe precisa confirmar se a casa faz.
+    estado = { ...estado, saboresAConfirmar: saboresForaDaLista };
+    precisaHumano = true;
+    motivoHumano = "Sabor fora do cardápio: " + saboresForaDaLista.join(", ") +
+      ". Anotei como misto pra vocês confirmarem se a casa faz.";
+    fala = {
+      ...fala,
+      texto: "Anotei " + saboresForaDaLista.join(", ") +
+        ". A equipe confirma se a casa faz esse sabor." +
+        (fala.texto ? "\n\n" + fala.texto : ""),
+    };
+  }
   const entendeuAlgo = semContabilidade(estadoAtual) !== semContabilidade(estado);
   // DE QUE ETAPA SAIU A PERGUNTA QUE ESTA INDO AGORA.
   //

@@ -23,13 +23,14 @@
 
 import type OpenAI from "openai";
 import { responder, type Estado } from "./fluxo";
+import type { Leitura } from "./leitura";
 import { pensarComReserva, type Reserva } from "./pensar-com-reserva";
 import { dizerComJeito } from "./dizer";
 import { lerEstadoDoBanco, gravarEstado, zerar } from "./gravar";
 import { fecharPedido } from "./fechar";
 import { falaDaEtapa } from "./pergunta";
 import { roteiroDoPedido } from "./etapas";
-import { comCumprimento, tirarCumprimento, semEmoji, respostaAoValor } from "./falas-do-cliente";
+import { comCumprimento, tirarCumprimento, semEmoji } from "./falas-do-cliente";
 import {
   temPedidoAguardandoCliente,
   registrarAceiteCliente,
@@ -209,100 +210,53 @@ export async function atenderComFluxoNovo(
   //  Aqui a conversa nem chega no fluxo: e resposta a uma pergunta de dinheiro,
   //  com duas saidas conhecidas, e quem decide e o codigo.
   // ================================================================
-  try {
-    if (await temPedidoAguardandoCliente(negocioId, clienteId)) {
-      // O TOQUE NO BOTAO VALE COMO RESPOSTA, E VALE ANTES DA PALAVRA.
-      //
-      // Sem isto o botao que a padaria manda logo abaixo seria enfeite: o
-      // cliente tocaria em "Ta certo" e a leitura por texto tentaria adivinhar
-      // "Ta certo" de novo. Regra do dono, 23/08/2026, sobre outro botao que
-      // fazia isso: "os botoes tem uns que ta la pra bonito".
-      const resposta =
-        mensagem.botaoId === "valor_sim"
-          ? "aceitou"
-          : mensagem.botaoId === "valor_nao"
-            ? "recusou"
-            : respostaAoValor(mensagem.texto);
-
-      if (resposta === "aceitou") {
-        const foi = await registrarAceiteCliente(negocioId, clienteId);
-        // O "NAO CONSEGUI ANOTAR" PRECISA CHAMAR ALGUEM.
-        //
-        // `registrarAceiteCliente` devolve se conseguiu. Quando NAO conseguia, a
-        // padaria dizia "Anotei aqui, obrigado. Assim que a equipe confirmar eu
-        // te aviso" e ninguem era avisado de nada: o pedido nao andava, o painel
-        // nao acendia, e o cliente ficava esperando uma confirmacao que nunca ia
-        // chegar.
-        //
-        // E o aceite de um VALOR: o cliente ja disse sim pro dinheiro. Perder
-        // isso em silencio e o pior tipo de falha que este sistema tem.
-        //
-        // Achado na segunda leitura de 27/08/2026. Na primeira eu li estas
-        // linhas e nao vi.
-        return {
-          texto: semEmoji(
-            foi
-              ? "Perfeito, obrigado. Seu pedido foi pra fila de aprovação da equipe e eu te aviso assim que confirmarem."
-              : "Perfeito, obrigado. Já avisei a equipe da padaria e eles confirmam com você por aqui.",
-          ),
-          botoes: [],
-          cardapio: null,
-          etapa: "registrado",
-          precisaHumano: !foi,
-          rastro: foi
-            ? ["ele aceitou o valor da equipe; o pedido foi pra fila de aprovacao"]
-            : ["ele aceitou o valor mas o registro do aceite falhou; chamei a equipe"],
-          uso,
-        };
-      }
-
-      if (resposta === "recusou") {
-        await devolverPedidoParaEquipe(
-          negocioId,
-          clienteId,
-          "O cliente nao aceitou o valor: " + String(mensagem.texto).slice(0, 200),
-        );
-        return {
-          texto:
-            "Entendi. Vou passar pra equipe da padaria pra eles verem o que dá pra fazer, e te respondo por aqui.",
-          botoes: [],
-          cardapio: null,
-          etapa: "registrado",
-          precisaHumano: true,
-          rastro: ["ele nao aceitou o valor; devolvi o pedido pra equipe"],
-          uso,
-        };
-      }
-
-      // Nao deu pra entender se foi sim ou nao. Perguntar de novo e melhor que
-      // decidir por ele: e dinheiro, e a resposta muda o que vai pra producao.
-      //
-      // MAS PERGUNTAR IGUAL PRA SEMPRE E UM BECO, E ESTE TRECHO NAO TINHA SAIDA.
-      //
-      // Ele roda ANTES do fluxo, entao o contador de insistencia do fluxo nunca
-      // chega aqui: quem respondesse qualquer coisa que nao fosse um sim ou um
-      // nao claro ouvia exatamente esta frase em TODA mensagem, sem fim e sem
-      // ninguem ser chamado.
-      //
-      // A resposta aqui so tem duas saidas, entao ela e caso de BOTAO: o cliente
-      // toca em vez de escrever e nao ha o que interpretar. E a mesma decisao do
-      // dono pro resto do sistema, e ela vale mais ainda onde tem dinheiro.
-      //
-      // Achado na segunda leitura de 27/08/2026.
-      return {
-        texto: "Só pra eu não errar: esse valor tá certo pra você?",
-        botoes: [
-          { id: "valor_sim", titulo: "Tá certo" },
-          { id: "valor_nao", titulo: "Quero falar" },
-        ],
-        cardapio: null,
-        etapa: "registrado",
-        rastro: ["nao entendi se ele aceitou o valor; perguntei com botao"],
-        uso,
-      };
-    }
-  } catch (e) {
+  // O DINHEIRO CONTINUA DECIDIDO POR BOTAO; O TEXTO E LIDO PELO MODELO (03/09/2026).
+  //
+  // Ate aqui o texto passava por uma lista de palavras (`respostaAoValor`)
+  // ANTES do modelo: "beleza, mas muda pra sexta" virava aceite e a mudanca se
+  // perdia; "quero mais 100 coxinha" repetia a pergunta com botao e as 100
+  // coxinhas sumiam. Agora o modelo le a frase vendo a conversa e devolve
+  // `aceitouValor` (true/false), ou o que ele quer mudar. Quem mexe no pedido
+  // depois de a equipe ter orcado o topo e a equipe: a mudanca vai pra ela com
+  // o motivo, e nao e aplicada calada num pedido que ja tem valor combinado.
+  const aguardandoValor = await temPedidoAguardandoCliente(negocioId, clienteId).catch((e) => {
     console.error("[fluxo-novo] falha ao checar pedido aguardando o cliente:", e);
+    return false;
+  });
+  const aceitou = async (): Promise<RespostaDoFluxo> => {
+    const foi = await registrarAceiteCliente(negocioId, clienteId);
+    return {
+      texto: semEmoji(
+        foi
+          ? "Perfeito, obrigado. Seu pedido foi pra fila de aprovação da equipe e eu te aviso assim que confirmarem."
+          : "Perfeito, obrigado. Já avisei a equipe da padaria e eles confirmam com você por aqui.",
+      ),
+      botoes: [],
+      cardapio: null,
+      etapa: "registrado",
+      precisaHumano: !foi,
+      rastro: foi
+        ? ["ele aceitou o valor da equipe; o pedido foi pra fila de aprovacao"]
+        : ["ele aceitou o valor mas o registro do aceite falhou; chamei a equipe"],
+      uso,
+    };
+  };
+  const recusou = async (motivo: string, rastro: string): Promise<RespostaDoFluxo> => {
+    await devolverPedidoParaEquipe(negocioId, clienteId, motivo + ": " + String(mensagem.texto).slice(0, 200));
+    return {
+      texto:
+        "Entendi. Vou passar pra equipe da padaria pra eles verem o que dá pra fazer, e te respondo por aqui.",
+      botoes: [],
+      cardapio: null,
+      etapa: "registrado",
+      precisaHumano: true,
+      rastro: [rastro],
+      uso,
+    };
+  };
+  if (aguardandoValor && mensagem.botaoId === "valor_sim") return aceitou();
+  if (aguardandoValor && mensagem.botaoId === "valor_nao") {
+    return recusou("O cliente nao aceitou o valor", "ele nao aceitou o valor (botao); devolvi o pedido pra equipe");
   }
 
   // O que ja estava gravado manda: a dona pode ter editado na tela entre uma
@@ -331,14 +285,70 @@ export async function atenderComFluxoNovo(
     })
     .catch(() => null);
 
-  const r = await responder(
-    antes,
-    mensagem,
-    pensarComReserva(cliente, contar, modeloDoNegocio, reserva),
-    null,
-    historico,
-    avisoDoDia,
-  );
+  const pensar = pensarComReserva(cliente, contar, modeloDoNegocio, reserva);
+
+  if (aguardandoValor && !mensagem.botaoId) {
+    // O modelo le a frase com a conversa e o aviso do valor; nada do que ele
+    // ler e gravado no rascunho aqui: o pedido ja tem valor combinado.
+    const captura: { leitura: Leitura | null } = { leitura: null };
+    const pensarQueCaptura: typeof pensar = async (args) => {
+      const l = await pensar(args);
+      captura.leitura = l;
+      return l;
+    };
+    await responder(antes, mensagem, pensarQueCaptura, null, historico, avisoDoDia, true);
+    const l = captura.leitura ?? {};
+    const querMexer = Boolean(
+      l.itens?.length || l.tirar?.length || l.dados || l.pecas || l.naoQuer?.length ||
+      l.recomecar || l.situacao === "cancelar" || l.situacao === "reclamacao",
+    );
+    if (l.aceitouValor === true && querMexer) {
+      // "beleza, mas muda pra sexta as 15h" (medido 3 de 3): o valor esta
+      // aceito E ha uma mudanca. O aceite e registrado, e a mudanca vai pra
+      // equipe com a frase, porque o pedido ja tem valor combinado.
+      const r = await aceitou();
+      await devolverPedidoParaEquipe(
+        negocioId,
+        clienteId,
+        "O cliente aceitou o valor e pediu uma mudanca: " + String(mensagem.texto).slice(0, 200),
+      ).catch((e) => console.error("[fluxo-novo] falha ao devolver a mudanca pra equipe:", e));
+      return {
+        ...r,
+        texto: semEmoji(
+          "Perfeito, obrigado. O que você pediu pra mudar eu passei pra equipe da padaria, " +
+            "que confirma com você por aqui.",
+        ),
+        precisaHumano: true,
+        rastro: [...r.rastro, "e pediu uma mudanca junto; devolvi pra equipe com a frase"],
+      };
+    }
+    if (l.aceitouValor === true) return aceitou();
+    if (l.aceitouValor === false) {
+      return recusou("O cliente nao aceitou o valor", "ele nao aceitou o valor; devolvi o pedido pra equipe");
+    }
+    if (querMexer) {
+      return recusou(
+        "O cliente quer mudar o pedido depois do valor orcado",
+        "ele quer mudar algo depois do valor; devolvi o pedido pra equipe com a frase",
+      );
+    }
+    if (l.situacao === "humano") {
+      return recusou("O cliente pediu pra falar com gente", "ele pediu gente; devolvi o pedido pra equipe");
+    }
+    return {
+      texto: "Só pra eu não errar: esse valor tá certo pra você?",
+      botoes: [
+        { id: "valor_sim", titulo: "Tá certo" },
+        { id: "valor_nao", titulo: "Quero falar" },
+      ],
+      cardapio: null,
+      etapa: "registrado",
+      rastro: ["nao entendi se ele aceitou o valor; perguntei com botao"],
+      uso,
+    };
+  }
+
+  const r = await responder(antes, mensagem, pensar, null, historico, avisoDoDia);
 
   // O modelo leu "apaga tudo e comeca do zero": nada do que ele leu neste turno
   // e gravado; o rascunho e zerado e a conversa recomeca.

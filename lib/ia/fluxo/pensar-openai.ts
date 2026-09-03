@@ -78,7 +78,8 @@ const FORMATO = `Responda SÓ com um JSON, sem texto em volta, neste formato:
   "dados": { "nome": "", "data": "DD/MM/AAAA", "hora": "HH:MM", "pagamento": "pix" },
   "falouDeOutraEtapa": "bolo",
   "recomecar": false,
-  "comprovante": true
+  "comprovante": true,
+  "aceitouValor": true
 }
 
 Mande SÓ os campos que a mensagem mudou. Campo que não mudou, não mande.
@@ -313,6 +314,7 @@ export function pensarComOpenAI(
       // comendo a resposta certa da outra.
       if (lido.confirmou === true) limpo.confirmou = true;
       if (lido.comprovante === true) limpo.comprovante = true;
+      if (typeof lido.aceitouValor === "boolean") limpo.aceitouValor = lido.aceitouValor;
       if (Array.isArray(lido.naoQuer) && lido.naoQuer.length) {
         limpo.naoQuer = lido.naoQuer.map(String).filter(Boolean);
       }
