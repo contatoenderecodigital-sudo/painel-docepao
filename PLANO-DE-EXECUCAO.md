@@ -267,7 +267,8 @@ Commits, na ordem, todos no ar e conferidos pelo SHA do container:
 | `f3a45fc` | fora_do_assunto no formato: numero errado nao ouve "O que voce precisa?" | modelo real 3 de 3 |
 | `1b37633` | sabor do bolo com docinho de mesmo nome anotado: lembrete completo (forminha, pecas, bolo sem sabor), falas seguidas da padaria viram uma, dica do bolo explicita | modelo real 3 de 3; era {} antes |
 | `871ff0e` | o atalho do "Sim" digitado saiu (107 linhas): o texto sempre chega ao modelo | producao: a frase mista perdia tema e escrito; modelo 3 de 3 em Sim/nao/mista/contraste |
-| (seguinte) | Fila 4: as 247 linhas de distribuicao de sabor sairam; `humano`, `recomecar` e `opcoes` viram campos do modelo (as regex de "quero falar com a dona", "apaga tudo" e "quais tem?" sairam); a linha de pizza que ja existe aceita o sabor respondido, e duas pizzas com sabores diferentes sao duas linhas | modelo real 3 de 3 em 12 cenas; portao 168 |
+| `34fe798` | Fila 4: as 247 linhas de distribuicao de sabor sairam; `humano`, `recomecar` e `opcoes` viram campos do modelo (as regex de "quero falar com a dona", "apaga tudo" e "quais tem?" sairam); a linha de pizza que ja existe aceita o sabor respondido, e duas pizzas com sabores diferentes sao duas linhas | modelo real 3 de 3 em 12 cenas; portao 168 |
+| `6aad86d` | o peso que ja estava nao some quando o modelo repete o item na confirmacao | bateria: cenario 5 era 4/5, virou 5/5 |
 
 **O que ficou como REDE** (roda so quando o modelo nao devolveu; nunca desfaz o
 que ele leu): desempate do sabor pela ultima fala (B-5), aviso do recheio fixo
@@ -286,6 +287,10 @@ de pizza (regra de dinheiro medida), `desconto` como rede pra chamar gente.
 O caminho "pedido aguardando o valor do topo" continua decidindo por botao e
 pela lista `respostaAoValor` ANTES do modelo; e a unica lista de intencao que
 ficou, e a razao e dinheiro: aceitar um valor tem que ser inequivoco.
+
+**Bateria dos cinco jeitos (`medidor.cjs 5`), 03/09 de manha:** cenarios 1 a 4
+pass^5 em `34fe798`; o 5 ("mudando de ideia") era 4/5 pela regra do peso e
+virou 5/5 em `6aad86d`. Conversas em `conversas-da-medicao.txt`.
 
 **Aberto e medido em producao hoje:**
 - "brigadeiro" respondendo a pergunta da cor da forminha repete a pergunta da
