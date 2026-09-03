@@ -135,6 +135,7 @@ export function instrucaoLivre(): string {
       "(75 docinhos = 40 brigadeiro e 35 beijinho) e diga isso na resposta. Se ele pedir pra você escolher os tipos, escolha " +
       "você mesma 4 ou 5 do cardápio (respeitando o que ele não quer), anote com as quantidades e diga quais foram. " +
       "Mínimo sugerido por sabor: " + (sugerir || 20) + " unidades" + (saboresNoCento ? ", " + saboresNoCento + " sabores no cento" : "") + " (sugira, não recuse).",
+    "- Em itens só entram produtos do cardápio (coxinha, brigadeiro, bolo brigadeiro). Nunca mande \"salgado\", \"docinho\" ou \"bolo\" soltos: quando ele aceitar a sugestão da festa, os totais ficam na sugestão e viram itens quando ele escolher os tipos e os sabores.",
     "- Mande a peça do cardápio (campo cardapio) só quando a pessoa NÃO sabe o que quer ou pede pra ver as opções. Se ela já disse exatamente o que quer (\"50 brigadeiro\"), não mande cardápio: anote e pergunte o que falta.",
     "- O que você disser que anotou TEM que vir em itens no mesmo JSON, com quantidade. O PEDIDO ANOTADO do lembrete é a única verdade: não diga no resumo nada que não esteja nele.",
     "- Se ele pedir pra VOCÊ escolher os tipos de salgado ou docinho (\"os salgados escolhe você\"), mande escolherPorMim: [\"salgado\"] (ou docinho): a casa monta o sortido pelo cardápio e ele aparece no lembrete na próxima mensagem. Diga que você montou e siga pra próxima pergunta. Bolo nunca entra aí.",
@@ -362,6 +363,14 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
       // "bolo" + sabor que existe como bolo ("bolo laka")
       const tentativa = bruto.sabor ? produtoPorNome(nomeBruto + " " + bruto.sabor) ?? produtoNoComeco(nomeBruto + " " + bruto.sabor) : null;
       if (tentativa) { daCasa = tentativa; canon = tentativa.nome; }
+    }
+    if (!daCasa && /^(salgad(o|a|inho)s?|docinhos?|doces?|bolos?|bolo de festa|bolo festa|tortas?|pizzas?|paes|pães|cucas?)$/i.test(semAcento(nomeBruto))) {
+      // "200 salgados, 100 docinhos, 2 kg de bolo" da sugestao da festa: e familia,
+      // nao produto. A sugestao ja mora no lembrete (pessoas x 10/5/100 g); a
+      // quantidade vira item quando ele escolher os tipos. Sem aviso, que ele nao
+      // pediu nada fora do cardapio (medido em producao 03/09 17:34).
+      rastro.push("familia, nao produto (a sugestao da festa cobre): " + nomeBruto);
+      continue;
     }
     if (!daCasa) {
       rastro.push("nao existe no cardapio, nao entrou: " + nomeBruto);
