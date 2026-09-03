@@ -158,7 +158,32 @@ export type Estado = PedidoEmMontagem & {
 };
 
 /** Quem chama o modelo. Injetado pra dar pra testar sem gastar. */
-export type Pensar = (args: { instrucao: string; mensagem: string }) => Promise<Leitura>;
+/**
+ * O QUE VAI PRO MODELO. E ELE PRECISA VER A CONVERSA, NAO SO A FRASE.
+ *
+ * `perguntaDaPadaria` e a ultima coisa que a padaria disse, e ate 03/09/2026 ela
+ * NAO era mandada. O modelo recebia a frase do cliente sozinha:
+ *
+ *   padaria >> Quantas pessoas vao na festa?      (o modelo nunca viu isto)
+ *   cliente >> 10
+ *   modelo  >> 10x bolo, delegaEscolha
+ *   pedido  >> 10 kg de bolo 4 leites, R$ 469,00
+ *
+ * Ele nao errou: ele nao tinha como saber do que se tratava. O unico contexto
+ * que existia era a instrucao da etapa, escolhida pelo codigo -- e quando o
+ * codigo escolhe a etapa errada, o modelo le a frase certa com a pergunta
+ * errada, e o pedido inteiro sai torto.
+ *
+ * Palavra do dono, repetida durante um mes: *"deixa ela entender sozinha com
+ * contexto, para de bloquear ela; cade o contexto dela?"*. Ele estava certo, e
+ * a falta de contexto era literal: uma linha de `messages` que nao existia.
+ */
+export type Pensar = (args: {
+  instrucao: string;
+  mensagem: string;
+  /** A ultima fala da padaria, pro modelo saber o que foi perguntado. */
+  perguntaDaPadaria?: string | null;
+}) => Promise<Leitura>;
 
 export type Resposta = {
   fala: Fala;
@@ -3030,7 +3055,13 @@ export async function responder(
   } else if (mensagem.texto.trim()) {
     // ----------------------------------------------------------- texto livre
     const instrucao = instrucaoDaEtapa(etapaAgora.id, estado);
-    const crua = await pensar({ instrucao, mensagem: mensagem.texto });
+    // A PERGUNTA DA PADARIA VAI JUNTO. Sem ela o modelo le a frase do cliente no
+    // vazio, e "10" depois de "quantas pessoas?" vira dez quilos de bolo.
+    const crua = await pensar({
+      instrucao,
+      mensagem: mensagem.texto,
+      perguntaDaPadaria: estado.ultimaFala ?? null,
+    });
     chamouIA = true;
 
     // O QUE O MODELO DEVOLVEU, NO RASTRO.
@@ -5073,6 +5104,61 @@ export async function responder(
         return { ...i, qtd: inteira };
       }),
     };
+
+    // NENHUM BOLO PASSA DO MAIOR QUE A CASA FAZ. EM CAMINHO NENHUM.
+    //
+    // O catalogo diz o tamanho, com a fonte da dona: "redondo de 300 g a 5,5 kg,
+    // quadrado de 2,5 kg a 6 kg". Dez quilos nao existe.
+    //
+    // A trava ja existia (`naoCabeNoBolo`), e ela tem DOIS buracos que so
+    // apareceram na conversa dele de 03/09/2026:
+    //
+    //   1. ela nao roda quando a CASA escolhe o sabor (`delegaEscolha`), que foi
+    //      exatamente o caminho: "10x bolo" virou "10 bolo 4 leites";
+    //   2. ela roda no meio do fluxo, e quem entra depois dela nao e conferido.
+    //
+    //   cliente >> gostaria de fazer pedido de docinhos salgados e bolo
+    //   padaria >> Quantas pessoas vao na festa?
+    //   cliente >> 10
+    //   pedido  >> 10 kg de bolo 4 leites, R$ 469,00
+    //
+    // Por isso ela vem PRA CA, pro fim do fluxo, junto da trava do nome que nao
+    // existe: aqui passa TODA linha, tenha ela vindo do modelo, da proposta, da
+    // escolha da casa ou da correcao da equipe.
+    //
+    // E ELA NAO CORTA O NUMERO, PERGUNTA. Dez quilos pode ser erro de digitacao
+    // ou pode ser DOIS BOLOS, e quem decide isso e a padaria com o cliente, nao
+    // este arquivo. O peso volta a zero e a etapa do bolo pergunta de novo,
+    // dizendo o tamanho que cabe.
+    const bolosGrandes = estado.itens.filter(
+      (i) =>
+        // O LUGAR VAZIO DA FAMILIA NAO E UM BOLO AINDA.
+        //
+        // "quero 50 bombom" entra como `bolo` generico com 50, e o 50 e
+        // informacao que o cliente deu: zerar ali seria fazer sumir o que ele
+        // falou, que e a regra numero um da casa. O teto vale quando a linha
+        // virar um bolo de verdade, e ai a conta e de quilo.
+        //
+        // O portao pegou isto em 03/09/2026, em dois testes de uma vez.
+        !ehNomeDeFamilia(i.produto) &&
+        String(i.categoria || "").startsWith("bolo") &&
+        unidadeDoPedido(String(i.produto || ""), String(i.categoria || "")) === "kg" &&
+        Number(i.qtd) > PESO_DO_MAIOR_BOLO,
+    );
+    if (bolosGrandes.length) {
+      const nomes = bolosGrandes.map((i) => i.qtd + " kg de " + i.produto).join(", ");
+      estado = {
+        ...estado,
+        itens: estado.itens.map((i) => (bolosGrandes.includes(i) ? { ...i, qtd: 0 } : i)),
+        // O aviso sai na frente da pergunta e vive um turno, igual aos outros.
+        poucoPorSabor:
+          "O maior bolo que a gente faz tem " + PESO_DO_MAIOR_BOLO + " kg. " +
+          "Pra mais que isso a gente faz em dois bolos, e eu preciso confirmar com a equipe.",
+      };
+      rastro.push(
+        "nao cabe num bolo so: " + nomes + "; zerei o peso e a padaria pergunta de novo",
+      );
+    }
 
     const forasteiros = estado.itens.filter((i) => !daCasa(String(i.produto || "")));
     if (forasteiros.length) {

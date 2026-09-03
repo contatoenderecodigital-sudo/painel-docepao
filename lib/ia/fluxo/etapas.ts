@@ -308,6 +308,44 @@ const jaPerguntouEEleNaoRespondeu = (p: PedidoEmMontagem, oQue: string) =>
   (p.etapasJaPerguntadas ?? []).includes(oQue);
 
 /**
+ * A PERGUNTA ACABOU DE SAIR, e a mensagem que chegou E A RESPOSTA DELA.
+ *
+ * POR QUE ISTO EXISTE, e custou um pedido inteiro
+ *
+ * `jaPerguntouEEleNaoRespondeu` diz "ja perguntei alguma vez", e uma etapa
+ * marcada assim e pulada JA NA MENSAGEM SEGUINTE -- antes de o cliente ter tido
+ * chance de responder. Medido na conversa dele de 03/09/2026:
+ *
+ *   cliente >> gostaria de fazer pedido de docinhos salgados e bolo
+ *   padaria >> Quantas pessoas vao na festa?
+ *   cliente >> 10
+ *   pedido  >> 10 kg de bolo 4 leites, R$ 469,00
+ *
+ * O "10" eram DEZ PESSOAS. Como a etapa `quantas_pessoas` ja estava marcada
+ * como perguntada, ela foi pulada, a etapa da vez virou a do BOLO, e o modelo
+ * leu o numero com a instrucao do bolo: dez quilos. A proposta nunca aconteceu,
+ * e os docinhos e salgados sumiram do pedido.
+ *
+ * O arquivo ja tinha um aviso sobre esta mesma familia, na proposta: *"o
+ * `jaPerguntouEEleNaoRespondeu` aqui fazia a primeira resposta pular salgado,
+ * docinho e bolo"*. Ali o conserto foi tirar a guarda daquela etapa; a doenca
+ * continuou nas outras.
+ *
+ * O SINAL SAI DA PROPRIA LISTA, sem campo novo: ela acumula na ordem em que as
+ * perguntas sairam, entao a ULTIMA marca e a pergunta que acabou de ser feita.
+ * Se ela e desta etapa, a mensagem que chegou agora e a resposta dela.
+ *
+ * Assim que a conversa anda, outra etapa entra na lista e esta volta a ser
+ * pulavel: quem ignorou a pergunta continua nao sendo perseguido.
+ */
+const acabouDePerguntar = (p: PedidoEmMontagem, oQue: string): boolean => {
+  const marcas = p.etapasJaPerguntadas ?? [];
+  const ultima = marcas[marcas.length - 1];
+  if (!ultima) return false;
+  return ultima === oQue || String(ultima).startsWith(oQue + ":");
+};
+
+/**
  * A COR DA FORMINHA JA FOI PERGUNTADA?
  *
  * UMA PERGUNTA SO, PRO PEDIDO INTEIRO.
@@ -624,7 +662,9 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
       // ligava a festa se ele dissesse a palavra. A pergunta e dele, nao a
       // conclusao: quem responder que e pra casa segue item a item.
       (!p.ehFesta && !pareceEncomendaDeFesta(p)) ||
-      jaPerguntouEEleNaoRespondeu(p, "quantas_pessoas") ||
+      // A PERGUNTA QUE ACABOU DE SAIR ESPERA A RESPOSTA. Sem isto o "10" que
+      // responde "quantas pessoas?" e lido na etapa do BOLO e vira 10 quilos.
+      (jaPerguntouEEleNaoRespondeu(p, "quantas_pessoas") && !acabouDePerguntar(p, "quantas_pessoas")) ||
       (!p.baseAceita &&
         p.itens.some((i) => Number(i.qtd) > 1 && !ehNomeDeFamilia(i.produto))),
   },

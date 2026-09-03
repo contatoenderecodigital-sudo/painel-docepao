@@ -37,6 +37,11 @@ const FORA = [
   // minutos de portao, build, deploy e espera do container.
   //   OPENAI_API_KEY=... node testes/bancada.cjs falas.json
   "bancada.cjs",
+  // A MEDICAO DA CEGUEIRA (secao 3 do TIRAR-AS-GUARDAS.md): manda a cena do
+  // "10" ao modelo de verdade, com e sem a conversa no prompt, e conta o que
+  // volta. Gasta token e pede chave: instrumento, nao portao.
+  //   OPENAI_API_KEY=... node testes/mede-a-cegueira.cjs
+  "mede-a-cegueira.cjs",
   // O `falar.cjs` conversa uma mensagem por vez pelo WhatsApp de verdade, e a
   // proxima fala e escolhida DEPOIS de ler a resposta. Fala com o VPS.
   "falar.cjs",

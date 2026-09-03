@@ -94,7 +94,7 @@ export function pensarComOpenAI(
   registrar?: (uso: { tokensIn: number; tokensOut: number; cacheRead: number }) => void,
   modeloDoNegocio: string | null = null,
 ): Pensar {
-  return async ({ instrucao, mensagem }) => {
+  return async ({ instrucao, mensagem, perguntaDaPadaria }) => {
     // Quem manda no formato e o provedor, e a URL diz qual e.
     const anthropic = /anthropic|claude/i.test(String(process.env.IA_BASE_URL || "")) ||
       /^claude-/i.test(modeloDoCerebro(modeloDoNegocio));
@@ -127,8 +127,33 @@ export function pensarComOpenAI(
       // ja sabe tirar a cerca: a instrucao continua mandando devolver JSON, que
       // e o que de fato garante o formato nos dois.
       ...(anthropic ? {} : { response_format: { type: "json_object" as const } }),
+      // A CONVERSA VAI COMO CONVERSA, E NAO COMO FRASE SOLTA.
+      //
+      // Ate 03/09/2026 aqui iam duas linhas: a instrucao e a frase do cliente. A
+      // pergunta que a padaria tinha ACABADO de fazer nao ia, e sem ela o modelo
+      // nao tem como saber do que a frase fala:
+      //
+      //   padaria >> Quantas pessoas vao na festa?     (nunca era enviado)
+      //   cliente >> 10
+      //   modelo  >> 10x bolo
+      //   pedido  >> 10 kg de bolo 4 leites, R$ 469,00
+      //
+      // Um "10" solto nao quer dizer nada. Depois da pergunta, quer dizer dez
+      // pessoas, e qualquer modelo acerta. O modelo nunca errou: ele respondeu
+      // certo a uma pergunta que este arquivo fazia errado.
+      //
+      // E DAQUI NASCEU METADE DAS GUARDAS DO PROJETO. Sem contexto, o codigo
+      // teve que adivinhar de que assunto a conversa falava, e cada chute errado
+      // virou uma regra nova. Ha guardas que sao literalmente esta linha
+      // reimplementada em regex, lendo `estado.ultimaFala` na mao.
+      //
+      // Vai como `assistant`, que e o papel de quem falou aquilo: assim o modelo
+      // ve um turno de conversa, e nao mais uma regra colada na instrucao.
       messages: [
         { role: "system", content: instrucao + "\n\n" + FORMATO },
+        ...(String(perguntaDaPadaria ?? "").trim()
+          ? [{ role: "assistant" as const, content: String(perguntaDaPadaria).trim() }]
+          : []),
         { role: "user", content: mensagem },
       ],
     }, {
