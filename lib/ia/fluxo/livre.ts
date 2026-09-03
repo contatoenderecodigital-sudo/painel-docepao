@@ -396,6 +396,16 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string): 
   if (l.tema?.trim()) e.tema = l.tema.trim();
   if (l.escrito?.trim()) e.escrito = l.escrito.trim();
   if (l.forminha?.trim()) e.forminha = l.forminha.trim();
+  // A COR DA FORMINHA VAI NA LINHA DE CADA DOCINHO: e assim que a comanda e o
+  // resumo mostram pra cozinha (regra da dona: uma cor pro pedido inteiro).
+  if (e.forminha) {
+    e.itens = e.itens.map((i) => {
+      if (!String(i.categoria).startsWith("docinho")) return i;
+      const obs = String(i.obs ?? "");
+      if (/forminha/i.test(obs)) return { ...i, obs: obs.replace(/forminha [^|]+/i, "forminha " + e.forminha).trim() };
+      return { ...i, obs: [obs.trim() || null, "forminha " + e.forminha].filter(Boolean).join(" | ") };
+    });
+  }
   if (l.prato === "aberto" || l.prato === "tampa") e.prato = l.prato;
   if (l.ehFesta === true) e.ehFesta = true;
   if (Number(l.pessoas) > 0) { e.pessoas = Number(l.pessoas); e.ehFesta = true; }
