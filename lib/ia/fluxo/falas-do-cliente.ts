@@ -307,6 +307,15 @@ function soODiaViraData(texto: string, agora: Date): string | null {
   return null;
 }
 
+/**
+ * ATE QUANTOS MESES A PADARIA AGENDA sem o cliente dizer o ano.
+ *
+ * Seis, e o numero e uma escolha: cobre a encomenda de fim de ano feita em
+ * julho e nao cobre o "dia 02/05" digitado em setembro, que era erro. Quem
+ * quiser mais longe diz o ano, e ai a padaria obedece.
+ */
+const MESES_QUE_A_PADARIA_AGENDA = 6;
+
 export function dataDeRetirada(bruto: string | null | undefined, agora = new Date()): string | null {
   const t = String(bruto ?? "").trim();
   if (!t) return null;
@@ -347,10 +356,37 @@ export function dataDeRetirada(bruto: string | null | undefined, agora = new Dat
 
   // Ano que caiu pra tras vira o ano que faz a data cair pra frente. Vale tanto
   // pro ano chutado pelo modelo quanto pro dia 05/01 pedido em dezembro.
+  const anoDito = Boolean(m[3]);
   let quando = new Date(ano, mes - 1, dia);
   while (quando < hoje) {
     ano += 1;
     quando = new Date(ano, mes - 1, dia);
+  }
+
+  // ROLAR O ANO E CERTO PRA POUCOS MESES, E ABSURDO PRA MUITOS.
+  //
+  // Medido na conversa dele de 02/09/2026:
+  //
+  //   cliente >> "dia 02/05"
+  //   modelo  >> 02/05/2026
+  //   gravado >> 02/05/2027        (maio ja passou, entao rolou o ano)
+  //
+  // Nao esta no passado, e por isso a guarda antiga achou que tinha resolvido.
+  // Mas o pedido ficou agendado pra DAQUI A OITO MESES, e padaria nao agenda com
+  // oito meses: aquilo era erro de digitacao, ou ele quis dizer outra coisa.
+  //
+  // O "05/01 pedido em dezembro" que esta guarda nasceu pra consertar continua
+  // valendo: um mes pra frente e o que qualquer pessoa quer dizer. O que muda e
+  // que rolagem longa deixa de virar pedido e vira PERGUNTA. Devolver null aqui
+  // faz a etapa dos dados perguntar o dia de novo, que e o certo: melhor a
+  // padaria perguntar do que a cozinha produzir em maio do ano que vem.
+  //
+  // QUEM DIZ O ANO COM TODAS AS LETRAS E RESPEITADO. "02/05/2027" e uma decisao
+  // do cliente, e nao um chute nosso: casamento se encomenda com um ano.
+  if (!anoDito) {
+    const seisMesesPraFrente = new Date(hoje);
+    seisMesesPraFrente.setMonth(seisMesesPraFrente.getMonth() + MESES_QUE_A_PADARIA_AGENDA);
+    if (quando > seisMesesPraFrente) return null;
   }
 
   // O dia tem que existir: 31 de fevereiro vira 3 de marco em JavaScript, e
