@@ -35,7 +35,7 @@ import { lerEstadoDoBanco, gravarEstado, zerar } from "./gravar";
 import { fecharPedido, oQueFaltaPraFechar } from "./fechar";
 import { linhasQueOClientePodeEstarTirando, type Estado, type TurnoDaConversa } from "./fluxo";
 import { quandoDoPedido } from "./pergunta";
-import { sortidoDaCasa } from "./base";
+import { sortidoDaCasa, calcularBase } from "./base";
 import { categoriasDaFamilia } from "./generico";
 import { DOCE_PAO } from "../persona";
 import { avisoDeEspera, retiradaForaDoExpediente } from "../../padaria-aberta";
@@ -197,12 +197,13 @@ export function lembreteDoPedido(e: Estado, extra: { pedidoNaFila?: boolean; agu
   ].filter(Boolean);
   if (pecas.length) partes.push("Detalhes: " + pecas.join(", ") + ".");
   if (e.ehFesta && e.pessoas) {
-    const base = { salgados: e.pessoas * 10, docinhos: e.pessoas * 5, boloKg: Math.round(e.pessoas * 10) / 100 };
+    const doMotor = calcularBase(e);
+    const base = doMotor ?? { salgados: e.pessoas * 10, docinhos: e.pessoas * 5, boloKg: Math.round(e.pessoas * 10) / 100, totalCentavos: 0 };
     const soma = (pref: string[]) => e.itens.filter((i) => pref.some((p) => String(i.categoria).startsWith(p))).reduce((t, i) => t + (Number(i.qtd) || 0), 0);
     const temSalgado = soma(["salgado"]), temDocinho = soma(["docinho"]), temBolo = soma(["bolo"]);
     partes.push(
       "É festa pra " + e.pessoas + " pessoas. Sugestão da casa: " + base.salgados + " salgados, " + base.docinhos + " docinhos e " +
-        String(base.boloKg).replace(".", ",") + " kg de bolo. Anotado até agora: " + temSalgado + " salgados, " + temDocinho + " docinhos, " +
+        String(base.boloKg).replace(".", ",") + " kg de bolo" + (base.totalCentavos ? ", " + brl(base.totalCentavos / 100) + " (valor do motor: é esse que você diz)" : "") + ". Anotado até agora: " + temSalgado + " salgados, " + temDocinho + " docinhos, " +
         String(temBolo).replace(".", ",") + " kg de bolo" + (e.naoQuer?.length ? " (ele não quer: " + e.naoQuer.join(", ") + ")" : "") + ".",
     );
   } else if (e.ehFesta) {
@@ -581,7 +582,13 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
   const add = (n: number) => { if (n > 0) permitidos.add((Math.round(n * 100) / 100).toFixed(2)); };
   for (const p of produtosDaCasa()) add(p.preco);
   if (cot) { add(Number(cot.total || 0)); for (const li of cot.linhas ?? []) { add(Number(li.subtotal ?? 0)); } }
-  if (e.pessoas) { add(e.pessoas * 10); }
+  if (e.pessoas) {
+    add(e.pessoas * 10);
+    // O valor da sugestao da festa e do motor, e o modelo pode cita-lo (e as linhas dele).
+    const b = calcularBase(e);
+    if (b) add(b.totalCentavos / 100);
+    for (const li of motorPadrao.sugerirPorPessoas(e.pessoas, { salgado: true, doce: true, bolo: true }).linhas ?? []) add(Number((li as { subtotal?: number }).subtotal ?? 0));
+  }
   const citados = [...texto.matchAll(/R\$\s?([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{2})?)/g)].map((m) => Number(m[1].replace(/\./g, "").replace(",", ".")).toFixed(2));
   const estranhos = citados.filter((v) => !permitidos.has(v));
   if (estranhos.length && cot) {
