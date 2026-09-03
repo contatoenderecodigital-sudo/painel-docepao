@@ -125,9 +125,12 @@ export function instrucaoLivre(): string {
     "- Todo item precisa de quantidade dita pelo cliente (unidades, ou quilos no que é vendido por quilo) e, se o produto tem lista de sabores, do sabor escolhido. Nunca chute nenhum dos dois: assim que ele citar um item, a sua próxima pergunta é a quantidade (ou o sabor, se faltar). Na festa a quantidade sai da sugestão que ele aceitou.",
     "- Você NUNCA escolhe sabor nem produto por ele. O sabor do bolo é sempre dele. Sortido só quando ele pedir pra você escolher, e só de salgados e docinhos.",
     "- Bolo de festa, nesta ordem, uma pergunta por vez: 1) o sabor; 2) se ele quer misturar com um segundo sabor (até 2, vale o preço do mais caro); 3) quantos quilos (de 300 g a 6 kg; na festa sugira o da base); 4) papel de arroz com a foto impressa (R$ 12,00), sim ou não; 5) topo de bolo, sim ou não (o valor do topo é a equipe que orça, não dê valor); 6) se tiver topo ou papel: o tema e o que vai escrito (nome e idade). O que ele já respondeu numa frase só, não pergunte de novo.",
+    "- Bolo misto é UMA linha só: produto do sabor mais caro, sabor \"brigadeiro com morango\", com o peso inteiro (1,5 kg misto = 1 item de 1,5 kg). Nunca divida os quilos em dois bolos.",
+    "- O nome e a idade do aniversariante (\"Delamar 58 anos\") são o escrito do topo: vão em escrito, nunca em dados.nome. O nome de quem retira é a ÚLTIMA pergunta antes do resumo.",
+    "- Ordem da conversa: primeiro o item que ele pediu, completo. Quando o bolo de festa estiver completo (peças e tema), ofereça salgadinhos e docinhos UMA vez, se ele ainda não pediu nenhum. Se não quiser, vá pros dados. Se quiser, salgados (quais e quantos), depois docinhos se ele quis os dois, e só então os dados. Dados nesta ordem: dia, horário, pagamento e por último o nome de quem retira. Daí o resumo.",
     "- Quando ele responder sim ou não ao papel de arroz ou ao topo, mande pecas no JSON ({\"papelDeArroz\": true} ou {\"topo\": false}); sem isso a resposta dele se perde. O que ele disser sobre o tema e o escrito vai em tema e escrito.",
     "- Docinhos: depois de saber quais e quantos, pergunte a cor da forminha POR ESCRITO, listando as cores (amarelo, azul, branca, dourada, laranja, lilás, marrom, pink, prata, preta, rosa, roxo, verde, vermelha). Uma cor pro pedido. Nunca mande cardápio pra isso.",
-    "- Festa: sugira 10 salgados, 5 docinhos e 100 g de bolo por pessoa (diga os números e o valor), e o cliente ajusta. " +
+    "- Festa: primeiro pergunte quantas pessoas; só depois sugira 10 salgados, 5 docinhos e 100 g de bolo por pessoa (diga os números e o valor), e o cliente ajusta. Nunca invente o número de pessoas. " +
       "Quando ele aceitar a sugestão, VOCÊ anota as quantidades: reparta o total da família entre os tipos que ele escolher " +
       "(75 docinhos = 40 brigadeiro e 35 beijinho) e diga isso na resposta. Se ele pedir pra você escolher os tipos, escolha " +
       "você mesma 4 ou 5 do cardápio (respeitando o que ele não quer), anote com as quantidades e diga quais foram. " +
@@ -205,7 +208,7 @@ export function lembreteDoPedido(e: Estado, extra: { pedidoNaFila?: boolean; agu
     partes.push("É festa, ainda sem número de pessoas.");
   }
   if (e.naoQuer?.length) partes.push("Ele não quer: " + e.naoQuer.join(", ") + ".");
-  const falta = [...oQueFaltaPraFechar(e), ...faltaSabor(e), ...faltaPecasDoBolo(e), ...faltaDaFesta(e)];
+  const falta = [...oQueFaltaPraFechar(e), ...faltaSabor(e), ...faltaPecasDoBolo(e), ...faltaDaFesta(e), ...faltaOferecer(e)];
   if (e.itens.length) partes.push(falta.length ? "FALTA PRA FECHAR: " + falta.join("; ") + "." : "Está tudo completo: mostre o resumo e pergunte se pode fechar, se ainda não perguntou.");
   if (e.pedidoAprovado) {
     const quando = quandoDoPedido(e.pedidoAprovado);
@@ -213,7 +216,7 @@ export function lembreteDoPedido(e: Estado, extra: { pedidoNaFila?: boolean; agu
   } else if (extra.pedidoNaFila) {
     partes.push("ATENÇÃO: o pedido acima já foi registrado e está na fila da equipe pra aprovação. Se ele só agradecer, diga isso; se quiser mudar algo, anote a mudança.");
   }
-  if (extra.aguardandoValor) partes.push("ATENÇÃO: a padaria acabou de mandar o VALOR FINAL (com o topo orçado pela equipe) e perguntou se está certo. Leia a resposta como aceitouValor true ou false.");
+  if (extra.aguardandoValor) partes.push("ATENÇÃO: a padaria acabou de mandar o VALOR FINAL (com o topo orçado pela equipe) e perguntou se está certo. Só um sim ou não claro ao valor vira aceitouValor (true ou false). Cumprimento (\"boa tarde\"), dúvida ou outro assunto NÃO é resposta: responda o que ele disse e pergunte de novo se o valor está certo, sem aceitouValor.");
   if (extra.avisoDoDia) partes.push("Aviso da padaria hoje: " + extra.avisoDoDia);
   if (e.pecasMandadas?.length) partes.push("Peças de cardápio já mandadas nesta conversa (não mande de novo): " + e.pecasMandadas.join(", ") + ".");
   return partes.join("\n");
@@ -232,6 +235,16 @@ export function faltaSabor(e: Estado): string[] {
   return falta;
 }
 
+/** Bolo de festa pronto e nenhum salgado ou docinho no pedido: a oferta e feita UMA vez. Guia o modelo, nao trava o fechamento. */
+export function faltaOferecer(e: Estado): string[] {
+  if (e.ofereceu || e.ehFesta) return [];
+  const temBoloDeFesta = e.itens.some((i) => String(i.categoria) === "bolo_festa");
+  if (!temBoloDeFesta || faltaPecasDoBolo(e).length || faltaSabor(e).length) return [];
+  if (e.itens.some((i) => /salgado|docinho/.test(String(i.categoria)))) return [];
+  if ((e.naoQuer ?? []).some((n) => /salgad|docinh/i.test(String(n)))) return [];
+  return ["oferecer salgadinhos e docinhos uma vez, antes dos dados (se ele não quiser, siga pros dados)"];
+}
+
 /** Bolo de festa sem resposta de papel de arroz e topo nao fecha: sao dinheiro (R$ 12 e o orcamento da equipe). */
 export function faltaPecasDoBolo(e: Estado): string[] {
   const temBoloDeFesta = e.itens.some((i) => String(i.categoria) === "bolo_festa");
@@ -239,7 +252,7 @@ export function faltaPecasDoBolo(e: Estado): string[] {
   const falta: string[] = [];
   if (e.pecas?.papelDeArroz !== true && e.pecas?.papelDeArroz !== false) falta.push("saber se quer papel de arroz com foto no bolo (sim ou não)");
   if (e.pecas?.topo !== true && e.pecas?.topo !== false) falta.push("saber se quer topo de bolo (sim ou não)");
-  if ((e.pecas?.topo || e.pecas?.papelDeArroz) && !e.tema) falta.push("o tema da peça");
+  if ((e.pecas?.topo || e.pecas?.papelDeArroz) && !e.tema && !e.escrito) falta.push("o tema e o escrito do topo (o nome e a idade que ele disser aqui são do ANIVERSARIANTE, vão em escrito, não em dados.nome)");
   return falta;
 }
 
@@ -330,12 +343,13 @@ const semEmojiETravessao = (t: string) =>
     .trim();
 
 /** O que o modelo leu vira estado, passando so pelas regras de dinheiro e catalogo. */
-export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string): ResultadoLivre {
+export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, ultimaPergunta: string | null = null): ResultadoLivre {
   const rastro: string[] = [];
   let e: Estado = { ...antes, itens: antes.itens.map((i) => ({ ...i })), dados: { ...antes.dados } };
   const avisos: string[] = [];
   let precisaHumano = false;
   let motivoHumano: string | null = null;
+  let respostaCorrigida: string | null = null;
 
   // itens
   for (const bruto of l.itens ?? []) {
@@ -375,14 +389,40 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string): 
       motivoHumano = "Sabor fora do cardápio: " + canon + " de " + saborDito;
       rastro.push("sabor fora da lista, marcado a confirmar: " + saborDito);
     }
-    const obs = [sabor, String(bruto.obs ?? "").trim() || null].filter(Boolean).join(" | ") || null;
+    let recado = String(bruto.obs ?? "").trim() || null;
+    // Topo, papel, tema e escrito moram no estado, nao no recado do item: senao o
+    // modelo reescreve o recheio como "sem topo, escrito Delamar" e o misto some.
+    if (recado && /topo|papel de arroz|escrito|tema|forminha/i.test(recado)) { rastro.push("recado de peca fora do item: " + recado); recado = null; }
+    const obs = [sabor, recado].filter(Boolean).join(" | ") || null;
     const idx = e.itens.findIndex((i) => semAcento(i.produto) === semAcento(canon) && (!saborDito || !i.obs || semAcento(i.obs).includes(semAcento(saborDito))));
     if (idx >= 0) {
       const atual = e.itens[idx];
-      e.itens[idx] = { ...atual, qtd: qtd > 0 ? qtd : atual.qtd, obs: obs ?? atual.obs };
+      // Sem sabor novo dito, o recheio que ja estava fica; o recado novo entra ao lado.
+      const obsMesclada = saborDito
+        ? obs ?? atual.obs
+        : [atual.obs, recado && !semAcento(String(atual.obs ?? "")).includes(semAcento(recado)) ? recado : null].filter(Boolean).join(" | ") || null;
+      e.itens[idx] = { ...atual, qtd: qtd > 0 ? qtd : atual.qtd, obs: obsMesclada };
     } else {
       e.itens.push({ produto: canon, categoria: daCasa.categoria, qtd, obs });
     }
+  }
+
+  // BOLO MISTO E UMA LINHA. O modelo as vezes reparte "1,5 kg misto de brigadeiro
+  // com morango" em dois bolos de 0,75 kg. Dois bolos de festa NOVOS no mesmo
+  // turno, com o mesmo peso, e sem "2 bolos" na frase, sao um bolo misto: o
+  // produto e o mais caro (regra da casa) e o outro sabor vai no recheio.
+  const novosBolos = e.itens.filter((i) => String(i.categoria) === "bolo_festa" && !antes.itens.some((a) => semAcento(a.produto) === semAcento(i.produto)));
+  if (novosBolos.length >= 2 && novosBolos.every((b) => b.qtd === novosBolos[0].qtd) && !/(^|[^a-z])(2|dois|duas) +bolos?/i.test(mensagem)) {
+    const comPreco = novosBolos.map((b) => ({ b, preco: produtoPorNome(b.produto)?.preco ?? 0, curto: produtoPorNome(b.produto)?.nomeCurto ?? b.produto }));
+    comPreco.sort((x, y) => y.preco - x.preco);
+    const principal = comPreco[0];
+    const peso = novosBolos.reduce((t, b) => t + (Number(b.qtd) || 0), 0);
+    const outros = comPreco.slice(1).map((x) => x.curto);
+    const recado = novosBolos.map((b) => String(b.obs ?? "")).filter((o) => o && !/sabor a confirmar/.test(o)).find((o) => !comPreco.some((x) => semAcento(x.curto) === semAcento(o)));
+    const obs = [principal.curto + " com " + outros.join(" e "), recado ?? null].filter(Boolean).join(" | ");
+    e.itens = e.itens.filter((i) => !novosBolos.includes(i));
+    e.itens.push({ produto: principal.b.produto, categoria: principal.b.categoria, qtd: Math.round(peso * 1000) / 1000, obs });
+    rastro.push("dois bolos novos com o mesmo peso viraram um misto: " + principal.b.produto + " " + peso + " kg (" + obs + ")");
   }
 
   // tirar
@@ -402,7 +442,14 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string): 
   // dados
   if (l.dados) {
     const d = { ...e.dados };
-    if (l.dados.nome?.trim()) d.nome = l.dados.nome.trim();
+    // "Delamar 58 anos" respondendo o tema do topo e o aniversariante, nao quem retira.
+    const idade = mensagem.match(/(\d{1,3})\s*anos/i);
+    const temPeca = Boolean(e.pecas?.topo || e.pecas?.papelDeArroz);
+    if (l.dados.nome?.trim() && temPeca && !e.escrito && !l.escrito?.trim() && (idade || !e.dados.data)) {
+      e.escrito = l.dados.nome.trim() + (idade && !/anos/i.test(l.dados.nome) ? " " + idade[1] + " anos" : "");
+      rastro.push("nome dito na hora do topo virou o escrito: " + e.escrito);
+      respostaCorrigida = "Anotei no topo: " + e.escrito + ". " + (faltaOferecer({ ...e, dados: d }).length ? "Quer aproveitar e pedir salgadinhos ou docinhos também?" : !d.data ? "Pra que dia e horário é a retirada?" : "");
+    } else if (l.dados.nome?.trim()) d.nome = l.dados.nome.trim();
     if (l.dados.pagamento?.trim()) d.pagamento = semAcento(l.dados.pagamento.trim()).replace(/[^a-z]/g, "") || d.pagamento;
     if (/^\d{2}\/\d{2}\/\d{4}$/.test(String(l.dados.data ?? ""))) d.data = String(l.dados.data);
     if (/^\d{1,2}:\d{2}$/.test(String(l.dados.hora ?? ""))) d.hora = String(l.dados.hora).padStart(5, "0");
@@ -410,9 +457,55 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string): 
       const fora = retiradaForaDoExpediente(d.data, d.hora);
       if (fora) { avisos.push(fora); d.hora = null; rastro.push("hora fora do expediente, apagada"); }
     }
+    // O modelo disse que 15h "não está no horário" (medido 03/09, quarta, 6h30 às 20h).
+    // Quem sabe o expediente e o codigo: hora dita na frase, dentro do horario, entra.
+    const hDita = mensagem.match(/(^|[^0-9])(\d{1,2})\s*(h|hs|:|horas)\s*(\d{2})?/i);
+    if (!d.hora && d.data && hDita) {
+      const hora = String(hDita[2]).padStart(2, "0") + ":" + (hDita[4] ?? "00");
+      if (!retiradaForaDoExpediente(d.data, hora)) {
+        d.hora = hora;
+        rastro.push("hora da frase, dentro do expediente: " + hora);
+        if (/hor[aá]rio de funcionamento|fora do (nosso )?hor[aá]rio|n[aã]o est[aá] dentro|outro hor[aá]rio/i.test(String(l.resposta ?? ""))) {
+          respostaCorrigida = "Anotei a retirada dia " + d.data.slice(0, 5) + " às " + hora + ". " + (!d.pagamento ? "Como você prefere pagar: pix, cartão ou dinheiro?" : !d.nome ? "Qual o nome de quem vai retirar?" : "");
+        }
+      }
+    }
     e.dados = d;
   }
-  if (l.pecas) e.pecas = { topo: typeof l.pecas.topo === "boolean" ? l.pecas.topo : e.pecas?.topo ?? null, papelDeArroz: typeof l.pecas.papelDeArroz === "boolean" ? l.pecas.papelDeArroz : e.pecas?.papelDeArroz ?? null };
+  // O modelo manda "topo: false" sem ninguem ter perguntado (medido 03/09, no
+  // primeiro turno do bolo). Peca so muda quando ela foi falada: na pergunta
+  // que a padaria acabou de fazer ou na frase do cliente.
+  const falouDePapel = /papel de arroz/i.test(String(ultimaPergunta ?? "") + " " + mensagem);
+  const falouDeTopo = /topo/i.test(String(ultimaPergunta ?? "") + " " + mensagem);
+  if (l.pecas) {
+    const topo = typeof l.pecas.topo === "boolean" && falouDeTopo ? l.pecas.topo : e.pecas?.topo ?? null;
+    const papelDeArroz = typeof l.pecas.papelDeArroz === "boolean" && falouDePapel ? l.pecas.papelDeArroz : e.pecas?.papelDeArroz ?? null;
+    if (topo !== (e.pecas?.topo ?? null) || papelDeArroz !== (e.pecas?.papelDeArroz ?? null)) e.pecas = { topo, papelDeArroz };
+    else if (typeof l.pecas.topo === "boolean" && !falouDeTopo) rastro.push("ignorei pecas.topo do modelo: ninguem falou de topo");
+  }
+  // UM "SIM" OU "NAO" SECO A PERGUNTA DO PAPEL DE ARROZ OU DO TOPO E RESPOSTA,
+  // mesmo quando o modelo nao manda pecas (medido 03/09: "sim" ao topo fez a
+  // Dora repetir "Quer topo de bolo?"). A pergunta que a padaria acabou de fazer
+  // diz de qual peca e o sim; o codigo anota e escreve a resposta, porque a do
+  // modelo, nesse caso, e a pergunta repetida.
+  const disseSim = /^(sim|s|isso|quero|quero sim|pode ser|claro|com certeza|ok|uhum|aham|pode|bora)[!. ]*$/i.test(mensagem.trim());
+  const disseNao = /^(n[aã]o|nao quero|não quero|sem|dispenso|n|nao precisa|não precisa)[!. ]*$/i.test(mensagem.trim());
+  const pergunta = semAcento(String(ultimaPergunta ?? ""));
+  if ((disseSim || disseNao) && pergunta && e.itens.some((i) => String(i.categoria) === "bolo_festa")) {
+    const papelEmAberto = /papel de arroz/.test(pergunta) && typeof antes.pecas?.papelDeArroz !== "boolean";
+    const topoEmAberto = /topo/.test(pergunta) && typeof antes.pecas?.topo !== "boolean";
+    if (papelEmAberto && !(topoEmAberto && !/papel de arroz\?/.test(pergunta) && /topo[^?]*\?/.test(pergunta))) {
+      e.pecas = { topo: e.pecas?.topo ?? null, papelDeArroz: disseSim };
+      rastro.push("sim/nao seco a pergunta do papel de arroz: " + disseSim);
+      respostaCorrigida = (disseSim ? "Anotei o papel de arroz com a foto. " : "Sem papel de arroz. ") + (typeof e.pecas.topo === "boolean" ? "" : "Quer topo de bolo também? O valor do topo a equipe orça e te passa.");
+    } else if (topoEmAberto) {
+      e.pecas = { topo: disseSim, papelDeArroz: e.pecas?.papelDeArroz ?? null };
+      rastro.push("sim/nao seco a pergunta do topo: " + disseSim);
+      respostaCorrigida = disseSim
+        ? "Anotei o topo, a equipe orça o valor dele e te passa. Qual o tema, e o nome e a idade do aniversariante?"
+        : "Sem topo. " + ((e.pecas.papelDeArroz && !e.escrito && !e.tema) ? "Qual o tema do papel de arroz e o que vai escrito?" : "");
+    }
+  }
   if (e.pecas?.papelDeArroz === true && !e.itens.some((i) => /papel de arroz/i.test(i.produto))) {
     const papel = produtoPorNome("papel de arroz");
     if (papel) e.itens.push({ produto: papel.nome, categoria: papel.categoria, qtd: 1, obs: null });
@@ -435,6 +528,10 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string): 
   if (l.ehFesta === true) e.ehFesta = true;
   if (Number(l.pessoas) > 0) { e.pessoas = Number(l.pessoas); e.ehFesta = true; }
   if (l.naoQuer?.length) e.naoQuer = [...new Set([...(e.naoQuer ?? []), ...l.naoQuer.map(String)])];
+  if (!e.ofereceu && e.itens.some((i) => String(i.categoria) === "bolo_festa") && /salgad|docinh/i.test(String(l.resposta ?? ""))) {
+    e.ofereceu = true;
+    rastro.push("ofereceu salgados e docinhos");
+  }
 
   // a casa escolhe pra ele, pelo cardapio
   for (const fam of l.escolherPorMim ?? []) {
@@ -465,7 +562,11 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string): 
   }
 
   // a resposta, com o dinheiro conferido
-  let texto = semEmojiETravessao(String(l.resposta ?? "").trim());
+  if (respostaCorrigida && !respostaCorrigida.includes("?")) {
+    respostaCorrigida = respostaCorrigida.trim() + " " + (faltaOferecer(e).length ? "Quer aproveitar e pedir salgadinhos ou docinhos também?" : !e.dados.data ? "Pra que dia e horário é a retirada?" : "Posso seguir pra fechar?");
+  }
+  let texto = semEmojiETravessao(String(respostaCorrigida ?? l.resposta ?? "").trim());
+  if (respostaCorrigida && /salgad|docinh/i.test(respostaCorrigida)) e.ofereceu = true;
   const cot = e.itens.length ? motorPadrao.cotarPorItens(paraOMotor(e.itens)) : null;
   const permitidos = new Set<string>();
   const add = (n: number) => { if (n > 0) permitidos.add((Math.round(n * 100) / 100).toFixed(2)); };
@@ -561,10 +662,23 @@ export async function atenderLivre(
   const pensar = pensarLivreComOpenAI(cliente, contar, modeloDoNegocio);
   const texto = mensagem.texto?.trim() ? mensagem.texto : "(tocou em um botão)";
   const l = await pensar({ instrucao: instrucaoLivre(), historico, lembrete: lembreteDoPedido(antes, { pedidoNaFila, aguardandoValor, avisoDoDia }), mensagem: texto });
-  const r = aplicarLivre(antes, l, texto);
+  const ultimaPergunta = [...historico].reverse().find((h) => h.papel === "assistant")?.conteudo ?? null;
+  const r = aplicarLivre(antes, l, texto, ultimaPergunta);
   const rastro = ["livre", ...r.rastro];
 
   if (aguardandoValor) {
+    // "Boa tarde" depois do valor orcado nao e aceite: e cumprimento. O modelo
+    // ja leu isso como sim uma vez em producao (03/09, 17:08). A padaria
+    // responde e pergunta de novo, com os botoes.
+    const soCumprimento = /^(oi+|ola|olá|opa|bom dia|boa tarde|boa noite|e ai|eai|tudo bem\??|oi tudo bem\??)[!. ]*$/i.test(String(mensagem.texto ?? "").trim());
+    if (soCumprimento) {
+      await gravarEstado(negocioId, clienteId, antes, r.estado);
+      return {
+        texto: "Oi! Ainda preciso saber se o valor que te passei está certo pra eu passar o pedido pra confirmação. Tá certo assim?",
+        botoes: [{ id: "valor_sim", titulo: "Tá certo" }, { id: "valor_nao", titulo: "Não" }],
+        cardapio: null, etapa: "confirmacao", precisaHumano: false, rastro: [...rastro, "cumprimento com valor em aberto: perguntei de novo"], uso,
+      };
+    }
     if (r.aceitouValor === true) return aceitou();
     if (r.aceitouValor === false) return recusou("O cliente nao aceitou o valor");
     if ((l.itens?.length || l.tirar?.length || l.dados) && !r.confirmou) {
