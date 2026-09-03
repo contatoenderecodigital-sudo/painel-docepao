@@ -521,6 +521,7 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
       const daFamilia = e.itens.filter((i) => String(i.categoria).startsWith(pref));
       const semNumero = daFamilia.filter((i) => !(Number(i.qtd) > 0));
       if (!semNumero.length) continue;
+      const alvo = e.pessoas * porPessoa;
       // "metade de cada" com tres tipos: o modelo deu 75 pra um e nada pros outros
       // (medido 03/09 20:31). "De cada" e igual pra todos os tipos citados agora.
       if (/de cada|cada um|igual|dividid/i.test(mensagem)) {
@@ -532,7 +533,6 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
         respostaCorrigida = "Anotei " + grupo.map((i) => i.qtd + " " + i.produto).join(", ") + ". ";
         continue;
       }
-      const alvo = e.pessoas * porPessoa;
       const jaDito = daFamilia.reduce((t, i) => t + (Number(i.qtd) || 0), 0);
       const sobra = Math.max(alvo - jaDito, 0);
       if (!sobra) continue;
