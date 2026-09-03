@@ -374,9 +374,6 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
     }
     if (!daCasa) {
       rastro.push("nao existe no cardapio, nao entrou: " + nomeBruto);
-      const resposta = semAcento(String(l.resposta ?? ""));
-      const jaDisse = resposta.includes(semAcento(nomeBruto)) && /nao (tem|temos|faz|fazemos|trabalh|esta no cardapio|anotei)|a equipe confirma|vou confirmar/.test(resposta);
-      if (!jaDisse) avisos.push("Só pra avisar: \"" + nomeBruto + "\" não está no nosso cardápio, então não anotei.");
       continue;
     }
     canon = daCasa.nome;
@@ -673,10 +670,23 @@ export async function atenderLivre(
 
   const pensar = pensarLivreComOpenAI(cliente, contar, modeloDoNegocio);
   const texto = mensagem.texto?.trim() ? mensagem.texto : "(tocou em um botão)";
-  const l = await pensar({ instrucao: instrucaoLivre(), historico, lembrete: lembreteDoPedido(antes, { pedidoNaFila, aguardandoValor, avisoDoDia }), mensagem: texto });
+  const lembrete = lembreteDoPedido(antes, { pedidoNaFila, aguardandoValor, avisoDoDia });
+  let l = await pensar({ instrucao: instrucaoLivre(), historico, lembrete, mensagem: texto });
   const ultimaPergunta = [...historico].reverse().find((h) => h.papel === "assistant")?.conteudo ?? null;
-  const r = aplicarLivre(antes, l, texto, ultimaPergunta);
+  let r = aplicarLivre(antes, l, texto, ultimaPergunta);
   const rastro = ["livre", ...r.rastro];
+  // ITEM QUE NAO EXISTE NO CARDAPIO: em vez de colar um aviso de robo na fala
+  // (o dono odiou, 03/09), a IA fala de novo sabendo que o item nao entrou, com
+  // as palavras dela. Segunda chamada so nesse caso, que e raro.
+  const foraDoCardapio = r.rastro.filter((x) => x.startsWith("nao existe no cardapio")).map((x) => x.replace(/^[^:]*: /, ""));
+  if (foraDoCardapio.length) {
+    l = await pensar({
+      instrucao: instrucaoLivre(), historico, mensagem: texto,
+      lembrete: lembrete + "\n\nATENÇÃO: \"" + foraDoCardapio.join("\", \"") + "\" não existe no cardápio e NÃO foi anotado. Diga isso ao cliente do seu jeito, ofereça o que a casa tem de parecido, e não mande esse item em itens.",
+    });
+    r = aplicarLivre(antes, l, texto, ultimaPergunta);
+    rastro.push("segunda leitura: a IA avisou do item fora do cardapio (" + foraDoCardapio.join(", ") + ")", ...r.rastro);
+  }
 
   if (aguardandoValor) {
     // "Boa tarde" depois do valor orcado nao e aceite: e cumprimento. O modelo
