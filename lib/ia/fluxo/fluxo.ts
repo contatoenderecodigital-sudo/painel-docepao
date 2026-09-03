@@ -1593,7 +1593,31 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       // O que entra no lugar e a FAMILIA com a palavra no recheio, que e a
       // forma que este arquivo ja usa pra "nao sei qual, pergunta": a padaria
       // pergunta em vez de anotar dois mil reais que ninguem pediu.
-      let produto = naoCabeNoBolo(semInvencao(escolhida ?? quem.produto), Number(i.qtd) || 0, falaDoCliente, String(i.produto), String(i.sabor ?? ""), rastro);
+      const antesDaGuarda = semInvencao(escolhida ?? quem.produto);
+      let produto = naoCabeNoBolo(antesDaGuarda, Number(i.qtd) || 0, falaDoCliente, String(i.produto), String(i.sabor ?? ""), rastro);
+
+      // A PALAVRA QUE ELE DISSE NAO PODE SUMIR QUANDO A GUARDA VOLTA PRA FAMILIA.
+      //
+      // O comentario logo acima ja dizia a intencao: "o que entra no lugar e a
+      // FAMILIA COM A PALAVRA NO RECHEIO". A familia entrava; a palavra, nao.
+      //
+      // Medido conversando com a producao em 02/09/2026:
+      //
+      //   cliente >> quero 50 de morango
+      //   guarda  >> "esse numero e de outro produto"   (esta certa)
+      //   pedido  >> 50 x bolo, sem sabor nenhum
+      //   padaria >> "E o bolo, qual sabor?"            (ele acabou de dizer)
+      //
+      // A padaria perguntou justo o que ele tinha respondido, e perdeu a unica
+      // informacao que ele deu. Guardando a palavra, a pergunta muda de "qual
+      // sabor?" pra "voce quer bolo, docinho ou torta DE MORANGO?", que e a
+      // duvida de verdade. Quem monta essa frase e `pergunta.ts`.
+      //
+      // Regra da casa, desde o primeiro dia: nada some do pedido.
+      const virouFamilia = produto !== antesDaGuarda && ehNomeDeFamilia(produto);
+      const oQueEleDisse = virouFamilia
+        ? String(i.sabor ?? "").trim() || String(i.produto ?? "").trim()
+        : "";
 
       // PRODUTO MONTADO EM CIMA DE UMA PALAVRA DE SABOR NAO E ITEM NOVO.
       //
@@ -1709,6 +1733,11 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       }
 
       let obsItem = i.obs ?? null;
+      // A palavra guardada acima entra na observacao, que e onde a pergunta vai
+      // procurar por ela. So quando ela ja nao esta escrita ali.
+      if (oQueEleDisse && !semAc(String(obsItem ?? "")).includes(semAc(oQueEleDisse))) {
+        obsItem = [oQueEleDisse, obsItem].filter(Boolean).join(" | ");
+      }
 
       // O RECHEIO QUE ESTE PRODUTO NÃO TEM NÃO VAI PRA COZINHA.
       //

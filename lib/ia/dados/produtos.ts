@@ -565,6 +565,107 @@ export function saboresPorBoloDeFesta(): number {
   return boloMistoAte;
 }
 
+
+/**
+ * EM QUE GRUPOS DO CARDAPIO ESTA PALAVRA APARECE.
+ *
+ * "morango" e bolo, docinho E torta. "cafe" e bolo e docinho. "prestigio" e
+ * bolo, torta, pizza e calzone. Sao sabores compartilhados, e o preco entre um
+ * e outro muda dezenas de vezes:
+ *
+ *   docinho de morango      R$ 1,25 a unidade
+ *   bolo de morango         R$ 49,90 o QUILO
+ *
+ * POR QUE ISTO EXISTE
+ *
+ * Medido conversando com a producao em 02/09/2026. O cliente escreveu "quero 50
+ * de morango" e a padaria anotou 50 x bolo, na categoria de festa, que e por
+ * quilo: cinquenta QUILOS de bolo, R$ 2.345,00. Depois perguntou "E o bolo,
+ * qual sabor?", que ele ja tinha respondido.
+ *
+ * Ela decidiu duas coisas sozinha (que era bolo, e que eram quilos) e perguntou
+ * a unica que ele ja tinha dito. Palavra dele: *"nesse momento ela tinha que ter
+ * pedido: quer o que de morango?"*.
+ *
+ * SAI DO CARDAPIO, E NAO DE UMA LISTA DE PALAVRAS. Nao e sobre morango: e sobre
+ * qualquer nome que a casa use em mais de um grupo, hoje e no dia em que a dona
+ * cadastrar um sabor novo nos dois lugares.
+ *
+ * Devolve os grupos em ordem, ou lista vazia quando a palavra so existe num.
+ */
+let ondeCadaPalavraCache: Map<string, string[]> | null = null;
+export function gruposComEstaPalavra(palavra: unknown): string[] {
+  const alvo = limpo(String(palavra ?? ""));
+  if (!alvo) return [];
+  if (!ondeCadaPalavraCache) {
+    // palavra -> familia -> produtos daquela familia que tem a palavra.
+    //
+    // A familia no meio existe pra COLAPSAR: "brigadeiro" e sabor das tres
+    // pizzas e dos quatro cupcakes, e listar os sete pelo nome daria uma
+    // pergunta de onze opcoes. Com mais de um produto da mesma familia, a
+    // resposta e o nome da familia ("pizza", "cupcake"); com um so, e o nome
+    // dele ("trufa", "cuca recheada"), que e mais util pro cliente.
+    const cru = new Map<string, Map<string, Set<string>>>();
+    const guardar = (palavra: string, familia: string, produto: string) => {
+      const k = limpo(palavra);
+      if (!k) return;
+      if (!cru.has(k)) cru.set(k, new Map());
+      const porFam = cru.get(k)!;
+      if (!porFam.has(familia)) porFam.set(familia, new Set());
+      porFam.get(familia)!.add(limpo(produto));
+    };
+    for (const p of produtosDaCasa()) {
+      // A ETIQUETA E A COISA QUE O CLIENTE DIRIA, e nao o nome interno.
+      //
+      // Duas situacoes diferentes:
+      //
+      //   a palavra e o NOME CURTO do produto ("bolo morango" -> "morango"),
+      //   e ai a coisa e o grupo: "bolo".
+      //
+      //   a palavra e um SABOR dele (a trufa tem morango), e ai a coisa e o
+      //   proprio produto: "trufa".
+      //
+      // Sem isso a pergunta saia "voce quer bolo, docinho ou PADARIA de limao?",
+      // porque limao e sabor da cuca recheada e a categoria dela e "padaria".
+      // Ninguem pede padaria de limao; pede cuca de limao.
+      const grupo = familiaDaCategoriaDoProduto(p.categoria);
+      const curto = limpo(p.nomeCurto);
+      // O NOME CURTO responde pela familia: "bolo morango" e um bolo.
+      if (curto) guardar(curto, grupo, grupo);
+      // O SABOR responde pelo produto: morango na trufa e "trufa".
+      for (const sabor of p.sabores) {
+        if (limpo(sabor) === curto) continue;
+        guardar(sabor, grupo, p.nome);
+      }
+    }
+    ondeCadaPalavraCache = new Map(
+      [...cru].map(([palavra, porFam]) => [
+        palavra,
+        [...porFam]
+          .map(([familia, produtos]) => (produtos.size > 1 ? familia : [...produtos][0]))
+          .sort(),
+      ]),
+    );
+  }
+  const grupos = ondeCadaPalavraCache.get(alvo) ?? [];
+  return grupos.length > 1 ? grupos : [];
+}
+
+/**
+ * O NOME DO GRUPO DESTA CATEGORIA, pra falar com o cliente.
+ *
+ * Escrito aqui, e nao importado de `generico.ts`, porque aquele arquivo importa
+ * este: importar de volta faria um ciclo. E a mesma conta, e ela e simples: a
+ * categoria sem o sufixo, que e como o cliente chama ("bolo festa" -> "bolo").
+ */
+function familiaDaCategoriaDoProduto(categoria: string): string {
+  const c = String(categoria || "");
+  if (c.startsWith("bolo_") && c !== "bolo_salgado") return "bolo";
+  if (c.startsWith("salgado_")) return "salgado";
+  if (c.startsWith("torta_")) return "torta";
+  return c.replace(/_/g, " ");
+}
+
 export function pedeEscolhaDeSabor(
   p: Pick<ProdutoDaCasa, "saborFixo" | "sabores"> | null | undefined,
 ): boolean {

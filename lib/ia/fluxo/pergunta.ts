@@ -29,7 +29,7 @@ import {
 } from "./sabor";
 import { ehNomeDeFamilia, perguntaDaFamilia, opcoesDaFamilia, nomeDaFamilia, familiaDoNome } from "./generico";
 import { paraOMotor } from "./cotar";
-import { produtoNoComeco, produtoPorNome, unidadeDoPedido } from "../dados/produtos";
+import { produtoNoComeco, produtoPorNome, unidadeDoPedido, gruposComEstaPalavra } from "../dados/produtos";
 import { semAcento, listaEmPortugues, pedacosDaObs } from "../texto";
 import { lerObs } from "@/lib/banco/obs-do-bolo";
 
@@ -238,7 +238,68 @@ export function pecaDoCardapio(produto: string): string | null {
   return familiaDoNome(produto) === "pizza" || nomeDaFamilia(produto) === "pizza" ? "pizza" : null;
 }
 
+/**
+ * O SABOR QUE A CASA USA EM MAIS DE UM GRUPO, e o cliente nao disse qual.
+ *
+ * POR QUE ISTO EXISTE, e custou R$ 2.345,00 numa frase de quatro palavras
+ *
+ * Medido conversando com a producao em 02/09/2026:
+ *
+ *   cliente >> quero 50 de morango
+ *   pedido  >> 50 x bolo, categoria bolo_festa       (50 QUILOS, R$ 2.345,00)
+ *   padaria >> "E o bolo, qual sabor?"               (ele acabou de dizer)
+ *
+ * Ela decidiu DUAS coisas sozinha, que era bolo e que eram quilos, e perguntou
+ * a unica que ele ja tinha respondido. Morango na Doce Pao e bolo, docinho E
+ * torta, e entre o docinho (R$ 1,25 a unidade) e o bolo (R$ 49,90 o quilo) a
+ * diferenca e de quarenta vezes.
+ *
+ * Palavra dele: *"nesse momento ela tinha que ter pedido: quer o que de
+ * morango? Cada caso e um caso, nao quero isso de regra toda vez que fala
+ * morango: e pra ela identificar isso sozinha pra qualquer caso de produtos com
+ * nomes e sabores similares"*.
+ *
+ * POR ISSO A LISTA SAI DO CARDAPIO. Nao ha palavra nenhuma escrita aqui: quem
+ * responde "onde este nome aparece?" e `gruposComEstaPalavra`, varrendo os
+ * produtos e os sabores de todos eles. O dia em que a dona cadastrar "maracuja"
+ * no docinho e no bolo, a pergunta nasce sozinha.
+ *
+ * E SO QUANDO NAO HA CONTEXTO. Se ele disse "bolo de morango", ou se a conversa
+ * esta na etapa do docinho, o desempate ja aconteceu la atras e este item nem
+ * chega aqui como nome de familia. A pergunta e o ultimo recurso, e nao o
+ * primeiro.
+ */
+function falaDoSaborDisputado(p: PedidoEmMontagem, aviso = ""): Fala | null {
+  for (const i of p.itens) {
+    // So o lugar vazio de familia: um item ja resolvido nao tem duvida nenhuma.
+    if (!ehNomeDeFamilia(i.produto)) continue;
+    const dito = String(i.obs ?? "").split("|")[0].trim();
+    if (!dito) continue;
+    const grupos = gruposComEstaPalavra(dito);
+    if (grupos.length < 2) continue;
+    // O grupo que ele JA nomeou sai da pergunta: perguntar "bolo ou docinho?"
+    // pra quem escreveu "bolo" e nao ouvir o que a pessoa falou.
+    const daFamilia = String(nomeDaFamilia(i.produto) || "").trim();
+    const opcoes = grupos.filter((g) => g !== daFamilia);
+    if (!opcoes.length) continue;
+    const todas = [daFamilia, ...opcoes].filter(Boolean);
+    return {
+      texto:
+        aviso + "A gente tem " + dito + " em mais de uma coisa. Você quer " +
+        todas.slice(0, -1).join(", ") + " ou " + todas[todas.length - 1] + " de " + dito + "?",
+      botoes: [],
+      cardapio: null,
+      podeReescrever: true,
+      opcoes: todas,
+      chave: "qual_grupo",
+    };
+  }
+  return null;
+}
+
 function falaSeTemFamilia(p: PedidoEmMontagem, aviso = ""): Fala | null {
+  const disputado = falaDoSaborDisputado(p, aviso);
+  if (disputado) return disputado;
   const familia = p.itens.find((i) => ehNomeDeFamilia(i.produto));
   if (!familia) return null;
   const pergunta = perguntaDaFamilia(familia.produto);
@@ -1097,6 +1158,27 @@ export function falaDaEtapa(
     const doSabor = falaDeSaborEmAberto(p, etapa.id);
     if (doSabor) return doSabor;
   }
+  // A DUVIDA DE GRUPO VEM ANTES DA PERGUNTA DA ETAPA.
+  //
+  // Nao adianta perguntar "qual sabor do bolo?" quando nem se sabe se e bolo.
+  // Medido conversando com a producao em 02/09/2026:
+  //
+  //   cliente >> quero 50 de morango
+  //   pedido  >> 50 x bolo, categoria de festa      (50 QUILOS, R$ 2.345,00)
+  //   padaria >> "E o bolo, qual sabor?"            (ele acabou de dizer)
+  //
+  // Fica AQUI, e nao dentro de `falaSeTemFamilia`, porque aquela funcao so e
+  // alcancada depois da pergunta de sabor -- e era justo a pergunta de sabor
+  // que estava saindo na frente e errada.
+  //
+  // So nas etapas de PRODUTO: nos dados, na confirmacao e nas pecas do bolo a
+  // conversa ja passou desse ponto, e reabrir a duvida ali seria a padaria
+  // voltando atras.
+  if (etapa.id === "salgado" || etapa.id === "docinho" || etapa.id === "bolo" || etapa.id === "resto_do_cardapio") {
+    const duvidaDeGrupo = falaDoSaborDisputado(p, aviso);
+    if (duvidaDeGrupo) return duvidaDeGrupo;
+  }
+
   switch (etapa.id) {
     case "quantas_pessoas":
       return { texto: "Quantas pessoas vão na festa?", botoes: [], cardapio: null, podeReescrever: true };
