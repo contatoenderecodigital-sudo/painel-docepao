@@ -2971,112 +2971,17 @@ export async function responder(
   rastro.push("etapa: " + etapaAgora.id);
 
   // ---------------------------------------------------------------- botao
-  // QUEM DIGITA "SIM" RESPONDEU IGUAL A QUEM TOCOU NO BOTAO.
   //
-  // Medido conversando com o servidor em 31/08/2026, e custava R$ 12,00 mais o
-  // topo:
-  //
-  //   padaria >> E papel de arroz, com a foto impressa no bolo? Fica R$ 12,00.
-  //   cliente >> Sim
-  //   padaria >> O bolo vai com topo?
-  //   cliente >> Sim
-  //   banco   >> fluxo_topo = (vazio)   fluxo_papel = (vazio)
-  //
-  // As duas respostas se perderam. O texto livre vai pro modelo, e pra "Sim"
-  // seco ele devolveu leitura vazia: nenhuma das duas pecas foi anotada, o papel
-  // de arroz nao virou linha, e as perguntas do tema e do que vai escrito foram
-  // puladas, porque elas so existem quando ha peca.
-  //
-  // Muita gente digita em vez de tocar no botao, e a padaria nao pode depender
-  // do modelo pra entender um "sim". O leitor de sim e nao ja existia neste
-  // repositorio (`respostaAoValor`), so nao era chamado aqui.
-  //
-  // Vale so quando a pergunta da vez FOI a da peca, e so quando a peca ainda
-  // nao tem resposta: assim um "sim" solto no meio da conversa nao liga peca
-  // nenhuma.
-  const umaPecaEsperando =
-    estado.pecas?.papelDeArroz === null || estado.pecas?.papelDeArroz === undefined
-      ? "papel"
-      : estado.pecas?.topo === null || estado.pecas?.topo === undefined
-        ? "topo"
-        : null;
-  const ultimaPerguntou = semAc(String(estado.ultimaFala || ""));
-  const simOuNao = mensagem.botaoId ? null : respostaAoValor(String(mensagem.texto || ""));
-  // O QUE MANDA E A PERGUNTA QUE ACABOU DE SAIR, E NAO A ETAPA DA VEZ.
-  //
-  // Aqui exigia `etapaAgora.id === "pecas_do_bolo"`, e por isso o "Sim" do TOPO
-  // continuava se perdendo depois que o do papel passou a funcionar. Medido
-  // conversando com o servidor em 31/08/2026:
-  //
-  //   padaria >> E papel de arroz...?   cliente >> Sim   -> papel_sim, gravou
-  //   padaria >> O bolo vai com topo?   cliente >> Sim   -> etapa ja era "dados"
-  //
-  // A maquina de etapas marca a etapa como cumprida quando as perguntas dela
-  // foram FEITAS, e nao quando foram respondidas. Entao no turno em que o
-  // cliente responde o topo, a etapa da vez ja e outra.
-  //
-  // A pergunta que acabou de sair e o que um atendente usaria pra saber do que
-  // a pessoa esta falando, e e o que vale aqui: a peca ainda sem resposta, e a
-  // ultima fala da padaria sendo sobre ela.
-  // A FRASE QUE CITA A PECA RESPONDE POR TODAS AS PECAS QUE ELA CITOU.
-  //
-  // Medido conversando com a producao em 31/08/2026, e virou o pedido do avesso:
-  //
-  //   padaria >> E papel de arroz, com a foto impressa no bolo? Fica R$ 12,00.
-  //   cliente >> nao quero topo nem papel de arroz
-  //   padaria >> O bolo vai com topo?
-  //   comanda >> 3 kg de bolo laka (topo de bolo)
-  //
-  // O atalho pegava so a peca PERGUNTADA, aplicava o "nao" nela e nao chamava a
-  // IA. O "topo" que estava escrito na mesma frase ia pro lixo, a padaria
-  // perguntava de novo, e o pedido fechou com a peca que ele recusou por escrito.
-  //
-  // Quem cita a peca respondeu sobre ela. Entao a resposta vale pra cada peca
-  // NOMEADA na frase, e a peca so perguntada continua valendo quando ele
-  // responde seco ("Sim", "nao").
-  //
-  // FRASE COM CONTRASTE NAO ENTRA AQUI. "quero topo mas nao papel de arroz" tem
-  // duas respostas diferentes numa frase so, e `respostaAoValor` devolve uma. Ai
-  // e caso de modelo, e nao de atalho.
-  const temContraste = /\b(mas|porem|so que|somente|apenas|so o|so a)\b/i.test(
-    semAc(String(mensagem.texto || "")),
-  );
-  const pecaEsperando = (qual: "papel" | "topo") =>
-    qual === "papel"
-      ? estado.pecas?.papelDeArroz === null || estado.pecas?.papelDeArroz === undefined
-      : estado.pecas?.topo === null || estado.pecas?.topo === undefined;
-  const naFala = semAc(String(mensagem.texto || ""));
-  const citadas = temContraste
-    ? []
-    : ([
-        ["papel", /papel de arroz|papel arroz/i],
-        ["topo", /\btopo\b|topper/i],
-      ] as const)
-        .filter(([qual, onde]) => onde.test(naFala) && pecaEsperando(qual))
-        .map(([qual]) => qual);
-
-  // Frase com contraste que nomeia peca sai do atalho INTEIRA. Aplicar o "quero"
-  // de "quero topo mas nao quero papel de arroz" na peca perguntada gravava o
-  // contrario do que ele escreveu, que e pior do que nao entender.
-  const contrasteSobrePeca =
-    temContraste && /papel de arroz|papel arroz|\btopo\b|topper/i.test(naFala);
-  const botoesDigitados = !simOuNao || contrasteSobrePeca
-    ? []
-    : citadas.length
-      ? citadas.map((q) => q + "_" + (simOuNao === "aceitou" ? "sim" : "nao"))
-      : umaPecaEsperando && ultimaPerguntou.includes(umaPecaEsperando === "papel" ? "papel" : "topo")
-        ? [umaPecaEsperando + "_" + (simOuNao === "aceitou" ? "sim" : "nao")]
-        : [];
-
+  // O ATALHO DO "SIM" DIGITADO SAIU EM 03/09/2026. Ele lia a ultima fala por
+  // regex pra saber de qual peca era o "Sim" e aplicava o botao SEM chamar o
+  // modelo. Medido em producao: "sim, topo e papel de arroz, tema homem
+  // aranha, escrito Theo 5 anos" ligou as duas pecas e PERDEU o tema e o
+  // escrito, e a padaria perguntou o tema de novo. O modelo, vendo a
+  // pergunta, le "Sim", "nao", a frase mista e o contraste ("quero topo mas
+  // nao papel") 3 de 3. So o toque de botao de verdade dispensa o modelo.
   if (mensagem.botaoId && DO_BOTAO[mensagem.botaoId]) {
     estado = DO_BOTAO[mensagem.botaoId](estado);
     rastro.push("botao: " + mensagem.botaoId + " (sem chamar a IA)");
-  } else if (botoesDigitados.some((b) => DO_BOTAO[b])) {
-    for (const b of botoesDigitados) {
-      if (!DO_BOTAO[b]) continue;
-      estado = DO_BOTAO[b](estado);
-      rastro.push("ele digitou a resposta do botao " + b + " (sem chamar a IA)");
-    }
   } else if (mensagem.texto.trim()) {
     // ----------------------------------------------------------- texto livre
     const instrucao = instrucaoDaEtapa(etapaAgora.id, estado);

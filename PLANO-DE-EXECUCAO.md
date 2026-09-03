@@ -265,14 +265,15 @@ Commits, na ordem, todos no ar e conferidos pelo SHA do container:
 | `50ef6f8` | Fila 3: delegaEscolha nao e anulado; situacao ganha do item; listas do pedido aprovado sairam; bolo com nome inteiro no cardapio | modelo real 3 de 3 em cada cena |
 | `53bfe74` | delegaEm: delegar salgado e docinho nao entrega o sabor do bolo | producao: bolo sem sabor chutado |
 | `f3a45fc` | fora_do_assunto no formato: numero errado nao ouve "O que voce precisa?" | modelo real 3 de 3 |
-| (seguinte) | sabor do bolo com docinho de mesmo nome anotado: lembrete completo (forminha, pecas, bolo sem sabor), falas seguidas da padaria viram uma, dica do bolo explicita | modelo real 3 de 3; era {} antes |
+| `1b37633` | sabor do bolo com docinho de mesmo nome anotado: lembrete completo (forminha, pecas, bolo sem sabor), falas seguidas da padaria viram uma, dica do bolo explicita | modelo real 3 de 3; era {} antes |
+| (seguinte) | o atalho do "Sim" digitado saiu (107 linhas): o texto sempre chega ao modelo | producao: a frase mista perdia tema e escrito; modelo 3 de 3 em Sim/nao/mista/contraste |
 
 **O que ficou como REDE** (roda so quando o modelo nao devolveu; nunca desfaz o
 que ele leu): desempate do sabor pela ultima fala (B-5), aviso do recheio fixo
 (B-4), peca nomeada na frase (B-12), sabor solto nao e assunto novo (B-13),
 produto montado sobre palavra de sabor (B-16), `semInvencao` (B-15, o modelo com
 contexto nao inventou mais na medicao), `acabouDePerguntar` (B-1: nao bloqueia o
-modelo, so escolhe a instrucao certa), o "Sim" digitado das pecas.
+modelo, so escolhe a instrucao certa).
 
 **O que NAO foi feito hoje:** Fila 4 (as 350 linhas de distribuicao de sabor,
 `fluxo.ts` em torno de `esperando`/`peloFixo`) e as listas 3016 (contraste),
