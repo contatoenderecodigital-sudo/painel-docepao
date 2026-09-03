@@ -564,7 +564,10 @@ export function cardapioDaCasaParaOModelo(): string {
       vistos.add(chave);
       return true;
     });
-    linhas.push("- " + cat.replace(/_/g, " ") + (g.unidade === "kg" ? " (por quilo)" : "") + ": " + nomes.join(", "));
+    // O ROTULO E DO GRUPO, E O TEXTO DIZ ISSO. Medido em 03/09/2026: com
+    // "- salgado frito: coxinha, ..." o modelo devolvia produto "salgado frito"
+    // com sabor "coxinha", e a coxinha virava recado de uma linha de familia.
+    linhas.push("- grupo " + cat.replace(/_/g, " ") + (g.unidade === "kg" ? " (por quilo)" : "") + ", produtos: " + nomes.join(", "));
   }
   return linhas.join("\n");
 }
@@ -943,6 +946,8 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "- O número que ele disse é a quantidade: \"2 inteiras\" são 2, mesmo que " +
     "ele detalhe os sabores depois." + porSabor + String.fromCharCode(10) +
     "- O sabor ou recheio vai no campo sabor; recado pra cozinha vai em obs." + String.fromCharCode(10) +
+    "- O produto é sempre o nome do item (coxinha, esfirra, bolo brigadeiro), NUNCA o nome do " +
+    "grupo (salgado frito, docinho, bolo festa): o grupo está no cardápio só pra você saber a família." + String.fromCharCode(10) +
     "- Bolo: o peso em quilos vai na quantidade. Sabor de bolo se escreve com o " +
     "prefixo (\"bolo 4 leites\", \"bolo brigadeiro\"); caseiro só se ele disse " +
     "caseiro (\"bolo caseiro cenoura\"). Sabor de bolo que NÃO está na lista (ninho, " +
@@ -1170,7 +1175,16 @@ export function leituraQueCabeNaEtapa(
   const itens = leitura.itens.flatMap((bruto) => {
     let i = bruto;
     if (rotulosDeCategoria.has(semAc(i.produto)) && !existeNoCardapio(i.produto)) {
-      i = { ...i, produto: String(rotulosDeCategoria.get(semAc(i.produto))) };
+      // "salgado frito" com sabor "coxinha": o produto e a coxinha. Medido em
+      // 03/09/2026 numa festa de 300 salgados: o modelo pos o grupo no produto e
+      // o produto no sabor, e a coxinha virava recado de uma linha de familia.
+      const doSabor = String(i.sabor ?? "").trim();
+      const produtoDoSabor = doSabor ? (produtoPorNome(doSabor) ?? produtoNoComeco(doSabor)) : null;
+      if (produtoDoSabor) {
+        i = { ...i, produto: produtoDoSabor.nome, sabor: null };
+      } else {
+        i = { ...i, produto: String(rotulosDeCategoria.get(semAc(i.produto))) };
+      }
     }
     const nome = semAc(i.produto);
     const jeitos = formasDoCliente(i.produto);

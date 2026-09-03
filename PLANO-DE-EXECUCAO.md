@@ -269,6 +269,8 @@ Commits, na ordem, todos no ar e conferidos pelo SHA do container:
 | `871ff0e` | o atalho do "Sim" digitado saiu (107 linhas): o texto sempre chega ao modelo | producao: a frase mista perdia tema e escrito; modelo 3 de 3 em Sim/nao/mista/contraste |
 | `34fe798` | Fila 4: as 247 linhas de distribuicao de sabor sairam; `humano`, `recomecar` e `opcoes` viram campos do modelo (as regex de "quero falar com a dona", "apaga tudo" e "quais tem?" sairam); a linha de pizza que ja existe aceita o sabor respondido, e duas pizzas com sabores diferentes sao duas linhas | modelo real 3 de 3 em 12 cenas; portao 168 |
 | `6aad86d` | o peso que ja estava nao some quando o modelo repete o item na confirmacao | bateria: cenario 5 era 4/5, virou 5/5 |
+| `40718af` | o valor do topo e lido pelo modelo (botao continua decidindo); bolo com sabor que a casa nao tem vira misto a confirmar | modelo 3 de 3 em 8 respostas ao valor; producao: "ta certo" foi pra fila, "muda pra sexta" foi pra equipe |
+| (seguinte) | o cardapio diz "grupo X, produtos: ...": o modelo punha o grupo no produto e o produto no sabor (matriz, conversa 3) | modelo 3 de 3; portao 171 |
 
 **O que ficou como REDE** (roda so quando o modelo nao devolveu; nunca desfaz o
 que ele leu): desempate do sabor pela ultima fala (B-5), aviso do recheio fixo

@@ -4327,6 +4327,9 @@ export async function responder(
   // So vale quando a propria leitura marcou a aprovacao, o turno comecou na
   // oferta e todas as etapas chegaram ate a confirmacao. O fechamento ainda
   // passa por `oQueFaltaPraFechar`, entao isto nao inventa dado nem pula sabor.
+  // Regra 28 do dono: pedido completo, oferta recusada e "pode fechar" na mesma
+  // fala nao exigem uma segunda confirmacao. (Em 03/09/2026 pensei em mostrar o
+  // resumo antes, porque o cliente fecha sem ver o total; a regra e dele e fica.)
   if (
     !confirmouEscrevendo &&
     leituraDesteTurno?.confirmou === true &&
