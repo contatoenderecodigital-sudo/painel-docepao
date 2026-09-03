@@ -36,6 +36,7 @@ import { fecharPedido, oQueFaltaPraFechar } from "./fechar";
 import { linhasQueOClientePodeEstarTirando, type Estado, type TurnoDaConversa } from "./fluxo";
 import { quandoDoPedido } from "./pergunta";
 import { sortidoDaCasa, calcularBase } from "./base";
+import { escreverObs, lerObs } from "@/lib/banco/obs-do-bolo";
 import { categoriasDaFamilia } from "./generico";
 import { DOCE_PAO } from "../persona";
 import { avisoDeEspera, retiradaForaDoExpediente } from "../../padaria-aberta";
@@ -587,6 +588,20 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
     });
   }
   if (l.prato === "aberto" || l.prato === "tampa") e.prato = l.prato;
+  // O TEMA, O ESCRITO E AS PECAS VAO NA OBS DO BOLO: e dali que a comanda da
+  // confeiteira le. A comanda de 03/09 saiu "3 kg bolo brigadeiro com maracuja"
+  // sem o tema minecraft e sem o escrito, porque o estado guardava e o item nao.
+  for (const i of e.itens) {
+    if (String(i.categoria) !== "bolo_festa") continue;
+    const lido = lerObs(i.obs);
+    const resto = [...(lido.resto ?? [])];
+    i.obs = escreverObs({
+      tema: e.tema, escrito: e.escrito,
+      topo: e.pecas?.topo === true, papelDeArroz: e.pecas?.papelDeArroz === true,
+      embalagem: e.prato === "aberto" ? "prato aberto" : e.prato === "tampa" ? "caixa com tampa" : null,
+      resto,
+    }) || null;
+  }
   if (l.ehFesta === true) e.ehFesta = true;
   if (Number(l.pessoas) > 0) { e.pessoas = Number(l.pessoas); e.ehFesta = true; }
   if (l.naoQuer?.length) e.naoQuer = [...new Set([...(e.naoQuer ?? []), ...l.naoQuer.map(String)])];
