@@ -125,6 +125,7 @@ export function instrucaoLivre(): string {
     "- Todo item precisa de quantidade dita pelo cliente (unidades, ou quilos no que é vendido por quilo) e, se o produto tem lista de sabores, do sabor escolhido. Nunca chute nenhum dos dois: assim que ele citar um item, a sua próxima pergunta é a quantidade (ou o sabor, se faltar). Na festa a quantidade sai da sugestão que ele aceitou.",
     "- Você NUNCA escolhe sabor nem produto por ele. O sabor do bolo é sempre dele. Sortido só quando ele pedir pra você escolher, e só de salgados e docinhos.",
     "- Bolo de festa, nesta ordem, uma pergunta por vez: 1) o sabor; 2) se ele quer misturar com um segundo sabor (até 2, vale o preço do mais caro); 3) quantos quilos (de 300 g a 6 kg; na festa sugira o da base); 4) papel de arroz com a foto impressa (R$ 12,00), sim ou não; 5) topo de bolo, sim ou não (o valor do topo é a equipe que orça, não dê valor); 6) se tiver topo ou papel: o tema e o que vai escrito (nome e idade). O que ele já respondeu numa frase só, não pergunte de novo.",
+    "- Quando ele responder sim ou não ao papel de arroz ou ao topo, mande pecas no JSON ({\"papelDeArroz\": true} ou {\"topo\": false}); sem isso a resposta dele se perde. O que ele disser sobre o tema e o escrito vai em tema e escrito.",
     "- Docinhos: depois de saber quais e quantos, pergunte a cor da forminha POR ESCRITO, listando as cores (amarelo, azul, branca, dourada, laranja, lilás, marrom, pink, prata, preta, rosa, roxo, verde, vermelha). Uma cor pro pedido. Nunca mande cardápio pra isso.",
     "- Festa: sugira 10 salgados, 5 docinhos e 100 g de bolo por pessoa (diga os números e o valor), e o cliente ajusta. " +
       "Quando ele aceitar a sugestão, VOCÊ anota as quantidades: reparta o total da família entre os tipos que ele escolher " +
@@ -152,7 +153,7 @@ export function instrucaoLivre(): string {
     '  "itens": [{ "produto": "nome do cardápio (bolo com o prefixo: bolo brigadeiro)", "qtd": 0, "sabor": "recheio escolhido ou null", "obs": "recado pra cozinha ou null" }],',
     '  "tirar": ["o que ele mandou tirar, nas palavras dele"],',
     '  "dados": { "nome": "", "data": "DD/MM/AAAA", "hora": "HH:MM", "pagamento": "pix|cartao|dinheiro" },',
-    '  "pecas": { "topo": true, "papelDeArroz": false }, "tema": "", "escrito": "", "forminha": "cor", "prato": "aberto|tampa",',
+    '  "pecas": { "topo": true, "papelDeArroz": false }, "tema": "Minnie", "escrito": "Ana 7 anos", "forminha": "rosa", "prato": "aberto|tampa",',
     '  "ehFesta": true, "pessoas": 0, "naoQuer": ["o que ele disse que não quer"],',
     '  "situacao": "reclamacao|cancelar|status|fora_do_assunto|humano", "chamarEquipe": "motivo, quando precisar de gente",',
     '  "confirmou": true, "aceitouValor": true, "recomecar": true, "comprovante": true,',
@@ -204,7 +205,7 @@ export function lembreteDoPedido(e: Estado, extra: { pedidoNaFila?: boolean; agu
     partes.push("É festa, ainda sem número de pessoas.");
   }
   if (e.naoQuer?.length) partes.push("Ele não quer: " + e.naoQuer.join(", ") + ".");
-  const falta = [...oQueFaltaPraFechar(e), ...faltaSabor(e), ...faltaDaFesta(e)];
+  const falta = [...oQueFaltaPraFechar(e), ...faltaSabor(e), ...faltaPecasDoBolo(e), ...faltaDaFesta(e)];
   if (e.itens.length) partes.push(falta.length ? "FALTA PRA FECHAR: " + falta.join("; ") + "." : "Está tudo completo: mostre o resumo e pergunte se pode fechar, se ainda não perguntou.");
   if (e.pedidoAprovado) {
     const quando = quandoDoPedido(e.pedidoAprovado);
@@ -228,6 +229,17 @@ export function faltaSabor(e: Estado): string[] {
     const tem = p.sabores.some((sab) => obs.includes(semAcento(sab))) || /a confirmar/.test(obs);
     if (!tem) falta.push("o sabor do " + i.produto + " (" + p.sabores.slice(0, 8).join(", ") + (p.sabores.length > 8 ? "..." : "") + ")");
   }
+  return falta;
+}
+
+/** Bolo de festa sem resposta de papel de arroz e topo nao fecha: sao dinheiro (R$ 12 e o orcamento da equipe). */
+export function faltaPecasDoBolo(e: Estado): string[] {
+  const temBoloDeFesta = e.itens.some((i) => String(i.categoria) === "bolo_festa");
+  if (!temBoloDeFesta) return [];
+  const falta: string[] = [];
+  if (e.pecas?.papelDeArroz !== true && e.pecas?.papelDeArroz !== false) falta.push("saber se quer papel de arroz com foto no bolo (sim ou não)");
+  if (e.pecas?.topo !== true && e.pecas?.topo !== false) falta.push("saber se quer topo de bolo (sim ou não)");
+  if ((e.pecas?.topo || e.pecas?.papelDeArroz) && !e.tema) falta.push("o tema da peça");
   return falta;
 }
 
@@ -570,7 +582,7 @@ export async function atenderLivre(
   let pedidoId: string | undefined;
   let textoFinal = r.texto;
   if (r.confirmou && !pedidoNaFila && !pedidoAprovado) {
-    const falta = [...oQueFaltaPraFechar(r.estado), ...faltaSabor(r.estado), ...faltaDaFesta(r.estado)];
+    const falta = [...oQueFaltaPraFechar(r.estado), ...faltaSabor(r.estado), ...faltaPecasDoBolo(r.estado), ...faltaDaFesta(r.estado)];
     if (!falta.length) {
       try {
         const fechado = await fecharPedido(negocioId, clienteId, r.estado);
