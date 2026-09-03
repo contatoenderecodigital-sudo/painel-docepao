@@ -14,9 +14,6 @@ import { dataDeRetirada } from "../ia/fluxo/falas-do-cliente";
 import type { TurnoDaConversa } from "../ia/fluxo/leitura";
 export type { Mensagem } from "./tipos-da-conversa";
 
-const LIMITE_HISTORICO = 40; // ultimas N mensagens que a IA enxerga. 20 truncava conversa
-                              // de pedido de festa e ela reperguntava o que ja tinha sido dito.
-
 // Acha o cliente pelo telefone; cria se for a primeira vez.
 // Upsert ATÔMICO: duas mensagens quase simultâneas de um cliente novo não criam
 // dois cadastros (nem quebram no unique). Depende do índice único
@@ -70,13 +67,14 @@ export async function padariaJaFalouNaConversa(
   negocioId: string,
   clienteId: string,
 ): Promise<boolean> {
+  // SEM JANELA. A janela de 40 mensagens fazia a padaria cumprimentar de novo no
+  // meio de uma conversa longa (o proprio comentario acima admitia). Quem ja
+  // ouviu a padaria uma vez nesta conversa nao ouve "boa tarde" de novo.
   const linha = await queryUm<{ existe: boolean }>(
-    `select 1 as existe from (
-       select papel from mensagens
-        where negocio_id = $1 and cliente_id = $2
-        order by criado_em desc limit $3
-     ) ultimas where papel = 'assistant' limit 1`,
-    [negocioId, clienteId, LIMITE_HISTORICO],
+    `select 1 as existe from mensagens
+      where negocio_id = $1 and cliente_id = $2 and papel = 'assistant'
+      limit 1`,
+    [negocioId, clienteId],
   );
   return !!linha;
 }

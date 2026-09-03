@@ -96,7 +96,11 @@ export function pensarComOpenAI(
 ): Pensar {
   return async ({ instrucao, mensagem, historico, anotado }) => {
     // Quem manda no formato e o provedor, e a URL diz qual e.
-    const anthropic = /anthropic|claude/i.test(String(process.env.IA_BASE_URL || "")) ||
+    // A URL que vale e a DO CLIENTE (que pode ter vindo do banco), e nao so a
+    // variavel de ambiente: um tenant com Anthropic configurado no banco
+    // levava `response_format` e 400 em toda mensagem.
+    const anthropic =
+      /anthropic|claude/i.test(String((cliente as { baseURL?: string }).baseURL ?? process.env.IA_BASE_URL ?? "")) ||
       /^claude-/i.test(modeloDoCerebro(modeloDoNegocio));
     const r = await cliente.chat.completions.create({
       model: modeloDoCerebro(modeloDoNegocio),

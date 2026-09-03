@@ -43,7 +43,11 @@
  * Havia tres declaracoes desta lista: aqui, no tipo `Leitura` e escrita a mao no
  * limpador do `pensar-openai.ts`.
  */
-export const SITUACOES = ["reclamacao", "cancelar", "status"] as const;
+// FORA DO ASSUNTO entrou em 03/09/2026. Medido em producao em 02/09: um numero
+// errado ("nesse numero falo com Ademir?") e uma propaganda de IPVA ouviram
+// "O que voce precisa?" tres vezes seguidas, e depois a tabela de pagamento.
+// A padaria se apresenta uma vez; na segunda, chama gente.
+export const SITUACOES = ["reclamacao", "cancelar", "status", "fora_do_assunto"] as const;
 export type SituacaoDaConversa = (typeof SITUACOES)[number];
 
 export type RespostaDaSituacao = { texto: string; precisaHumano: boolean };
@@ -57,8 +61,24 @@ export type RespostaDaSituacao = { texto: string; precisaHumano: boolean };
 export function respostaDaSituacao(
   situacao: SituacaoDaConversa,
   temPedido: boolean,
+  /** Quantas vezes seguidas a padaria ja repetiu a mesma pergunta. */
+  insistiu = 0,
 ): RespostaDaSituacao {
   switch (situacao) {
+    case "fora_do_assunto":
+      // Numero errado, propaganda, assunto de outro negocio. A padaria diz quem
+      // e, uma vez. Se a pessoa continua, e caso de gente, nao de repetir.
+      return insistiu >= 1
+        ? {
+            texto: "Vou chamar alguém da equipe da padaria pra te ajudar com isso por aqui.",
+            precisaHumano: true,
+          }
+        : {
+            texto:
+              "Oi! Aqui é o WhatsApp da padaria. Se for encomenda ou alguma informação " +
+              "sobre a gente, é só me dizer.",
+            precisaHumano: false,
+          };
     case "reclamacao":
       // NAO PEDE DESCULPA POR ALGO QUE ELA NAO SABE SE ACONTECEU, e nao promete
       // nada: quem resolve reclamacao e a dona, e prometer refazer ou devolver

@@ -36,6 +36,7 @@ import {
   devolverPedidoParaEquipe,
 } from "@/lib/banco/pedidos";
 import { ultimasMensagens } from "@/lib/banco/conversas";
+import { carregarAvisoDoDia } from "@/lib/banco/negocios";
 
 export type RespostaDoFluxo = {
   texto: string;
@@ -312,12 +313,24 @@ export async function atenderComFluxoNovo(
   // Sem roteiro fixo: quem escolhe e o tipo do pedido, e a escolha se refaz a
   // cada mensagem. Quem so cumprimentou segue o roteiro comum, que e curto, e
   // troca pro da festa no instante em que falar de festa.
+  // O AVISO DO DIA so vale se foi escrito HOJE, no relogio da padaria: "sem pao
+  // apos as 18h" de ontem nao e verdade hoje, e a tela promete que expira.
+  const avisoDoDia = await carregarAvisoDoDia(negocioId)
+    .then((a) => {
+      if (!a.texto?.trim() || !a.atualizadoEm) return null;
+      const dia = (d: Date) =>
+        new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo" }).format(d);
+      return dia(new Date(a.atualizadoEm)) === dia(new Date()) ? a.texto.trim() : null;
+    })
+    .catch(() => null);
+
   const r = await responder(
     antes,
     mensagem,
     pensarComReserva(cliente, contar, modeloDoNegocio, reserva),
     null,
     historico,
+    avisoDoDia,
   );
 
   await gravarEstado(negocioId, clienteId, antes, r.estado);

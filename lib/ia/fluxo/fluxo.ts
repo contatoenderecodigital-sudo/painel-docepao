@@ -291,6 +291,12 @@ const DO_BOTAO: Record<string, (e: Estado) => Estado> = {
   // botao faz e desmarcar o aceite da proposta, pra conversa nao ficar tentando
   // fechar enquanto ele resolve.
   fecha_mudar: (e) => ({ ...e, retomarEm: null, assunto: null }),
+  // "Confirmar", no resumo final. O estado nao muda aqui: quem fecha o pedido
+  // e o `atender`, pelo id do botao. O que esta linha faz e impedir que o
+  // toque mais importante da conversa caia no caminho do TEXTO e chame o
+  // modelo pra ler a palavra "Confirmar" (custava uma chamada por pedido, e o
+  // cabecalho deste arquivo jura que botao nao custa nada).
+  fecha_sim: (e) => e,
 };
 
 // OS BOTOES FANTASMA SAIRAM DAQUI.
@@ -2877,6 +2883,10 @@ export async function responder(
   // ultima fala da padaria faz as vezes do historico, que e o minimo que da
   // sentido a uma resposta curta.
   historico: TurnoDaConversa[] | null = null,
+  // O AVISO DO DIA da dona ("sem pao apos as 18h"). A tela prometia que a IA
+  // lia isso e nada lia: nao havia prompt onde enfiar. Agora vai junto do que
+  // esta anotado, e o modelo responde sabendo.
+  avisoDoDia: string | null = null,
 ): Promise<Resposta> {
   const rastro: string[] = [];
   let estado: Estado = { ...estadoAtual };
@@ -2922,20 +2932,23 @@ export async function responder(
 
     if (querMudar || soAgradeceu) {
       rastro.push("pedido ja aprovado; falei dele em vez de reabrir o fechamento");
+      const textoDoAprovado = querMudar
+        ? "Seu pedido já está confirmado com a equipe" +
+          (quando ? " pra " + quando : "") +
+          ", e eles já estão com ele pra produzir. Vou chamar alguém da equipe pra ver essa mudança com você."
+        : "Imagina! Seu pedido está confirmado" +
+          (quando ? " pra " + quando : "") +
+          ". Qualquer coisa é só chamar por aqui.";
       return {
         fala: {
-          texto: querMudar
-            ? "Seu pedido já está confirmado com a equipe" +
-              (quando ? " pra " + quando : "") +
-              ", e eles já estão com ele pra produzir. Vou chamar alguém da equipe pra ver essa mudança com você."
-            : "Imagina! Seu pedido está confirmado" +
-              (quando ? " pra " + quando : "") +
-              ". Qualquer coisa é só chamar por aqui.",
+          texto: textoDoAprovado,
           botoes: [],
           cardapio: null,
           podeReescrever: false,
         },
-        estado,
+        // A ULTIMA FALA E ESTA, e nao a pergunta antiga: e o que o modelo recebe
+        // como contexto no turno seguinte.
+        estado: { ...estado, insistiu: 0, ultimaFala: textoDoAprovado },
         etapa: "registrado",
         rastro,
         chamouIA: false,
@@ -3071,7 +3084,9 @@ export async function responder(
       historico:
         historico ??
         (estado.ultimaFala ? [{ papel: "assistant" as const, conteudo: String(estado.ultimaFala) }] : []),
-      anotado: resumoDoAnotado(estado),
+      anotado: [resumoDoAnotado(estado), avisoDoDia ? "Aviso da padaria hoje: " + avisoDoDia : null]
+        .filter(Boolean)
+        .join(" ") || null,
     });
     chamouIA = true;
 
@@ -3556,7 +3571,7 @@ export async function responder(
           cardapio: null,
           podeReescrever: false,
         },
-        estado,
+        estado: { ...estado, insistiu: 0, ultimaFala: "Claro. " + avisoDeEspera() },
         etapa: etapaAgora.id,
         rastro,
         chamouIA,
@@ -3608,11 +3623,20 @@ export async function responder(
     const temProdutoNesteTurno =
       pediuItemNesteTurno || (soMencionouProduto && !eQueixa);
     if (limpa.situacao && !temProdutoNesteTurno) {
-      const r = respostaDaSituacao(limpa.situacao, estado.itens.length > 0 || Boolean(estado.dados.data));
+      const r = respostaDaSituacao(
+        limpa.situacao,
+        estado.itens.length > 0 || Boolean(estado.dados.data),
+        estado.insistiu ?? 0,
+      );
       rastro.push("situacao: " + limpa.situacao + (r.precisaHumano ? "; chamei a equipe" : ""));
       return {
         fala: { texto: r.texto, botoes: [], cardapio: null, podeReescrever: false },
-        estado,
+        // Fora do assunto conta como insistencia: a segunda vez chama gente.
+        estado: {
+          ...estado,
+          insistiu: limpa.situacao === "fora_do_assunto" ? (estado.insistiu ?? 0) + 1 : 0,
+          ultimaFala: r.texto,
+        },
         etapa: etapaAgora.id,
         rastro,
         chamouIA,
@@ -4919,14 +4943,16 @@ export async function responder(
   // minimo por sabor): a frase entra na frente, a pergunta continua.
   //
   // Achado lendo linha por linha em 27/08/2026.
+  //
+  // E SEM `return` ANTES DA TRAVA FINAL. Ate 03/09/2026 este bloco saia da
+  // funcao aqui, e o turno em que o cliente dizia uma hora fora do expediente
+  // pulava a trava do catalogo, o teto de 6 kg e o arredondamento da
+  // quantidade, la embaixo. O aviso entra na frente da fala e a funcao segue.
   if (foraDoHorario) {
-    return {
-      fala: {
-        ...fala,
-        texto: foraDoHorario + (fala.texto ? "\n\n" + fala.texto : ""),
-        podeReescrever: false,
-      },
-      estado, etapa: proxima.id, rastro, chamouIA, confirmouEscrevendo, precisaHumano, motivoHumano,
+    fala = {
+      ...fala,
+      texto: foraDoHorario + (fala.texto ? "\n\n" + fala.texto : ""),
+      podeReescrever: false,
     };
   }
   // ==========================================================================

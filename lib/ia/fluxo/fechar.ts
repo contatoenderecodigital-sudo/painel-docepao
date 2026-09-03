@@ -27,6 +27,7 @@
 // ============================================================================
 
 import { registrarPedido, grudarFotosNoPedido } from "@/lib/banco/conversas";
+import { limparMontagem } from "@/lib/banco/montagem";
 import { motorPadrao, type LinhaCotacao } from "../orcamento";
 import type { Estado } from "./fluxo";
 import { prazoDoTopoAperta } from "./falas-do-cliente";
@@ -365,6 +366,20 @@ export async function fecharPedido(
   // impede o pedido de existir, entao vai com catch.
   await grudarFotosNoPedido(negocioId, clienteId, pedidoId).catch((e) =>
     console.error("[fluxo] falha ao grudar as fotos no pedido:", e),
+  );
+
+  // O RASCUNHO E LIMPO DEPOIS DE REGISTRAR. Ninguem fazia isso, e o comentario
+  // do webhook jurava que sim. Confirmado no banco de producao em 03/09/2026:
+  // o rascunho da cliente continuava com os 9 itens dez minutos depois de o
+  // pedido ter sido registrado e IMPRESSO, e o "Ok, obrigada!" dela caiu na
+  // etapa da confirmacao e gerou um SEGUNDO pedido, de R$ 481,80, na fila.
+  //
+  // O pedido registrado e a memoria agora. Enquanto a equipe nao aprova, o
+  // webhook devolve os itens dele pro rascunho quando o cliente volta a
+  // escrever (e `registrarPedido` ATUALIZA o pedido pendente em vez de
+  // duplicar). Depois de aprovado, a conversa fala DELE pelo `pedidoAprovado`.
+  await limparMontagem(negocioId, clienteId).catch((e) =>
+    console.error("[fluxo] falha ao limpar o rascunho depois de registrar:", e),
   );
 
   return { pedidoId, totalCentavos, linhas };
