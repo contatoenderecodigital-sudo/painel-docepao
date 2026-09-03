@@ -716,8 +716,8 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     // a dona usa nesses casos: negociacao virando tabela custa margem.
     "- Pediu desconto, falou que e beneficente ou pediu ajuda = desconto." + String.fromCharCode(10) +
     "- Reclamou do que comprou = situacao \"reclamacao\". Quer cancelar = " +
-    "\"cancelar\". Pergunta de pedido já feito = \"status\". Número errado, " +
-    "propaganda ou assunto que não é da padaria = \"fora_do_assunto\"." + String.fromCharCode(10) +
+    "\"cancelar\". Pergunta de pedido já feito = \"status\". Mensagem que não é assunto " +
+    "da padaria (procura outra pessoa, propaganda, outro negócio) = \"fora_do_assunto\", nunca {}." + String.fromCharCode(10) +
     "- Pergunta e reclamação NÃO viram item." + String.fromCharCode(10) +
     "- Foto que chega depois de a padaria pedir o comprovante do pix = comprovante true.";
 
