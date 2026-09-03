@@ -438,6 +438,39 @@ const temGenerico = (p: PedidoEmMontagem, pref: string) =>
 const faltaQuantidadeDe = (p: PedidoEmMontagem, familia: string) =>
   categoriasDaFamilia(familia).some((cat) => faltaQuantidade(p, cat));
 
+
+/**
+ * ISTO PARECE ENCOMENDA DE FESTA, MESMO SEM ELE TER DITO A PALAVRA?
+ *
+ * Dois ou mais GRUPOS pedidos sem quantidade nenhuma. Foi assim que a conversa
+ * dele comecou em 02/09/2026:
+ *
+ *   cliente >> quero bolo, salgados, docinhos e cupcakes
+ *
+ * Quatro grupos, nenhum numero. Isso e encomenda de festa em qualquer padaria,
+ * mas o codigo so ligava o modo festa se o cliente DISSESSE a palavra ("festa",
+ * "aniversario") ou desse o numero de gente. Como nao virou festa, a proposta
+ * inteira nao aconteceu -- e e a proposta que resolve o peso do bolo, as
+ * quantidades e a ordem das perguntas. A padaria acabou perguntando o salgado
+ * DEPOIS da forma de pagamento.
+ *
+ * O CODIGO NAO DECIDE QUE E FESTA. Decisao dele, 02/09/2026, escolhendo entre
+ * deduzir e perguntar: *"pergunta, sem chutar"*. Isto aqui so abre a PERGUNTA,
+ * e quem responde e o cliente. Quem diz "e pra casa" segue item a item.
+ *
+ * SEM QUANTIDADE E A PARTE QUE IMPORTA. "quero 100 coxinhas e 50 brigadeiros"
+ * tambem sao dois grupos, mas ali ele ja disse tudo: perguntar de festa seria a
+ * burocracia que o dono reclamou no primeiro teste.
+ */
+function pareceEncomendaDeFesta(p: PedidoEmMontagem): boolean {
+  const gruposSemNumero = new Set(
+    p.itens
+      .filter((i) => ehNomeDeFamilia(i.produto) && !(Number(i.qtd) > 0))
+      .map((i) => String(i.produto).trim().toLowerCase()),
+  );
+  return gruposSemNumero.size >= 2;
+}
+
 const faltaQuantidadeDoBolo = (p: PedidoEmMontagem) => faltaQuantidade(p, "bolo_festa");
 
 /**
@@ -584,7 +617,13 @@ export const ETAPAS_DA_FESTA: Etapa[] = [
     // O que separa os dois e o numero que o CLIENTE ditou: "100 coxinha" e
     // escolha feita, "bolo" e assunto aberto.
     pulavel: (p) =>
-      !p.ehFesta ||
+      // A PERGUNTA TAMBEM ABRE QUANDO ELE PEDE DOIS GRUPOS SEM NUMERO.
+      //
+      // Ver `pareceEncomendaDeFesta`: "quero bolo, salgados, docinhos e
+      // cupcakes" e encomenda de festa em qualquer padaria, e o codigo so
+      // ligava a festa se ele dissesse a palavra. A pergunta e dele, nao a
+      // conclusao: quem responder que e pra casa segue item a item.
+      (!p.ehFesta && !pareceEncomendaDeFesta(p)) ||
       jaPerguntouEEleNaoRespondeu(p, "quantas_pessoas") ||
       (!p.baseAceita &&
         p.itens.some((i) => Number(i.qtd) > 1 && !ehNomeDeFamilia(i.produto))),
@@ -1068,6 +1107,22 @@ export const ROTEIRO_DA_FESTA: Etapa[] = SO([
  */
 export const ROTEIRO_COMUM: Etapa[] = SO([
   "abertura",
+  // A PERGUNTA DA FESTA ENTRA AQUI TAMBEM, e ela sabe se calar sozinha.
+  //
+  // O `pulavel` dela so a deixa aparecer quando o cliente pediu DOIS GRUPOS SEM
+  // NUMERO ("quero bolo, salgados, docinhos e cupcakes"): ali ninguem sabe as
+  // quantidades, e a padaria precisa perguntar. Em pedido comum ("100 coxinhas
+  // pra sabado") ela continua pulada, como sempre foi.
+  //
+  // Sem estar nesta lista, a pergunta nao existia fora da festa -- e como o
+  // pedido so vira festa quando o cliente DIZ a palavra, quem pedia quatro
+  // grupos sem numero nunca era perguntado, e a proposta inteira nao acontecia.
+  // Medido na conversa dele de 02/09/2026.
+  //
+  // A `base_da_festa` NAO entra: ela precisa do numero de pessoas. Quando ele
+  // responde o numero, o pedido vira festa e o roteiro passa a ser o outro, que
+  // ja tem a base.
+  "quantas_pessoas",
   "salgado",
   "docinho",
   "bolo",

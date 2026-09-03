@@ -32,7 +32,7 @@ fs.writeFileSync(
   sonda,
   [
     'import { responder } from "../lib/ia/fluxo/fluxo.ts";',
-    'import { ROTEIRO_DA_FESTA, ROTEIRO_COMUM, roteiroDoPedido } from "../lib/ia/fluxo/etapas.ts";',
+    'import { ROTEIRO_DA_FESTA, ROTEIRO_COMUM, roteiroDoPedido, etapaDaVez } from "../lib/ia/fluxo/etapas.ts";',
     "",
     "const VAZIO = {",
     "  ehFesta:false, pessoas:null, base:null, baseAceita:false, itens:[], naoQuer:[],",
@@ -60,6 +60,22 @@ fs.writeFileSync(
     "  festa: ROTEIRO_DA_FESTA.map((e) => e.id),",
     "  comum: ROTEIRO_COMUM.map((e) => e.id),",
     "  escolhaSemFesta: roteiroDoPedido(VAZIO as never).map((e) => e.id),",
+    "  // A PERGUNTA DA FESTA E MEDIDA PELO QUE ELA FAZ, e nao pela lista.",
+    "  perguntaSoCumprimento: etapaDaVez(VAZIO as never, roteiroDoPedido(VAZIO as never)).id,",
+    "  perguntaDoisGruposSemNumero: (() => {",
+    "    const p = com({ itens: [",
+    "      { produto: 'salgado', categoria: 'outro', qtd: 0, obs: null },",
+    "      { produto: 'docinho', categoria: 'docinho', qtd: 0, obs: null },",
+    "    ], etapasJaPerguntadas: ['abertura'] });",
+    "    return etapaDaVez(p as never, roteiroDoPedido(p as never)).id;",
+    "  })(),",
+    "  perguntaComQuantidade: (() => {",
+    "    const p = com({ itens: [",
+    "      { produto: 'coxinha', categoria: 'salgado_frito', qtd: 100, obs: 'frango' },",
+    "      { produto: 'brigadeiro', categoria: 'docinho', qtd: 50, obs: null },",
+    "    ], forminha: 'rosa', etapasJaPerguntadas: ['abertura'] });",
+    "    return etapaDaVez(p as never, roteiroDoPedido(p as never)).id;",
+    "  })(),",
     "  escolhaComFesta: roteiroDoPedido(com({ ehFesta:true }) as never).map((e) => e.id),",
     "  salgados: { etapa: salgados.etapa, texto: salgados.fala.texto, botoes: salgados.fala.botoes.map((b) => b.id) },",
     "  boloAvulso: { etapa: boloAvulso.etapa, texto: boloAvulso.fala.texto },",
@@ -101,17 +117,46 @@ const festaEsperada = [
 if (JSON.stringify(r.festa) !== JSON.stringify(festaEsperada)) {
   falhas.push("o roteiro da festa mudou de ordem: " + r.festa.join(" -> "));
 }
-// O comum nao tem proposta nem numero de pessoas: ele ja disse o que quer.
-for (const proibida of ["quantas_pessoas", "base_da_festa"]) {
-  if (r.comum.includes(proibida)) falhas.push("o roteiro comum tem '" + proibida + "', que e coisa de festa");
+// A PROPOSTA E SO DA FESTA: sem numero de pessoas nao ha base pra propor.
+if (r.comum.includes("base_da_festa")) {
+  falhas.push("o roteiro comum tem 'base_da_festa', e sem numero de pessoas nao ha base");
 }
 for (const obrigatoria of ["bolo", "pecas_do_bolo", "oferta", "dados", "confirmacao"]) {
   if (!r.comum.includes(obrigatoria)) falhas.push("o roteiro comum nao tem '" + obrigatoria + "'");
 }
 
 // ------------------------------- 2. festa e conclusao, nao ponto de partida
-if (r.escolhaSemFesta.includes("quantas_pessoas")) {
-  falhas.push("quem so cumprimentou ja entrou no roteiro da festa");
+//
+// A PERGUNTA E MEDIDA PELO QUE ELA FAZ, E NAO PELA LISTA DE ETAPAS.
+//
+// Ate 02/09/2026 isto cobrava que `quantas_pessoas` NAO estivesse no roteiro
+// comum. A intencao estava certa (festa e conclusao, nao ponto de partida), mas
+// a forma media a lista, e a lista nao e o comportamento: quem decide se a
+// pergunta sai e o `pulavel` dela.
+//
+// A etapa passou a estar nas duas listas porque ele pediu, em 02/09/2026, que
+// dois grupos SEM NUMERO virassem pergunta:
+//
+//   cliente >> quero bolo, salgados, docinhos e cupcakes
+//   padaria >> "E pra alguma festa ou evento? Se for, me diz pra quantas
+//               pessoas que eu ja monto uma sugestao com tudo e o valor."
+//
+// Sem isso a proposta inteira nao acontecia, e a padaria acabava perguntando o
+// salgado DEPOIS da forma de pagamento. Decisao dele entre deduzir e perguntar:
+// "pergunta, sem chutar".
+//
+// As tres conferencias abaixo medem os tres casos que importam.
+if (r.perguntaSoCumprimento === "quantas_pessoas") {
+  falhas.push("quem so cumprimentou foi perguntado de quantas pessoas");
+}
+if (r.perguntaDoisGruposSemNumero !== "quantas_pessoas") {
+  falhas.push(
+    "dois grupos sem numero nao viraram pergunta de festa: foi parar em '" +
+    r.perguntaDoisGruposSemNumero + "', e ai a proposta nunca acontece",
+  );
+}
+if (r.perguntaComQuantidade === "quantas_pessoas") {
+  falhas.push("quem ja disse as quantidades foi perguntado de festa: e a burocracia que o dono reclamou");
 }
 if (!r.escolhaComFesta.includes("quantas_pessoas")) {
   falhas.push("falou de festa e nao entrou no roteiro da festa");

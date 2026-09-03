@@ -634,6 +634,37 @@ function falaDoDocinho(p: PedidoEmMontagem, aviso: string): Fala {
     };
   }
 
+  // QUAIS DOCINHOS VEM ANTES DA COR DA FORMINHA.
+  //
+  // Achado por ele na conversa de 02/09/2026, e foi a PRIMEIRA coisa que a
+  // padaria disse depois de ele pedir quatro grupos:
+  //
+  //   cliente >> quero bolo, salgados, docinhos e cupcakes
+  //   padaria >> "De que cor voce quer a forminha dos docinhos?"
+  //   cliente >> lilas
+  //   padaria >> "Agora os docinhos: quais voce quer?"
+  //
+  // A cor saiu ANTES de ele escolher os docinhos. Palavra dele: *"pediu a
+  // forminha antes da pessoa falar os docinhos que queria"*.
+  //
+  // A dona monta a forminha antes de rechear, entao a cor e bloqueio duro do
+  // docinho -- mas ela e detalhe DE UM DOCINHO. Perguntar a cor de um docinho
+  // que ninguem escolheu e perguntar o enfeite antes da comida.
+  //
+  // O lugar vazio da familia ("docinho", sem sabor) e justamente o sinal de que
+  // a escolha ainda nao aconteceu.
+  const aindaGenerico = p.itens.some(
+    (i) => ehNomeDeFamilia(i.produto) && String(i.categoria || "").startsWith("docinho"),
+  );
+  if (aindaGenerico) {
+    return {
+      texto: aviso + "Agora os docinhos: quais você quer?",
+      botoes: [],
+      cardapio: "docinhos",
+      podeReescrever: true,
+    };
+  }
+
   // A QUANTIDADE VEM ANTES DA COR DA FORMINHA. Escolher a cor de um docinho
   // cuja quantidade ninguem sabe e perguntar o detalhe antes do essencial.
   const semQtdDoc = itemEsperandoQuantidade(p);
@@ -1181,6 +1212,30 @@ export function falaDaEtapa(
 
   switch (etapa.id) {
     case "quantas_pessoas":
+      // QUEM NAO DISSE QUE TEM FESTA OUVE OUTRA PERGUNTA.
+      //
+      // "Quantas pessoas vao na festa?" pressupoe a festa. Quando quem chega
+      // diz "quero bolo, salgados, docinhos e cupcakes", a padaria ainda nao
+      // sabe se e festa: sabe que sao quatro grupos sem numero nenhum, e que
+      // alguem precisa dizer as quantidades.
+      //
+      // Decisao dele, 02/09/2026, escolhendo entre deduzir e perguntar:
+      // *"pergunta, sem chutar"*. Entao a frase pergunta as DUAS coisas de uma
+      // vez, que e o que uma atendente faria, e a resposta abre um caminho ou o
+      // outro: com o numero de pessoas vem a proposta; sem ele, vai item a item.
+      //
+      // A oferta da sugestao esta na frase de proposito. E onde mora o ticket
+      // alto da casa, e o cliente so aceita o que ele sabe que existe.
+      if (!p.ehFesta) {
+        return {
+          texto:
+            "É pra alguma festa ou evento? Se for, me diz pra quantas pessoas " +
+            "que eu já monto uma sugestão com tudo e o valor.",
+          botoes: [],
+          cardapio: null,
+          podeReescrever: true,
+        };
+      }
       return { texto: "Quantas pessoas vão na festa?", botoes: [], cardapio: null, podeReescrever: true };
 
     case "base_da_festa":
