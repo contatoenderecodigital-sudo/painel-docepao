@@ -492,8 +492,9 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
   const disseNao = /^(n[aã]o|nao quero|não quero|sem|dispenso|n|nao precisa|não precisa)[!. ]*$/i.test(mensagem.trim());
   const pergunta = semAcento(String(ultimaPergunta ?? ""));
   if ((disseSim || disseNao) && pergunta && e.itens.some((i) => String(i.categoria) === "bolo_festa")) {
-    const papelEmAberto = /papel de arroz/.test(pergunta) && typeof antes.pecas?.papelDeArroz !== "boolean";
-    const topoEmAberto = /topo/.test(pergunta) && typeof antes.pecas?.topo !== "boolean";
+    // So entra quando o MODELO nao marcou a peca: se ele mandou pecas, a leitura e dele.
+    const papelEmAberto = /papel de arroz/.test(pergunta) && typeof antes.pecas?.papelDeArroz !== "boolean" && typeof l.pecas?.papelDeArroz !== "boolean";
+    const topoEmAberto = /topo/.test(pergunta) && typeof antes.pecas?.topo !== "boolean" && typeof l.pecas?.topo !== "boolean";
     if (papelEmAberto && !(topoEmAberto && !/papel de arroz\?/.test(pergunta) && /topo[^?]*\?/.test(pergunta))) {
       e.pecas = { topo: e.pecas?.topo ?? null, papelDeArroz: disseSim };
       rastro.push("sim/nao seco a pergunta do papel de arroz: " + disseSim);
