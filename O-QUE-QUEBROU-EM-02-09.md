@@ -74,7 +74,7 @@ aceitou e o codigo reparte; perguntar de novo seria pedir duas vezes.
 Teste: `testes/nenhum-item-fecha-sem-quantidade.cjs`, 7 casos, isca medida
 (3 ficam vermelhos com a guarda antiga).
 
-### 2. O cupcake foi apagado do pedido  [FAZENDO]
+### 2. O cupcake foi apagado do pedido  [FEITO]
 
 ```
 TIREI DO PEDIDO, nao existe no cardapio: 1x cupcake
@@ -100,7 +100,7 @@ bolo_salgado, franciscano, calzone, padaria, adicional_bolo.
 dona cadastrar um grupo novo, ele entra sozinho. A maquina ja tem onde receber
 esses produtos: a etapa `resto_do_cardapio` foi feita pra isso.
 
-### 3. Nunca perguntou quantas pessoas  [FAZENDO]
+### 3. Nunca perguntou quantas pessoas  [FEITO]
 
 Pedir bolo + salgados + docinhos + cupcakes e um pedido de festa em qualquer
 padaria. Mas o codigo so liga o modo festa se o cliente **disser a palavra**
@@ -118,25 +118,25 @@ ou mais grupos sem quantidade nenhuma, a padaria pergunta:
 Se ele disser que sim, abre a proposta. Se disser que nao, vai item a item. O
 codigo nao decide que e festa: ele pergunta o que nao tem como saber sozinho.
 
-### 4. Perguntou o salgado depois do pagamento  [FAZENDO]
+### 4. Perguntou o salgado depois do pagamento  [FEITO]
 
 Consequencia do 3. Sem a proposta, cada familia virou uma pergunta solta e o
 salgado ficou por ultimo, saindo depois da confirmacao. Com a festa detectada, a
 ordem volta a ser a do roteiro.
 
-### 5. Forminha perguntada antes de "quais docinhos"  [ABERTO]
+### 5. Forminha perguntada antes de "quais docinhos"  [FEITO]
 
 A cor da forminha saiu antes de o cliente escolher os docinhos. Ordem invertida:
 escolhe o doce, depois a cor.
 
-### 6. "dia 02/05" virou 02/05/2027  [ABERTO]
+### 6. "dia 02/05" virou 02/05/2027  [FEITO]
 
 O modelo leu `02/05/2026`, maio ja passou, e a guarda que impede data no passado
 rolou pra 2027. Nao esta no passado, mas o pedido ficou agendado pra **daqui a
 oito meses**. Padaria nao agenda com oito meses: ela tem que perguntar, e nao
 adivinhar o ano.
 
-### 7. "quais tem?" respondido com o preco  [ABERTO]
+### 7. "quais tem?" respondido com o preco  [FEITO]
 
 Ele perguntou quais salgados existem e ouviu "seu pedido fica em R$ 77,65".
 
@@ -195,3 +195,45 @@ nos dois sentidos.
 Nao e teste de exemplo: regra que vale "em quase todos" e a que produz o pedido
 errado justo no produto que ninguem lembrou de testar. Foi assim que o cupcake e
 a mini bolha doce passaram.
+
+
+---
+
+## FECHAMENTO, 02/09/2026 A NOITE
+
+**Os sete estao fechados**, mais os seis da auditoria dos arquivos e mais dois
+que apareceram no caminho (o sabor disputado entre grupos e o sabor dito dentro
+de uma etapa). Portao em **165 verdes**, build limpo, cada conserto commitado
+sozinho e com isca medida.
+
+### O QUE ESTA COBERTO POR VARREDURA HOJE
+
+| onde | o que e cobrado | produtos |
+| --- | --- | --- |
+| conversa | sabor, quantidade, ordem, pecas do bolo | 86 |
+| fechamento | nao registra sem sabor nem sem quantidade | 86 |
+| painel | concorda com a conversa em sabor e unidade | 86 |
+| salvar do painel | nada sai calado | 6 casos |
+| papel da cozinha | chega inteiro, com unidade certa | 86 |
+| sabor por etapa | o sabor dito cai na familia da etapa | 47 combinacoes |
+| familias | nenhuma categoria fica inalcancavel | 15 categorias |
+
+Antes de 02/09/2026 so a primeira linha existia.
+
+### DUAS FALHAS MINHAS NO CAMINHO, registradas porque se repetem
+
+**O shell comeu a barra invertida pela terceira vez.** O `` de uma regex virou
+byte de backspace (0x08) e ela nunca casaria. Achado olhando os bytes com
+`cat -A`; lendo o codigo parecia perfeito.
+
+**Uma isca nao mediu nada.** Na guarda da data, troquei um texto que nao existia
+no arquivo: o teste ficou verde com o conserto desligado e eu quase dei por bom.
+So peguei porque desconfiei do verde. Isca que nao acende nao e prova.
+
+### O QUE FALTA, e nao e codigo
+
+- **testar conversando com a producao.** 165 testes verdes nao sao uma conversa.
+- **o numero da padaria na Meta**, que so ele pode fazer.
+- **as perguntas da dona** em `PERGUNTAR-PRA-DONA.md`, sendo o nome da conta do
+  pix a unica que muda o que o cliente le hoje.
+- **a conversa 7 da matriz** (audio e foto), que depende de um audio de verdade.
