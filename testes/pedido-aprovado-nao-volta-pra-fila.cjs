@@ -50,6 +50,10 @@ const CASOS = [
     nome: "quem quer mudar pedido aprovado vai pra equipe",
     aprovado: APROVADO,
     fala: "queria trocar o sabor do bolo",
+    // O modelo, vendo a conversa, devolve o que ele quer mexer (medido 3 de 3
+    // em 03/09/2026). As duas listas de palavras que decidiam isto antes do
+    // modelo sairam.
+    leitura: { itens: [{ produto: "bolo prestígio", qtd: 0 }] },
     tem: ["equipe"],
     equipe: true,
     dano: "a cozinha ja esta com o pedido; mexer sozinha e a IA decidindo producao",
@@ -126,7 +130,7 @@ fs.writeFileSync(
     "    assunto:null, etapasJaPerguntadas: c.jaPerguntadas ?? ['abertura','dados','confirmacao'],",
     "    etapasAdiadas:[], pecasMandadas:[], pedidoAprovado: c.aprovado,",
     "  };",
-    "  const r = await responder(base as never, { texto: c.fala }, (async () => ({ itens: [] })) as never);",
+    "  const r = await responder(base as never, { texto: c.fala }, (async () => (c.leitura ?? { itens: [] })) as never);",
     "  saiu.push({ texto: String(r.fala.texto || ''), equipe: !!r.precisaHumano, motivo: String(r.motivoHumano ?? '') });",
     "}",
     "console.log(JSON.stringify(saiu));",

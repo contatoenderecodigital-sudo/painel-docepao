@@ -107,10 +107,13 @@ cobra("perguntou.outro no meio do pedido nao chama a equipe", r.misturaOutro.pre
 cobra("perguntou.outro nao diz que nao entendeu", !naoEntendi(r.misturaOutro.texto),
   String(r.misturaOutro.texto || "").slice(0, 120));
 
-cobra("situacao no meio de festa+pizza nao chama a equipe", r.misturaSituacao.precisaHumano === false,
+// DESDE 03/09/2026 A SITUACAO GANHA: o modelo ve a conversa e nao chama pedido
+// de reclamacao (medido 3 de 3: "quero 2 pizzas pra festa" volta so com o
+// item). Quando ele diz "reclamacao", e reclamacao, e reclamacao e da equipe.
+cobra("situacao reclamacao no meio de festa+pizza chama a equipe", r.misturaSituacao.precisaHumano === true,
   JSON.stringify(r.misturaSituacao));
-cobra("situacao no meio do pedido nao vira a frase de reclamacao",
-  !/sinto muito|chamar agora uma pessoa/i.test(String(r.misturaSituacao.texto || "")),
+cobra("e responde a frase de reclamacao, nao a de pedido",
+  /sinto muito|chamar agora uma pessoa/i.test(String(r.misturaSituacao.texto || "")),
   String(r.misturaSituacao.texto || "").slice(0, 120));
 
 cobra(

@@ -531,7 +531,13 @@ export function cardapioDaCasaParaOModelo(): string {
   for (const p of produtosDaCasa()) {
     const cat = String(p.categoria || "outro");
     const grupo = porCategoria.get(cat) ?? { nomes: [], unidade: p.unidade };
-    if (!grupo.nomes.includes(p.nomeCurto)) grupo.nomes.push(p.nomeCurto);
+    // O BOLO VAI COM O NOME INTEIRO ("bolo brigadeiro", "bolo caseiro cenoura").
+    // Medido em 03/09/2026: listando so o sabor, o modelo devolvia o ROTULO da
+    // categoria como produto ("bolo festa" + sabor "brigadeiro"), e "bolo
+    // festa" nao existe no cardapio. Com o nome inteiro na lista ele copia o
+    // nome, que e o que o resto do sistema espera.
+    const nome = (CATEGORIAS_DE_BOLO as readonly string[]).includes(cat) ? p.nome : p.nomeCurto;
+    if (!grupo.nomes.includes(nome)) grupo.nomes.push(nome);
     porCategoria.set(cat, grupo);
   }
   const linhas: string[] = [];
@@ -1106,8 +1112,18 @@ export function leituraQueCabeNaEtapa(
   const naoExistem: string[] = [];
   const paraDepois: NonNullable<Leitura["itens"]> = [];
 
+  // O ROTULO DE UMA CATEGORIA ("bolo festa", "salgado frito") nao e produto:
+  // e a familia. Se o modelo devolver o rotulo, vale a primeira palavra dele,
+  // que e o nome de familia que o resto do fluxo ja entende ("bolo").
+  const rotulosDeCategoria = new Map(
+    [...new Set(todos.map((p) => String(p.categoria || "")))].map((c) => [semAc(c.replace(/_/g, " ")), c.split("_")[0]]),
+  );
+
   const itens = leitura.itens.flatMap((bruto) => {
     let i = bruto;
+    if (rotulosDeCategoria.has(semAc(i.produto)) && !existeNoCardapio(i.produto)) {
+      i = { ...i, produto: String(rotulosDeCategoria.get(semAc(i.produto))) };
+    }
     const nome = semAc(i.produto);
     const jeitos = formasDoCliente(i.produto);
     let cabe =

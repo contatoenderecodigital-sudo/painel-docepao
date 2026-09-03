@@ -77,11 +77,16 @@ const CASOS = [
     dano: "o caso mais comum da casa nao pode virar chamado de equipe",
   },
   {
-    nome: "modelo erra e diz reclamacao num pedido: vale o pedido",
+    nome: "reclamacao com item junto e reclamacao: o item e o conteudo da queixa, nao pedido",
+    // MEDIDO EM 03/09/2026 contra o modelo com a conversa (3 de 3): "veio
+    // faltando 20 coxinha" volta com situacao reclamacao E o item; "quero 2
+    // pizzas pra festa" volta so com o item. O modelo com contexto nao chama
+    // pedido de reclamacao, entao quando ele diz queixa, e queixa. A lista de
+    // verbos que desempatava isto saiu.
     fala: "quero 2 pizzas pra festa",
     leitura: { situacao: "reclamacao", itens: [{ produto: "pizza", qtd: 2 }] },
-    equipe: false,
-    itens: 1,
+    equipe: true,
+    itens: 0,
     dano: "e o defeito que a guarda nasceu pra impedir: painel acendendo sem ninguem pedir gente",
   },
   {

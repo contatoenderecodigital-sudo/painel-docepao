@@ -2393,16 +2393,11 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
   //
   // Quem responde uma opcao da lista escolheu. So e delegacao quando a fala NAO
   // traz nenhuma das opcoes que estao esperando resposta.
-  const opcoesEsperando = novo.itens.flatMap((i) => saborQueFalta(i.produto, i.obs)?.opcoes ?? []);
-  const escolheuUmaOpcao = opcoesEsperando.some((o) => {
-    const alvo = semAc(String(o));
-    return alvo.length > 2 && semAc(falaDoCliente).includes(alvo) &&
-      afirmouOuNegou(semAc(falaDoCliente), cercaDoSabor(alvo)) !== false;
-  });
-  if (l.delegaEscolha === true && escolheuUmaOpcao) {
-    rastro.push("o modelo leu como \"escolhe voce\", mas ele respondeu uma opcao da lista; nao deleguei");
-  }
-  const delegou = l.delegaEscolha === true && !escolheuUmaOpcao;
+  //
+  // A GUARDA QUE ANULAVA O `delegaEscolha` SAIU EM 03/09/2026. Ela existia
+  // porque o modelo cego lia "frango" como "escolhe voce". Vendo a pergunta na
+  // conversa, ele devolve o sabor no item (medido). O que o modelo diz vale.
+  const delegou = l.delegaEscolha === true;
   if (delegou) novo = aplicarDelegacao(novo, etapa);
 
   // A COR DA FORMINHA E CARIMBADA DEPOIS DOS ITENS, NAO ANTES.
@@ -2901,6 +2896,14 @@ export function perguntaDeQualTirar(
   return "No seu pedido tem " + lista + ". Qual você quer tirar?";
 }
 
+/**
+ * A LEITURA NAO TROUXE NADA. `{}` e `{ itens: [] }` sao a mesma coisa: o modelo
+ * leu a mensagem e ela nao mudou o pedido.
+ */
+function leituraVazia(l: Leitura | null | undefined): boolean {
+  return Object.values(l ?? {}).every((v) => v == null || v === false || (Array.isArray(v) && !v.length));
+}
+
 export async function responder(
   estadoAtual: Estado,
   mensagem: { texto: string; botaoId?: string | null },
@@ -2951,46 +2954,11 @@ export async function responder(
   // Com o pedido aprovado, a conversa passa a falar DELE: o que ele pedir de
   // novo continua virando pedido novo, e mudanca no que ja foi aprovado e da
   // equipe, porque a cozinha ja esta com aquilo na mao.
-  if (estado.pedidoAprovado && !estado.itens.length) {
-    const quando = quandoDoPedido(estado.pedidoAprovado);
-    const querMudar = /(muda|mudar|troca|trocar|cancela|cancelar|tira|tirar|acrescenta|adiciona)/i.test(
-      semAc(String(mensagem.texto ?? "")),
-    );
-    const soAgradeceu = /(obrigad|valeu|show|beleza|ok|otimo|perfeito|joia)/i.test(
-      semAc(String(mensagem.texto ?? "")),
-    ) && String(mensagem.texto ?? "").trim().split(/\s+/).length <= 4;
-
-    if (querMudar || soAgradeceu) {
-      rastro.push("pedido ja aprovado; falei dele em vez de reabrir o fechamento");
-      const textoDoAprovado = querMudar
-        ? "Seu pedido já está confirmado com a equipe" +
-          (quando ? " pra " + quando : "") +
-          ", e eles já estão com ele pra produzir. Vou chamar alguém da equipe pra ver essa mudança com você."
-        : "Imagina! Seu pedido está confirmado" +
-          (quando ? " pra " + quando : "") +
-          ". Qualquer coisa é só chamar por aqui.";
-      return {
-        fala: {
-          texto: textoDoAprovado,
-          botoes: [],
-          cardapio: null,
-          podeReescrever: false,
-        },
-        // A ULTIMA FALA E ESTA, e nao a pergunta antiga: e o que o modelo recebe
-        // como contexto no turno seguinte.
-        estado: { ...estado, insistiu: 0, ultimaFala: textoDoAprovado },
-        etapa: "registrado",
-        rastro,
-        chamouIA: false,
-        confirmouEscrevendo: false,
-        precisaHumano: querMudar,
-        motivoHumano: querMudar
-          ? "O cliente quer mudar um pedido JA APROVADO" + (quando ? " (retirada " + quando + ")" : "") +
-            ". Ele escreveu: \"" + String(mensagem.texto ?? "").trim() + "\""
-          : null,
-      };
-    }
-  }
+  //
+  // AQUI HAVIA DUAS LISTAS DE PALAVRAS (dez verbos de mudanca e oito de
+  // agradecimento) decidindo a resposta ANTES de chamar o modelo. Sairam em
+  // 03/09/2026: quem le a mensagem e o modelo, com a conversa, e a decisao
+  // mora logo depois da leitura (ver `respostaSobreOPedidoAprovado`).
 
   const etapaAgora = etapaDaVez(estado, roteiro());
   rastro.push("etapa: " + etapaAgora.id);
@@ -3181,7 +3149,51 @@ export async function responder(
     // webhook nao traz a memoria do fluxo (a oferta feita, as perguntas ja
     // feitas), entao a etapa da vez pode ser outra. Medido em 03/09/2026:
     // "obrigada!" depois de fechar ouvia "Quer levar docinho ou bolo junto?".
-    if (estado.pedidoNaFila && !Object.keys(crua ?? {}).length) {
+    // O PEDIDO JA APROVADO E ASSUNTO ENCERRADO, E NAO PEDIDO EM MONTAGEM.
+    //
+    // Medido na conversa dele de 02/09/2026: "Ok, obrigada!" depois de a equipe
+    // confirmar recebia a fala de FECHAMENTO, como se o pedido tivesse voltado
+    // pra fila. Ate 03/09 isto era decidido por duas listas de palavras ANTES
+    // do modelo; agora quem le e o modelo (medido 3 de 3: "obrigada" vira {},
+    // "da pra mudar pra sexta?" vira dados). Nada mudou = agradece; mexeu em
+    // item, data, peca ou pediu pra cancelar = a cozinha ja esta com aquilo na
+    // mao, e a mudanca e da equipe.
+    //
+    // SO NO MEIO DE UMA CONVERSA (ultimaFala existe). Quem chega do zero com um
+    // pedido aprovado cai na ABERTURA, que ja pergunta se e sobre ele.
+    if (estado.pedidoAprovado && !estado.itens.length && estado.ultimaFala) {
+      const quando = quandoDoPedido(estado.pedidoAprovado);
+      const mudouNada = leituraVazia(crua);
+      const querMexer = Boolean(
+        crua?.itens?.length || crua?.tirar?.length || crua?.dados || crua?.pecas ||
+        crua?.naoQuer?.length || crua?.recomecar || crua?.falouDeOutraEtapa || crua?.situacao === "cancelar",
+      );
+      if (mudouNada || querMexer) {
+        rastro.push("pedido ja aprovado; falei dele em vez de reabrir o fechamento");
+        const textoDoAprovado = querMexer
+          ? "Seu pedido já está confirmado com a equipe" +
+            (quando ? " pra " + quando : "") +
+            ", e eles já estão com ele pra produzir. Vou chamar alguém da equipe pra ver essa mudança com você."
+          : "Imagina! Seu pedido está confirmado" +
+            (quando ? " pra " + quando : "") +
+            ". Qualquer coisa é só chamar por aqui.";
+        return {
+          fala: { texto: textoDoAprovado, botoes: [], cardapio: null, podeReescrever: false },
+          estado: { ...estado, insistiu: 0, ultimaFala: textoDoAprovado },
+          etapa: "registrado",
+          rastro,
+          chamouIA,
+          confirmouEscrevendo: false,
+          precisaHumano: querMexer,
+          motivoHumano: querMexer
+            ? "O cliente quer mudar um pedido JA APROVADO" + (quando ? " (retirada " + quando + ")" : "") +
+              ". Ele escreveu: \"" + String(mensagem.texto ?? "").trim() + "\""
+            : null,
+        };
+      }
+    }
+
+    if (estado.pedidoNaFila && leituraVazia(crua)) {
       const textoNaFila =
         "Seu pedido já está com a equipe da padaria pra aprovação. Assim que eles confirmarem " +
         "eu te aviso por aqui. Se quiser mudar alguma coisa, é só me dizer.";
@@ -3544,16 +3556,18 @@ export async function responder(
     //
     // A lista e de VERBO, e nao de produto nem de preco: nada aqui decide o que
     // a casa vende.
-    let queixaSemPedido = false;
-    const pediuComTodasAsLetras = /(^|[^a-z])(quero|queria|vou querer|me ve|me da|manda|pode mandar|gostaria|preciso de)([^a-z]|$)/i.test(
-      semAc(String(mensagem.texto ?? "")),
-    );
-    if (
-      (limpa.situacao === "reclamacao" || limpa.situacao === "cancelar") &&
-      !pediuComTodasAsLetras
-    ) {
-      queixaSemPedido = true;
-    }
+    //
+    // SEM LISTA DE VERBOS (03/09/2026). Reclamacao e cancelamento vao pra
+    // equipe de qualquer jeito; o que vier de item na mesma frase e assunto
+    // dessa conversa com gente, e nao pedido novo anotado calado. Regra do
+    // dono: nada pode ser lista minha.
+    // E A SITUACAO GANHA DO ITEM. Medido contra o modelo com a conversa em
+    // 03/09/2026 (3 de 3): "veio faltando 20 coxinha" volta com situacao
+    // "reclamacao" E o item de 20 coxinhas (e o conteudo da queixa); "quero 2
+    // pizzas pra festa" volta so com o item, sem situacao. O modelo com
+    // contexto nao chama pedido de reclamacao, entao quando ele diz queixa, e
+    // queixa: o item vai pra equipe no motivo, e nao pro pedido.
+    const queixaSemPedido = limpa.situacao === "reclamacao" || limpa.situacao === "cancelar";
 
     const lida = juntarComAFrase(limpa, String(mensagem.texto ?? ""));
 
@@ -3657,12 +3671,12 @@ export async function responder(
     // "Precisa de voce" sem ninguem ter pedido gente. So que naquele caso ele
     // devolve ITENS junto, e e isso que separa um do outro. Frase que so
     // MENCIONA um produto, sem pedir nenhum, nao e pedido.
+    //
+    // DESDE 03/09/2026 SO O ITEM PEDIDO DESMENTE A SITUACAO. Mencionar um
+    // produto ("meu pedido de coxinha ta pronto?") nao e pedido, e descartar a
+    // situacao por isso, em silencio, era o modelo acertando e o codigo comendo.
     const pediuItemNesteTurno = (lida.itens ?? []).length > 0;
-    const soMencionouProduto = !pediuItemNesteTurno && produtosNaFrase(falaCru).length > 0;
-    const eQueixa = limpa.situacao === "reclamacao" || limpa.situacao === "cancelar";
-    const temProdutoNesteTurno =
-      pediuItemNesteTurno || (soMencionouProduto && !eQueixa);
-    if (limpa.situacao && !temProdutoNesteTurno) {
+    if (limpa.situacao && !pediuItemNesteTurno) {
       const r = respostaDaSituacao(
         limpa.situacao,
         estado.itens.length > 0 || Boolean(estado.dados.data),
