@@ -129,6 +129,9 @@ export function instrucaoLivre(): string {
     "- O nome e a idade do aniversariante (\"Delamar 58 anos\") são o escrito do topo: vão em escrito, nunca em dados.nome. O nome de quem retira é a ÚLTIMA pergunta antes do resumo.",
     "- Ordem da conversa: primeiro o item que ele pediu, completo. Quando o bolo de festa estiver completo (peças e tema), ofereça salgadinhos e docinhos UMA vez, se ele ainda não pediu nenhum. Se não quiser, vá pros dados. Se quiser, salgados (quais e quantos), depois docinhos se ele quis os dois, e só então os dados. Dados nesta ordem: dia, horário, pagamento e por último o nome de quem retira. Daí o resumo.",
     "- Quando ele responder sim ou não ao papel de arroz ou ao topo, mande pecas no JSON ({\"papelDeArroz\": true} ou {\"topo\": false}); sem isso a resposta dele se perde. O que ele disser sobre o tema e o escrito vai em tema e escrito.",
+    "- Na festa a ordem é: salgados (quais e quantos), docinhos (quais e quantos, e logo em seguida a cor da forminha), e só depois o bolo. Não comece pelo bolo.",
+    "- Quando ele perguntar os sabores ou os valores do bolo, mande a peça bolos-festa E escreva os sabores agrupados pelo preço do quilo (\"R$ X o kg: a, b, c. R$ Y o kg: d, e.\"), e diga que dá pra misturar até 2 sabores no mesmo bolo, valendo o preço do mais caro. Nunca diga \"a maioria\" ou \"alguns\": diga quais.",
+    "- Tema do topo e do papel de arroz: QUALQUER tema vale (Minecraft, pescaria, o que ele quiser). Nunca diga que a casa não tem um tema, nunca sugira tema: a equipe orça e confirma. Só anote tema ou escrito que ELE disse.",
     "- Docinhos: depois de saber quais e quantos, pergunte a cor da forminha POR ESCRITO, listando as cores (amarelo, azul, branca, dourada, laranja, lilás, marrom, pink, prata, preta, rosa, roxo, verde, vermelha). Uma cor pro pedido. Nunca mande cardápio pra isso.",
     "- Festa: primeiro pergunte quantas pessoas; só depois sugira 10 salgados, 5 docinhos e 100 g de bolo por pessoa (diga os números e o valor), e o cliente ajusta. Nunca invente o número de pessoas. " +
       "Quando ele aceitar a sugestão, VOCÊ anota as quantidades: reparta o total da família entre os tipos que ele escolher " +
@@ -157,7 +160,7 @@ export function instrucaoLivre(): string {
     '  "itens": [{ "produto": "nome do cardápio (bolo com o prefixo: bolo brigadeiro)", "qtd": 0, "sabor": "recheio escolhido ou null", "obs": "recado pra cozinha ou null" }],',
     '  "tirar": ["o que ele mandou tirar, nas palavras dele"],',
     '  "dados": { "nome": "", "data": "DD/MM/AAAA", "hora": "HH:MM", "pagamento": "pix|cartao|dinheiro" },',
-    '  "pecas": { "topo": true, "papelDeArroz": false }, "tema": "Minnie", "escrito": "Ana 7 anos", "forminha": "rosa", "prato": "aberto|tampa",',
+    '  "pecas": { "topo": true, "papelDeArroz": false }, "tema": "o tema que ELE disse, ou null", "escrito": "nome e idade que ELE disse, ou null", "forminha": "cor que ele disse", "prato": "aberto|tampa",',
     '  "ehFesta": true, "pessoas": 0, "naoQuer": ["o que ele disse que não quer"],',
     '  "situacao": "reclamacao|cancelar|status|fora_do_assunto|humano", "chamarEquipe": "motivo, quando precisar de gente",',
     '  "confirmou": true, "aceitouValor": true, "recomecar": true, "comprovante": true,',
@@ -211,10 +214,11 @@ export function lembreteDoPedido(e: Estado, extra: { pedidoNaFila?: boolean; agu
   }
   if (e.naoQuer?.length) partes.push("Ele não quer: " + e.naoQuer.join(", ") + ".");
   const falta = [...oQueFaltaPraFechar(e), ...faltaSabor(e), ...faltaPecasDoBolo(e), ...faltaDaFesta(e), ...faltaOferecer(e)];
-  if (e.itens.length) partes.push(falta.length ? "FALTA PRA FECHAR: " + falta.join("; ") + "." : "Está tudo completo: mostre o resumo e pergunte se pode fechar, se ainda não perguntou.");
+  if (e.itens.length) partes.push(falta.length ? "FALTA PRA FECHAR: " + falta.join("; ") + "." : "Está tudo completo. NÃO escreva o resumo nem os valores: diga só uma frase curta (\"Anotei tudo\"), que o resumo com os valores e a pergunta \"Seria isso?\" vão junto automaticamente.");
+  if (e.itens.some((i) => String(i.categoria) === "docinho") && !e.forminha) partes.push("PRÓXIMA PERGUNTA: a cor da forminha dos docinhos (por escrito, com as cores), antes de seguir pra qualquer outra coisa.");
   if (e.pedidoAprovado) {
     const quando = quandoDoPedido(e.pedidoAprovado);
-    partes.push("ATENÇÃO: ele já tem um pedido APROVADO pela equipe" + (quando ? " pra " + quando : "") + ". Mudança nesse pedido é com a equipe (chamarEquipe).");
+    partes.push("ATENÇÃO: ele já tem um pedido APROVADO pela equipe" + (quando ? " pra " + quando : "") + ". Esse pedido está fechado: NÃO pergunte nada dele (papel de arroz, topo, forminha, dados). Se ele agradecer ou disser \"beleza\", só responda curto e se despeça. Mudança nesse pedido é com a equipe (chamarEquipe). Pedido NOVO só se ele pedir outra coisa.");
   } else if (extra.pedidoNaFila) {
     partes.push("ATENÇÃO: o pedido acima já foi registrado e está na fila da equipe pra aprovação. Se ele só agradecer, diga isso; se quiser mudar algo, anote a mudança.");
   }
@@ -360,6 +364,21 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
     const quem = identificarProduto(nomeBruto, undefined, mensagem);
     let canon = quem.produto;
     let daCasa = produtoPorNome(canon) ?? produtoNoComeco(canon);
+    // A PADARIA PERGUNTOU O SABOR DO BOLO e ele respondeu "brigadeiro com ninho":
+    // e o bolo, nao o docinho (medido 03/09: virou docinho brigadeiro com qtd 0).
+    const perguntouOBolo = /bolo/i.test(String(ultimaPergunta ?? "")) && !/docinho|salgad/i.test(String(ultimaPergunta ?? "").split("?").slice(-2, -1)[0] ?? "");
+    const semBoloAinda = !e.itens.some((i) => (CATEGORIAS_DE_BOLO as readonly string[]).includes(String(i.categoria)));
+    if (perguntouOBolo && semBoloAinda && daCasa && !(CATEGORIAS_DE_BOLO as readonly string[]).includes(daCasa.categoria)) {
+      const primeiro = semAcento(nomeBruto).split(/ com | e /)[0].trim();
+      const comoBolo = produtoPorNome("bolo " + primeiro) ?? produtoNoComeco("bolo " + primeiro);
+      if (comoBolo) {
+        rastro.push("resposta a pergunta do bolo virou o bolo: " + comoBolo.nome);
+        daCasa = comoBolo; canon = comoBolo.nome;
+        const resto = semAcento(nomeBruto).replace(primeiro, "").replace(/^\s*(com|e)\s+/, "").trim();
+        if (resto && !bruto.sabor) bruto.sabor = primeiro + " com " + resto;
+        if (!(Number(bruto.qtd) > 0) && e.pessoas) bruto.qtd = Math.round(e.pessoas * 10) / 100;
+      }
+    }
     if (!daCasa) {
       // "bolo" + sabor que existe como bolo ("bolo laka")
       const tentativa = bruto.sabor ? produtoPorNome(nomeBruto + " " + bruto.sabor) ?? produtoNoComeco(nomeBruto + " " + bruto.sabor) : null;
@@ -413,6 +432,39 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
       e.itens[idx] = { ...atual, qtd: qtd > 0 ? qtd : atual.qtd, obs: obsMesclada };
     } else {
       e.itens.push({ produto: canon, categoria: daCasa.categoria, qtd, obs });
+    }
+  }
+
+  // NA FESTA, O BOLO SEM PESO DITO E O DA SUGESTAO (100 g por pessoa).
+  if (e.ehFesta && e.pessoas) {
+    for (const i of e.itens) {
+      if (String(i.categoria) === "bolo_festa" && !(Number(i.qtd) > 0)) { i.qtd = Math.round(e.pessoas * 10) / 100; rastro.push("bolo da festa sem peso dito: " + i.qtd + " kg da sugestao"); }
+    }
+  }
+
+  // NA FESTA, OS TIPOS QUE ELE ESCOLHEU SEM NUMERO REPARTEM A SUGESTAO DA FAMILIA
+  // (10 salgados e 5 docinhos por pessoa). "brigadeiro e beijinho" pra 15 pessoas
+  // = 38 + 37. O modelo devia fazer isso e nem sempre faz (medido 03/09); e conta
+  // da casa, entao o codigo faz. Quem ja tem numero dito fica com o numero.
+  if (e.ehFesta && e.pessoas) {
+    for (const [pref, porPessoa] of [["salgado", 10], ["docinho", 5]] as const) {
+      const daFamilia = e.itens.filter((i) => String(i.categoria).startsWith(pref));
+      const semNumero = daFamilia.filter((i) => !(Number(i.qtd) > 0));
+      if (!semNumero.length) continue;
+      const alvo = e.pessoas * porPessoa;
+      const jaDito = daFamilia.reduce((t, i) => t + (Number(i.qtd) || 0), 0);
+      const sobra = Math.max(alvo - jaDito, 0);
+      if (!sobra) continue;
+      const cada = Math.floor(sobra / semNumero.length);
+      semNumero.forEach((i, n) => { i.qtd = cada + (n === 0 ? sobra - cada * semNumero.length : 0); });
+      rastro.push("reparti a sugestao de " + pref + " (" + sobra + ") entre " + semNumero.map((i) => i.produto).join(", "));
+      const temDocinho = e.itens.some((i) => String(i.categoria) === "docinho");
+      const temBolo = e.itens.some((i) => String(i.categoria) === "bolo_festa");
+      const proxima = pref === "docinho" && !e.forminha
+        ? "Qual a cor da forminha? Tem amarelo, azul, branca, dourada, laranja, lilás, marrom, pink, prata, preta, rosa, roxo, verde e vermelha."
+        : pref === "salgado" && !temDocinho ? "Agora os docinhos: quais você quer?"
+        : !temBolo ? "E o bolo, qual sabor você quer?" : "";
+      respostaCorrigida = "Anotei " + semNumero.map((i) => i.qtd + " " + i.produto).join(" e ") + ". " + proxima;
     }
   }
 
@@ -720,10 +772,33 @@ export async function atenderLivre(
     return { texto: r.texto, botoes: [], cardapio: null, etapa: "abertura", precisaHumano: false, rastro: [...rastro, "recomecar: zerei o rascunho"], uso };
   }
 
+  // O RESUMO ANTES DE FECHAR E DO MOTOR, no mesmo formato do fechamento, uma
+  // vez so (marca em assunto = "confirmacao"; qualquer mudanca desmarca).
+  let textoFinal = r.texto;
+  const mudouAlgo = Boolean(l.itens?.length || l.tirar?.length || l.dados || l.pecas || l.tema || l.escrito || l.forminha || l.escolherPorMim?.length);
+  if (mudouAlgo && r.estado.assunto === "confirmacao") r.estado.assunto = null;
+  if (!r.confirmou && !pedidoNaFila && !pedidoAprovado && r.estado.itens.length && r.estado.assunto !== "confirmacao") {
+    const faltaAgora = [...oQueFaltaPraFechar(r.estado), ...faltaSabor(r.estado), ...faltaPecasDoBolo(r.estado), ...faltaDaFesta(r.estado)];
+    if (!faltaAgora.length) {
+      const cot = motorPadrao.cotarPorItens(paraOMotor(r.estado.itens));
+      const linhas = (cot.linhas ?? []).map((li) => "- " + li.qtd + (li.unidade === "kg" ? " kg de " : " ") + li.item + (li.obs ? " (" + li.obs + ")" : "") + " = " + brl(Number(li.subtotal)));
+      const d = r.estado.dados;
+      const fala = r.texto.split(/(?<=[.!?])\s+/)[0] ?? "";
+      textoFinal =
+        (fala && !fala.includes("R$") && !/resumo/i.test(fala) ? fala + "\n\n" : "") +
+        "Seu pedido:\n" + linhas.join("\n") + "\n*Total: " + brl(Number(cot.total || 0)) + "*" +
+        (d.data ? "\nRetirada " + d.data + (d.hora ? " às " + d.hora : "") : "") +
+        (d.nome ? ", no nome de " + d.nome : "") + (d.pagamento ? ", pagamento " + d.pagamento : "") +
+        (r.estado.pecas?.topo ? "\n_O topo entra à parte: a equipe orça e confirma com você._" : "") +
+        "\n\nSeria isso?";
+      r.estado.assunto = "confirmacao";
+      rastro.push("resumo do motor antes de fechar");
+    }
+  }
+
   await gravarEstado(negocioId, clienteId, antes, r.estado);
 
   let pedidoId: string | undefined;
-  let textoFinal = r.texto;
   if (r.confirmou && !pedidoNaFila && !pedidoAprovado) {
     const falta = [...oQueFaltaPraFechar(r.estado), ...faltaSabor(r.estado), ...faltaPecasDoBolo(r.estado), ...faltaDaFesta(r.estado)];
     if (!falta.length) {
