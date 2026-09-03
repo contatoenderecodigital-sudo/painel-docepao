@@ -288,9 +288,10 @@ O caminho "pedido aguardando o valor do topo" continua decidindo por botao e
 pela lista `respostaAoValor` ANTES do modelo; e a unica lista de intencao que
 ficou, e a razao e dinheiro: aceitar um valor tem que ser inequivoco.
 
-**Bateria dos cinco jeitos (`medidor.cjs 5`), 03/09 de manha:** cenarios 1 a 4
-pass^5 em `34fe798`; o 5 ("mudando de ideia") era 4/5 pela regra do peso e
-virou 5/5 em `6aad86d`. Conversas em `conversas-da-medicao.txt`.
+**Bateria dos cinco jeitos (`medidor.cjs 5`), 03/09 de manha, no container
+`6aad86d`: 5 de 5 cenarios em pass^5** (25 conversas, julgadas pelo banco). Na
+rodada anterior o cenario "mudando de ideia" deu 4/5 pela regra do peso; o
+conserto esta em `6aad86d`. Conversas em `conversas-da-medicao.txt`.
 
 **Aberto e medido em producao hoje:**
 - "brigadeiro" respondendo a pergunta da cor da forminha repete a pergunta da
