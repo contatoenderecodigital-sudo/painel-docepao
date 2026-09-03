@@ -264,7 +264,8 @@ Commits, na ordem, todos no ar e conferidos pelo SHA do container:
 | `c44ef20` | Fila 1: perguntaDePeso vira marca de estado (`etapa:peso`); B-3 saiu; comprovante pelo modelo | modelo real 15 de 15 no peso |
 | `50ef6f8` | Fila 3: delegaEscolha nao e anulado; situacao ganha do item; listas do pedido aprovado sairam; bolo com nome inteiro no cardapio | modelo real 3 de 3 em cada cena |
 | `53bfe74` | delegaEm: delegar salgado e docinho nao entrega o sabor do bolo | producao: bolo sem sabor chutado |
-| (este) | fora_do_assunto no formato: numero errado nao ouve "O que voce precisa?" | modelo real 3 de 3 |
+| `f3a45fc` | fora_do_assunto no formato: numero errado nao ouve "O que voce precisa?" | modelo real 3 de 3 |
+| (seguinte) | sabor do bolo com docinho de mesmo nome anotado: lembrete completo (forminha, pecas, bolo sem sabor), falas seguidas da padaria viram uma, dica do bolo explicita | modelo real 3 de 3; era {} antes |
 
 **O que ficou como REDE** (roda so quando o modelo nao devolveu; nunca desfaz o
 que ele leu): desempate do sabor pela ultima fala (B-5), aviso do recheio fixo
@@ -282,6 +283,9 @@ Ficam pra proxima sessao, uma por commit, cada uma medida antes.
 - "brigadeiro" respondendo a pergunta da cor da forminha repete a pergunta da
   cor (o cliente respondeu a pergunta errada; aceitavel, mas a padaria podia
   dizer "brigadeiro e o docinho; qual a cor?").
+- "misto de brigadeiro com ninho": o modelo devolve "bolo leite ninho", que nao
+  existe; a trava final tira a linha e o cliente ouve que nao achou. Melhor
+  seria "bolo brigadeiro" com o ninho como sabor a confirmar pela equipe.
 - `[cerebro] provedor=openai modelo=deepseek-v4-flash` no log e so o log: a
   chamada usa o modelo do banco (gpt-4.1-mini). O container tem
   `IA_BASE_URL=https://api.deepseek.com` e `OPENAI_MODEL_FLUXO=deepseek-v4-flash`
