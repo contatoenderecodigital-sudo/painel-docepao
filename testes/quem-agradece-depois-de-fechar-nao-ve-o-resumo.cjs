@@ -50,9 +50,14 @@ fs.writeFileSync(
     "const r1 = await responder(FECHADO as never, { texto: 'obrigada!' }, nada as never);",
     "const r2 = await responder(FECHADO as never, { texto: 'muda pra 150 coxinha' }, mudou as never);",
     "const r3 = await responder({ ...FECHADO, pedidoNaFila: false } as never, { texto: 'obrigada!' }, nada as never);",
+    "// O rascunho devolvido pelo webhook nao traz a memoria do fluxo: a oferta",
+    "// ainda nao foi feita e a etapa da vez e outra. Medido em 03/09/2026:",
+    "// 'obrigada!' ouvia 'Quer levar docinho ou bolo junto?'.",
+    "const r4 = await responder({ ...FECHADO, ofereceu: false, etapasJaPerguntadas: [] } as never, { texto: 'obrigada!' }, nada as never);",
     "",
     "console.log(JSON.stringify({",
     "  agradeceu: { texto: r1.fala.texto, botoes: r1.fala.botoes.map((b) => b.id), etapa: r1.etapa },",
+    "  semMemoria: { texto: r4.fala.texto },",
     "  mudou: { texto: r2.fala.texto, qtd: r2.estado.itens[0]?.qtd, etapa: r2.etapa },",
     "  isca: { texto: r3.fala.texto, botoes: r3.fala.botoes.map((b) => b.id) },",
     "}));",
@@ -92,6 +97,11 @@ cobra(
   "e sem o botao Confirmar",
   !r.agradeceu.botoes.includes("fecha_sim"),
   JSON.stringify(r.agradeceu.botoes),
+);
+cobra(
+  "mesmo sem a memoria do fluxo (etapa da oferta), 'obrigada!' nao vira oferta nem resumo",
+  /equipe/i.test(r.semMemoria.texto) && !/docinho ou bolo/i.test(r.semMemoria.texto),
+  JSON.stringify(r.semMemoria.texto.slice(0, 120)),
 );
 cobra(
   "pedido na fila + 'muda pra 150' = o pedido muda e a conversa segue",

@@ -194,6 +194,14 @@ export type Leitura = {
    * da janela de conversa. O cliente ficava vendo o mesmo resumo pra sempre.
    */
   confirmou?: boolean;
+  /**
+   * A FOTO QUE CHEGOU E O COMPROVANTE DO PIX, e nao a referencia da peca.
+   *
+   * Quem da sentido a foto e a conversa: se a padaria acabou de pedir o
+   * comprovante, a foto e o comprovante. Ate 03/09/2026 isso era uma regex
+   * sobre a ultima fala; agora o modelo, que ve a conversa, diz.
+   */
+  comprovante?: boolean;
 };
 
 /**
@@ -697,7 +705,8 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "- Reclamou do que comprou = situacao \"reclamacao\". Quer cancelar = " +
     "\"cancelar\". Pergunta de pedido já feito = \"status\". Número errado, " +
     "propaganda ou assunto que não é da padaria = \"fora_do_assunto\"." + String.fromCharCode(10) +
-    "- Pergunta e reclamação NÃO viram item.";
+    "- Pergunta e reclamação NÃO viram item." + String.fromCharCode(10) +
+    "- Foto que chega depois de a padaria pedir o comprovante do pix = comprovante true.";
 
   // QUANTIDADE QUE O CLIENTE NAO DISSE E ZERO. SEMPRE, E EM TODO PRODUTO.
   //

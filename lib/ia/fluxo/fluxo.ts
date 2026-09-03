@@ -915,9 +915,21 @@ function naoCabeNoBolo(nome: string, qtd: number, fala: string, comoEleChamou: s
  * era quem a padaria tinha perguntado, e ganhava por ter recheio fixo. Com o
  * carimbo antes, ela ja esta resolvida e sai da disputa.
  */
-/** A ultima coisa que a padaria falou foi a pergunta do peso. */
+/**
+ * A PERGUNTA QUE ACABOU DE SAIR FOI A DO PESO, e isso e ESTADO, nao texto.
+ *
+ * Ate 03/09/2026 isto era `/quantos quilos/i.test(ultimaFala)`: o codigo lendo
+ * a propria frase por regex pra saber o que tinha perguntado. A marca ja
+ * existia: quem faz a pergunta grava `etapa:peso` em `etapasJaPerguntadas`, e
+ * a ultima marca e a pergunta que acabou de sair.
+ *
+ * O modelo, vendo a conversa, ja devolve o item por quilo com o peso na
+ * quantidade (medido 15 de 15 em 03/09/2026 com "2", "dois", "2 kg", "um e
+ * meio" e "500g"). O que fica aqui e a rede pro dia em que ele nao devolver.
+ */
 function perguntaDePeso(e: Estado): boolean {
-  return /quantos quilos/i.test(String(e.ultimaFala || ""));
+  const marcas = e.etapasJaPerguntadas ?? [];
+  return /:peso$/.test(String(marcas[marcas.length - 1] ?? ""));
 }
 
 /**
@@ -1967,6 +1979,9 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
           const primeiraDoSabor = sabor.split(/\s+/)[0] ?? sabor;
           return depois.includes(primeiraDoSabor);
         })();
+        // Quem responde "de carne" a pergunta da coxinha esta falando da
+        // coxinha, e a padaria corrige ("a gente faz coxinha de frango"). A
+        // leitura da ultima fala aqui so decide se AVISA; nunca muda o pedido.
         const eleNomeou =
           oClienteNomeouEsteProduto(falaDoCliente, produto) && ligouOSaborAEsteProduto;
         const aPerguntaEraDele =
@@ -2132,6 +2147,11 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         //
         // E a mesma regra do "Sim" digitado: quem da sentido a resposta e a
         // pergunta que acabou de sair, e nao a forma da frase.
+        //
+        // SEM LER A ULTIMA FALA POR REGEX (03/09/2026). Quem sabe que o "2" e
+        // peso e o modelo, que agora ve a pergunta na conversa e devolve o item
+        // por quilo com qtd 2. O codigo so confere que o numero esta mesmo na
+        // frase (nunca inventado) e que a frase nao e data.
         if (!peso && perguntaDePeso(e) && frasePodeSerPeso(falaDoCliente, Boolean(l.dados))) {
           peso = pesoNaFala(String(falaDoCliente || ""), true);
           if (peso) rastro.push("a padaria tinha perguntado o peso; li \"" + falaDoCliente + "\" como quilos");
@@ -2507,7 +2527,12 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
   //
   // So mexe em item vendido por quilo que esta esperando peso (qtd zerada), e
   // no primeiro deles: a padaria pergunta um de cada vez.
-  if (perguntaDePeso(e) && frasePodeSerPeso(falaDoCliente, Boolean(l.dados))) {
+  //
+  // O GATILHO E O ESTADO, E NAO A ULTIMA FALA POR REGEX (03/09/2026): existe um
+  // item por quilo sem peso, o modelo nao devolveu item nenhum, e a frase e so
+  // um numero ou um peso. Vale so quando o modelo nao leu nada, que e a rede
+  // embaixo: com a conversa no prompt ele costuma devolver o item com o peso.
+  if (perguntaDePeso(e) && !(l.itens ?? []).length && frasePodeSerPeso(falaDoCliente, Boolean(l.dados))) {
     const pesoDito = pesoNaFala(String(falaDoCliente || ""), true);
     if (pesoDito > 0 && pesoDito <= 30) {
       const n = novo.itens.findIndex(
@@ -2611,6 +2636,11 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         return achado ? { item, achado } : null;
       })
       .filter((x): x is { item: (typeof novo.itens)[number]; achado: string } => Boolean(x));
+    // REDE, E NAO GUARDA (03/09/2026): quem sabe de qual item era a pergunta do
+    // sabor e o modelo, que ve a conversa e devolve o sabor no campo do item
+    // certo. Este bloco inteiro so roda quando ele NAO devolveu o sabor, e o
+    // desempate pela ultima fala fica aqui so pra esse caso: ele nunca desfaz
+    // o que o modelo leu.
     const citadaNaPergunta = candidatos.filter(({ item }) => {
       const ultima = semAc(String(e.ultimaFala || ""));
       const n = semAc(item.produto);
@@ -3146,7 +3176,12 @@ export async function responder(
     // Sem lista de palavras: quem diz que a mensagem nao mudou nada e o modelo,
     // devolvendo {}. O que MUDAR o pedido continua entrando normal, e o
     // `registrarPedido` atualiza o pendente em vez de duplicar.
-    if (estado.pedidoNaFila && etapaAgora.id === "confirmacao" && !Object.keys(crua ?? {}).length) {
+    //
+    // EM QUALQUER ETAPA, e nao so na confirmacao: o rascunho devolvido pelo
+    // webhook nao traz a memoria do fluxo (a oferta feita, as perguntas ja
+    // feitas), entao a etapa da vez pode ser outra. Medido em 03/09/2026:
+    // "obrigada!" depois de fechar ouvia "Quer levar docinho ou bolo junto?".
+    if (estado.pedidoNaFila && !Object.keys(crua ?? {}).length) {
       const textoNaFila =
         "Seu pedido já está com a equipe da padaria pra aprovação. Assim que eles confirmarem " +
         "eu te aviso por aqui. Se quiser mudar alguma coisa, é só me dizer.";
@@ -3476,31 +3511,10 @@ export async function responder(
     // resposta e a fala que ACABOU de sair. So vale quando ela citou UM produto
     // (numa lista de opcoes o cliente precisa dizer qual) e quando ele deu
     // quantidade ou peso, que e o que separa "quero um" de conversa solta.
-    if (!limpa.itens?.length && !limpa.perguntou?.sobre) {
-      const citados = [...new Set(produtosNaFrase(String(estado.ultimaFala ?? "")))];
-      const temNumero = /[0-9]/.test(String(mensagem.texto ?? "")) ||
-        numerosEscritos({ umEUma: true }).some(([palavra]) =>
-          new RegExp("(^|[^a-z0-9])" + palavra + "([^a-z0-9]|$)", "i").test(semAc(String(mensagem.texto ?? ""))),
-        );
-      const nomeouOutro = produtosNaFrase(String(mensagem.texto ?? "")).length > 0;
-      // E DATA NAO E PEDIDO.
-      //
-      // A primeira versao desta regra ressuscitou o defeito de 01/09 na hora: em
-      // "dia 12 as 15h", com a padaria tendo citado o bolo, o 12 virava doze
-      // quilos. O alarme daquele dia pegou antes de subir.
-      //
-      // Os sinais sao os mesmos de la: no maximo UM numero na frase, e o modelo
-      // nao pode ter lido dado de retirada nela.
-      const pareceData = !frasePodeSerPeso(mensagem.texto, Boolean(limpa.dados));
-      if (citados.length === 1 && temNumero && !nomeouOutro && !pareceData) {
-        // O NUMERO DA FRASE E A QUANTIDADE. "quero 50 entao" sao cinquenta, e
-        // nao um: sem isto a padaria anotava 1 e o cliente so via no resumo.
-        const numero = semAc(String(mensagem.texto ?? "")).match(/([0-9]+(?:[.,][0-9]+)?)/);
-        const quanto = numero ? Number(String(numero[1]).replace(",", ".")) : 1;
-        limpa.itens = [{ produto: citados[0], qtd: quanto > 0 ? quanto : 1 }];
-        rastro.push("ela tinha citado " + citados[0] + "; o \"um\" da resposta e esse produto");
-      }
-    }
+    //
+    // SAIU EM 03/09/2026. O bloco lia a ultima fala da padaria por regex pra
+    // descobrir qual produto o "um" era. O modelo agora ve a conversa
+    // ("Fazemos sim: temos bolo 0% lactose") e devolve o item com o peso.
 
     // RECLAMACAO NAO VIRA PEDIDO.
     //
@@ -3942,9 +3956,13 @@ export async function responder(
     // Quem da sentido a foto e a frase que acabou de sair: se a padaria pediu o
     // comprovante, a foto que chega e o comprovante. E dinheiro, entao quem
     // confere e gente: a IA nao diz que o pagamento entrou.
+    //
+    // O GATILHO E O MODELO (03/09/2026), que ve a conversa e devolve
+    // `comprovante: true`. A regex sobre a ultima fala fica so como rede: ela
+    // nunca bloqueia nada, so acrescenta.
     if (
       falaDeFotoRecebida(mensagem.texto) &&
-      /comprovante/i.test(String(estado.ultimaFala || ""))
+      (leituraDesteTurno?.comprovante === true || /comprovante/i.test(String(estado.ultimaFala || "")))
     ) {
       ehComprovante = true;
       rastro.push("a foto chegou depois do pedido de comprovante: e comprovante, nao tema");

@@ -76,7 +76,8 @@ const FORMATO = `Responda SÓ com um JSON, sem texto em volta, neste formato:
   "prato": "aberto",
   "dados": { "nome": "", "data": "DD/MM/AAAA", "hora": "HH:MM", "pagamento": "pix" },
   "falouDeOutraEtapa": "bolo",
-  "recomecar": false
+  "recomecar": false,
+  "comprovante": true
 }
 
 Mande SÓ os campos que a mensagem mudou. Campo que não mudou, não mande.
@@ -295,6 +296,7 @@ export function pensarComOpenAI(
       // repetiu neste projeto, sempre no mesmo formato: uma camada minha
       // comendo a resposta certa da outra.
       if (lido.confirmou === true) limpo.confirmou = true;
+      if (lido.comprovante === true) limpo.comprovante = true;
       if (Array.isArray(lido.naoQuer) && lido.naoQuer.length) {
         limpo.naoQuer = lido.naoQuer.map(String).filter(Boolean);
       }
