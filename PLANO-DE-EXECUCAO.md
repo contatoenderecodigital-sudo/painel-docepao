@@ -307,3 +307,26 @@ conserto esta em `6aad86d`. Conversas em `conversas-da-medicao.txt`.
   `IA_BASE_URL=https://api.deepseek.com` e `OPENAI_MODEL_FLUXO=deepseek-v4-flash`
   no ambiente sem `IA_API_KEY`: so o valor "openai" no banco segura a producao.
   Tirar as duas variaveis do Coolify e decisao do dono.
+
+
+---
+
+## 03/09/2026, DE TARDE: A CONVERSA LIVRE (o dono mandou tirar TODOS os guardas)
+
+Depois da matriz de entrega (conversas 1 a 6), o dono viu a conversa 6 e disse
+que continuava chatbot: "hmm" recebia a proposta de novo, "brigadero e bejinho"
+recebia a pergunta da cor de novo. Ele estava certo: o texto que o cliente lia
+era frase pronta do codigo (`pergunta.ts`), e o modelo so devolvia um JSON.
+
+`lib/ia/fluxo/livre.ts` (commits `195941a`, `5c2ef0f`): a IA conversa. O modelo
+ve a conversa, o pedido cotado pelo motor e o cardapio com precos e sabores, e
+ESCREVE a resposta. Sem etapas, sem roteiro, sem frase pronta, sem insistencia.
+O codigo faz so: preco do motor (com conferencia dos valores citados), nome do
+catalogo, quantidade dita, 6 kg, a festa nao fecha sem as familias da sugestao,
+e a equipe aprova. O sortido, quando ele pede pra casa escolher, e montado pelo
+cardapio (`escolherPorMim`). `IA_LIVRE=nao` volta pro fluxo de etapas.
+
+Medido localmente com o modelo real, a conversa 6 inteira: "hmm" nao repete,
+sortido de 150 salgados sem coxinha, 75 docinhos repartidos, bolo 4 leites 1,5
+kg, dados e fechamento. O portao de 172 testes cobre o fluxo de etapas, que
+continua no repo como reserva; a conversa livre se prova conversando.
