@@ -80,6 +80,9 @@ const NAO_PRECISA_GRAVAR = {
   // coisa, que e o defeito que mais se repetiu neste sistema. E lido do banco a
   // cada mensagem, junto do pedido em aberto.
   pedidoAprovado: "vem da tabela de pedidos a cada mensagem: copiar pro rascunho seria a segunda verdade",
+  // Mesma origem e mesmo motivo: o pedido registrado e ainda na fila da equipe
+  // e lido da tabela de pedidos pelo webhook, a cada mensagem.
+  pedidoNaFila: "vem da tabela de pedidos a cada mensagem, igual ao pedidoAprovado",
 };
 
 const sonda = path.join(__dirname, "_sonda-memoria.mjs");

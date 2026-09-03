@@ -49,6 +49,9 @@ const VIVEM_UM_TURNO = [
   // verdades sobre a mesma coisa, que e o defeito que mais se repetiu neste
   // sistema. Ele e lido do banco a cada mensagem, junto do pedido em aberto.
   "pedidoAprovado",
+  // Mesma origem: o pedido registrado e ainda na fila e lido da tabela de
+  // pedidos pelo webhook, a cada mensagem.
+  "pedidoNaFila",
 ];
 
 function camposDoTipo(texto, nome) {

@@ -202,6 +202,14 @@ export type PedidoEmMontagem = {
    */
   pedidoAprovado?: { data: string | null; hora: string | null; totalCentavos: number } | null;
   /**
+   * O PEDIDO JA FOI REGISTRADO E ESPERA A EQUIPE APROVAR.
+   *
+   * O webhook devolve o pedido pendente pro rascunho a cada mensagem (pra ele
+   * poder mudar), e a confirmacao nunca se da por cumprida. Sem esta marca,
+   * "obrigada!" depois de fechar recebia o resumo inteiro de novo.
+   */
+  pedidoNaFila?: boolean;
+  /**
    * DE QUEM E O ANIVERSARIO, E QUANTOS ANOS FAZ.
    *
    * Pedido do dono, e ele tem razao: "importantissimo". O topo e fabricado com

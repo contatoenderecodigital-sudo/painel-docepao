@@ -504,6 +504,10 @@ async function processar(corpo: WebhookPayload) {
       // O pedido que ele ja fez e que ainda esta andando. Enquanto o ticket nao
       // imprime, toda mensagem dele chega em cima DESTE pedido, nao no vazio.
       let pedidoAprovado: { data: string | null; hora: string | null; totalCentavos: number } | null = null;
+      // O PEDIDO JA REGISTRADO E AINDA NA FILA DA EQUIPE. A conversa precisa
+      // saber disso: sem isto, "obrigada!" depois de fechar recebia o resumo
+      // inteiro de novo com o botao Confirmar (medido em 03/09/2026).
+      let pedidoNaFila = false;
       const emAberto = await pedidoEmAberto(negocioId, clienteId).catch(() => null);
 
       // PEDIDO AINDA NAO IMPRESSO VOLTA PRO RASCUNHO QUANDO ELE QUER MUDAR.
@@ -538,6 +542,7 @@ async function processar(corpo: WebhookPayload) {
       // restaurar sempre nao cria pedido fantasma.
       try {
         const naoImpresso = emAberto && !emAberto.impresso && emAberto.status !== "aprovado";
+        pedidoNaFila = Boolean(naoImpresso);
 
         // O PEDIDO JA APROVADO VAI PRO FLUXO, pra conversa saber que ele existe.
         //
@@ -716,6 +721,7 @@ async function processar(corpo: WebhookPayload) {
               ? { modelo: credsTenant.modeloReserva, url: credsTenant.reservaBaseUrl }
               : null,
             pedidoAprovado,
+            pedidoNaFila,
           );
           console.log("[fluxo-novo] " + novo.rastro.join(" / "));
 

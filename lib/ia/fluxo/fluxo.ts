@@ -3137,6 +3137,32 @@ export async function responder(
     if (crua?.aceitouBase === true) naoEItem.push("aceitouBase");
     if (naoEItem.length) rastro.push("modelo tambem leu: " + naoEItem.join(" / "));
 
+    // O PEDIDO JA ESTA NA FILA E A MENSAGEM NAO MUDOU NADA: a padaria diz isso,
+    // em vez de mostrar o resumo inteiro com o botao Confirmar de novo.
+    //
+    // Medido em 03/09/2026: "obrigada!" depois de fechar recebia "Fechando o
+    // pedido: ..." de novo, porque o webhook devolve o pedido pendente pro
+    // rascunho (pra ele poder mudar) e a confirmacao nunca se da por cumprida.
+    // Sem lista de palavras: quem diz que a mensagem nao mudou nada e o modelo,
+    // devolvendo {}. O que MUDAR o pedido continua entrando normal, e o
+    // `registrarPedido` atualiza o pendente em vez de duplicar.
+    if (estado.pedidoNaFila && etapaAgora.id === "confirmacao" && !Object.keys(crua ?? {}).length) {
+      const textoNaFila =
+        "Seu pedido já está com a equipe da padaria pra aprovação. Assim que eles confirmarem " +
+        "eu te aviso por aqui. Se quiser mudar alguma coisa, é só me dizer.";
+      rastro.push("pedido ja na fila e a mensagem nao mudou nada; nao repeti o resumo");
+      return {
+        fala: { texto: textoNaFila, botoes: [], cardapio: null, podeReescrever: false },
+        estado: { ...estado, insistiu: 0, ultimaFala: textoNaFila },
+        etapa: "registrado",
+        rastro,
+        chamouIA,
+        confirmouEscrevendo: false,
+        precisaHumano: false,
+        motivoHumano: null,
+      };
+    }
+
     const { limpa, barrados, naoExistem, paraDepois } = leituraQueCabeNaEtapa(etapaAgora.id, crua);
     if (barrados.length) rastro.push("barrado nesta etapa: " + barrados.join(", "));
 
