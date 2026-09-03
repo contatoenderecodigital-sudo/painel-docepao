@@ -2241,13 +2241,26 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         // impede "50 pao frances" de virar 50 kg, R$ 599,50.
         const pesoDaFesta = Number(e.base?.boloKg) || 0;
         const daFesta = categoria === "bolo_festa" && e.ehFesta && pesoDaFesta > 0;
+        // O PESO QUE JA ESTAVA NAO SOME quando o modelo repete o item sem peso
+        // na frase. Medido na bateria de 03/09/2026: em "isso mesmo, pode
+        // confirmar" o modelo re-emitiu o pedido inteiro, inclusive "2x bolo 4
+        // leites"; a frase nao tem peso, o bolo caia pra 0 kg e o pedido nao
+        // fechava. Nada some do pedido: sem peso novo, vale o de antes.
+        const jaTinhaPeso = itens.find(
+          (x) => antigas.has(x) && semAc(x.produto) === semAc(produto) && Number(x.qtd) > 0,
+        );
         if (!peso && !ehNomeDeFamilia(produto) && !daFesta) {
-          if (qtd > 0) {
-            rastro.push(
-              "ninguem falou o peso do " + produto + "; nao chuto 1 kg, a padaria pergunta",
-            );
+          if (jaTinhaPeso) {
+            qtd = Number(jaTinhaPeso.qtd);
+            rastro.push("o modelo repetiu " + produto + " sem peso na frase; fica o de antes, " + qtd + " kg");
+          } else {
+            if (qtd > 0) {
+              rastro.push(
+                "ninguem falou o peso do " + produto + "; nao chuto 1 kg, a padaria pergunta",
+              );
+            }
+            qtd = 0;
           }
-          qtd = 0;
         }
       }
 
