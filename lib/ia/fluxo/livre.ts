@@ -125,6 +125,8 @@ export function instrucaoLivre(): string {
     "- Só existe o que está no cardápio. Sabor que não está na lista: anote como \"a confirmar\" e diga que a equipe confirma se a casa faz.",
     "- Todo item precisa de quantidade dita pelo cliente (unidades, ou quilos no que é vendido por quilo) e, se o produto tem lista de sabores, do sabor escolhido. Nunca chute nenhum dos dois: assim que ele citar um item, a sua próxima pergunta é a quantidade (ou o sabor, se faltar). Na festa a quantidade sai da sugestão que ele aceitou.",
     "- Você NUNCA escolhe sabor nem produto por ele. O sabor do bolo é sempre dele. Sortido só quando ele pedir pra você escolher, e só de salgados e docinhos.",
+    "- Dois tipos de bolo. BOLO CASEIRO: vendido por unidade (bolo inteiro, preço fixo), sem quilo, sem misto, sem topo nem papel de arroz; \"um bolo de cenoura\" = 1 bolo caseiro cenoura. BOLO DE FESTA: por quilo, com as peças. Se o sabor só existe num dos dois (cenoura, café, aipim só têm caseiro; 4 leites, laka, morango só têm festa), é aquele, não pergunte qual. Só pergunte \"de festa ou caseiro\" quando o sabor existe nos dois (prestígio) e a conversa não diz (festa, aniversário, quilos = festa; pequeno, de vitrine, inteiro = caseiro).",
+    "- \"Um bolo\", \"uma torta\" = quantidade 1. Quantidade é sempre número no JSON (2, não \"2kg\").",
     "- Bolo de festa, nesta ordem, uma pergunta por vez: 1) o sabor; 2) se ele quer misturar com um segundo sabor (até 2, vale o preço do mais caro); 3) quantos quilos (de 300 g a 6 kg; na festa sugira o da base); 4) papel de arroz com a foto impressa (R$ 12,00), sim ou não; 5) topo de bolo, sim ou não (o valor do topo é a equipe que orça, não dê valor); 6) se tiver topo ou papel: o tema e o que vai escrito (nome e idade). O que ele já respondeu numa frase só, não pergunte de novo.",
     "- Bolo misto é UMA linha só: produto do sabor mais caro, sabor \"brigadeiro com morango\", com o peso inteiro (1,5 kg misto = 1 item de 1,5 kg). Nunca divida os quilos em dois bolos.",
     "- O nome e a idade do aniversariante (\"Delamar 58 anos\") são o escrito do topo: vão em escrito, nunca em dados.nome. O nome de quem retira é a ÚLTIMA pergunta antes do resumo.",
@@ -169,8 +171,8 @@ export function instrucaoLivre(): string {
     '  "cardapio": "salgados|docinhos|bolos-festa|bolos-caseiros|pizza|tortas-empadao|cupcakes|franciscano|paes|cucas",',
     '  "escolherPorMim": ["salgado"]',
     "}",
-    "Mande em itens só o que mudou nesta mensagem, com a quantidade TOTAL nova (\"muda pra 100\" = 100; \"mais 50\" = o que tinha + 50). " +
-      "Item sem quantidade dita: qtd 0. Só mande os campos que mudaram; resposta é sempre obrigatória. " +
+    "CADA produto que ele citou nesta mensagem entra em itens, sempre: com a quantidade que ele disse (\"um bolo\" = 1, \"20 brigadeiro\" = 20, \"2 kg\" = 2) ou qtd 0 se ele não disse quantos. Perguntar algo NÃO dispensa anotar: anote e pergunte na mesma resposta. " +
+      "Item que já estava anotado só volta em itens se mudou, com a quantidade TOTAL nova (\"muda pra 100\" = 100; \"mais 50\" = o que tinha + 50). Só mande os campos que mudaram; resposta é sempre obrigatória. " +
       "aceitouValor só quando a padaria mandou o valor final com o topo e ele respondeu se está certo.",
   ].join("\n");
 }
@@ -434,8 +436,15 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
         rastro.push("sobra do nome virou o misto: " + bruto.sabor);
       }
     }
-    let qtd = Number(bruto.qtd) || 0;
+    // "2kg" ou "1,5" no lugar do numero: le o numero que tem dentro.
+    let qtd = typeof bruto.qtd === "number" ? bruto.qtd : Number(String(bruto.qtd ?? "").replace(",", ".").match(/[0-9]+(\.[0-9]+)?/)?.[0] ?? 0) || 0;
     if (qtd < 0) qtd = 0;
+    // "quero UM bolo de cenoura" e 1 bolo caseiro: quando o produto e inteiro
+    // (caseiro, torta, pizza, cuca) e ele disse "um" ou "uma" do tipo, e 1.
+    if (!qtd && daCasa.unidade === "un" && /bolo_caseiro|torta|pizza|cuca|empad/i.test(daCasa.categoria) && new RegExp("(^|[^a-z])(um|uma) +(" + daCasa.categoria.split("_")[0] + "|" + semAcento(daCasa.nomeCurto).split(" ")[0] + ")").test(semAcento(mensagem))) {
+      qtd = 1;
+      rastro.push("\"um\" virou 1: " + canon);
+    }
     if (daCasa.unidade === "un" && !Number.isInteger(qtd)) qtd = Math.round(qtd);
     const ehBolo = (CATEGORIAS_DE_BOLO as readonly string[]).includes(daCasa.categoria);
     if (ehBolo && daCasa.unidade === "kg" && qtd > PESO_DO_MAIOR_BOLO) {
