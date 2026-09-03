@@ -418,6 +418,17 @@ function categoriaNoCatalogo(produto: string): string | null {
   return p?.categoria ?? null;
 }
 
+
+function nomeouEsteItemNaFala(fala: string, produto: string): boolean {
+  if (oClienteNomeouEsteProduto(fala, produto)) return true;
+  const n = semAc(produto);
+  return produtosNaFrase(fala).some((p) => {
+    const a = semAc(p);
+    return a === n || n.startsWith(a + " ") || a.startsWith(n + " ");
+  });
+}
+
+/** Aplica no estado o que a IA leu. Nada entra sem passar por aqui. */
 /**
  * A BASE DA FESTA SO CAI EM PRODUTO DAQUELA PERNA.
  *
@@ -450,16 +461,6 @@ function entraNoRateioDaFamilia(
   return String(i.categoria || cat || "").startsWith(familia);
 }
 
-function nomeouEsteItemNaFala(fala: string, produto: string): boolean {
-  if (oClienteNomeouEsteProduto(fala, produto)) return true;
-  const n = semAc(produto);
-  return produtosNaFrase(fala).some((p) => {
-    const a = semAc(p);
-    return a === n || n.startsWith(a + " ") || a.startsWith(n + " ");
-  });
-}
-
-/** Aplica no estado o que a IA leu. Nada entra sem passar por aqui. */
 /**
  * O CLIENTE ESCOLHE O SABOR; A PROPOSTA DIZ QUANTO.
  *
@@ -471,7 +472,17 @@ function nomeouEsteItemNaFala(fala: string, produto: string): boolean {
  * SE ELE DISSER A QUANTIDADE, A DELE MANDA. Quem escreve "200 coxinhas" quer
  * 200 coxinhas, e a proposta era proposta, nao contrato.
  */
-function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado {
+function repartirABase(
+  e: Estado,
+  rastro: string[],
+  falaDoCliente = "",
+  // OS ITENS QUE O MODELO DEVOLVEU NESTE TURNO. Item com quantidade ja dita so
+  // volta pro rateio se o cliente falou DELE agora, e quem sabe isso e o
+  // modelo, nao um casamento de texto: "brigadeiro com maracuja" (o bolo)
+  // casava com o docinho brigadeiro de 50 e ele virava 100 (matriz de
+  // entrega, conversa 4, 03/09/2026).
+  nomeadosPeloModelo: string[] = [],
+): Estado {
   if (!e.baseAceita || !e.base) return e;
 
   // ELE DISSE ALGUM NUMERO NESTA MENSAGEM?
@@ -532,7 +543,7 @@ function repartirABase(e: Estado, rastro: string[], falaDoCliente = ""): Estado 
       const temQtd = Number(i.qtd) > 0;
       if (disseNumero) return !temQtd;
       if (!temQtd) return true;
-      return nomeouEsteItemNaFala(falaDoCliente, i.produto);
+      return nomeadosPeloModelo.some((n) => semAc(n) === semAc(i.produto));
     });
     if (!paraRepartir.length) continue;
 
@@ -3798,7 +3809,7 @@ export async function responder(
     }
   }
 
-  estado = repartirABase(estado, rastro, mensagem.texto);
+  estado = repartirABase(estado, rastro, mensagem.texto, (leituraDesteTurno?.itens ?? []).map((i) => String(i.produto)));
 
   // ------------------------------------------- as pecas do bolo viram pedido
   //
