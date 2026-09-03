@@ -374,7 +374,9 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
     }
     if (!daCasa) {
       rastro.push("nao existe no cardapio, nao entrou: " + nomeBruto);
-      avisos.push("Só pra avisar: \"" + nomeBruto + "\" não está no nosso cardápio, então não anotei.");
+      const resposta = semAcento(String(l.resposta ?? ""));
+      const jaDisse = resposta.includes(semAcento(nomeBruto)) && /nao (tem|temos|faz|fazemos|trabalh|esta no cardapio|anotei)|a equipe confirma|vou confirmar/.test(resposta);
+      if (!jaDisse) avisos.push("Só pra avisar: \"" + nomeBruto + "\" não está no nosso cardápio, então não anotei.");
       continue;
     }
     canon = daCasa.nome;
@@ -648,9 +650,9 @@ export async function atenderLivre(
     const foi = await registrarAceiteCliente(negocioId, clienteId);
     return { texto: foi ? "Perfeito, obrigado. Seu pedido foi pra fila de aprovação da equipe e eu te aviso assim que confirmarem." : "Perfeito, obrigado. Já avisei a equipe da padaria e eles confirmam com você por aqui.", botoes: [], cardapio: null, etapa: "registrado", precisaHumano: !foi, rastro: ["ele aceitou o valor"], uso };
   };
-  const recusou = async (motivo: string): Promise<RespostaDoFluxo> => {
+  const recusou = async (motivo: string, falaDoModelo: string | null = null): Promise<RespostaDoFluxo> => {
     await devolverPedidoParaEquipe(negocioId, clienteId, motivo + ": " + mensagem.texto.slice(0, 200));
-    return { texto: "Entendi. Vou passar pra equipe da padaria pra eles verem o que dá pra fazer, e te respondo por aqui.", botoes: [], cardapio: null, etapa: "registrado", precisaHumano: true, rastro: ["devolvi o pedido pra equipe: " + motivo], uso };
+    return { texto: falaDoModelo?.trim() || "Entendi. Vou passar pra equipe da padaria pra eles verem o que dá pra fazer, e te respondo por aqui.", botoes: [], cardapio: null, etapa: "registrado", precisaHumano: true, rastro: ["devolvi o pedido pra equipe: " + motivo], uso };
   };
   if (aguardandoValor && mensagem.botaoId === "valor_sim") return aceitou();
   if (aguardandoValor && mensagem.botaoId === "valor_nao") return recusou("O cliente nao aceitou o valor");
@@ -690,9 +692,9 @@ export async function atenderLivre(
       };
     }
     if (r.aceitouValor === true) return aceitou();
-    if (r.aceitouValor === false) return recusou("O cliente nao aceitou o valor");
+    if (r.aceitouValor === false) return recusou("O cliente nao aceitou o valor", r.texto);
     if ((l.itens?.length || l.tirar?.length || l.dados) && !r.confirmou) {
-      return recusou("O cliente quer mudar o pedido depois do valor orcado");
+      return recusou("O cliente quer mudar o pedido depois do valor orcado", r.texto);
     }
   }
 
@@ -730,7 +732,7 @@ export async function atenderLivre(
       }
     } else {
       rastro.push("ele confirmou mas falta: " + falta.join("; "));
-      if (!falta.some((f) => new RegExp(f.split(" ")[0], "i").test(textoFinal))) {
+      if (!textoFinal.includes("?") && !falta.some((f) => new RegExp(f.split(" ")[0], "i").test(textoFinal))) {
         textoFinal += "\n\nAntes de fechar, me diz: " + falta.join(", ") + ".";
       }
     }
