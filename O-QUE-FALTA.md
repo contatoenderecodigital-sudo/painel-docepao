@@ -7,6 +7,33 @@ aberto, com nome, e com a prova ao lado quando houver.
 
 ---
 
+## 03/09/2026, DE MADRUGADA: A IA DEIXOU DE SER CEGA
+
+O modelo passou a receber a conversa (12 falas), o pedido anotado e o cardapio
+inteiro. Medido: "10" depois de "quantas pessoas?" era 10 kg de bolo 5 de 5;
+virou 10 pessoas 5 de 5. Depois disso sairam, uma por commit e cada uma medida
+contra o modelo com contexto antes: o portao por etapa, o `guardados`, o injetor
+da frase, a `dicaDaEtapa`, o atalho do "Sim" digitado, as 247 linhas de
+distribuicao de sabor, e as listas de palavras (queixa, pedido aprovado, "quero
+falar com a dona", "apaga tudo", "quais tem?"). O rascunho passou a ser limpo
+ao registrar (havia pedido duplicado de R$ 481,80). Tudo em
+`PLANO-DE-EXECUCAO.md`, com commit e prova por linha.
+
+**Aberto, com nome:**
+- o caminho "pedido aguardando o valor do topo" ainda decide por botao e pela
+  lista `respostaAoValor` antes do modelo; texto livre que nao e sim/nem nao
+  repete a pergunta com botao e o que ele escreveu se perde;
+- "misto de brigadeiro com ninho": o modelo devolve "bolo leite ninho", que nao
+  existe, e a trava tira a linha;
+- a matriz de 12 conversas de `TESTES-DA-ENTREGA.md` nao foi rodada inteira
+  depois disto (rodadas: festa completa com delegacao parcial, pedido simples,
+  pizza redonda, reclamacao, numero errado, "apaga tudo", "quero falar com a
+  dona": todas certas em producao);
+- o do dono: numero na Meta, nome do pix, ADMIN/DONA_WHATSAPP, e tirar
+  `IA_BASE_URL` e `OPENAI_MODEL_FLUXO` do ambiente do Coolify.
+
+---
+
 ## 02/09/2026, DEPOIS DO TESTE DELE: O PEDIDO APROVADO PASSA A EXISTIR
 
 Ele testou a conversa inteira na producao e apontou tres coisas. As tres estao
