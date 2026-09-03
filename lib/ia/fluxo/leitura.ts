@@ -581,6 +581,13 @@ export function resumoDoAnotado(p: PedidoEmMontagem): string | null {
     );
   }
   if (p.ehFesta) partes.push("é festa" + (p.pessoas ? " pra " + p.pessoas + " pessoas" : ""));
+  // O BOLO DA BASE QUE AINDA NAO TEM SABOR e um buraco que o modelo precisa ver:
+  // sem isto, "brigadeiro" respondendo "qual sabor do bolo?" caia no docinho
+  // brigadeiro ja anotado, e o modelo devolvia {} (medido em 03/09/2026).
+  const temBolo = p.itens.some((i) => String(i.categoria || "").startsWith("bolo") || /^bolo/i.test(String(i.produto)));
+  if (p.ehFesta && p.base && Number(p.base.boloKg) > 0 && !temBolo) {
+    partes.push("falta o sabor do bolo (" + String(p.base.boloKg).replace(".", ",") + " kg da proposta)");
+  }
   const d: Partial<PedidoEmMontagem["dados"]> = p.dados ?? {};
   const retirada = [
     d.data ? "dia " + d.data : null,
@@ -590,6 +597,19 @@ export function resumoDoAnotado(p: PedidoEmMontagem): string | null {
   ].filter(Boolean);
   if (retirada.length) partes.push("retirada: " + retirada.join(", "));
   if (p.naoQuer?.length) partes.push("não quer: " + p.naoQuer.join(", "));
+  // O QUE JA FOI RESPONDIDO TAMBEM ENTRA. Medido em 03/09/2026: com a forminha
+  // fora do lembrete, o modelo via "rosa" no historico, achava que faltava
+  // anotar, devolvia so `forminha: rosa` de novo e IGNORAVA o "brigadeiro" que
+  // respondia a pergunta do bolo. O que esta anotado nao precisa ser repetido.
+  if (p.forminha) partes.push("forminha: " + p.forminha);
+  const pecas = [
+    p.pecas?.topo === true ? "com topo" : p.pecas?.topo === false ? "sem topo" : null,
+    p.pecas?.papelDeArroz === true ? "com papel de arroz" : p.pecas?.papelDeArroz === false ? "sem papel de arroz" : null,
+  ].filter(Boolean);
+  if (pecas.length) partes.push("bolo " + pecas.join(", "));
+  if (p.tema) partes.push("tema: " + p.tema);
+  if (p.escrito) partes.push("escrito na peça: " + p.escrito);
+  if (p.prato) partes.push("embalagem: " + p.prato);
   if (!partes.length) return null;
   return "Já está anotado no pedido. " + partes.join(". ") + ".";
 }
@@ -826,9 +846,14 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
       "sem o prefixo de bolo, a não ser que ele fale de bolo." +
       recusa("docinho"),
     bolo:
-      "A padaria está perguntando O SABOR DO BOLO (e depois o peso). Nome que o " +
-      "cardápio também vende como docinho é o bolo aqui, com o prefixo. " +
-      "Embalagem: prato \"aberto\" ou \"tampa\"." +
+      "A padaria está perguntando O SABOR DO BOLO (e depois o peso). A resposta dele " +
+      "agora é o sabor do bolo: devolva em itens o produto \"bolo <sabor>\" (ex.: " +
+      "\"bolo brigadeiro\", \"bolo 4 leites\"), mesmo que exista docinho de mesmo nome " +
+      "já anotado, e não mexa nos docinhos. Dois sabores = bolo misto: um item por sabor." +
+      // A frase da embalagem saiu: com ela na instrucao o modelo devolvia
+      // `prato: "aberto"` sem o cliente ter dito nada (medido 3 de 3 em
+      // 03/09/2026). Quem escrever "prato aberto" ou "com tampa" continua
+      // sendo lido pelo leitor da frase.
       recusa("bolo"),
     resto_do_cardapio:
       "A padaria está perguntando QUAL TIPO ou RECHEIO do que ele já pediu " +

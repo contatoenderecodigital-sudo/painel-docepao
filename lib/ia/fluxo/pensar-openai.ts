@@ -91,6 +91,19 @@ Pedido novo vai em itens, nunca só em confirmou. confirmou só fecha o pedido j
  * `registrar` recebe o custo de cada chamada, pra medir sem depender de tabela
  * de preco: quem manda no numero e o uso que o proprio provedor devolve.
  */
+function juntarTurnosSeguidos(turnos: { papel: "user" | "assistant"; conteudo: string }[]) {
+  const saida: { role: "user" | "assistant"; content: string }[] = [];
+  for (const t of turnos) {
+    const content = String(t?.conteudo ?? "").trim();
+    if (!content) continue;
+    const role = t.papel === "user" ? "user" : "assistant";
+    const ultimo = saida[saida.length - 1];
+    if (ultimo && ultimo.role === role) ultimo.content += "\n" + content;
+    else saida.push({ role, content });
+  }
+  return saida;
+}
+
 export function pensarComOpenAI(
   cliente: OpenAI,
   registrar?: (uso: { tokensIn: number; tokensOut: number; cacheRead: number }) => void,
@@ -165,12 +178,11 @@ export function pensarComOpenAI(
       // mensagem.
       messages: [
         { role: "system", content: instrucao + "\n\n" + FORMATO },
-        ...(historico ?? [])
-          .filter((t) => String(t?.conteudo ?? "").trim())
-          .map((t) => ({
-            role: (t.papel === "user" ? "user" : "assistant") as "user" | "assistant",
-            content: String(t.conteudo).trim(),
-          })),
+        // Falas seguidas do mesmo lado viram UMA mensagem. A padaria manda a
+        // pergunta, o cardapio e o recado em tres mensagens, e o modelo perdia
+        // a pergunta no meio (medido em 03/09/2026: "brigadeiro" depois de "E o
+        // bolo, qual sabor?" + cardapio + recado voltava sem o bolo).
+        ...juntarTurnosSeguidos(historico ?? []),
         ...(String(anotado ?? "").trim()
           ? [{ role: "system" as const, content: String(anotado).trim() }]
           : []),
