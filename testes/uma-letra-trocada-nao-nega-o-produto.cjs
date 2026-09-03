@@ -82,9 +82,11 @@ fs.writeFileSync(
     "  ['docinho', 'macaron', null],",
     "  ['salgado', 'hamburguer', null],",
     "  ['docinho', 'cheesecake', null],",
-    "  // E o que e de outra etapa tambem: coxinha nao vira docinho.",
-    "  ['docinho', 'coxinha', null],",
-    "  ['salgado', 'brigadeiro', null],",
+    "  // O QUE E DE OUTRA ETAPA PASSA (03/09/2026): o modelo ve a conversa e o",
+    "  // cardapio inteiro, e quem separa por familia e o aplicar, pelo catalogo.",
+    "  // Coxinha continua coxinha, e nao vira docinho.",
+    "  ['docinho', 'coxinha', 'coxinha'],",
+    "  ['salgado', 'brigadeiro', 'brigadeiro'],",
     "];",
     "",
     "const erros = [];",
@@ -159,7 +161,7 @@ if (r.erros.length) {
 } else {
   console.log("ok    erro de digitacao alcanca o produto");
   console.log("ok    o que a casa nao faz continua barrado");
-  console.log("ok    o que e de outra etapa continua barrado");
+  console.log("ok    o que e de outra etapa entra com o nome dele, sem virar outro produto");
 }
 
 if (r.errosDaFrase.length) {

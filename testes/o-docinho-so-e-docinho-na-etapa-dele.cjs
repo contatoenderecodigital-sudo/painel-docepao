@@ -85,25 +85,28 @@ const falhas = [];
 const nomes = (x) => (x.limpa.itens ?? []).map((i) => i.produto);
 
 // ------------------------------------------------------ o caso da kemilly
+//
+// DESDE 03/09/2026 O PORTAO NAO E MAIS POR ETAPA: o modelo ve a conversa e o
+// cardapio inteiro, e anota tudo. O que este caso cobra agora e que os 100
+// brigadeiros e os 100 beijinhos ENTRAM (nada some) e entram como DOCINHO, sem
+// o prefixo de bolo; e que o bolo de 4 leites, em quilos, entra como bolo.
 {
   const dentro = nomes(r.kemilly);
-  if (!dentro.includes("4 leites")) falhas.push("o bolo de 4 leites nao entrou: " + dentro.join(", "));
-  if (dentro.includes("brigadeiro")) {
+  if (!dentro.some((n) => /4 leites/.test(n))) falhas.push("o bolo de 4 leites nao entrou: " + dentro.join(", "));
+  if (!dentro.some((n) => /4 leites/.test(n) && /^bolo/.test(n))) {
+    falhas.push("o 4 leites de 1 kg, respondendo a pergunta do bolo, nao ganhou o prefixo de bolo: " + dentro.join(", "));
+  }
+  if (!dentro.includes("brigadeiro")) falhas.push("os 100 brigadeiros nao entraram como docinho: " + dentro.join(", "));
+  if (dentro.some((n) => /^bolo.*brigadeiro/.test(n))) {
     falhas.push("os 100 brigadeiros entraram como BOLO de novo (o defeito da kemilly voltou)");
   }
-  if (dentro.includes("beijinho")) falhas.push("os 100 beijinhos entraram como bolo");
-  if (!r.kemilly.barrados.some((b) => /brigadeiro/.test(b))) {
-    falhas.push("o brigadeiro foi descartado calado, sem dizer o motivo no rastro");
-  }
-  // Sumir calado foi o que fez os 200 docinhos dela desaparecerem do pedido.
-  if (!r.kemilly.barrados.some((b) => /docinho/.test(b))) {
-    falhas.push("o motivo do descarte nao diz que era docinho");
-  }
+  if (!dentro.includes("beijinho")) falhas.push("os 100 beijinhos sumiram: " + dentro.join(", "));
+  if (dentro.length !== 3) falhas.push("entraram " + dentro.length + " itens em vez de 3: " + dentro.join(", "));
 }
 
 // -------------------------------------- bolo de brigadeiro DE VERDADE passa
-if (!nomes(r.boloDeBrigadeiro).includes("brigadeiro")) {
-  falhas.push("bolo de brigadeiro de 2 kg foi barrado; a trava da quantidade ficou apertada demais");
+if (!nomes(r.boloDeBrigadeiro).some((n) => /brigadeiro/.test(n) && /^bolo/.test(n))) {
+  falhas.push("bolo de brigadeiro de 2 kg, respondendo a pergunta do bolo, nao entrou como bolo: " + nomes(r.boloDeBrigadeiro).join(", "));
 }
 
 // --------------------------------------------- docinho na etapa do docinho
@@ -116,7 +119,7 @@ if (!nomes(r.boloDeBrigadeiro).includes("brigadeiro")) {
 {
   const s = nomes(r.saborColado);
   if (!s.includes("esfirra de carne")) falhas.push("'esfirra de carne' foi barrado na etapa do salgado");
-  if (s.includes("brigadeiro")) falhas.push("brigadeiro entrou na etapa do salgado");
+  if (!s.includes("brigadeiro")) falhas.push("brigadeiro citado na etapa do salgado sumiu (nada some)");
 }
 
 // ------------------------------------------- o vocabulario existe mesmo

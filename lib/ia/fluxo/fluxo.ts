@@ -34,7 +34,7 @@ import {
   instrucaoDaEtapa, leituraQueCabeNaEtapa, etapaDesteProduto, resumoDoAnotado,
   type Leitura, type TurnoDaConversa,
 } from "./leitura";
-import { juntarComAFrase, itensDeOutraEtapaNaFrase, produtosNaFrase, ondeCadaProdutoAparece, familiaDoQueEleNomeou } from "./leitor-da-frase";
+import { juntarComAFrase, produtosNaFrase, ondeCadaProdutoAparece, familiaDoQueEleNomeou } from "./leitor-da-frase";
 import { afirmouOuNegou, cercaDaPalavra, falaDeFotoRecebida, formasDoCliente } from "../texto";
 import { identificarProduto } from "./produto";
 import { categoriaUnicaDaFamilia, categoriasDaFamilia, chavesDeFamilia, ehNomeDeFamilia, ehPizzaQueNaoESalgado, familiaDoProduto, nomeDaFamilia, opcaoDaFamiliaNaFrase, opcoesDaFamilia } from "./generico";
@@ -356,26 +356,6 @@ export function categoriaDaEtapa(etapa: EtapaId, produto: string): string {
   }
 
   return "outro";
-}
-
-/**
- * A DICA QUE O NOME USA PRA DESEMPATAR, QUE NAO E A CATEGORIA DO ITEM.
- *
- * Sai da etapa e do que ele escreveu. A etapa do salgado nao vira
- * `salgado_frito` aqui: isso carimbava pizza e docinho como frito. A do bolo
- * olha a frase (caseiro, festa, kg) e a base da festa (bolo em quilo).
- */
-function dicaDaEtapa(etapa: EtapaId, e: PedidoEmMontagem, produto: string, fala: string): string {
-  if (etapa === "docinho") return "docinho";
-  if (etapa === "salgado") return "salgado";
-  if (etapa === "bolo") {
-    const t = semAc(produto + " " + fala);
-    if (/\bcaseiros?\b/.test(t)) return "bolo_caseiro";
-    if (/\bfestas?\b/.test(t) || /\bkg\b/.test(t) || /\bquilos?\b/.test(t)) return "bolo_festa";
-    if (e.ehFesta && e.base && Number(e.base.boloKg) > 0) return "bolo_festa";
-    return "bolo";
-  }
-  return "";
 }
 
 /**
@@ -1478,8 +1458,12 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       // como salgado_frito. A dica continua da etapa (e do que ele escreveu),
       // pra desempatar o NOME. A categoria do item sai do catalogo do produto
       // ja identificado.
-      const dica = dicaDaEtapa(etapa, e, String(i.produto), falaDoCliente);
-      const quem = identificarProduto(String(i.produto), dica, falaDoCliente);
+      // SEM DICA DA ETAPA. Ate 03/09/2026 a etapa forcava a familia por regex
+      // sobre a fala ("bolo" + /kg/ virava bolo_festa), e foi o coracao do
+      // "10 kg de bolo": a etapa errada carimbava a familia errada. Quem
+      // desempata agora e o nome que o modelo devolve COM o contexto da
+      // conversa (o prefixo do bolo esta na regra do cardapio), e o catalogo.
+      const quem = identificarProduto(String(i.produto), undefined, falaDoCliente);
       // ELE RESPONDEU QUAL, DENTRE AS QUE A PADARIA OFERECEU.
       //
       // O modelo devolve a familia crua ("pizza") quando o cliente responde
@@ -1568,7 +1552,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         // "brigadeiro" na etapa do bolo cairia no docinho de R$ 1,25.
         const soDitas = doNome.filter((w) => eleFalou(w) || daFamilia.has(w)).join(" ");
         if (!soDitas.trim()) return nome;
-        const menor = identificarProduto(soDitas, dica, falaDoCliente);
+        const menor = identificarProduto(soDitas, undefined, falaDoCliente);
         if (!menor?.produto || semAc(menor.produto) === semAc(nome)) return nome;
         // O QUE SOBRA TEM QUE SER PRODUTO DE VERDADE.
         //
@@ -3141,150 +3125,21 @@ export async function responder(
     const { limpa, barrados, naoExistem, paraDepois } = leituraQueCabeNaEtapa(etapaAgora.id, crua);
     if (barrados.length) rastro.push("barrado nesta etapa: " + barrados.join(", "));
 
-    // O QUE ESTA ESCRITO NA FRASE E O MODELO NAO LEU.
-    //
-    // Guardar item barrado nao cobre tudo: para ser barrado ele precisa ter
-    // sido LIDO. Quando a instrucao da etapa nao fala daquela familia, o modelo
-    // nem extrai. Foi o caso de "50 brigadeiro, forminha rosa, e um bolo de
-    // 2 kg de 4 leites" na etapa da oferta: o brigadeiro entrou, o bolo nao, e
-    // a padaria perguntou o sabor do bolo duas vezes ate a conversa morrer.
-    const doTextoParaDepois = itensDeOutraEtapaNaFrase(
-      String(mensagem.texto ?? ""),
-      (produto) => etapaDesteProduto(produto) === etapaAgora.id,
-    )
-      .filter((p) => !(limpa.itens ?? []).some((i) => i.produto.toLowerCase() === p.produto.toLowerCase()))
-      // A PALAVRA QUE JA E SABOR DE UM ITEM DESTA LEITURA NAO GERA ITEM NOVO.
-      //
-      // Medido em 31/08/2026, num pedido banal:
-      //
-      //   cliente >> quero 50 docinhos de morango
-      //   modelo  >> 50x docinho [morango]
-      //   frase   >> achei "morango" e anotei: bolo
-      //   pedido  >> 50x docinho (morango)  E  50x bolo
-      //
-      // "morango" e sabor de docinho e nome de bolo de festa ao mesmo tempo, e
-      // e uma das oito palavras do cardapio que sao produto E sabor. O leitor da
-      // frase acha o bolo na mesma palavra que o modelo ja tinha dado ao
-      // docinho, e o pedido ganha uma linha que ninguem pediu.
-      //
-      // E a mesma regra do `donoNaFrase`, um andar acima: palavra com dono nesta
-      // leitura nao esta sobrando.
-      .filter((p) => {
-        const alvo = semAc(p.produto);
-        const temDono = (limpa.itens ?? []).some((i) =>
-          semAc(String(i.sabor ?? "") + " " + String(i.obs ?? "")).includes(alvo),
-        );
-        if (temDono) {
-          rastro.push("nao anotei \"" + p.produto + "\" da frase: ja e sabor de outro item desta mensagem");
-        }
-        return !temDono;
-      })
-      // Ja esta no pedido, mesmo escrito de outro jeito? Entao nao guarda.
-      .filter((p) => !jaTemEsseProduto(estado.itens, p.produto))
-      // Guarda ja com o nome canonico. Estacionar "4 leites" e aplicar como
-      // "bolo 4 leites" era a origem do mesmo bolo com dois nomes.
-      //
-      // O "BOLO" DA FRASE TEM QUE VIR JUNTO, SENAO O BOLO VIRA DOCINHO.
-      //
-      // `identificarProduto` era chamado sem dica nenhuma, e o comentario logo
-      // abaixo afirmava que a ambiguidade "ja foi resolvida". Nao foi: sem dica,
-      // "brigadeiro" resolve pro DOCINHO, que e R$ 1,25 a unidade, e o bolo de
-      // brigadeiro e R$ 46,90 o quilo.
-      //
-      // O caminho e estreito e existe: quem acha o produto aqui e o leitor da
-      // frase, e ele so procura nome de produto avulso, sem o prefixo. Entao "um
-      // bolo de brigadeiro" chega aqui como "brigadeiro" puro. Quando o modelo
-      // tambem le o item, o filtro logo acima mata a duplicata e ninguem ve;
-      // quando ele se distrai (que e a razao deste bloco existir), entra um
-      // docinho no lugar do bolo.
-      //
-      // A frase sabe: se o cliente escreveu "bolo" na frente, o prefixo volta e
-      // `identificarProduto` resolve pelo nome completo, que e o desempate que o
-      // proprio sistema ja usa. Achado lendo linha por linha em 27/08/2026.
-      .map((p) => {
-        const frase = semAc(String(mensagem.texto ?? ""));
-        const onde = frase.indexOf(semAc(p.produto));
-        // "bolo de brigadeiro" e "bolo brigadeiro": ate uma preposicao no meio.
-        const antes = onde > 0 ? frase.slice(Math.max(0, onde - 12), onde) : "";
-        const ehBolo = /\bbolo\s+(de\s+|da\s+|do\s+)?$/.test(antes);
-        // E SO SE O BOLO EXISTIR DE VERDADE.
-        //
-        // "bolo de leite ninho" nao e produto da casa: leite ninho e docinho, e
-        // o caseiro parecido chama "chocolate preto com leite ninho". Com o
-        // prefixo colado sem conferir, entrava um "bolo leite ninho" que o
-        // cardapio nao conhece e que ficaria sem preco no pedido.
-        //
-        // Trocar um erro de R$ 1,25 por uma linha sem preco nao e conserto. Se o
-        // bolo existe, vale o bolo; se nao existe, vale o que o cliente falou, e
-        // a padaria pergunta o sabor como ja faz pro que ela nao acha.
-        const fala = String(mensagem.texto ?? "");
-        const comBolo = ehBolo ? identificarProduto("bolo " + p.produto, undefined, fala).produto : null;
-        const boloDeVerdade = comBolo && produtoPorNome(comBolo) ? comBolo : null;
-        // A MESMA GUARDA DO OUTRO CAMINHO. Este injetor resolvia o nome por
-        // conta propria, e por isso "quero 50 de limao" escapava dela e virava
-        // 50 bolos caseiros de limao, R$ 1.545,00. Regra que vale num caminho e
-        // nao no outro e regra que so protege metade dos pedidos.
-        const canonico = boloDeVerdade ?? identificarProduto(p.produto, undefined, fala).produto;
-        return { ...p, produto: naoCabeNoBolo(canonico, Number(p.qtd) || 0, fala, String(p.produto), "", rastro) };
-      });
-    if (doTextoParaDepois.length) {
-      // ENTRA AGORA, NAO DEPOIS.
-      //
-      // Isto era guardado, e guardar custava SEMPRE um turno: o item e achado
-      // JUSTAMENTE por ser de outra etapa, e o guardado so entra quando a
-      // conversa chega naquela etapa, que e a mensagem seguinte.
-      //
-      // Medido em 26/08/2026, uma conversa contra o banco: o cliente escreveu
-      // "um bolo de 2 kg de 4 leites" na primeira mensagem e ouviu de volta
-      // "E o bolo, qual sabor?". O bolo tinha sido achado, guardado, e a
-      // pergunta saiu mesmo assim. O pedido so fechava um turno depois, e nos
-      // cenarios de duas mensagens ele nunca fechava.
-      //
-      // Entrar direto e seguro porque estes itens NAO sao palpite: sairam do
-      // leitor deterministico contra o cardapio e ja vem com o nome canonico.
-      // A ambiguidade que justificava a etapa ("brigadeiro" e docinho ou bolo?)
-      // ja foi resolvida por `identificarProduto` la em cima.
-      //
-      // E e o que uma atendente faz: voce falou o bolo, ela anota o bolo, mesmo
-      // estando no meio dos salgados.
-      limpa.itens = [...(limpa.itens ?? []), ...doTextoParaDepois];
-      rastro.push("achei na frase e anotei: " + doTextoParaDepois.map((d) => d.produto).join(", "));
-    }
-
-    // ITEM CITADO FORA DA HORA FICA GUARDADO, NAO E JOGADO FORA.
-    if (paraDepois.length) {
-      const jaGuardados = estado.guardados ?? [];
-      const novos = paraDepois.filter(
-        (p) => !jaGuardados.some((g) => g.produto.toLowerCase().trim() === p.produto.toLowerCase().trim()),
-      );
-      if (novos.length) {
-        estado = { ...estado, guardados: [...jaGuardados, ...novos] };
-        rastro.push("guardado pra depois: " + novos.map((n) => n.produto).join(", "));
-      }
-    }
-
-    // E CHEGOU A HORA DE ALGUM QUE ESTAVA GUARDADO? Entra junto com esta leitura.
+    // AQUI MORAVAM 150 LINHAS QUE REMONTAVAM PELA FRASE O QUE A INSTRUCAO TINHA
+    // MANDADO O MODELO ESCONDER: o injetor `itensDeOutraEtapaNaFrase`, o
+    // `guardados` (item barrado estacionado pra etapa dele) e a volta dele.
+    // Existiam porque o modelo so via o vocabulario da etapa e era instruido a
+    // "devolver falouDeOutraEtapa em vez de anotar". Desde 03/09/2026 ele ve a
+    // conversa, o pedido e o cardapio inteiro, e anota tudo: quem separa por
+    // familia e o `aplicar`, pelo catalogo. O que ainda estiver em
+    // `estado.guardados` de conversa antiga entra agora, de uma vez.
     if (estado.guardados?.length) {
-      const agora = estado.guardados.filter(
-        (g) => etapaDesteProduto(g.produto) === etapaAgora.id && !jaTemEsseProduto(estado.itens, g.produto),
-      );
-      // O que ja entrou por outro caminho sai da lista sem virar item de novo.
-      const jaEntrou = estado.guardados.filter((g) => jaTemEsseProduto(estado.itens, g.produto));
-      if (jaEntrou.length) {
-        estado = {
-          ...estado,
-          guardados: estado.guardados.filter((g) => !jaEntrou.includes(g)),
-        };
-        rastro.push("guardado ja estava no pedido: " + jaEntrou.map((j) => j.produto).join(", "));
+      const sobrando = estado.guardados.filter((g) => !jaTemEsseProduto(estado.itens, g.produto));
+      if (sobrando.length) {
+        limpa.itens = [...(limpa.itens ?? []), ...sobrando];
+        rastro.push("entrou o que estava guardado: " + sobrando.map((a) => a.produto).join(", "));
       }
-      if (agora.length) {
-        limpa.itens = [...(limpa.itens ?? []), ...agora];
-        estado = {
-          ...estado,
-          guardados: (estado.guardados ?? []).filter((g) => !agora.includes(g)),
-        };
-        rastro.push("entrou o que estava guardado: " + agora.map((a) => a.produto).join(", "));
-      }
+      estado = { ...estado, guardados: [] };
     }
     // O que foi barrado por NAO EXISTIR no cardapio vira aviso pro cliente. O
     // que foi barrado por ser de outra familia nao: aquele a conversa resolve

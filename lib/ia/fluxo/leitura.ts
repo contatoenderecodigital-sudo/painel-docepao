@@ -1065,73 +1065,47 @@ export function leituraQueCabeNaEtapa(
   naoExistem: string[];
   paraDepois: NonNullable<Leitura["itens"]>;
 } {
-  const vocab = vocabularioDaEtapa(etapa);
   if (!leitura.itens?.length)
     return { limpa: leitura, barrados: [], naoExistem: [], paraDepois: [] };
 
-  // A ETAPA SEM CARDAPIO PROPRIO TAMBEM TEM PORTAO, SO QUE MAIS LARGO.
+  // O PORTAO DEIXOU DE SER POR ETAPA EM 03/09/2026.
   //
-  // Aqui a funcao devolvia tudo intocado, e o comentario dela jurava ser "a
-  // ultima trava antes de virar pedido". Era, em tres das onze etapas. Nas
-  // outras oito, incluindo a ABERTURA (onde a maioria dos pedidos nasce),
-  // qualquer coisa que o modelo devolvesse entrava sem ninguem conferir.
+  // Ate entao a etapa do salgado so deixava passar salgado, e o resto era
+  // "guardado pra depois" ou mandava a conversa pra outra etapa por conta
+  // propria (`falouDeOutraEtapa` inventado aqui). Existia porque o modelo so
+  // via o vocabulario da etapa. Agora ele ve a conversa, o pedido e o cardapio
+  // inteiro, e anota tudo; quem separa por familia e o `aplicar`, pelo
+  // catalogo. O que sobra aqui e o que NAO depende de etapa:
   //
-  // O que passa aqui: produto do catalogo, apelido que alcanca uma etapa, e
-  // palavra de familia que a casa vende ("bolo", "torta", "salgados", "paes").
-  // O que nao passa: o que nao tem nada a ver com o que ela faz.
-  if (!vocab.length) {
-    const naoExistem: string[] = [];
-    const itens = leitura.itens.filter((i) => {
-      // O NOME REDUZIDO TAMBEM E PERGUNTADO AO CATALOGO.
-      //
-      // "um laka" e "uns brigadeiros" nao existem em lugar nenhum escritos
-      // assim, e as duas primeiras perguntas comparam letra por letra. Reduzir
-      // antes faz o artigo e o plural pararem de esconder o produto.
-      // OS TRES JEITOS SAO PERGUNTADOS, E NAO SO O MAIS REDUZIDO.
-      //
-      // A reducao tira o "s" de toda palavra, e ha produto cujo nome TERMINA em
-      // "s": "4 leites" reduzido vira "4 leite", que nao existe no cardapio.
-      // Medido: "um 4 leites", "um churros" e "um ingles" eram negados, e os
-      // tres sao bolo que a casa vende.
-      //
-      //   cru        o que o modelo devolveu
-      //   sem artigo "um 4 leites"    -> "4 leites"
-      //   reduzido   "uns salgadinhos" -> "salgado"
-      const jeitos = formasDoCliente(i.produto);
-      if (
-        jeitos.some((j) => existeNoCardapio(j) || etapaDesteProduto(j)) ||
-        daFamiliaDaCasa(i.produto) ||
-        ehNomeDeFamilia(i.produto)
-      ) {
-        return true;
-      }
-      naoExistem.push(i.produto);
-      return false;
-    });
-    return { limpa: { ...leitura, itens }, barrados: [...naoExistem], naoExistem, paraDepois: [] };
-  }
-
+  //   1. o nome existe no cardapio (ou e familia que a casa vende), senao e
+  //      recusado com verdade e o cliente ouve "nao achei isso";
+  //   2. uma letra trocada nao nega o produto (a regua de letras, como rede);
+  //   3. a unidade desempata o nome que serve pros dois: "bolo brigadeiro" em
+  //      100 unidades e o docinho, e "brigadeiro" respondendo a pergunta do
+  //      sabor do bolo, em quilos, e o bolo. Isto sai do catalogo (quem e por
+  //      quilo, quem e por unidade, e o teto de 6 kg), nao da etapa.
+  const todos = produtosDaCasa();
+  const vocab = comOsApelidos(todos.map((p) => p.nomeCurto));
   const permitido = new Set(vocab.map(semAc));
+  const comAcento = new Map(vocab.map((v) => [semAc(v), v]));
+  const deBolo = todos.filter((p) => (CATEGORIAS_DE_BOLO as readonly string[]).includes(p.categoria));
+  const porUnidadeComEsteNome = (curto: string) =>
+    todos.find((p) => p.unidade === "un" && semAc(p.nomeCurto) === semAc(curto));
 
   const barrados: string[] = [];
   const naoExistem: string[] = [];
-  // O QUE FOI CITADO FORA DA HORA NAO E JOGADO FORA.
-  //
-  // Ate 25/08/2026 o item barrado sumia: o codigo guardava so o NOME numa lista
-  // para decidir o rumo da conversa, e o item em si era descartado. Quem
-  // escrevia "50 brigadeiro, forminha rosa, e um bolo de 2 kg de 4 leites" na
-  // etapa do docinho tinha o BOLO descartado, e se nao repetisse, nao existia.
-  // E o mesmo defeito do quiche por outra porta.
   const paraDepois: NonNullable<Leitura["itens"]> = [];
-  // O nome do cardapio COM acento, achado pelo nome sem acento. O quase acerto
-  // reescreve o produto pro nome da casa, e nao pra versao sem acento dele.
-  const comAcento = new Map(vocab.map((v) => [semAc(v), v]));
 
   const itens = leitura.itens.flatMap((bruto) => {
     let i = bruto;
-    // O nome pode vir com o sabor colado ("esfirra de carne"): vale o comeco.
     const nome = semAc(i.produto);
-    let cabe = [...permitido].some((v) => nome === v || nome.startsWith(v + " "));
+    const jeitos = formasDoCliente(i.produto);
+    let cabe =
+      [...permitido].some((v) => nome === v || nome.startsWith(v + " ")) ||
+      jeitos.some((j) => existeNoCardapio(j) || etapaDesteProduto(j)) ||
+      daFamiliaDaCasa(i.produto) ||
+      ehNomeDeFamilia(i.produto) ||
+      ehPizzaQueNaoESalgado(i.produto);
 
     // UMA LETRA TROCADA NAO NEGA O PRODUTO. Ver `quaseIgual` la em cima: uma
     // letra de folga, cinco letras no minimo, e um unico candidato.
@@ -1152,157 +1126,39 @@ export function leituraQueCabeNaEtapa(
       }
     }
 
-    // O NOME DO CATALOGO TAMBEM E O NOME DESTA ETAPA.
-    //
-    // O vocabulario mostrado ao modelo e o nome CURTO ("brigadeiro"), e o nome
-    // do catalogo carrega a familia ("bolo brigadeiro"). Quem chegasse aqui
-    // pelo nome do catalogo era barrado NA PROPRIA ETAPA dele:
-    //
-    //   etapa do bolo, item "bolo brigadeiro"
-    //   antes  >> barrado, guardado pra depois, e a conversa mandada pro docinho
-    //
-    // O item entrava pela porta certa e era tratado como intruso. Quem sabe de
-    // quem e o produto e o catalogo, e ele ja foi perguntado logo acima.
-    if (!cabe && etapaDesteProduto(i.produto) === etapa) cabe = true;
-    // NOME DE FAMILIA E RESPOSTA DESTA ETAPA.
-    //
-    // "vamos fazer 150 salgados" nao nomeia coxinha nenhuma. Sem isto o portao
-    // barrava a linha e o total da festa nunca atualizava.
-    if (!cabe && ehNomeDeFamilia(i.produto)) {
-      const fam = nomeDaFamilia(i.produto) ?? "";
-      if (etapa === "salgado" && fam.startsWith("salgado")) cabe = true;
-      if (etapa === "docinho" && (fam === "docinho" || fam === "doce")) cabe = true;
-      if (etapa === "bolo" && fam.startsWith("bolo")) cabe = true;
-      // NA PROPOSTA, FAMILIA COM NUMERO E A RESPOSTA, E NAO ITEM FORA DE HORA.
-      //
-      // Medido na conversa dele de 02/09/2026, e foi o que travou o pedido:
-      //
-      //   padaria >> 200 salgados, 100 docinhos, 2 kg. Da pra ajustar.
-      //   cliente >> quero 50 salgados a mais e 50 docinhos a mais
-      //   rastro  >> modelo leu: 50x salgado ;; 50x docinho
-      //   base    >> 200 salgados, 100 docinhos      (nada mudou)
-      //
-      // A etapa da base nao aceitava "salgado" como item, entao os dois eram
-      // BARRADOS e guardados pra etapa do salgado, la na frente. So que a base
-      // nunca era ajustada, e como ela so se cumpre com `baseAceita`, a conversa
-      // ficava presa na proposta pra sempre: tudo o que ele dissesse depois ia
-      // pro mesmo buraco.
-      //
-      // A padaria pergunta "quanto voce quer de cada coisa" e a resposta e
-      // exatamente esta: familia com numero. Barrar a resposta da propria
-      // pergunta e o defeito.
-      if (etapa === "base_da_festa") cabe = true;
-    }
-
     if (!cabe) {
-      barrados.push(i.produto);
-      // Existe no cardapio e alguma etapa PERGUNTA por ele? Guarda pra la.
-      //
-      // O resto do cardapio nao entra aqui, e o motivo importa: a etapa dele
-      // nao existe pra perguntar QUAL PRODUTO (isso ele ja disse), e sim pra
-      // perguntar o TIPO ou o RECHEIO do que ele ja pediu. Estacionar a torta
-      // fria ate chegar la atrasaria o registro sem ganhar nada, e o item
-      // seguiria escondido do resumo enquanto isso.
-      //
-      // Ele passa agora, do jeito que sempre passou, e a etapa nova cobra o
-      // que falta depois. A etapa ACRESCENTA um lugar onde a resposta cabe;
-      // ela nao tira de ninguem o direito de ser citado fora da hora.
-      const dele = etapaDesteProduto(i.produto);
-      if (dele && dele !== "resto_do_cardapio") {
-        paraDepois.push(i);
-        return [];
-      }
-      // O RESTO DO CARDAPIO PASSA DIRETO.
-      //
-      // Sao 24 produtos da casa: pizza, cuca, cupcake, torta fria, empadao,
-      // calzone, franciscano, pao. Ate 30/08/2026 nenhuma etapa perguntava por
-      // eles, e por isso a resposta do cliente sobre o tipo se perdia. Agora a
-      // etapa `resto_do_cardapio` faz essa pergunta, mas o ITEM continua
-      // entrando na hora em que ele fala: quem esta escolhendo salgado e diz
-      // "e uma torta fria" nao pode perder a torta nem ouvir que a padaria
-      // nao tem.
-      if (existeNoCardapio(i.produto)) return [i];
-      // Pizza nao tem etapa propria. Na etapa do salgado ela era negada
-      // (familia "pizza" nao esta no cardapio como produto) ou carimbada
-      // salgado_frito. Mini pizza passa pelo vocabulario; a outra pizza entra
-      // e segue o trilho da pizza.
-      if (ehPizzaQueNaoESalgado(i.produto)) return [i];
-
       naoExistem.push(i.produto);
       return [];
     }
 
-    // A QUANTIDADE DESEMPATA O NOME QUE SERVE PROS DOIS.
-    //
-    // Este e o caso da kemilly, e o filtro de vocabulario sozinho NAO resolve:
-    // brigadeiro e sabor de bolo de verdade, entao "brigadeiro" passa na etapa
-    // do bolo. Ela escreveu:
-    //
-    //   4 leites 1kg e 100 brigadeiros e 100 beijinhos
-    //
-    // Os 100 brigadeiros eram os docinhos dela. O que separa uma coisa da outra
-    // nao e o nome, e a UNIDADE: bolo se vende por quilo (1, 2, 3 kg) e docinho
-    // por unidade (25, 50, 100). Ninguem encomenda um bolo de 100 quilos.
-    if (etapa === "bolo" && Number(i.qtd) > 20) {
-      barrados.push(i.produto + " (" + i.qtd + ": e docinho, nao bolo)");
-      // E ELE PRECISA SER GUARDADO, SENAO O CONSERTO PERDE O PEDIDO QUE VEIO
-      // CONSERTAR.
-      //
-      // Este bloco nasceu da frase da kemilly, que esta escrita logo acima, e
-      // ate 28/08/2026 ele terminava em `return []` seco. Rodando a frase dela
-      // inteira na etapa do bolo:
-      //
-      //   4 leites 1kg e 100 brigadeiros e 100 beijinhos
-      //   entra  >> 1 kg de bolo 4 leites
-      //   sai    >> os 100 brigadeiros e os 100 beijinhos, sem rastro
-      //
-      // Com um item valido na frase, o desvio pra etapa do docinho la embaixo
-      // nem acontece (ele exige que NADA tenha entrado). Os 200 docinhos dela
-      // desapareciam do pedido -- que e exatamente o defeito que este bloco diz
-      // ter consertado.
-      //
-      // A quantidade disse que o modelo carimbou de bolo o que e docinho, entao
-      // guarda-se a leitura sem o carimbo, e so quando ela e docinho de
-      // verdade.
-      const semCarimbo = String(i.produto).replace(/^ *bolo +(caseiro +)?/i, "");
-      if (etapaDesteProduto(semCarimbo) === "docinho") {
-        paraDepois.push({ ...i, produto: semCarimbo });
+    // A UNIDADE DESEMPATA O NOME QUE SERVE PROS DOIS (caso da kemilly, 22/08:
+    // "4 leites 1kg e 100 brigadeiros e 100 beijinhos"). Bolo se vende por
+    // quilo e o maior tem 6 kg; docinho se vende por unidade. Um "bolo
+    // brigadeiro" de 100 e o docinho brigadeiro, e o rastro conta.
+    const comPrefixo = /^ *bolo +(caseiro +)?/i.test(String(i.produto));
+    const semCarimbo = String(i.produto).replace(/^ *bolo +(caseiro +)?/i, "");
+    if (comPrefixo && Number(i.qtd) > PESO_DO_MAIOR_BOLO) {
+      const docinho = porUnidadeComEsteNome(semCarimbo);
+      if (docinho) {
+        barrados.push(i.produto + " (" + i.qtd + ": e " + docinho.categoria + ", nao bolo)");
+        return [{ ...i, produto: docinho.nomeCurto }];
       }
-      return [];
+    }
+    // E O CONTRARIO: a padaria perguntou o sabor do bolo e ele respondeu um
+    // sabor de bolo, em quantidade de bolo. Sem o prefixo, o catalogo acharia o
+    // docinho de mesmo nome (R$ 1,25 no lugar de R$ 46,90 o quilo).
+    if (etapa === "bolo" && !comPrefixo && Number(i.qtd) <= PESO_DO_MAIOR_BOLO) {
+      const bolo = deBolo.find((p) => semAc(p.nomeCurto) === nome || nome.startsWith(semAc(p.nomeCurto) + " "));
+      if (bolo) {
+        return [{ ...i, produto: bolo.nome + String(i.produto).slice(bolo.nomeCurto.length) }];
+      }
     }
 
     return [i];
   });
 
-  // O que foi barrado por ser de outra familia manda a conversa pra la, em vez
-  // de sumir calado. Sumir calado foi o que fez os 200 docinhos da kemilly
-  // desaparecerem do pedido.
-  // A ETAPA DE DESTINO SAI DO ITEM GUARDADO, E NAO DE UM CHUTE.
-  //
-  // Isto era `etapa === "bolo" ? "docinho" : ...`, um pingue-pongue entre as
-  // duas familias que nao olhava PARA O QUE tinha sido barrado. Medido em
-  // 28/08/2026, na etapa do docinho:
-  //
-  //   cliente >> 50 xilofone
-  //   antes   >> a conversa ia pra etapa do BOLO
-  //
-  // Xilofone nao existe, ninguem falou de bolo, e o cliente era levado pro bolo
-  // porque a etapa da vez era a do docinho. Na etapa do salgado o mesmo codigo
-  // devolvia `undefined` e nao levava a lugar nenhum, nem quando o item barrado
-  // era claramente de outra familia.
-  //
-  // `paraDepois` sabe a resposta certa: ele so recebe item que existe E tem
-  // etapa. Perguntar a ele e a mesma regra da fonte unica que vale no resto.
-  const destinoGuardado = paraDepois.length ? etapaDesteProduto(paraDepois[0].produto) : null;
-  const mandaPraOutraEtapa =
-    destinoGuardado && destinoGuardado !== etapa && !itens.length && !leitura.falouDeOutraEtapa
-      ? destinoGuardado
-      : undefined;
-
-  return {
-    limpa: { ...leitura, itens, ...(mandaPraOutraEtapa ? { falouDeOutraEtapa: mandaPraOutraEtapa as EtapaId } : {}) },
-    barrados,
-    naoExistem,
-    paraDepois,
-  };
+  return { limpa: { ...leitura, itens }, barrados, naoExistem, paraDepois };
 }
+
+/** O maior bolo da casa, em quilos. Acima disso o nome so pode ser docinho. */
+const PESO_DO_MAIOR_BOLO = 6;

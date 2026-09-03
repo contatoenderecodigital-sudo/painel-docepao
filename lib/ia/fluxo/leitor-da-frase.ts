@@ -663,7 +663,13 @@ export function juntarComAFrase(doModelo: Leitura, fala: string): Leitura {
   const daFraseItens = itensNaFrase(fala);
   if (daFraseItens.length) {
     const atuais = [...(junto.itens ?? [])];
-    const mesmo = (a: string, b: string) => semAcMin(a) === semAcMin(b);
+    // "bolo brigadeiro" e "brigadeiro" sao a MESMA palavra da frase: o modelo
+    // (ou o portao, respondendo a pergunta do bolo) poe o prefixo, e a frase
+    // acha o nome pelado. Sem isto o docinho de R$ 1,25 entrava ao lado do
+    // bolo de R$ 46,90 o quilo, medido em 03/09/2026.
+    const semPrefixoDeBolo = (s: string) => semAcMin(s).replace(/^bolo (caseiro )?/, "");
+    const mesmo = (a: string, b: string) =>
+      semAcMin(a) === semAcMin(b) || semPrefixoDeBolo(a) === semPrefixoDeBolo(b);
     for (const i of daFraseItens) {
       const achou = atuais.findIndex((x) => mesmo(x.produto, i.produto));
       // PALAVRA QUE JA E SABOR DE UM ITEM DESTA LEITURA NAO VIRA ITEM NOVO.
