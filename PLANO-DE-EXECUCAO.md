@@ -266,7 +266,8 @@ Commits, na ordem, todos no ar e conferidos pelo SHA do container:
 | `53bfe74` | delegaEm: delegar salgado e docinho nao entrega o sabor do bolo | producao: bolo sem sabor chutado |
 | `f3a45fc` | fora_do_assunto no formato: numero errado nao ouve "O que voce precisa?" | modelo real 3 de 3 |
 | `1b37633` | sabor do bolo com docinho de mesmo nome anotado: lembrete completo (forminha, pecas, bolo sem sabor), falas seguidas da padaria viram uma, dica do bolo explicita | modelo real 3 de 3; era {} antes |
-| (seguinte) | o atalho do "Sim" digitado saiu (107 linhas): o texto sempre chega ao modelo | producao: a frase mista perdia tema e escrito; modelo 3 de 3 em Sim/nao/mista/contraste |
+| `871ff0e` | o atalho do "Sim" digitado saiu (107 linhas): o texto sempre chega ao modelo | producao: a frase mista perdia tema e escrito; modelo 3 de 3 em Sim/nao/mista/contraste |
+| (seguinte) | Fila 4: as 247 linhas de distribuicao de sabor sairam; `humano`, `recomecar` e `opcoes` viram campos do modelo (as regex de "quero falar com a dona", "apaga tudo" e "quais tem?" sairam); a linha de pizza que ja existe aceita o sabor respondido, e duas pizzas com sabores diferentes sao duas linhas | modelo real 3 de 3 em 12 cenas; portao 168 |
 
 **O que ficou como REDE** (roda so quando o modelo nao devolveu; nunca desfaz o
 que ele leu): desempate do sabor pela ultima fala (B-5), aviso do recheio fixo
@@ -275,10 +276,16 @@ produto montado sobre palavra de sabor (B-16), `semInvencao` (B-15, o modelo com
 contexto nao inventou mais na medicao), `acabouDePerguntar` (B-1: nao bloqueia o
 modelo, so escolhe a instrucao certa).
 
-**O que NAO foi feito hoje:** Fila 4 (as 350 linhas de distribuicao de sabor,
-`fluxo.ts` em torno de `esperando`/`peloFixo`) e as listas 3016 (contraste),
-3822 (`ultimaFoiEscolha`), 1916 (janela de 4 palavras), 4156, 1727 e 4131 (pizza).
-Ficam pra proxima sessao, uma por commit, cada uma medida antes.
+**Fila 4 e as listas: feito na mesma madrugada** (ver a ultima linha da
+tabela). O que ainda le a ultima fala por regex, e fica de proposito como REDE
+(nunca desfaz o que o modelo leu): o aviso do recheio fixo (`aPerguntaEraDele`)
+e a regex do comprovante ao lado do campo `comprovante`. As listas que sobraram
+sao do CATALOGO ou do proprio codigo: "nada/nenhum" lendo o campo `escrito` que
+o proprio formato pediu, `(dois|duas|tres...) bolos` e `meia/metade` na fusao
+de pizza (regra de dinheiro medida), `desconto` como rede pra chamar gente.
+O caminho "pedido aguardando o valor do topo" continua decidindo por botao e
+pela lista `respostaAoValor` ANTES do modelo; e a unica lista de intencao que
+ficou, e a razao e dinheiro: aceitar um valor tem que ser inequivoco.
 
 **Aberto e medido em producao hoje:**
 - "brigadeiro" respondendo a pergunta da cor da forminha repete a pergunta da

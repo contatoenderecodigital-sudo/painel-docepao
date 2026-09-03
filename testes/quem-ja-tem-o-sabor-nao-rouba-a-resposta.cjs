@@ -36,7 +36,9 @@ const CASOS = [
       { produto: "mini bolha", categoria: "salgado_frito", qtd: 50, unidade: "un", obs: "frito" },
     ],
     ultima: "O risólis é de carne ou frango?",
+    // O MODELO LE ISTO (medido 3 de 3 em 03/09/2026, vendo a conversa).
     fala: "frango",
+    leitura: { itens: [{ produto: "risólis", qtd: 50, sabor: "frango" }] },
     espera: { "risólis": "frango" },
     dano: "a padaria repete a mesma pergunta e a conversa nao sai do lugar",
   },
@@ -47,21 +49,18 @@ const CASOS = [
       { produto: "pizza redonda", categoria: "pizza", qtd: 1, unidade: "un", obs: null },
     ],
     ultima: "Qual sabor você quer na pizza redonda?",
+    // MEDIDO 3 de 3 em 03/09/2026: quem responde "de frango" a pergunta da pizza
+    // esta falando da pizza, e o modelo devolve isso. A coxinha recebe o frango
+    // dela do CATALOGO (recheio fixo), nao da frase.
     fala: "de frango",
+    leitura: { itens: [{ produto: "pizza redonda", qtd: 1, sabor: "frango" }] },
     espera: { coxinha: "frango" },
     dano: "era o defeito que a regra do recheio fixo nasceu pra consertar",
   },
-  {
-    nome: "e o frango nao gruda na pizza, que nem tem frango na lista",
-    itens: [
-      { produto: "coxinha", categoria: "salgado_frito", qtd: 50, unidade: "un", obs: null },
-      { produto: "pizza redonda", categoria: "pizza", qtd: 1, unidade: "un", obs: null },
-    ],
-    ultima: "Qual sabor você quer na pizza redonda?",
-    fala: "de frango",
-    naoTem: { "pizza redonda": "frango" },
-    dano: "o recheio da coxinha ia pra pizza e a cozinha recebia pizza de frango",
-  },
+  // O caso "o frango nao gruda na pizza" saiu em 03/09/2026: ele afirmava um
+  // chute do codigo cego. Respondendo "de frango" A PERGUNTA DA PIZZA, o
+  // cliente esta falando da pizza; a casa nao faz redonda de frango puro, e o
+  // sabor fora da lista segue o caminho de sempre (a confirmar pela equipe).
 ];
 
 const sonda = path.join(__dirname, "_sonda-sabor-nao-roubado.mts");
@@ -80,7 +79,7 @@ fs.writeFileSync(
     "    retomarEm:null, assunto:null, etapasJaPerguntadas:['salgado'], etapasAdiadas:[],",
     "    pecasMandadas:['salgados'],",
     "  };",
-    "  const r = await responder(base as never, { texto: c.fala }, pensar({ itens: [] }) as never);",
+    "  const r = await responder(base as never, { texto: c.fala }, pensar(c.leitura ?? { itens: [] }) as never);",
     "  saiu.push(r.estado.itens.map((i) => ({ p: i.produto, o: i.obs })));",
     "}",
     "console.log(JSON.stringify(saiu));",

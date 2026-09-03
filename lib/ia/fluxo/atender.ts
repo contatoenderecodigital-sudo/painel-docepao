@@ -29,7 +29,7 @@ import { lerEstadoDoBanco, gravarEstado, zerar } from "./gravar";
 import { fecharPedido } from "./fechar";
 import { falaDaEtapa } from "./pergunta";
 import { roteiroDoPedido } from "./etapas";
-import { mandouRecomecar, comCumprimento, tirarCumprimento, semEmoji, respostaAoValor } from "./falas-do-cliente";
+import { comCumprimento, tirarCumprimento, semEmoji, respostaAoValor } from "./falas-do-cliente";
 import {
   temPedidoAguardandoCliente,
   registrarAceiteCliente,
@@ -148,7 +148,11 @@ export async function atenderComFluxoNovo(
   // O CLIENTE MANDOU RECOMECAR: apaga tudo e sai, sem passar pelo modelo.
   // Apagar o pedido de alguem nao e decisao de redacao, e de quebra sai de
   // graca.
-  if (mandouRecomecar(mensagem.texto)) {
+  // QUEM DIZ QUE ELE MANDOU RECOMECAR E O MODELO (03/09/2026), pelo campo
+  // `recomecar` da leitura: a regex de doze formas de dizer isso saiu. A
+  // leitura roda dentro do `responder`; o que ela devolve chega aqui em
+  // `r.recomecar`, e o resto deste bloco continua igual (ver abaixo).
+  const recomecar = async () => {
     const rastro = ["recomecar: zerei o pedido em montagem"];
 
     // RECOMECAR APAGAVA O RASCUNHO E DEIXAVA O PEDIDO DE PE.
@@ -191,7 +195,7 @@ export async function atenderComFluxoNovo(
       rastro,
       uso,
     };
-  }
+  };
 
   // ================================================================
   //  O PEDIDO ESTA ESPERANDO A RESPOSTA DELE SOBRE O VALOR
@@ -335,6 +339,10 @@ export async function atenderComFluxoNovo(
     historico,
     avisoDoDia,
   );
+
+  // O modelo leu "apaga tudo e comeca do zero": nada do que ele leu neste turno
+  // e gravado; o rascunho e zerado e a conversa recomeca.
+  if (r.recomecar) return recomecar();
 
   await gravarEstado(negocioId, clienteId, antes, r.estado);
 

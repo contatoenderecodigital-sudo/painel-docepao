@@ -53,7 +53,7 @@ import { identificarProduto } from "./produto";
  * devolve texto, e texto nao passa por compilador nenhum.
  */
 export const SOBRE_O_QUE = [
-  "preco", "horario", "endereco", "pagamento", "pix", "entrega", "prazo", "desconto", "outro",
+  "preco", "horario", "endereco", "pagamento", "pix", "entrega", "prazo", "desconto", "opcoes", "outro",
 ] as const;
 export type SobreOQue = (typeof SOBRE_O_QUE)[number];
 
@@ -725,7 +725,8 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "- Vai tirar item? use tirar." + String.fromCharCode(10) +
     "- Hoje é " + hojeEmSaoPaulo() + ", e retirada é sempre no futuro." + String.fromCharCode(10) +
     "- Perguntou em vez de pedir? perguntou.sobre = preco (com familia), " +
-    "horario, endereco, pagamento, pix, entrega, prazo ou desconto." + String.fromCharCode(10) +
+    "horario, endereco, pagamento, pix, entrega, prazo, desconto, ou opcoes (\"quais tem?\", " +
+    "\"que sabores?\", \"que tipos?\", com familia)." + String.fromCharCode(10) +
     // PEDIR A CHAVE E OUTRA COISA DE PERGUNTAR COMO PAGA.
     //
     // Cliente real em 31/08/2026, logo depois de fechar: "Show consegue me
@@ -737,7 +738,9 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "- Pediu desconto, falou que e beneficente ou pediu ajuda = desconto." + String.fromCharCode(10) +
     "- Reclamou do que comprou = situacao \"reclamacao\". Quer cancelar = " +
     "\"cancelar\". Pergunta de pedido já feito = \"status\". Mensagem que não é assunto " +
-    "da padaria (procura outra pessoa, propaganda, outro negócio) = \"fora_do_assunto\", nunca {}." + String.fromCharCode(10) +
+    "da padaria (propaganda, outro negócio, número errado) = \"fora_do_assunto\", nunca {}. " +
+    "Quer falar com uma pessoa, a dona, a equipe ou um atendente = \"humano\"." + String.fromCharCode(10) +
+    "- Pediu pra apagar tudo e começar o pedido do zero = recomecar true (não é tirar item)." + String.fromCharCode(10) +
     "- Pergunta e reclamação NÃO viram item." + String.fromCharCode(10) +
     "- Foto que chega depois de a padaria pedir o comprovante do pix = comprovante true.";
 

@@ -45,7 +45,7 @@ import { semAcento as semAc, PALAVRAS_VAZIAS, listaEmPortugues, numerosEscritos 
 import { escreverObs, lerObs, mexerNaObs, type Embalagem } from "@/lib/banco/obs-do-bolo";
 import { calcularBase, baseComQuantidades, ajusteDaBaseNaFrase, avisoDePoucoPorSabor, sortidoDaCasa } from "./base";
 import { motorPadrao, brl } from "../orcamento";
-import { dataDeRetirada, disseQuantidade, pediuPraFalarComGente, respostaAoValor } from "./falas-do-cliente";
+import { dataDeRetirada, disseQuantidade, respostaAoValor } from "./falas-do-cliente";
 import { retiradaForaDoExpediente, avisoDeEspera } from "@/lib/padaria-aberta";
 import { coresDaForminha, faltaCorDaForminha, saborQueFalta, recheioQueNaoExiste, MARCA_SABOR_A_CONFIRMAR, saborCabeNaLista, saboresQueFaltam } from "./sabor";
 import { restricoesQueACasaNaoFaz, misturaQueACasaFaz, obsSemRestricao, obsPraComanda, avisoDaRestricao, produtoDaRestricaoNaFrase } from "./restricao";
@@ -212,6 +212,8 @@ export type Resposta = {
   rastro: string[];
   /** Chamou a IA? Botao nao chama, e isso e dinheiro. */
   chamouIA: boolean;
+  /** O modelo leu "apaga tudo e comeca do zero". Quem zera o banco e o atender. */
+  recomecar?: boolean;
   /**
    * ELE CONFIRMOU ESCREVENDO, sem tocar no botao.
    *
@@ -1447,7 +1449,13 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
     // Entao a juncao passa a valer so contra o que ja estava anotado ANTES
     // desta leitura. Corrigir continua corrigindo; falar de duas coisas na
     // mesma frase para de virar uma.
-    const jaEstavam = itens.length;
+    // AS LINHAS QUE JA ESTAVAM, POR IDENTIDADE E NAO POR POSICAO. O indice
+    // mentia depois de a familia ("pizza") ser tirada do meio da lista: a
+    // primeira linha nova caia na posicao 0, contava como "ja estava", e a
+    // segunda linha do mesmo produto com OUTRO sabor era juntada nela. Medido
+    // em 03/09/2026: "2 inteiras, uma de calabresa e uma de frango" virava UMA
+    // pizza com dois sabores, R$ 120,00 no lugar de R$ 240,00.
+    const antigas = new Set<unknown>(itens);
     // O que a casa nao faz e foi tirado das observacoes deste turno.
     const restricoesTiradas: string[] = [];
     // O recheio que o produto nao tem, pra virar frase e nao comanda.
@@ -1765,11 +1773,19 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
         const m = comNumero.match(/([0-9]+)\s+pizza/);
         return Boolean(m && Number(m[1]) > 1);
       })();
+      // E A LINHA QUE TRAZ SABOR NAO E DESCARTADA (03/09/2026). O modelo, vendo
+      // a pergunta "qual sabor na pizza redonda?", devolve a MESMA linha com o
+      // sabor: e o jeito normal de responder. Este `continue` existia pro
+      // modelo cego que re-emitia o tipo da pizza sem dizer nada novo, e
+      // engolia o "calabresa" junto.
+      const mesmoTipoJaNoPedido =
+        eTipoDePizza && itens.some((x) => semAc(x.produto) === semAc(produto));
       if (
         (jaTemGenericoDestaFamilia || jaTemTipoDePizza) &&
         eTipoDePizza &&
         !pediuMaisDeUmaPizza &&
-        !oClienteNomeouEsteProduto(falaDoCliente, produto)
+        !oClienteNomeouEsteProduto(falaDoCliente, produto) &&
+        !mesmoTipoJaNoPedido
       ) {
         continue;
       }
@@ -2247,7 +2263,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
       const achou = itens.findIndex((x, n) => {
         if (x.produto.toLowerCase().trim() !== produto.toLowerCase().trim()) return false;
         // O QUE JA ESTAVA ANOTADO: junta pelo nome, como sempre. E correcao.
-        if (n < jaEstavam) return true;
+        if (antigas.has(x)) return true;
         // NESTA MESMA LEITURA: so junta se for o MESMO sabor.
         //
         // A primeira versao disto nao juntava nada dentro do turno, e quebrou
@@ -2551,252 +2567,14 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
     }
   }
 
-  const tSolto = semAc(String(falaDoCliente || ""));
-  const peloFixo = tSolto
-    ? novo.itens.filter((i) => {
-        const p = produtoPorNome(i.produto) ?? produtoNoComeco(i.produto);
-        if (!p?.saborFixo || !p.sabores.length) return false;
-        return p.sabores.some((s) => {
-          const alvo = semAc(s);
-          if (alvo.length <= 2 || !tSolto.includes(alvo)) return false;
-          // QUEM JA TEM O SABOR ANOTADO NAO ESTA ESPERANDO RESPOSTA.
-          //
-          // Medido conversando em 31/08/2026, com os quatro salgados do pedido
-          // do dono:
-          //
-          //   padaria >> O risólis é de carne ou frango?
-          //   cliente >> frango
-          //   padaria >> O risólis é de quê? Tem carne e frango.
-          //
-          // A coxinha e de frango no cardapio e ja estava anotada com frango.
-          // Mesmo assim ela entrava aqui, e por ter recheio FIXO recebia
-          // primeiro: o "frango" morria nela e o risolis continuava sem sabor.
-          // A padaria perguntava a mesma coisa de novo, e a conversa nao andava.
-          //
-          // A regra de cima continua de pe pro caso que ela nasceu ("50 coxinha"
-          // e depois "de frango", com a pizza esperando): la a coxinha ainda NAO
-          // tem sabor anotado, e e ela mesma que esta esperando.
-          if (semAc(String(i.obs ?? "")).includes(alvo)) return false;
-          return afirmouOuNegou(tSolto, cercaDoSabor(alvo)) !== false;
-        });
-      })
-    : [];
-  // A PALAVRA QUE E OUTRO ITEM DO PEDIDO NAO E SABOR.
-  //
-  // Festa misturada: pizza redonda esperando sabor, cliente disse "e
-  // brigadeiro". Brigadeiro e docinho E sabor doce de pizza. Grudar na pizza
-  // fazia "calabresa" depois nao colar, e o pedido misturado perdia o recheio.
-  const palavraEOutroItem = (palavra: string, item: (typeof novo.itens)[number]) => {
-    const a = semAc(palavra);
-    if (!a) return false;
-    return novo.itens.some((i) => {
-      if (i === item) return false;
-      const n = semAc(i.produto);
-      if (n === a || n.endsWith(" " + a)) return true;
-      const casa = produtoPorNome(i.produto) ?? produtoNoComeco(i.produto);
-      return Boolean(casa && (semAc(casa.nome) === a || semAc(casa.nomeCurto) === a));
-    });
-  };
-
-  // RECHEIO DE QUEM JA TEM SABOR FIXO NAO VAI PRA QUEM ESTA ESPERANDO LISTA.
-  //
-  // Medido em 30/08/2026: "50 coxinha" e depois "de frango". A pizza redonda
-  // pedia sabor, a coxinha e de frango no catalogo, e o recheio grudou na
-  // pizza. Quem tem recheio fixo e bate com a frase recebe primeiro.
-  if (peloFixo.length === 1) {
-    const item = peloFixo[0];
-    const p = produtoPorNome(item.produto) ?? produtoNoComeco(item.produto);
-    const achado = [...(p?.sabores ?? [])]
-      .sort((a, b) => b.length - a.length)
-      .find((o) => {
-        const alvo = semAc(o);
-        if (alvo.length <= 2 || !tSolto.includes(alvo)) return false;
-        return afirmouOuNegou(tSolto, cercaDoSabor(alvo)) !== false;
-      });
-    if (achado && !semAc(String(item.obs ?? "")).includes(semAc(achado))) {
-      novo.itens = novo.itens.map((i) =>
-        i === item ? { ...i, obs: [i.obs, achado].filter(Boolean).join(" | ") } : i,
-      );
-    }
-  } else if (esperando.length >= 1) {
-    const t = semAc(String(falaDoCliente || ""));
-    const saborDeste = (item: (typeof novo.itens)[number]) => {
-      const opcoes = saborQueFalta(item.produto, item.obs)?.opcoes ?? [];
-      return [...opcoes]
-        .sort((a, b) => b.length - a.length)
-        .find((o) => {
-          const alvo = semAc(o);
-          if (alvo.length <= 2 || !t.includes(alvo)) return false;
-          // O sabor que o modelo ja deu a outro item desta frase nao esta solto.
-          if (jaTemDono(o)) return false;
-          return afirmouOuNegou(t, cercaDoSabor(alvo)) !== false;
-        });
-    };
-    const candidatos = esperando
-      .map((item) => {
-        const achado = saborDeste(item);
-        return achado ? { item, achado } : null;
-      })
-      .filter((x): x is { item: (typeof novo.itens)[number]; achado: string } => Boolean(x));
-    // REDE, E NAO GUARDA (03/09/2026): quem sabe de qual item era a pergunta do
-    // sabor e o modelo, que ve a conversa e devolve o sabor no campo do item
-    // certo. Este bloco inteiro so roda quando ele NAO devolveu o sabor, e o
-    // desempate pela ultima fala fica aqui so pra esse caso: ele nunca desfaz
-    // o que o modelo leu.
-    const citadaNaPergunta = candidatos.filter(({ item }) => {
-      const ultima = semAc(String(e.ultimaFala || ""));
-      const n = semAc(item.produto);
-      return Boolean(n) && n.length >= 4 && ultima.includes(n);
-    });
-    const daPizza = candidatos.filter(
-      ({ item }) => categoriaNoCatalogo(item.produto) === "pizza" || categoriaNoCatalogo(item.produto) === "calzone",
-    );
-    const escolhido =
-      candidatos.length === 1
-        ? candidatos[0]
-        : daPizza.length === 1
-          ? daPizza[0]
-          : citadaNaPergunta.length === 1
-            ? citadaNaPergunta[0]
-            : null;
-    // CALABRESA NA MINI PIZZA QUANDO A REDONDA ESTAVA ESPERANDO.
-    //
-    // Medido na conversa ao vivo: pizza redonda sem sabor, mini pizza no
-    // mesmo pedido, cliente disse "calabresa". A palavra serve nos dois
-    // (catalogo). Sem desempatar, grudava na mini. Pizza nao e salgado de
-    // festa: a palavra vai pra pizza quando as duas esperam.
-    if (escolhido) {
-      const { item, achado } = escolhido;
-      if (!palavraEOutroItem(achado, item) && !semAc(String(item.obs ?? "")).includes(semAc(achado))) {
-        novo.itens = novo.itens.map((i) =>
-          i === item ? { ...i, obs: [i.obs, achado].filter(Boolean).join(" | ") } : i,
-        );
-      }
-    } else if (esperando.length === 1 && /\?/.test(String(falaDoCliente || "")) === false) {
-      // ELE INSISTIU NUM SABOR QUE A LISTA NAO TEM.
-      //
-      // "pistache" sozinho nao nomeia produto e nao esta nas opcoes. Sem isto
-      // a resposta caia no vazio, a padaria perguntava de novo, e na
-      // insistencia o bloco de equipe exigia obs ja preenchida: o sabor
-      // pedido nunca chegava na comanda.
-      const item = esperando[0];
-      const cru = String(falaDoCliente || "").trim();
-      const soIsto = semAc(cru);
-      const jaTem = semAc(String(item.obs ?? ""));
-
-      // FRASE QUE A LEITURA ENTENDEU COMO OUTRA COISA NAO E SABOR.
-      //
-      // Medido em producao em 30/08/2026, e o pedido fechou assim:
-      //
-      //   padaria >> Qual sabor voce quer no empadao?
-      //   cliente >> pra retirar amanha as 18h
-      //   padaria >> Qual sabor do empadao voce quer?
-      //   cliente >> Eliezer
-      //   pedido  >> 1 empadao (pra retirar amanha as 18h | Eliezer)  R$ 34,90
-      //
-      // A data e o nome viraram o SABOR, e isso foi pro cupom da cozinha.
-      //
-      // As tres guardas de cima passaram: o texto tem entre 3 e 40 letras, nao
-      // cita produto nenhum, e nao estava na observacao. Elas medem a FORMA da
-      // frase, e forma nao distingue "pistache" de "Eliezer".
-      //
-      // Quem distingue e a propria leitura: se o modelo devolveu `dados` nesta
-      // mensagem, ele entendeu a frase como data, hora, nome ou pagamento. Uma
-      // frase que ja tem dono nao esta sobrando pra virar sabor, que e a mesma
-      // regra do carimbo logo acima e da juncao de itens.
-      //
-      // O QUE ISTO CUSTA, e e barato: "de pistache, pra amanha as 18h" perde o
-      // pistache, porque a mensagem tambem trouxe a data. O sabor fora da lista
-      // ja vai pra equipe de qualquer jeito; escrever a data no cupom nao tem
-      // conserto depois que a cozinha leu.
-      //
-      // E NAO E SO `dados`. Medido de novo em 30/08/2026, na bancada:
-      //
-      //   cliente >> na embalagem com tampa
-      //   comanda >> bolo brigadeiro (brigadeiro | ... | embalagem com tampa
-      //              | NA EMBALAGEM COM TAMPA)
-      //
-      // A leitura entendeu a frase como `prato` e o codigo anotou a embalagem
-      // no bolo, certo. Ai esta guarda, olhando so `dados`, deixou a MESMA
-      // frase virar recheio, e a cozinha recebeu a embalagem escrita duas
-      // vezes, uma delas no lugar do sabor.
-      //
-      // Entao vale pra todo campo que a leitura preencheu: se ela entendeu a
-      // frase como prato, peca, tema, cor de forminha ou nome do aniversariante,
-      // a frase tem dono e nao sobra pra virar sabor.
-      const aFraseTemOutroDono =
-        Object.values(l.dados ?? {}).some((v) => String(v ?? "").trim()) ||
-        !!l.prato ||
-        !!l.pecas ||
-        !!l.tema ||
-        !!l.forminha ||
-        !!l.escrito ||
-        !!l.aniversariante?.nome ||
-        !!l.aniversariante?.idade;
-      if (aFraseTemOutroDono && cru) rastro.push("nao usei a frase como sabor: a leitura ja deu outro dono a ela");
-
-      if (
-        cru &&
-        !aFraseTemOutroDono &&
-        soIsto.length >= 3 &&
-        soIsto.length <= 40 &&
-        !produtosNaFrase(cru).length &&
-        !jaTem.includes(soIsto)
-      ) {
-        // SE O CARDAPIO TEM ESSE SABOR, VAI O NOME DO CARDAPIO.
-        //
-        // Este caminho existe pro sabor que a lista NAO tem ("pistache"), e ali
-        // a frase inteira e o certo: e o que a equipe vai ler pra decidir. So
-        // que ele tambem pegava frase que CONTEM um sabor da lista, e ai a
-        // comanda saia com a fala do cliente no lugar do recheio:
-        //
-        //   cliente >> quero carne
-        //   comanda >> 50 un mini bolha  > frito | quero carne
-        //
-        // Medido conversando com o servidor em 31/08/2026, e impresso assim no
-        // cupom do pedido de festa da vespera.
-        // PALAVRA QUE JA E O RECHEIO FIXO DE OUTRO ITEM NAO ESTA SOBRANDO.
-        //
-        // "50 coxinha" e depois "de frango": a coxinha e de frango no cardapio e
-        // ja sai carimbada com ele, entao a frase nao esta pendente de ninguem.
-        // Sem esta checagem ela caia aqui e virava observacao do unico item que
-        // ainda esperava sabor, mesmo sendo uma pizza, que nem tem frango na
-        // lista. A cozinha recebia "pizza redonda (de frango)".
-        //
-        // Pego pelo `a-festa-nao-reparte-pizza` no mesmo dia em que o carimbo do
-        // recheio fixo entrou: duas regras certas que, juntas, faziam o errado.
-        const jaEDeOutro = novo.itens.some((x) => {
-          if (x === item) return false;
-          const p = produtoPorNome(x.produto) ?? produtoNoComeco(x.produto);
-          if (!p?.saborFixo) return false;
-          return p.sabores.some((s) => {
-            const alvo = semAc(s);
-            return alvo.length > 2 && soIsto.includes(alvo);
-          });
-        });
-        if (jaEDeOutro) {
-          rastro.push("nao usei a frase como sabor: ela e o recheio fixo de outro item do pedido");
-        }
-        const daLista = jaEDeOutro ? undefined : (saborQueFalta(item.produto, item.obs)?.opcoes ?? [])
-          .slice()
-          .sort((a, b) => b.length - a.length)
-          .find((o) => {
-            const alvo = semAc(o);
-            return alvo.length > 2 && soIsto.includes(alvo) &&
-              afirmouOuNegou(soIsto, cercaDoSabor(alvo)) !== false;
-          });
-        const oQueEntra = daLista ?? cru;
-        if (daLista) {
-          rastro.push("a frase \"" + cru + "\" traz \"" + daLista + "\", que esta no cardapio; anotei o sabor");
-        }
-        if (!jaEDeOutro) {
-          novo.itens = novo.itens.map((i) =>
-            i === item ? { ...i, obs: [i.obs, oQueEntra].filter(Boolean).join(" | ") } : i,
-          );
-        }
-      }
-    }
-  }
+  // AQUI MORAVAM ~250 LINHAS QUE DISTRIBUIAM O SABOR DA FRASE ENTRE OS ITENS
+  // ("de qual item era a pergunta?"), com desempate pela ultima fala. Existiam
+  // porque o modelo nao via a conversa. Medido em 03/09/2026, 3 de 3 em cada
+  // cena: "calabresa" com a redonda esperando e a mini pizza no pedido vai pra
+  // redonda; "de frango" vai pra coxinha; "pistache" vai pro empadao como
+  // sabor; "carne" com esfirra e risolis esperando vai pro que a padaria
+  // perguntou; e "pra retirar amanha as 18h" vira data, nao sabor. O sabor
+  // chega no campo `sabor` do item e entra pelo laco dos itens.
   }
 
   return novo;
@@ -3061,6 +2839,23 @@ export async function responder(
     // webhook nao traz a memoria do fluxo (a oferta feita, as perguntas ja
     // feitas), entao a etapa da vez pode ser outra. Medido em 03/09/2026:
     // "obrigada!" depois de fechar ouvia "Quer levar docinho ou bolo junto?".
+    // ELE MANDOU APAGAR TUDO E COMECAR DO ZERO. Quem le e o modelo (campo
+    // `recomecar`); quem zera o banco e o `atender`. Nada deste turno e aplicado.
+    if (crua?.recomecar === true) {
+      rastro.push("o modelo leu: recomecar");
+      return {
+        fala: { texto: "", botoes: [], cardapio: null, podeReescrever: false },
+        estado,
+        etapa: "abertura",
+        rastro,
+        chamouIA,
+        recomecar: true,
+        confirmouEscrevendo: false,
+        precisaHumano: false,
+        motivoHumano: null,
+      };
+    }
+
     // O PEDIDO JA APROVADO E ASSUNTO ENCERRADO, E NAO PEDIDO EM MONTAGEM.
     //
     // Medido na conversa dele de 02/09/2026: "Ok, obrigada!" depois de a equipe
@@ -3236,7 +3031,9 @@ export async function responder(
           limpa.falouDeOutraEtapa = etapaDaFam;
         } else if (!etapaDaFam) {
           const sobre =
-            limpa.perguntou?.sobre && limpa.perguntou.sobre !== "outro" ? limpa.perguntou.sobre : "preco";
+            limpa.perguntou?.sobre && limpa.perguntou.sobre !== "outro" && limpa.perguntou.sobre !== "opcoes"
+              ? limpa.perguntou.sobre
+              : "preco";
           limpa.perguntou = { sobre, familia: nomeado ?? famNomeada };
           limpa.falouDeOutraEtapa = undefined;
           rastro.push("perguntou de " + famNomeada + ", nao da etapa " + etapaAgora.id);
@@ -3518,34 +3315,9 @@ export async function responder(
     estado = aplicar(estado, lida, etapaAgora.id, falaCru, rastro);
 
     // ELE PEDIU GENTE. O modelo vazio nao impede: a frase basta.
-    if (pediuPraFalarComGente(falaCru)) {
-      rastro.push("ele pediu pra falar com gente; chamei a equipe");
-      return {
-        fala: {
-          // A FRASE SAI DO `avisoDeEspera`, E NAO DAQUI.
-          //
-          // Estava chumbada, e prometia atendimento agora a qualquer hora. As
-          // 23h o cliente lia "vou chamar alguem da equipe" e ninguem vinha ate
-          // de manha. O `avisoDeEspera` foi escrito exatamente pra isso, em
-          // `lib/padaria-aberta.ts`, e nunca tinha sido ligado: fechada, ele
-          // avisa que a equipe responde na abertura, sem prometer hora.
-          //
-          // Achado em 30/08/2026 alargando o detector de codigo fantasma, que
-          // varria quatro pastas escritas a mao e nao enxergava `lib/` na raiz.
-          texto: "Claro. " + avisoDeEspera(),
-          botoes: [],
-          cardapio: null,
-          podeReescrever: false,
-        },
-        estado: { ...estado, insistiu: 0, ultimaFala: "Claro. " + avisoDeEspera() },
-        etapa: etapaAgora.id,
-        rastro,
-        chamouIA,
-        confirmouEscrevendo: false,
-        precisaHumano: true,
-        motivoHumano: "O cliente pediu pra falar com alguém da padaria.",
-      };
-    }
+    // "QUERO FALAR COM A DONA" E O MODELO QUE LE (03/09/2026): situacao "humano",
+    // tratada junto com as outras situacoes logo abaixo. A regex de doze formas
+    // de pedir gente saiu.
 
     // ---------------------------------------- A CONVERSA NAO E UM PEDIDO
     //
@@ -3691,10 +3463,9 @@ export async function responder(
       //
       // Deixar a etapa responder tambem manda a peca do cardapio junto, que e o
       // que o cliente precisa pra escolher.
-      const ultimaFoiEscolha = /qual|quais|quer\?/i.test(semAc(String(estado.ultimaFala ?? "")));
-      const perguntouAsOpcoes =
-        ultimaFoiEscolha && !nomeadoNaFrase && !limpa.perguntou.familia &&
-        /\b(quais|quais sao|o que tem|que tem|opcoes|tipos)\b/.test(semAc(String(mensagem.texto ?? "")));
+      // QUEM DIZ QUE ELE PERGUNTOU AS OPCOES E O MODELO (03/09/2026). Antes era
+      // uma regex sobre a ultima fala mais seis palavras na dele.
+      const perguntouAsOpcoes = limpa.perguntou.sobre === "opcoes";
 
       const perguntouOTotal =
         !perguntouAsOpcoes &&

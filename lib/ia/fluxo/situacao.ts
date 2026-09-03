@@ -33,6 +33,8 @@
 //  equipe em vez de inventar.
 // ============================================================================
 
+import { avisoDeEspera } from "../../padaria-aberta";
+
 /**
  * AS TRES SITUACOES, EM ARRAY E NAO SO EM TIPO.
  *
@@ -47,7 +49,10 @@
 // errado ("nesse numero falo com Ademir?") e uma propaganda de IPVA ouviram
 // "O que voce precisa?" tres vezes seguidas, e depois a tabela de pagamento.
 // A padaria se apresenta uma vez; na segunda, chama gente.
-export const SITUACOES = ["reclamacao", "cancelar", "status", "fora_do_assunto"] as const;
+// HUMANO entrou em 03/09/2026: "quero falar com a dona" era lido por regex
+// (`pediuPraFalarComGente`), e o modelo com contexto devolvia fora_do_assunto
+// por nao ter onde por isso.
+export const SITUACOES = ["reclamacao", "cancelar", "status", "fora_do_assunto", "humano"] as const;
 export type SituacaoDaConversa = (typeof SITUACOES)[number];
 
 export type RespostaDaSituacao = { texto: string; precisaHumano: boolean };
@@ -65,6 +70,10 @@ export function respostaDaSituacao(
   insistiu = 0,
 ): RespostaDaSituacao {
   switch (situacao) {
+    case "humano":
+      // Ele pediu gente. Gente e o ultimo recurso do resto do fluxo, mas quem
+      // pede gente com todas as letras recebe gente, sem tentar convencer.
+      return { texto: "Claro. " + avisoDeEspera(), precisaHumano: true };
     case "fora_do_assunto":
       // Numero errado, propaganda, assunto de outro negocio. A padaria diz quem
       // e, uma vez. Se a pessoa continua, e caso de gente, nao de repetir.

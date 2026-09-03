@@ -50,8 +50,9 @@ const CASOS = [
   },
   {
     nome: "e o sabor chega em quem a padaria perguntou",
+    // O MODELO LE ISTO (medido 3 de 3 em 03/09/2026, vendo a conversa).
     fala: "frango",
-    leitura: { itens: [{ produto: "mini sanduíche de patê de frango", qtd: 1, sabor: "frango" }] },
+    leitura: { itens: [{ produto: "risólis", qtd: 50, sabor: "frango" }] },
     sabor: { "risólis": "frango" },
     dano: "a padaria repetia a mesma pergunta e a conversa nunca fechava",
   },

@@ -86,7 +86,9 @@ fs.writeFileSync(
     "saida.antesDaResposta = linhas(semSabor.estado);",
     "const d = await responder(semSabor.estado as never,",
     "  { texto: 'de frango' },",
-    "  pensar({}) as never);",
+    // O MODELO LE ISTO (medido 3 de 3 em 03/09/2026, vendo a conversa). O bloco
+    // que distribuia o sabor da frase por conta propria saiu.
+    "  pensar({ itens:[{produto:'empadao',qtd:1,sabor:'frango'}] }) as never);",
     "saida.respostaGruda = linhas(d.estado);",
     "",
     "// 5. E QUANDO ELE PEDE OS DOIS DO MESMO SABOR, os dois ficam com ele.",
@@ -119,7 +121,7 @@ fs.writeFileSync(
     "//    na comanda.",
     "const j = await responder(semSabor.estado as never,",
     "  { texto: 'pistache' },",
-    "  pensar({}) as never);",
+    "  pensar({ itens:[{produto:'empadao',qtd:1,sabor:'pistache'}] }) as never);",
     "saida.saborForaDaLista = linhas(j.estado);",
     "",
     "console.log(JSON.stringify(saida));",

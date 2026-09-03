@@ -71,7 +71,9 @@ fs.writeFileSync(
     "  pensar({ itens:[{produto:'coxinha',qtd:50},{produto:'mini pizza',qtd:30}] }) as never);",
     "const t6 = await responder(t5.estado as never,",
     "  { texto: 'calabresa' } as never,",
-    "  pensar({}) as never);",
+    // O MODELO LE ISTO (medido 3 de 3 em 03/09/2026, vendo a conversa). O bloco
+    // que distribuia o sabor da frase por conta propria saiu.
+    "  pensar({ itens:[{produto:'pizza redonda',qtd:1,sabor:'calabresa'}] }) as never);",
     "const t7 = await responder(t6.estado as never,",
     "  { texto: 'e 80 brigadeiro' } as never,",
     "  pensar({ itens:[{produto:'brigadeiro',qtd:80}] }) as never);",

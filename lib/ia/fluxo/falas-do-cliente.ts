@@ -66,30 +66,6 @@ export function mandouRecomecar(fala: string): boolean {
   return true;
 }
 
-/**
- * ELE PEDIU GENTE, COM TODAS AS LETRAS.
- *
- * Chamar a equipe e ultimo recurso: entrega, restricao que a cozinha decide,
- * o interruptor FLUXO_NOVO_PARA, e ESTE caso. Nao e o destino de modelo vazio,
- * de etapa repetida, nem de "oi" no chat de teste.
- *
- * Nao e lista de produto: e um ato de fala, o mesmo tipo de recomecar. A
- * regex descreve o pedido de pessoa, nao um catalogo paralelo.
- */
-export function pediuPraFalarComGente(fala: string): boolean {
-  const t = semAcMin(fala);
-  if (!t.trim()) return false;
-  const pediu =
-    /falar com (a |o )?(dona|equipe|atendente|gente|alguem|uma pessoa)|chama[r]? (a |o )?(dona|equipe|atendente)|quero (um |uma )?(atendente|humano)|passar pra (dona|equipe|atendente)/;
-  if (!pediu.test(t)) return false;
-  // A cerca de palavra inteira engolia a virgula e lia o "quero 50 coxinha"
-  // que vinha DEPOIS como um sim pra falar com a dona. O termo curto e o
-  // mesmo leitor de sim/nao do resto do sistema.
-  if (afirmouOuNegou(t, /falar com|chama[r]? (a |o )?(dona|equipe|atendente)/) === false) {
-    return false;
-  }
-  return true;
-}
 
 /**
  * COMO A GENTE CUMPRIMENTA, NUMA LISTA SO.

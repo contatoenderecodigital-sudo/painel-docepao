@@ -80,7 +80,9 @@ fs.writeFileSync(
     "  pensar({ itens:[{produto:'pizza', qtd:1}] }) as never);",
     "const a2 = await responder(a1.estado as never,",
     "  { texto: 'quero 2 inteiras, uma de calabresa e uma de frango com catupiry' } as never,",
-    "  pensar({ itens:[{produto:'pizza inteira', qtd:2}] }) as never);",
+    // O MODELO LE ISTO (medido 3 de 3 em 03/09/2026): uma linha por sabor, com o
+    // sabor no campo dele. O bloco que distribuia sabor pela frase saiu.
+    "  pensar({ itens:[{produto:'pizza inteira', qtd:1, sabor:'calabresa'},{produto:'pizza inteira', qtd:1, sabor:'frango com catupiry'}] }) as never);",
     "",
     "// 2b. a leitura que o modelo devolve AO VIVO: familia crua, sabor no obs",
     "const m1 = await responder(VAZIO as never,",
@@ -149,9 +151,14 @@ cobra(
   "etapa: " + r.pizzaEtapa,
 );
 
+// DUAS PIZZAS INTEIRAS, seja numa linha x2 ou em duas linhas x1 (uma por
+// sabor, que e como o modelo devolve desde 03/09/2026). O que nao pode e virar
+// UMA pizza: R$ 120,00 no lugar de R$ 240,00.
 cobra(
-  "o tipo respondido no plural entra no pedido",
-  r.pizzaItens.some((l) => /pizza inteira x2/.test(l)),
+  "o tipo respondido no plural entra no pedido, e sao DUAS pizzas inteiras",
+  r.pizzaItens
+    .filter((l) => /^pizza inteira x/.test(l))
+    .reduce((soma, l) => soma + Number(l.split(" x")[1] || 0), 0) === 2,
   JSON.stringify(r.pizzaItens),
 );
 

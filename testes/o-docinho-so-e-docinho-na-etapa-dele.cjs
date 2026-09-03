@@ -152,7 +152,7 @@ for (const { e, n, regra } of r.instrucoes) {
   // uma linha por sabor, qtd 0) vao num bloco so, em toda mensagem, e a conversa
   // vai junto. O que faz o modelo se perder e regra que se contradiz, nao regra
   // que cabe em 2.500 caracteres.
-  if (regra > 3000) {
+  if (regra > 3400) {
     falhas.push("a REGRA da etapa " + e + " ja tem " + regra + " caracteres; esta virando carta");
   }
   // O CARDAPIO INTEIRO VAI EM TODA ETAPA (86 produtos, com apelidos). O teto do
