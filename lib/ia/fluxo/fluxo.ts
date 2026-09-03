@@ -768,7 +768,13 @@ function atualizarBasePeloTotalDito(e: Estado, l: Leitura, fala = "", etapa?: Et
  * com a conta dos 20 por sabor. Quem ja escolheu produto de verdade nesta
  * familia nao e sobrescrito: a delegacao nao apaga o que ele nomeou.
  */
-function aplicarDelegacao(e: Estado, etapa: EtapaId): Estado {
+function aplicarDelegacao(e: Estado, etapa: EtapaId, delegaEm: string[] = []): Estado {
+  // SO AS FAMILIAS QUE ELE DELEGOU. "os tipos de salgado e docinho pode
+  // escolher voce" deixava a casa escolher o SABOR DO BOLO tambem (medido em
+  // producao em 03/09/2026: o bolo saiu "4 leites" sem ninguem pedir). Quem
+  // diz quais familias e o modelo; sem dizer, vale tudo, como antes.
+  const delegou = (chave: string) =>
+    !delegaEm.length || delegaEm.some((d) => prefixoDaFamilia(semAc(String(d))) === prefixoDaFamilia(chave));
   let itens = [...e.itens];
   let forminha = e.forminha;
   let mudou = false;
@@ -803,6 +809,7 @@ function aplicarDelegacao(e: Estado, etapa: EtapaId): Estado {
   if (chaves.size) {
     for (const chave of chaves) {
       const pref = prefixoDaFamilia(chave);
+      if (!delegou(chave)) continue;
       if (temProdutoDeVerdade({ ...e, itens }, pref)) continue;
       const cats = categoriasDaFamilia(chave);
       if (!cats.length) continue;
@@ -2398,7 +2405,7 @@ function aplicar(e: Estado, l: Leitura, etapa: EtapaId, falaDoCliente = "", rast
   // porque o modelo cego lia "frango" como "escolhe voce". Vendo a pergunta na
   // conversa, ele devolve o sabor no item (medido). O que o modelo diz vale.
   const delegou = l.delegaEscolha === true;
-  if (delegou) novo = aplicarDelegacao(novo, etapa);
+  if (delegou) novo = aplicarDelegacao(novo, etapa, l.delegaEm ?? []);
 
   // A COR DA FORMINHA E CARIMBADA DEPOIS DOS ITENS, NAO ANTES.
   //

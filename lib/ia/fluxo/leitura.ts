@@ -99,6 +99,13 @@ export type Leitura = {
    * Aceitar a proposta ("pode ser") NAO e isto: ali ele so disse o quanto.
    */
   delegaEscolha?: boolean;
+  /**
+   * EM QUAIS FAMILIAS ELE DELEGOU. "os tipos de salgado e docinho pode
+   * escolher voce" nao entrega o SABOR DO BOLO pra casa. Medido em producao em
+   * 03/09/2026: a delegacao montava o sortido das tres familias da base, e o
+   * bolo saia "4 leites" sem o cliente ter escolhido. Vazio = tudo.
+   */
+  delegaEm?: string[];
   /** O que ele disse que NAO quer, pra nao oferecer de novo. */
   naoQuer?: string[];
   /**
@@ -906,7 +913,8 @@ export function instrucaoDaEtapa(etapa: EtapaId, p: PedidoEmMontagem): string {
     "- Mini pizza é salgado assado. Pizza inteira, meia, redonda e calzone não " +
     "são salgado. Use o nome inteiro (\"pizza inteira\", não \"inteira\")." + String.fromCharCode(10) +
     "- Cor da forminha dos docinhos vai em forminha." + String.fromCharCode(10) +
-    "- Pediu pra casa escolher os tipos ou o sabor? delegaEscolha true, sem itens. " +
+    "- Pediu pra casa escolher os tipos ou o sabor? delegaEscolha true, sem itens, e delegaEm " +
+    "com as famílias que ele delegou (salgado, docinho, bolo). Delegou tudo? as três. " +
     "Aceitar a proposta não é pedir pra casa escolher.";
 
   return comum + String.fromCharCode(10, 10) + regrasDoCardapio + String.fromCharCode(10, 10) + (daEtapa[etapa] ?? "") + lista;

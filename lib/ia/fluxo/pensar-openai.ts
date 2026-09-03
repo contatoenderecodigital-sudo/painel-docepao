@@ -63,6 +63,7 @@ const FORMATO = `Responda SÓ com um JSON, sem texto em volta, neste formato:
   "ehFesta": true,
   "aceitouBase": false,
   "delegaEscolha": false,
+  "delegaEm": ["salgado", "docinho"],
   "naoQuer": ["salgado"],
   "tirar": ["a de calabresa"],
   "confirmou": true,
@@ -288,6 +289,9 @@ export function pensarComOpenAI(
       if (Number(lido.pessoas) > 0) limpo.pessoas = Number(lido.pessoas);
       if (lido.aceitouBase === true) limpo.aceitouBase = true;
       if (lido.delegaEscolha === true) limpo.delegaEscolha = true;
+      if (Array.isArray(lido.delegaEm) && lido.delegaEm.length) {
+        limpo.delegaEm = lido.delegaEm.map(String).filter(Boolean);
+      }
       if (lido.recomecar === true) limpo.recomecar = true;
       // SEM ESTA LINHA O "pode fechar" DELE MORRIA AQUI.
       //
