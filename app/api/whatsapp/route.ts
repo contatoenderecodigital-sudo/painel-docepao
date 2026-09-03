@@ -702,6 +702,10 @@ async function processar(corpo: WebhookPayload) {
           // nao no historico que ninguem manda pro modelo. Depois do "juntar as
           // falas", porque o cliente cita uma mensagem e escreve mais duas
           // linhas: o aviso vale pro conjunto.
+          // Audio transcrito vai marcado: quando a transcricao sai sem sentido
+          // (celular ruim, 03/09 20:47), a Dora pede pra escrever ou mandar outro
+          // audio em vez de chutar um cardapio.
+          if (entrada.rotulo === "Áudio" && textoJunto) textoJunto = "[áudio transcrito automaticamente, pode ter saído errado] " + textoJunto;
           if (avisoDaMarcada) textoJunto = avisoDaMarcada + textoJunto;
 
           const novo = await atenderComFluxoNovo(
