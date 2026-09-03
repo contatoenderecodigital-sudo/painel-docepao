@@ -140,8 +140,9 @@ export function instrucaoLivre(): string {
       "você mesma 4 ou 5 do cardápio (respeitando o que ele não quer), anote com as quantidades e diga quais foram. " +
       "Mínimo sugerido por sabor: " + (sugerir || 20) + " unidades" + (saboresNoCento ? ", " + saboresNoCento + " sabores no cento" : "") + " (sugira, não recuse).",
     "- Em itens só entram produtos do cardápio (coxinha, brigadeiro, bolo brigadeiro). Nunca mande \"salgado\", \"docinho\" ou \"bolo\" soltos: quando ele aceitar a sugestão da festa, os totais ficam na sugestão e viram itens quando ele escolher os tipos e os sabores.",
+    "- Pra trocar o sabor ou o recheio de um item já anotado, mande tirar com a linha antiga (como está no PEDIDO ANOTADO) e o item novo em itens. Só mandar o item de novo não tira o antigo. \"Sem beijinho\" = tirar [\"beijinho\"].",
     "- Mande a peça do cardápio (campo cardapio) só quando a pessoa NÃO sabe o que quer ou pede pra ver as opções. Se ela já disse exatamente o que quer (\"50 brigadeiro\"), não mande cardápio: anote e pergunte o que falta.",
-    "- O que você disser que anotou TEM que vir em itens no mesmo JSON, com quantidade. O PEDIDO ANOTADO do lembrete é a única verdade: não diga no resumo nada que não esteja nele.",
+    "- TUDO o que ele pediu com quantidade na mensagem vai em itens NESSA MESMA resposta, mesmo que você ainda tenha perguntas (\"bolo de brigadeiro com morango, 2 kg, 100 brigadeiro e 100 beijinho\" = três itens já). Nunca deixe pra anotar depois. O que você disser que anotou TEM que vir em itens no mesmo JSON, com quantidade. O PEDIDO ANOTADO do lembrete é a única verdade: não diga no resumo nada que não esteja nele.",
     "- Se ele pedir pra VOCÊ escolher os tipos de salgado ou docinho (\"os salgados escolhe você\"), mande escolherPorMim: [\"salgado\"] (ou docinho): a casa monta o sortido pelo cardápio e ele aparece no lembrete na próxima mensagem. Diga que você montou e siga pra próxima pergunta. Bolo nunca entra aí.",
     "- Sabor de bolo (4 leites, laka, prestígio, brigadeiro, mineira...) dito quando o bolo está em aberto é o bolo: produto \"bolo <sabor>\", com o peso combinado (na festa, o da sugestão).",
     "- Restrição alimentar: só o que o cardápio tem (0% lactose é sabor de bolo de festa). Sem glúten, vegano ou diet a casa não faz: diga que vai confirmar com a equipe, sem prometer.",
@@ -215,7 +216,7 @@ export function lembreteDoPedido(e: Estado, extra: { pedidoNaFila?: boolean; agu
   }
   if (e.naoQuer?.length) partes.push("Ele não quer: " + e.naoQuer.join(", ") + ".");
   const falta = [...oQueFaltaPraFechar(e), ...faltaSabor(e), ...faltaPecasDoBolo(e), ...faltaDaFesta(e), ...faltaOferecer(e)];
-  if (e.itens.length) partes.push(falta.length ? "FALTA PRA FECHAR: " + falta.join("; ") + "." : "Está tudo completo. NÃO escreva o resumo nem os valores: diga só uma frase curta (\"Anotei tudo\"), que o resumo com os valores e a pergunta \"Seria isso?\" vão junto automaticamente.");
+  if (e.itens.length) partes.push(falta.length ? "FALTA PRA FECHAR: " + falta.join("; ") + "." : "Está tudo completo. Se ele pedir mudança, FAÇA a mudança (itens, tirar, dados) e diga só o que mudou. Não escreva o resumo nem os valores: o resumo com os valores e a pergunta \"Seria isso?\" vão junto automaticamente.");
   if (e.itens.some((i) => String(i.categoria) === "docinho") && !e.forminha) partes.push("PRÓXIMA PERGUNTA: a cor da forminha dos docinhos (por escrito, com as cores), antes de seguir pra qualquer outra coisa.");
   if (e.pedidoAprovado) {
     const quando = quandoDoPedido(e.pedidoAprovado);
@@ -357,14 +358,38 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
   let precisaHumano = false;
   let motivoHumano: string | null = null;
   let respostaCorrigida: string | null = null;
+  const tiradosAgora = new Set<string>();
+
+  // TIRAR VEM ANTES DE ANOTAR: trocar o sabor e tirar a linha velha e por a nova.
+  for (const frase of l.tirar ?? []) {
+    let idxs = linhasQueOClientePodeEstarTirando(e.itens, String(frase));
+    // "sem brigadeiro" com o bolo brigadeiro e o docinho na lista: e o docinho. Do bolo ele fala "bolo".
+    if (idxs.length > 1 && !/bolo/i.test(String(frase))) idxs = idxs.filter((n) => !(CATEGORIAS_DE_BOLO as readonly string[]).includes(String(e.itens[n].categoria)));
+    if (idxs.length === 1) {
+      rastro.push("tirou: " + e.itens[idxs[0]].produto);
+      tiradosAgora.add(semAcento(e.itens[idxs[0]].produto));
+      e.itens = e.itens.filter((_, n) => n !== idxs[0]);
+    } else if (!idxs.length && e.itens.length === 1) {
+      rastro.push("tirou o unico item: " + e.itens[0].produto);
+      tiradosAgora.add(semAcento(e.itens[0].produto));
+      e.itens = [];
+    } else {
+      rastro.push("nao sei qual tirar por \"" + frase + "\" (" + idxs.length + " candidatos)");
+    }
+  }
 
   // itens
   for (const bruto of l.itens ?? []) {
     const nomeBruto = String(bruto?.produto ?? "").trim();
     if (!nomeBruto) continue;
-    const quem = identificarProduto(nomeBruto, undefined, mensagem);
+    // O NOME QUE O MODELO MANDOU VALE POR ELE MESMO: "brigadeiro" e o docinho,
+    // o bolo vem com o prefixo. identificarProduto olhava a frase inteira e, com
+    // "bolo de brigadeiro" na mesma frase, virava os 100 brigadeiros em 100 kg
+    // de bolo (medido 03/09 19:01).
+    const exato = produtoPorNome(nomeBruto);
+    const quem = exato ? { produto: exato.nome } : identificarProduto(nomeBruto, undefined, mensagem);
     let canon = quem.produto;
-    let daCasa = produtoPorNome(canon) ?? produtoNoComeco(canon);
+    let daCasa = exato ?? produtoPorNome(canon) ?? produtoNoComeco(canon);
     // A PADARIA PERGUNTOU O SABOR DO BOLO e ele respondeu "brigadeiro com ninho":
     // e o bolo, nao o docinho (medido 03/09: virou docinho brigadeiro com qtd 0).
     const perguntouOBolo = /bolo/i.test(String(ultimaPergunta ?? "")) && !/docinho|salgad/i.test(String(ultimaPergunta ?? "").split("?").slice(-2, -1)[0] ?? "");
@@ -398,6 +423,17 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
       continue;
     }
     canon = daCasa.nome;
+    if (tiradosAgora.has(semAcento(canon)) && !(Number(bruto.qtd) > 0)) { rastro.push("saiu por tirar neste turno, nao volta: " + canon); continue; }
+    // "bolo brigadeiro com morango" casou com "bolo brigadeiro" pelo comeco: o que
+    // sobrou ("com morango") e o misto, e nao pode sumir (medido 03/09 19:02).
+    if (!exato && !String(bruto.sabor ?? "").trim() && (CATEGORIAS_DE_BOLO as readonly string[]).includes(daCasa.categoria)) {
+      const doProduto = new Set(semAcento(daCasa.nome).split(/\s+/));
+      const sobra = semAcento(nomeBruto).split(/\s+/).filter((w) => w && w !== "de" && !doProduto.has(w));
+      if (sobra.length) {
+        bruto.sabor = daCasa.nomeCurto + " com " + sobra.join(" ").replace(/^(com|e)\s+/, "");
+        rastro.push("sobra do nome virou o misto: " + bruto.sabor);
+      }
+    }
     let qtd = Number(bruto.qtd) || 0;
     if (qtd < 0) qtd = 0;
     if (daCasa.unidade === "un" && !Number.isInteger(qtd)) qtd = Math.round(qtd);
@@ -423,7 +459,18 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
     // modelo reescreve o recheio como "sem topo, escrito Delamar" e o misto some.
     if (recado && /topo|papel de arroz|escrito|tema|forminha/i.test(recado)) { rastro.push("recado de peca fora do item: " + recado); recado = null; }
     const obs = [sabor, recado].filter(Boolean).join(" | ") || null;
-    const idx = e.itens.findIndex((i) => semAcento(i.produto) === semAcento(canon) && (!saborDito || !i.obs || semAcento(i.obs).includes(semAcento(saborDito))));
+    let idx = e.itens.findIndex((i) => semAcento(i.produto) === semAcento(canon) && (!saborDito || !i.obs || semAcento(i.obs).includes(semAcento(saborDito))));
+    // UM BOLO SO. Se ja tem um bolo de festa e vem outro (sabor ou produto
+    // diferente) sem ele ter pedido "outro bolo", e troca, nao e segundo bolo
+    // (medido 03/09 19:06: virou dois bolos e R$ 640).
+    if (idx < 0 && ehBolo && daCasa.categoria === "bolo_festa" && !/(outro|mais um|segundo|dois|duas|2) bolos?/i.test(mensagem)) {
+      const doBolo = e.itens.findIndex((i) => String(i.categoria) === "bolo_festa");
+      if (doBolo >= 0) {
+        rastro.push("bolo trocado: " + e.itens[doBolo].produto + " (" + (e.itens[doBolo].obs ?? "") + ") -> " + canon + " (" + (obs ?? "") + ")");
+        e.itens[doBolo] = { produto: canon, categoria: daCasa.categoria, qtd: qtd > 0 ? qtd : e.itens[doBolo].qtd, obs };
+        continue;
+      }
+    }
     if (idx >= 0) {
       const atual = e.itens[idx];
       // Sem sabor novo dito, o recheio que ja estava fica; o recado novo entra ao lado.
@@ -485,20 +532,6 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
     e.itens = e.itens.filter((i) => !novosBolos.includes(i));
     e.itens.push({ produto: principal.b.produto, categoria: principal.b.categoria, qtd: Math.round(peso * 1000) / 1000, obs });
     rastro.push("dois bolos novos com o mesmo peso viraram um misto: " + principal.b.produto + " " + peso + " kg (" + obs + ")");
-  }
-
-  // tirar
-  for (const frase of l.tirar ?? []) {
-    const idxs = linhasQueOClientePodeEstarTirando(e.itens, String(frase));
-    if (idxs.length === 1) {
-      rastro.push("tirou: " + e.itens[idxs[0]].produto);
-      e.itens = e.itens.filter((_, n) => n !== idxs[0]);
-    } else if (!idxs.length && e.itens.length === 1) {
-      rastro.push("tirou o unico item: " + e.itens[0].produto);
-      e.itens = [];
-    } else {
-      rastro.push("nao sei qual tirar por \"" + frase + "\" (" + idxs.length + " candidatos)");
-    }
   }
 
   // dados
@@ -587,7 +620,7 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
       return { ...i, obs: [obs.trim() || null, "forminha " + e.forminha].filter(Boolean).join(" | ") };
     });
   }
-  if (l.prato === "aberto" || l.prato === "tampa") e.prato = l.prato;
+  if ((l.prato === "aberto" || l.prato === "tampa") && /prato|caixa|tampa|embalagem/i.test(String(ultimaPergunta ?? "") + " " + mensagem)) e.prato = l.prato;
   // O TEMA, O ESCRITO E AS PECAS VAO NA OBS DO BOLO: e dali que a comanda da
   // confeiteira le. A comanda de 03/09 saiu "3 kg bolo brigadeiro com maracuja"
   // sem o tema minecraft e sem o escrito, porque o estado guardava e o item nao.
@@ -703,7 +736,23 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
 }
 
 // ------------------------------------------------------------ atender
-export async function atenderLivre(
+// UMA MENSAGEM POR VEZ POR CLIENTE. Duas mensagens seguidas ("3kg" e "quero
+// prata", 03/09 19:03) eram atendidas ao mesmo tempo, cada uma lendo o estado
+// velho, e as respostas saiam trocadas. A segunda espera a primeira gravar.
+const emAndamento = new Map<string, Promise<unknown>>();
+export async function atenderLivre(...args: Parameters<typeof atenderLivreDeVerdade>): ReturnType<typeof atenderLivreDeVerdade> {
+  const chave = args[1] + ":" + args[2];
+  const anterior = emAndamento.get(chave) ?? Promise.resolve();
+  const minha = anterior.catch(() => undefined).then(() => atenderLivreDeVerdade(...args));
+  emAndamento.set(chave, minha);
+  try {
+    return await minha;
+  } finally {
+    if (emAndamento.get(chave) === minha) emAndamento.delete(chave);
+  }
+}
+
+async function atenderLivreDeVerdade(
   cliente: OpenAI,
   negocioId: string,
   clienteId: string,
