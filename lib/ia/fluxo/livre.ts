@@ -124,6 +124,9 @@ export function instrucaoLivre(): string {
     "- Preço é SÓ o do cardápio abaixo. Se não souber um valor, diga que a equipe confirma. Nunca dê desconto: desconto é com a equipe.",
     "- Só existe o que está no cardápio. Sabor que não está na lista: anote como \"a confirmar\" e diga que a equipe confirma se a casa faz.",
     "- Todo item precisa de quantidade dita pelo cliente (unidades, ou quilos no que é vendido por quilo) e, se o produto tem lista de sabores, do sabor escolhido. Nunca chute nenhum dos dois: assim que ele citar um item, a sua próxima pergunta é a quantidade (ou o sabor, se faltar). Na festa a quantidade sai da sugestão que ele aceitou.",
+    "- REGRA GERAL de todo item do cardápio, seja salgado, docinho, bolo, cuca, torta ou pizza: antes de passar pra outra família ou pros dados, o item tem que estar fechado: quantidade (unidades, kg ou g conforme o cardápio) e o sabor, se o produto tem lista de sabores. Docinho ainda pede a cor da forminha; bolo de festa ainda pede papel de arroz, topo e tema. Não pergunte docinhos enquanto um salgado está sem sabor.",
+    "- Sabor que ele ainda não disse é null no JSON. \"a confirmar\" só quando ele pediu um sabor que não está na lista.",
+    "- \"Metade de cada\", \"igual de cada\", \"divide\" com vários tipos = o total da família repartido por igual entre os tipos (150 salgados em 3 tipos = 50, 50, 50).",
     "- Você NUNCA escolhe sabor nem produto por ele. O sabor do bolo é sempre dele. Sortido só quando ele pedir pra você escolher, e só de salgados e docinhos.",
     "- Dois tipos de bolo. BOLO CASEIRO: vendido por unidade (bolo inteiro, preço fixo), sem quilo, sem misto, sem topo nem papel de arroz; \"um bolo de cenoura\" = 1 bolo caseiro cenoura. BOLO DE FESTA: por quilo, com as peças. Se o sabor só existe num dos dois (cenoura, café, aipim só têm caseiro; 4 leites, laka, morango só têm festa), é aquele, não pergunte qual. Só pergunte \"de festa ou caseiro\" quando o sabor existe nos dois (prestígio) e a conversa não diz (festa, aniversário, quilos = festa; pequeno, de vitrine, inteiro = caseiro).",
     "- \"Um bolo\", \"uma torta\" = quantidade 1. Quantidade é sempre número no JSON (2, não \"2kg\").",
@@ -219,7 +222,16 @@ export function lembreteDoPedido(e: Estado, extra: { pedidoNaFila?: boolean; agu
   if (e.naoQuer?.length) partes.push("Ele não quer: " + e.naoQuer.join(", ") + ".");
   const falta = [...oQueFaltaPraFechar(e), ...faltaSabor(e), ...faltaPecasDoBolo(e), ...faltaDaFesta(e), ...faltaOferecer(e)];
   if (e.itens.length) partes.push(falta.length ? "FALTA PRA FECHAR: " + falta.join("; ") + "." : "Está tudo completo. Se ele pedir mudança, FAÇA a mudança (itens, tirar, dados) e diga só o que mudou. Não escreva o resumo nem os valores: o resumo com os valores e a pergunta \"Seria isso?\" vão junto automaticamente.");
-  if (e.itens.some((i) => String(i.categoria) === "docinho") && !e.forminha) partes.push("PRÓXIMA PERGUNTA: a cor da forminha dos docinhos (por escrito, com as cores), antes de seguir pra qualquer outra coisa.");
+  // A PROXIMA PERGUNTA E UMA SO E FECHA O ITEM ABERTO: quantidade, depois sabor,
+  // depois o que a familia pede (forminha no docinho, pecas no bolo de festa).
+  // So depois disso a conversa muda de familia (regra do dono, 03/09 20:32).
+  const semQtd = e.itens.filter((i) => !(Number(i.qtd) > 0)).map((i) => i.produto);
+  const semSabor = faltaSabor(e);
+  const proxima = semQtd.length ? "a quantidade de " + semQtd.join(" e ")
+    : semSabor.length ? semSabor.join("; ")
+    : e.itens.some((i) => String(i.categoria) === "docinho") && !e.forminha ? "a cor da forminha dos docinhos (por escrito, com as cores)"
+    : faltaPecasDoBolo(e)[0] ?? null;
+  if (proxima) partes.push("PRÓXIMA PERGUNTA (uma só, antes de mudar de família ou de pedir dados): " + proxima + ".");
   if (e.pedidoAprovado) {
     const quando = quandoDoPedido(e.pedidoAprovado);
     partes.push("ATENÇÃO: ele já tem um pedido APROVADO pela equipe" + (quando ? " pra " + quando : "") + ". Esse pedido está fechado: NÃO pergunte nada dele (papel de arroz, topo, forminha, dados). Se ele agradecer ou disser \"beleza\", só responda curto e se despeça. Mudança nesse pedido é com a equipe (chamarEquipe). Pedido NOVO só se ele pedir outra coisa.");
@@ -453,6 +465,7 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
       qtd = 0;
     }
     let saborDito = String(bruto.sabor ?? "").trim() || null;
+    if (saborDito && /^(a confirmar|nao informado|não informado|null|sem sabor|indefinido)$/i.test(saborDito)) { rastro.push("sabor vazio mandado como texto, ignorei: " + saborDito); saborDito = null; }
     // Sabor igual ao nome do produto ("4 leites" no bolo 4 leites) nao e recado.
     if (saborDito && (semAcento(saborDito) === semAcento(daCasa.nomeCurto) || semAcento(daCasa.nome).endsWith(" " + semAcento(saborDito)))) saborDito = null;
     const saborFixo = daCasa.saborFixo && daCasa.sabores.length ? daCasa.sabores[0] : null;
@@ -508,6 +521,17 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
       const daFamilia = e.itens.filter((i) => String(i.categoria).startsWith(pref));
       const semNumero = daFamilia.filter((i) => !(Number(i.qtd) > 0));
       if (!semNumero.length) continue;
+      // "metade de cada" com tres tipos: o modelo deu 75 pra um e nada pros outros
+      // (medido 03/09 20:31). "De cada" e igual pra todos os tipos citados agora.
+      if (/de cada|cada um|igual|dividid/i.test(mensagem)) {
+        const citados = daFamilia.filter((i) => (l.itens ?? []).some((b) => semAcento(String(b?.produto ?? "")) === semAcento(i.produto) || semAcento(i.produto).startsWith(semAcento(String(b?.produto ?? "")).split(" ")[0])));
+        const grupo = citados.length ? citados : daFamilia;
+        const cada = Math.floor(alvo / grupo.length);
+        grupo.forEach((i, n) => { i.qtd = cada + (n === 0 ? alvo - cada * grupo.length : 0); });
+        rastro.push("de cada: " + alvo + " de " + pref + " repartidos igual entre " + grupo.map((i) => i.produto).join(", "));
+        respostaCorrigida = "Anotei " + grupo.map((i) => i.qtd + " " + i.produto).join(", ") + ". ";
+        continue;
+      }
       const alvo = e.pessoas * porPessoa;
       const jaDito = daFamilia.reduce((t, i) => t + (Number(i.qtd) || 0), 0);
       const sobra = Math.max(alvo - jaDito, 0);
