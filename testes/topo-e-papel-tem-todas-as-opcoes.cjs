@@ -257,11 +257,12 @@ for (const [caso, deve] of Object.entries(esperado)) {
   }
 }
 
-// -------------------------------------- pedido com topo nao fecha sem nome
-// Sem NINGUEM ter perguntado o que vai escrito, o pedido nao fecha: a peca iria
-// pra fabrica sem ninguem saber se leva nome, frase ou nada.
-if (!r.fechaSemNome.some((x) => /escrito/i.test(x))) {
-  falhas.push("pedido com topo fecharia sem ninguem perguntar o que vai escrito na peca");
+// -------------------------------------- pedido com topo nao fecha sem o TEMA
+// Dono, 03/09/2026: o que fecha a peca e o tema (texto ou foto anexada). O
+// escrito e perguntado junto, uma vez; sem resposta, vai "sem nada escrito".
+// Tem gente que manda foto, gente que fala, gente que faz os dois.
+if (r.fechaSemNome.some((x) => /escrito/i.test(x))) {
+  falhas.push("o escrito da peca voltou a travar o fechamento: " + r.fechaSemNome.join(", "));
 }
 if (!r.fechaSemNome.some((x) => /tema/i.test(x))) {
   falhas.push("pedido com topo fecharia sem o tema da peca");

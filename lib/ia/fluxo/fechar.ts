@@ -242,10 +242,11 @@ export function oQueFaltaPraFechar(e: Estado): string[] {
     // Tem topo que e so o desenho. O que nao pode e a peca ir pra fabrica sem
     // ninguem ter perguntado: por isso "nada" conta como respondido e a falta so
     // aparece quando ninguem respondeu coisa nenhuma.
+    // Dono, 03/09/2026: o que fecha a peca e o TEMA (texto ou a foto anexada).
+    // O escrito e perguntado junto com o tema, uma vez; se ele nao disser, vai
+    // "sem nada escrito" (fechar.ts:61 ja escreve isso pra equipe). Tem gente
+    // que manda foto, gente que fala, gente que faz os dois.
     if (!e.tema) falta.push("o tema da peça");
-    if (!e.escrito && !(e.topoNome && e.topoIdade)) {
-      falta.push("o que vai escrito na peça");
-    }
   }
   // AQUI HAVIA UMA TERCEIRA COPIA DO `produto === "bolo"`, ESCRITA A MAO.
   //
