@@ -262,6 +262,39 @@ export function faltaSabor(e: Estado): string[] {
   return falta;
 }
 
+/**
+ * ITEM ABERTO: o que ainda falta pra cada item ficar fechado. Regra geral da
+ * casa (dono, 03/09): quantidade e sabor pra qualquer produto com sabor no
+ * cardapio; docinho tambem a cor da forminha; bolo de festa tambem papel de
+ * arroz, topo e tema. A chave e a palavra que a resposta precisa citar pra
+ * contar como "esta cobrando isso".
+ */
+function r_confirmou(l: LeituraLivre): boolean { return l.confirmou === true; }
+export function itensAbertos(e: Estado): { chave: string; oque: string }[] {
+  const abertos: { chave: string; oque: string }[] = [];
+  for (const i of e.itens) {
+    const p = produtoPorNome(i.produto) ?? produtoNoComeco(i.produto);
+    const curto = p?.nomeCurto ?? i.produto;
+    if (!(Number(i.qtd) > 0)) abertos.push({ chave: curto, oque: "quantidade de " + i.produto });
+  }
+  for (const i of e.itens) {
+    const p = produtoPorNome(i.produto) ?? produtoNoComeco(i.produto);
+    if (!p || p.saborFixo || p.sabores.length < 2) continue;
+    const obs = semAcento(String(i.obs ?? ""));
+    const tem = p.sabores.some((sab) => obs.includes(semAcento(sab))) || /a confirmar/.test(obs);
+    if (!tem) abertos.push({ chave: p.nomeCurto, oque: "sabor do " + i.produto });
+  }
+  if (e.itens.some((i) => String(i.categoria) === "docinho") && !e.forminha) abertos.push({ chave: "forminha", oque: "cor da forminha" });
+  if (e.itens.some((i) => String(i.categoria) === "bolo_festa")) {
+    // Perguntar se quer misturar sabor tambem e cuidar do bolo: conta como cobrando.
+    if (typeof e.pecas?.papelDeArroz !== "boolean" || typeof e.pecas?.topo !== "boolean") abertos.push({ chave: "mistur", oque: "misto do bolo" });
+    if (typeof e.pecas?.papelDeArroz !== "boolean") abertos.push({ chave: "papel de arroz", oque: "papel de arroz" });
+    if (typeof e.pecas?.topo !== "boolean") abertos.push({ chave: "topo", oque: "topo" });
+    if ((e.pecas?.topo || e.pecas?.papelDeArroz) && !e.tema && !e.escrito) abertos.push({ chave: "tema", oque: "tema e escrito" });
+  }
+  return abertos;
+}
+
 /** A pergunta que falta, na ordem da casa: quantidade, sabor, forminha, depois a proxima familia da festa. Usada quando o codigo escreve a resposta. */
 export function perguntaQueFalta(e: Estado): string {
   const semQtd = e.itens.filter((i) => !(Number(i.qtd) > 0));
@@ -270,6 +303,11 @@ export function perguntaQueFalta(e: Estado): string {
   if (sabores.length) return "Qual " + sabores.join(" e qual ") + "?";
   const temDocinho = e.itens.some((i) => String(i.categoria) === "docinho");
   if (temDocinho && !e.forminha) return "Qual a cor da forminha dos docinhos? Tem amarelo, azul, branca, dourada, laranja, lilás, marrom, pink, prata, preta, rosa, roxo, verde e vermelha.";
+  if (e.itens.some((i) => String(i.categoria) === "bolo_festa")) {
+    if (typeof e.pecas?.papelDeArroz !== "boolean") return "No bolo, quer papel de arroz com a foto impressa (R$ 12,00)?";
+    if (typeof e.pecas?.topo !== "boolean") return "Quer topo de bolo? O valor do topo a equipe orça e te passa.";
+    if ((e.pecas?.topo || e.pecas?.papelDeArroz) && !e.tema && !e.escrito) return "Qual o tema, e o nome e a idade do aniversariante?";
+  }
   const naoQuer = (e.naoQuer ?? []).map((x) => semAcento(String(x)));
   if (e.ehFesta && !temDocinho && !naoQuer.some((x) => x.startsWith("docinho"))) return "Agora os docinhos: quais você quer?";
   const temBolo = e.itens.some((i) => String(i.categoria) === "bolo_festa");
@@ -723,6 +761,21 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
     respostaCorrigida = respostaCorrigida.trim() + " " + (faltaOferecer(e).length ? "Quer aproveitar e pedir salgadinhos ou docinhos também?" : !e.dados.data ? "Pra que dia e horário é a retirada?" : "Posso seguir pra fechar?");
   }
   let texto = semEmojiETravessao(String(respostaCorrigida ?? l.resposta ?? "").trim());
+  // REGRA GERAL: ITEM ABERTO FECHA ANTES DE QUALQUER OUTRA COISA. Vale pra toda
+  // resposta, escrita pelo modelo ou pelo codigo. Se tem item sem quantidade,
+  // sem sabor, docinho sem forminha ou bolo sem peca, e a resposta nao cobra
+  // nenhum deles, a pergunta do item entra no lugar da pergunta que estava.
+  const abertos = itensAbertos(e);
+  if (abertos.length && !precisaHumano && !l.situacao && !l.chamarEquipe && !r_confirmou(l)) {
+    const t = semAcento(texto);
+    const cobra = abertos.some((a) => t.includes(semAcento(a.chave)));
+    if (!cobra) {
+      const pergunta = perguntaQueFalta(e);
+      const semPerguntas = texto.split(/(?<=[.!?])\s+/).filter((f) => !f.includes("?")).join(" ").trim();
+      texto = (semPerguntas ? semPerguntas + " " : "") + pergunta;
+      rastro.push("item aberto (" + abertos.map((a) => a.oque).join(", ") + ") e a resposta nao cobrava: pus a pergunta do item");
+    }
+  }
   if (respostaCorrigida && /salgad|docinh/i.test(respostaCorrigida)) e.ofereceu = true;
   const cot = e.itens.length ? motorPadrao.cotarPorItens(paraOMotor(e.itens)) : null;
   const permitidos = new Set<string>();
