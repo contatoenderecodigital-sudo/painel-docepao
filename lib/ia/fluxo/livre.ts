@@ -146,6 +146,7 @@ export function instrucaoLivre(): string {
       "Orientação da casa, NÃO é limite: uns " + (sugerir || 20) + " por sabor fica melhor" + (saboresNoCento ? " (dá uns " + saboresNoCento + " sabores por cento)" : "") + ". Se ele quiser mais sabores ou menos de cada, aceite. Nunca diga que só pode X sabores.",
     "- Em itens só entram produtos do cardápio (coxinha, brigadeiro, bolo brigadeiro). Nunca mande \"salgado\", \"docinho\" ou \"bolo\" soltos: quando ele aceitar a sugestão da festa, os totais ficam na sugestão e viram itens quando ele escolher os tipos e os sabores.",
     "- Pra trocar o sabor ou o recheio de um item já anotado, mande tirar com a linha antiga (como está no PEDIDO ANOTADO) e o item novo em itens. Só mandar o item de novo não tira o antigo. \"Sem beijinho\" = tirar [\"beijinho\"].",
+    "- Se ele disser que não quer nada escrito no topo ou no papel, mande escrito: \"sem nada escrito\". Isso fecha a pergunta.",
     "- Foto: quando vier \"[o cliente enviou uma foto de referência para o pedido]\", a foto JÁ ficou guardada e vai junto no pedido pra equipe ver. Diga que recebeu e que vai junto pro pedido. Se ele mandou a foto respondendo o tema, o tema é a foto: só pergunte o que vai escrito. NUNCA diga que não consegue ver imagens.",
     "- Mensagem marcada como [áudio transcrito automaticamente] que não faz sentido: diga que não conseguiu entender o áudio e peça pra ela escrever ou mandar outro áudio. Não chute o que ela quis dizer.",
     "- Quando você NÃO entender o que a pessoa disse (áudio confuso, frase sem sentido, fala cortada), só pergunte de novo o que ela precisa, curto, como uma atendente faria. Não mande cardápio, não sugira festa, salgados nem nada: a padaria vende de tudo, e quem diz o que quer é ela.",
@@ -702,6 +703,12 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
     rastro.push("foto de referencia virou o tema");
   }
   if (l.escrito?.trim()) e.escrito = l.escrito.trim();
+  // "NAO QUERO NADA ESCRITO" e resposta, nao falta (medido 03/09 22:38: tres
+  // "sim" e o pedido nunca fechou porque o escrito continuava vazio).
+  if (!e.escrito && (e.pecas?.topo || e.pecas?.papelDeArroz) && /nao quero nada escrito|sem nada escrito|sem escrito|nada escrito|sem nome|sem frase|nao precisa (de )?escrever|nao precisa (de )?nada escrito/i.test(semAcento(mensagem))) {
+    e.escrito = "sem nada escrito";
+    rastro.push("ele nao quer nada escrito na peca");
+  }
   if (l.forminha?.trim()) e.forminha = l.forminha.trim();
   // A COR DA FORMINHA VAI NA LINHA DE CADA DOCINHO: e assim que a comanda e o
   // resumo mostram pra cozinha (regra da dona: uma cor pro pedido inteiro).
@@ -1001,9 +1008,9 @@ async function atenderLivreDeVerdade(
       }
     } else {
       rastro.push("ele confirmou mas falta: " + falta.join("; "));
-      if (!textoFinal.includes("?") && !falta.some((f) => new RegExp(f.split(" ")[0], "i").test(textoFinal))) {
-        textoFinal += "\n\nAntes de fechar, me diz: " + falta.join(", ") + ".";
-      }
+      // O modelo escreveu "pedido confirmado e enviado" com o pedido ainda aberto
+      // (03/09 22:39). Se falta algo, a resposta e o que falta, e nada de "enviado".
+      textoFinal = "Só falta " + falta.join(" e ") + " pra eu fechar o pedido.";
     }
   }
 
