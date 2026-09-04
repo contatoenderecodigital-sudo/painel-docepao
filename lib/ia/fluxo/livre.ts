@@ -146,6 +146,7 @@ export function instrucaoLivre(): string {
       "Mínimo sugerido por sabor: " + (sugerir || 20) + " unidades" + (saboresNoCento ? ", " + saboresNoCento + " sabores no cento" : "") + " (sugira, não recuse).",
     "- Em itens só entram produtos do cardápio (coxinha, brigadeiro, bolo brigadeiro). Nunca mande \"salgado\", \"docinho\" ou \"bolo\" soltos: quando ele aceitar a sugestão da festa, os totais ficam na sugestão e viram itens quando ele escolher os tipos e os sabores.",
     "- Pra trocar o sabor ou o recheio de um item já anotado, mande tirar com a linha antiga (como está no PEDIDO ANOTADO) e o item novo em itens. Só mandar o item de novo não tira o antigo. \"Sem beijinho\" = tirar [\"beijinho\"].",
+    "- Foto: quando vier \"[o cliente enviou uma foto de referência para o pedido]\", a foto JÁ ficou guardada e vai junto no pedido pra equipe ver. Diga que recebeu e que vai junto pro pedido. Se ele mandou a foto respondendo o tema, o tema é a foto: só pergunte o que vai escrito. NUNCA diga que não consegue ver imagens.",
     "- Mensagem marcada como [áudio transcrito automaticamente] que não faz sentido: diga que não conseguiu entender o áudio e peça pra ela escrever ou mandar outro áudio. Não chute o que ela quis dizer.",
     "- Quando você NÃO entender o que a pessoa disse (áudio confuso, frase sem sentido, fala cortada), só pergunte de novo o que ela precisa, curto, como uma atendente faria. Não mande cardápio, não sugira festa, salgados nem nada: a padaria vende de tudo, e quem diz o que quer é ela.",
     "- Se você está PERGUNTANDO se ela quer ver o cardápio, não mande a peça nessa resposta. A peça vai só quando ela disse que quer ver ou perguntou o que tem.",
@@ -693,6 +694,13 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
   }
   if (e.pecas?.papelDeArroz === false) e.itens = e.itens.filter((i) => !/papel de arroz/i.test(i.produto));
   if (l.tema?.trim()) e.tema = l.tema.trim();
+  // FOTO DE REFERENCIA: ela ja fica guardada e vai junto no pedido pra equipe.
+  // Mandou a foto na hora do tema, o tema e a foto (medido 03/09 21:45: a Dora
+  // disse que nao consegue ver imagens e pediu o tema de novo).
+  if (/enviou uma foto de refer/i.test(mensagem) && !e.tema && (e.pecas?.topo || e.pecas?.papelDeArroz || e.itens.some((i) => String(i.categoria) === "bolo_festa"))) {
+    e.tema = "conforme a foto enviada";
+    rastro.push("foto de referencia virou o tema");
+  }
   if (l.escrito?.trim()) e.escrito = l.escrito.trim();
   if (l.forminha?.trim()) e.forminha = l.forminha.trim();
   // A COR DA FORMINHA VAI NA LINHA DE CADA DOCINHO: e assim que a comanda e o
@@ -769,7 +777,12 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
   if (abertos.length && !precisaHumano && !l.situacao && !l.chamarEquipe && !r_confirmou(l)) {
     const t = semAcento(texto);
     const cobra = abertos.some((a) => t.includes(semAcento(a.chave)));
-    if (!cobra) {
+    // So quando a resposta esta AVANCANDO por cima do item aberto: outra familia,
+    // dados da retirada, pagamento, nome, fechamento. "Quantas pessoas?" ou a
+    // resposta a uma duvida dele nao e avancar (medido 03/09 21:22: a regra
+    // atropelou o "quantas pessoas" com o sabor do pastel de um rascunho velho).
+    const avancou = /docinho|salgad|(^|[^a-z])bolo([^a-z]|$)|que dia|qual dia|dia e hor|horario|hora da retirada|retirar|retirada|pagamento|pagar|nome de quem|nome pra|mais alguma coisa|posso fechar|fechar o pedido|resumo/.test(t);
+    if (!cobra && avancou) {
       const pergunta = perguntaQueFalta(e);
       const semPerguntas = texto.split(/(?<=[.!?])\s+/).filter((f) => !f.includes("?")).join(" ").trim();
       texto = (semPerguntas ? semPerguntas + " " : "") + pergunta;
