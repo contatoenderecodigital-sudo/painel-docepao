@@ -143,7 +143,7 @@ export function instrucaoLivre(): string {
       "Quando ele aceitar a sugestão, VOCÊ anota as quantidades: reparta o total da família entre os tipos que ele escolher " +
       "(75 docinhos = 40 brigadeiro e 35 beijinho) e diga isso na resposta. Se ele pedir pra você escolher os tipos, escolha " +
       "você mesma 4 ou 5 do cardápio (respeitando o que ele não quer), anote com as quantidades e diga quais foram. " +
-      "Mínimo sugerido por sabor: " + (sugerir || 20) + " unidades" + (saboresNoCento ? ", " + saboresNoCento + " sabores no cento" : "") + " (sugira, não recuse).",
+      "Orientação da casa, NÃO é limite: uns " + (sugerir || 20) + " por sabor fica melhor" + (saboresNoCento ? " (dá uns " + saboresNoCento + " sabores por cento)" : "") + ". Se ele quiser mais sabores ou menos de cada, aceite. Nunca diga que só pode X sabores.",
     "- Em itens só entram produtos do cardápio (coxinha, brigadeiro, bolo brigadeiro). Nunca mande \"salgado\", \"docinho\" ou \"bolo\" soltos: quando ele aceitar a sugestão da festa, os totais ficam na sugestão e viram itens quando ele escolher os tipos e os sabores.",
     "- Pra trocar o sabor ou o recheio de um item já anotado, mande tirar com a linha antiga (como está no PEDIDO ANOTADO) e o item novo em itens. Só mandar o item de novo não tira o antigo. \"Sem beijinho\" = tirar [\"beijinho\"].",
     "- Foto: quando vier \"[o cliente enviou uma foto de referência para o pedido]\", a foto JÁ ficou guardada e vai junto no pedido pra equipe ver. Diga que recebeu e que vai junto pro pedido. Se ele mandou a foto respondendo o tema, o tema é a foto: só pergunte o que vai escrito. NUNCA diga que não consegue ver imagens.",
