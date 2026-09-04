@@ -262,6 +262,21 @@ export function faltaSabor(e: Estado): string[] {
   return falta;
 }
 
+/** A pergunta que falta, na ordem da casa: quantidade, sabor, forminha, depois a proxima familia da festa. Usada quando o codigo escreve a resposta. */
+export function perguntaQueFalta(e: Estado): string {
+  const semQtd = e.itens.filter((i) => !(Number(i.qtd) > 0));
+  if (semQtd.length) return "Quantos de " + semQtd.map((i) => i.produto).join(" e ") + " você quer?";
+  const sabores = faltaSabor(e);
+  if (sabores.length) return "Qual " + sabores.join(" e qual ") + "?";
+  const temDocinho = e.itens.some((i) => String(i.categoria) === "docinho");
+  if (temDocinho && !e.forminha) return "Qual a cor da forminha dos docinhos? Tem amarelo, azul, branca, dourada, laranja, lilás, marrom, pink, prata, preta, rosa, roxo, verde e vermelha.";
+  const naoQuer = (e.naoQuer ?? []).map((x) => semAcento(String(x)));
+  if (e.ehFesta && !temDocinho && !naoQuer.some((x) => x.startsWith("docinho"))) return "Agora os docinhos: quais você quer?";
+  const temBolo = e.itens.some((i) => String(i.categoria) === "bolo_festa");
+  if (e.ehFesta && !temBolo && !naoQuer.some((x) => x.startsWith("bolo"))) return "E o bolo, qual sabor você quer?";
+  return "";
+}
+
 /** Bolo de festa pronto e nenhum salgado ou docinho no pedido: a oferta e feita UMA vez. Guia o modelo, nao trava o fechamento. */
 export function faltaOferecer(e: Estado): string[] {
   if (e.ofereceu || e.ehFesta) return [];
@@ -535,7 +550,7 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
         const cada = Math.floor(alvo / grupo.length);
         grupo.forEach((i, n) => { i.qtd = cada + (n === 0 ? alvo - cada * grupo.length : 0); });
         rastro.push("de cada: " + alvo + " de " + pref + " repartidos igual entre " + grupo.map((i) => i.produto).join(", "));
-        respostaCorrigida = "Anotei " + grupo.map((i) => i.qtd + " " + i.produto).join(", ") + ". ";
+        respostaCorrigida = "Anotei " + grupo.map((i) => i.qtd + " " + i.produto).join(", ") + ". " + perguntaQueFalta(e);
         continue;
       }
       const jaDito = daFamilia.reduce((t, i) => t + (Number(i.qtd) || 0), 0);
@@ -544,13 +559,7 @@ export function aplicarLivre(antes: Estado, l: LeituraLivre, mensagem: string, u
       const cada = Math.floor(sobra / semNumero.length);
       semNumero.forEach((i, n) => { i.qtd = cada + (n === 0 ? sobra - cada * semNumero.length : 0); });
       rastro.push("reparti a sugestao de " + pref + " (" + sobra + ") entre " + semNumero.map((i) => i.produto).join(", "));
-      const temDocinho = e.itens.some((i) => String(i.categoria) === "docinho");
-      const temBolo = e.itens.some((i) => String(i.categoria) === "bolo_festa");
-      const proxima = pref === "docinho" && !e.forminha
-        ? "Qual a cor da forminha? Tem amarelo, azul, branca, dourada, laranja, lilás, marrom, pink, prata, preta, rosa, roxo, verde e vermelha."
-        : pref === "salgado" && !temDocinho ? "Agora os docinhos: quais você quer?"
-        : !temBolo ? "E o bolo, qual sabor você quer?" : "";
-      respostaCorrigida = "Anotei " + semNumero.map((i) => i.qtd + " " + i.produto).join(" e ") + ". " + proxima;
+      respostaCorrigida = "Anotei " + semNumero.map((i) => i.qtd + " " + i.produto).join(" e ") + ". " + perguntaQueFalta(e);
     }
   }
 
